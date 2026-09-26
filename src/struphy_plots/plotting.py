@@ -1327,7 +1327,10 @@ def prepare_continuous_spectrum(spectrum, x, modes) -> xr.DataArray:
     evaluated = [spectrum(x, *mode) for mode in modes]
     branches = list(evaluated[0])
     values = np.array(
-        [[np.broadcast_to(np.asarray(e[b], dtype=float), x.shape) for b in branches] for e in evaluated]
+        [
+            [np.broadcast_to(np.asarray(e[b], dtype=float), x.shape) for b in branches]
+            for e in evaluated
+        ]
     )
     labels = [", ".join(str(number) for number in mode) for mode in modes]
     return xr.DataArray(
@@ -1373,7 +1376,9 @@ def plot_continuous_spectrum(
             )
             artists.append(line)
     for label, omega in (frequencies or {}).items():
-        artists.append(ax.axhline(omega, color="k", lw=0.9, ls=(0, (1, 2)), label=label))
+        artists.append(
+            ax.axhline(omega, color="k", lw=0.9, ls=(0, (1, 2)), label=label)
+        )
     ax.set(xlabel=xlabel, ylabel=r"$\omega$", title=title)
     ax.legend(fontsize="small")
     return PlotResult(fig, ax, artists, data={"spectrum": data})

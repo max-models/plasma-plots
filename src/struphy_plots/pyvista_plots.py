@@ -34,7 +34,9 @@ def _pv():
 
 
 def _label(data):
-    return data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
+    return (
+        data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
+    )
 
 
 def _plotter(plotter):
@@ -59,7 +61,8 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
 
 def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return tuple(
-        np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float) for name in ("X", "Y", "Z")
+        np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float)
+        for name in ("X", "Y", "Z")
     )
 
 
@@ -77,7 +80,9 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
     name = name or _label(data)
     if vector:
         if data.sizes["component"] != 3:
-            raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+            raise ValueError(
+                f"a vector field needs 3 components; got {data.sizes['component']}"
+            )
         vectors = np.stack([np.asarray(c).ravel(order="F") for c in data], axis=-1)
         grid.point_data[name] = vectors
         grid.point_data[f"|{name}|"] = np.linalg.norm(vectors, axis=1)
@@ -98,7 +103,9 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
     """
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
-        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+        raise ValueError(
+            f"a vector field needs 3 components; got {data.sizes['component']}"
+        )
     short = [dim for dim in SPATIAL if data.sizes[dim] < 2]
     if short:
         raise ValueError(f"pushing forward needs at least two points along {short}")
@@ -117,7 +124,9 @@ def _vector_grid(data, components, name):
     if components == "contravariant":
         data = push_forward(data)
     elif components != "cartesian":
-        raise ValueError(f'components must be "cartesian" or "contravariant"; got {components!r}')
+        raise ValueError(
+            f'components must be "cartesian" or "contravariant"; got {components!r}'
+        )
     return structured_grid(data, name=name)
 
 
@@ -126,7 +135,9 @@ def _clim(values, clim):
         return tuple(clim)
     finite = np.asarray(values)[np.isfinite(values)]
     if not finite.size:
-        raise ValueError("cannot determine color limits without finite values; pass clim")
+        raise ValueError(
+            "cannot determine color limits without finite values; pass clim"
+        )
     return float(finite.min()), float(finite.max())
 
 
@@ -154,7 +165,9 @@ def boundary_faces(points: np.ndarray) -> list[np.ndarray]:
             continue
         for face in (low, high):
             spread = np.ptp(face.reshape(-1, 3), axis=0)
-            if np.sort(spread)[1] > 1e-9 * scale:  # spans a surface, not a line or point
+            if (
+                np.sort(spread)[1] > 1e-9 * scale
+            ):  # spans a surface, not a line or point
                 faces.append(face)
     return faces
 
@@ -198,7 +211,9 @@ def pyvista_isosurface(
     grid = structured_grid(data)
     name = grid.active_scalars_name
     lo, hi = _clim(grid[name], clim)
-    levels = np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    levels = (
+        np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    )
     plotter = _plotter(plotter)
     _add_context(plotter, grid, show_domain)
     contours = grid.contour(isosurfaces=list(levels), scalars=name)
@@ -235,7 +250,9 @@ def _cut_indices(data, cuts):
     return indices
 
 
-def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[xr.DataArray]:
+def prepare_slices_3d(
+    data: xr.DataArray, *, cuts: dict | None = None
+) -> list[xr.DataArray]:
     """The logical cuts of a scalar ``(e1, e2, e3)`` field that :func:`pyvista_slices` draws.
 
     ``cuts`` maps ``e1``/``e2``/``e3`` to one position or a list: a float is the nearest
@@ -318,7 +335,11 @@ def pyvista_glyphs(
     if peak > 0:
         arrows = thinned.glyph(orient=name, scale=f"|{name}|", factor=length / peak)
         plotter.add_mesh(
-            arrows, scalars=f"|{name}|", cmap=cmap, scalar_bar_args={"title": f"|{name}|"}, name="glyphs"
+            arrows,
+            scalars=f"|{name}|",
+            cmap=cmap,
+            scalar_bar_args={"title": f"|{name}|"},
+            name="glyphs",
         )
     return _finish(plotter, name if title is None else title)
 
@@ -359,8 +380,12 @@ def pyvista_streamlines(
         if tube_radius:
             lines = lines.tube(radius=tube_radius)
         plotter.add_mesh(
-            lines, scalars=f"|{name}|", cmap=cmap, line_width=2,
-            scalar_bar_args={"title": f"|{name}|"}, name="streamlines",
+            lines,
+            scalars=f"|{name}|",
+            cmap=cmap,
+            line_width=2,
+            scalar_bar_args={"title": f"|{name}|"},
+            name="streamlines",
         )
     return _finish(plotter, f"{name} field lines" if title is None else title)
 
@@ -386,7 +411,9 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     if color_by == "t":
         colors = np.broadcast_to(np.asarray(subset.t)[:, None], alive.shape)
     elif color_by == "classification":
-        colors = np.broadcast_to(np.asarray(classify_orbits(subset))[None, :], alive.shape)
+        colors = np.broadcast_to(
+            np.asarray(classify_orbits(subset))[None, :], alive.shape
+        )
     elif color_by in subset.data_vars:
         colors = np.asarray(subset[color_by].transpose("t", "marker"))
     else:
@@ -445,8 +472,12 @@ def pyvista_orbits(
     elif lines.n_points:
         mesh = lines.tube(radius=tube_radius) if tube_radius else lines
         plotter.add_mesh(
-            mesh, scalars=color_by, cmap=cmap or "viridis", line_width=2,
-            scalar_bar_args={"title": color_by}, name="orbits",
+            mesh,
+            scalars=color_by,
+            cmap=cmap or "viridis",
+            line_width=2,
+            scalar_bar_args={"title": color_by},
+            name="orbits",
         )
     return _finish(plotter, "Marker orbits" if title is None else title)
 
@@ -491,11 +522,15 @@ def pyvista_domain(
                 index = [slice(None)] * 3
                 index[others[0]], index[others[1]] = i, j
                 line = points[tuple(index)]
-                if np.ptp(line, axis=0).max() == 0:  # a collapsed line, e.g. a polar axis
+                if (
+                    np.ptp(line, axis=0).max() == 0
+                ):  # a collapsed line, e.g. a polar axis
                     continue
                 start = sum(len(s) for s in segments)
                 segments.append(line)
-                cells.append(np.concatenate([[len(line)], start + np.arange(len(line))]))
+                cells.append(
+                    np.concatenate([[len(line)], start + np.arange(len(line))])
+                )
     if segments:
         wires = pv.PolyData(np.concatenate(segments), lines=np.concatenate(cells))
         plotter.add_mesh(wires, color=color, line_width=1, name="wireframe")

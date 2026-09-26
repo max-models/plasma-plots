@@ -257,7 +257,9 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
             f"this dataset has {tuple(orbits.data_vars)}"
         )
     if set(orbits[v_par].dims) != {"t", "marker"}:
-        raise ValueError(f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}")
+        raise ValueError(
+            f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}"
+        )
     velocity = orbits[v_par].transpose("t", "marker")
     trapped = (velocity * velocity.isel(t=0) < 0).any("t")
     all_zero = velocity == 0
@@ -268,7 +270,11 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
     codes = xr.where(lost, -1, xr.where(trapped, 1, 0)).astype(int)
     codes.name = "classification"
     codes.attrs = {
-        **{key: value for key, value in orbits.attrs.items() if key in ("run", "run_name")},
+        **{
+            key: value
+            for key, value in orbits.attrs.items()
+            if key in ("run", "run_name")
+        },
         "label": "orbit classification",
         "flag_values": list(ORBIT_CLASSES),
         "flag_meanings": " ".join(ORBIT_CLASSES.values()),
@@ -329,7 +335,9 @@ def fit_dispersion_branches(
     ``k_range``; ``.velocity`` is the fitted slope, ``.k``/``.omega`` the ridge points used.
     """
     if not {"omega", "k"} <= set(spectrum.dims):
-        raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
+        raise ValueError(
+            f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}"
+        )
     if n_branches < 1:
         raise ValueError("n_branches must be positive")
 
@@ -361,7 +369,11 @@ def fit_dispersion_branches(
         )
     k_fit = np.asarray(k_fit)
     return [
-        BranchFit(float(np.polyfit(k_fit, np.asarray(branch), deg=1)[0]), k_fit, np.asarray(branch))
+        BranchFit(
+            float(np.polyfit(k_fit, np.asarray(branch), deg=1)[0]),
+            k_fit,
+            np.asarray(branch),
+        )
         for branch in peaks_fit
     ]
 
