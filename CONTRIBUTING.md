@@ -11,7 +11,7 @@ ruff check src tests
 The test suite exercises `struphy_plots` against real `struphy` output
 objects, so `struphy` (plus `h5py`) must be importable — install it from the
 main repo (`pip install -e /path/to/struphy` or
-`pip install git+https://github.com/struphy-hub/struphy.git@devel`).
+`pip install git+https://github.com/struphy-hub/struphy.git@postprocessing`).
 
 ## Docs
 

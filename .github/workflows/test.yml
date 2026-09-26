@@ -34,8 +34,8 @@ jobs:
             liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
             libnetcdf-dev libnetcdff-dev cmake
 
-      - name: Install struphy (devel)
-        run: pip install "struphy @ git+https://github.com/struphy-hub/struphy.git@devel"
+      - name: Install struphy (postprocessing branch)
+        run: pip install "struphy @ git+https://github.com/struphy-hub/struphy.git@postprocessing"
 
       - name: Install struphy-plots with dev dependencies
         run: pip install -e ".[dev]"
