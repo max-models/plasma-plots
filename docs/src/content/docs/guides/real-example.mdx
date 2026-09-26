@@ -1,6 +1,6 @@
 ---
-title: A real simulation
-description: A real struphy MHD simulation, end to end -- setup, run, and figures.
+title: MHD slab waves
+description: A worked example -- measuring MHD wave dispersion from a real struphy run.
 ---
 
 import { Code } from 'astro:components';
@@ -17,13 +17,11 @@ export function snippet(startMarker, endMarker, { extra = 0 } = {}) {
   return scriptLines.slice(start, end + 1 + extra).join('\n');
 }
 
-Every other guide in these docs builds small, synthetic `xarray` data by hand, so the site
-can be built quickly and without a struphy install — the point there is `struphy_plots`
-itself, not any particular physics. This page is the one exception: both figures below come
-from actually running struphy, adapted from
-[struphy's own gallery example](https://struphy-hub.github.io/examples/mhd-slab-waves/), to
-show the same functions working end-to-end on genuine output. Selected pieces of the script
-appear alongside the explanation below; the full, unedited file is folded at the end.
+An example of `struphy_plots` on a real struphy run, rather than the small synthetic data
+used elsewhere in these docs — adapted from struphy's own
+[MHD slab waves gallery example](https://struphy-hub.github.io/examples/mhd-slab-waves/).
+Selected pieces of the script appear below; the full file is folded at the end. For many
+more worked examples, see the [Struphy examples gallery](https://struphy-hub.github.io/examples/).
 
 ## The physics
 
@@ -115,3 +113,19 @@ an honest feature of the run, not a plotting bug.
 <Code code={script} lang="python" title="scripts/generate_real_example_figures.py" />
 
 </details>
+
+## More examples
+
+This is one of many. The [Struphy examples gallery](https://struphy-hub.github.io/examples/)
+has 48 more, covering every physics module — a few to start with:
+
+- [Shear-Alfvén wave dispersion](https://struphy-hub.github.io/examples/shear-alfven-wave/) —
+  the same kind of measurement as this page, for the simplest case.
+- [Whistler and ion-cyclotron waves in Hall MHD](https://struphy-hub.github.io/examples/hall-mhd-waves/) —
+  the same idea, extended to non-linear branches.
+- [Orszag–Tang vortex](https://struphy-hub.github.io/examples/orszag-tang-vortex/) — a
+  standard nonlinear MHD benchmark.
+- [Two-stream instability](https://struphy-hub.github.io/examples/two-stream-instability/) —
+  kinetic, not fluid.
+- [Guiding-center orbits in a tokamak](https://struphy-hub.github.io/examples/guiding-center-orbits/) —
+  particle orbits rather than fields.

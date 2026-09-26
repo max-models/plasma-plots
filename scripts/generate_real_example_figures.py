@@ -1,4 +1,4 @@
-"""Generate the figures for the "A real simulation" guide (docs/src/assets/figures/real_*).
+"""Generate the figures for the "MHD slab waves" guide (docs/src/assets/figures/real_*).
 
 Every other example figure in the docs uses small synthetic data (see
 ``generate_docs_figures.py``) so contributors can build the docs without a full struphy
