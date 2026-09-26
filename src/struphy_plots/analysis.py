@@ -539,3 +539,65 @@ def field_energy(
     out = normalization * 0.5 * _integrate(squared * factor, quadrature)
     out.attrs = {**_provenance(data), "label": f"energy of {_label(data)}".strip()}
     return out
+
+
+def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
+    """The Cartesian gradient of a scalar field on the logical grid, with a ``component``
+    dimension ``(x, y, z)`` in front of the field's own dimensions (e.g. ``t`` is kept).
+
+    ``grad f = J^-T d f / d eta``, with the Jacobian ``J`` of the mapping from a struphy
+    ``domain`` (exact) or, without one, from the attached ``X``, ``Y``, ``Z`` coordinates. The
+    logical derivatives are spectral around periodic directions and second order elsewhere
+    (see :func:`struphy_plots.arrays.logical_derivative`). A direction with a single point (a
+    2-D run) is left out: the result is then the gradient within the plane. For example,
+    ``E = -gradient(phi)``, or the E x B velocity ``z x grad(phi)`` of a 2-D drift-wave model.
+    """
+    from .arrays import logical_derivative, mapping_jacobian, periodicity
+
+    validate_array(data)
+    missing = [d for d in SPATIAL_DIMS if d not in data.dims]
+    if missing:
+        raise ValueError(f"gradient needs the logical dimensions eta1, eta2, eta3; {missing} are missing")
+    if "component" in data.dims:
+        raise ValueError("gradient takes a scalar field; select a component first")
+    field = data.transpose(..., *SPATIAL_DIMS)
+    etas = [np.asarray(field[d], dtype=float) for d in SPATIAL_DIMS]
+    varying = [i for i, eta in enumerate(etas) if eta.size > 1]
+    if not varying:
+        raise ValueError("gradient needs at least one logical direction with more than one point")
+    if domain is not None:
+        points = np.stack([np.asarray(c, dtype=float) for c in domain(*etas, squeeze_out=False)], axis=-1)
+        jacobian = np.asarray(domain.jacobian(*etas), dtype=float)
+    else:
+        if any(name not in field.coords for name in ("X", "Y", "Z")):
+            raise ValueError("gradient needs the X, Y, Z coordinates, or a struphy domain")
+        points = np.stack(
+            [np.asarray(field.coords[name].transpose(*SPATIAL_DIMS), dtype=float) for name in ("X", "Y", "Z")], axis=-1
+        )
+        if len(varying) == 3:
+            jacobian = mapping_jacobian(field)
+        else:
+            jacobian = np.zeros((3, 3, *points.shape[:3]))
+            for i in varying:
+                kind = periodicity(points, i)
+                for a in range(3):
+                    jacobian[a, i] = logical_derivative(points[..., a], etas[i], i, kind)
+    values = np.asarray(field, dtype=float)
+    offset = values.ndim - 3
+    derivatives = [
+        logical_derivative(values, etas[i], offset + i, periodicity(points, i)) for i in varying
+    ]
+    columns = np.moveaxis(jacobian[:, varying], (0, 1), (-2, -1))  # (n1, n2, n3, 3, k)
+    transform = np.swapaxes(np.linalg.pinv(columns), -1, -2)  # pinv(J)^T: (n1, n2, n3, 3, k)
+    stacked = np.stack(derivatives, axis=-1)  # (..., n1, n2, n3, k)
+    cartesian = np.einsum("...ak,...k->...a", transform, stacked)
+    cartesian = np.moveaxis(cartesian, -1, 0)
+    out = xr.DataArray(
+        cartesian,
+        dims=("component", *field.dims),
+        coords={**{k: v for k, v in field.coords.items()}, "component": [0, 1, 2]},
+        name=f"grad_{field.name}" if field.name else "gradient",
+    )
+    out.attrs = {**_provenance(data), "label": f"gradient of {_label(data)}".strip()}
+    return out
+

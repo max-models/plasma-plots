@@ -74,10 +74,11 @@ a full period. `scale` multiplies the mode numbers, e.g. `(1, 6)` for
 full-torus `n` of a sixth of a torus. Other dimensions are
 kept, e.g. `(t, eta1, m, n)`.
 
-### `mode_amplitudes(modes, *, top=None, real=True)`
+### `mode_amplitudes(modes, *, top=None, real=True, relative=False)`
 Stacks a mode spectrum along one labeled `mode` dimension, with coordinates
 such as `"(10, -1)"` and `m`, `n`. For a real field, each conjugate pair is
-merged and its amplitude doubled.
+merged and its amplitude doubled. `relative=True` divides by the mean (the
+zero mode), which is then left out.
 
 ### `mode_structure(data, omega, *, window="hann", detrend=True)`
 The complex amplitude at an exact frequency, at every point: `a·exp(iφ)` for a

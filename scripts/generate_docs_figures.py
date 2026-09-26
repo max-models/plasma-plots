@@ -794,6 +794,180 @@ save(orbits_gc.struphy.plot.quantities(markers=4), "orbits_quantities.png")
 
 
 # =============================================================================
+# Tools for the struphy-hub examples: contour lines, markers over fields and in
+# motion, marker paths, side-by-side animations, gradients, relative modes
+# =============================================================================
+def unit_square(values, n1, n2, *, t=None, name="f", label="f", scale=(1.0, 1.0), offset=(0.0, 0.0)):
+    """A (t,) eta1, eta2, flat eta3 field on a rectangle x = offset + scale * eta."""
+    e1, e2 = (np.arange(n1) + 0.5) / n1, (np.arange(n2) + 0.5) / n2
+    E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+    X, Y = offset[0] + scale[0] * E1, offset[1] + scale[1] * E2
+    dims = ("eta1", "eta2", "eta3") if t is None else ("t", "eta1", "eta2", "eta3")
+    coords = {"eta1": e1, "eta2": e2, "eta3": [0.0]}
+    if t is not None:
+        coords["t"] = t
+    coords.update({n: (("eta1", "eta2", "eta3"), c[..., None]) for n, c in zip("XYZ", (X, Y, 0 * X))})
+    return field_array(name, label, "a.u.", values[..., None], dims, coords), X, Y
+
+
+# Diocotron-like: a charged ring in an annulus, whose m = 4 interface wave grows
+ring_t = np.linspace(0.0, 20.0, 41)
+a1, a2 = 48, 96
+r1, th1 = (np.arange(a1) + 0.5) / a1, (np.arange(a2) + 0.5) / a2
+R1, TH1 = np.meshgrid(0.1 + 0.9 * r1, 2 * np.pi * th1, indexing="ij")
+ring_values = np.stack(
+    [
+        np.exp(-(((R1 - 0.55 - 0.05 * np.exp(0.25 * (ti - 20)) * np.cos(4 * TH1 - 0.3 * ti)
+                   - 0.01 * np.exp(0.1 * (ti - 20)) * np.cos(3 * TH1)) / 0.08) ** 4))
+        for ti in ring_t
+    ]
+)
+e1r, e2r = r1, th1
+ring = field_array(
+    "n", "$n$", "a.u.", ring_values[..., None], ("t", "eta1", "eta2", "eta3"),
+    {"t": ring_t, "eta1": e1r, "eta2": e2r, "eta3": [0.0]},
+).assign_coords(
+    X=(("eta1", "eta2", "eta3"), (R1 * np.cos(TH1))[..., None]),
+    Y=(("eta1", "eta2", "eta3"), (R1 * np.sin(TH1))[..., None]),
+    Z=(("eta1", "eta2", "eta3"), np.zeros((a1, a2, 1))),
+)
+save(
+    ring.struphy.plot.slice(coords="physical", plane="XY", t="last", eta3=0, levels=[0.2], cmap="viridis",
+                            title="Charge density with the interface n = 0.2"),
+    "contour_interface.png",
+)
+save(
+    # at the outer interface, where the wave moves the edge (a radial average would cancel it)
+    ring.isel(eta3=0).sel(eta1=0.59, method="nearest").struphy.plot.mode_amplitudes(
+        dims="eta2", names="m", relative=True, top=3, fit=(8.0, 20.0)
+    ),
+    "relative_modes.png",
+)
+
+# Dam-break-like: a column of fluid markers collapses to the right; its density follows
+rng_db = np.random.default_rng(5)
+n_db = 900
+x0_db, y0_db = rng_db.uniform(0.0, 0.3, n_db), rng_db.uniform(0.0, 0.6, n_db)
+t_db = np.linspace(0.0, 3.0, 31)
+spread = 1 / (1 + np.exp(-3 * (t_db - 1.5)))  # 0 -> 1
+x_db = x0_db[None] + (x0_db[None] / 0.3 * 0.65 + 0.05) * spread[:, None]
+y_db = y0_db[None] * (1 - 0.72 * spread[:, None]) + 0.02 * np.sin(8 * x_db) * spread[:, None]
+dam = xr.Dataset(
+    {"x": (("t", "marker"), x_db), "y": (("t", "marker"), y_db)},
+    coords={"t": t_db, "marker": np.arange(n_db)},
+    attrs={"label": "fluid markers"},
+)
+g1, g2 = (np.arange(40) + 0.5) / 40, (np.arange(40) + 0.5) / 40
+G1, G2 = np.meshgrid(g1, g2, indexing="ij")
+kernel_width = 0.04
+dam_density = np.stack(
+    [
+        np.exp(-((G1[..., None] - x_db[i]) ** 2 + (G2[..., None] - y_db[i]) ** 2) / (2 * kernel_width**2)).sum(-1)
+        / (n_db * 2 * np.pi * kernel_width**2)
+        for i in range(len(t_db))
+    ]
+)
+dam_field, _, _ = unit_square(dam_density, 40, 40, t=t_db, name="n", label="$n$")
+save(
+    dam.struphy.plot.scatter(x="x", y="y", color="x", color_at="first", t="last", s=5, cmap="plasma",
+                             background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"}),
+    "markers_over_density.png",
+)
+animation_db = dam.struphy.plot.animation(
+    x="x", y="y", color="x", color_at="first", s=5, cmap="plasma",
+    background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"},
+)
+animation_db.save(PUBLIC_OUT / "markers_animation.gif", writer="pillow", fps=8)
+print(f"wrote {PUBLIC_OUT / 'markers_animation.gif'}")
+
+# Beltrami-like: markers circulating along the streamlines of psi = sin(2 pi x) sin(2 pi y)
+n_bs = 64
+psi, XB, YB = unit_square(
+    np.zeros((n_bs, n_bs)), n_bs, n_bs, name="psi", label=r"$\psi$", offset=(-0.5, -0.5)
+)
+psi = psi.copy(data=(np.sin(2 * np.pi * XB) * np.sin(2 * np.pi * YB))[..., None] / (2 * np.pi))
+
+
+def cellular_velocity(p):
+    x_, y_ = p[..., 0], p[..., 1]
+    return np.stack([np.sin(2 * np.pi * x_) * np.cos(2 * np.pi * y_), -np.cos(2 * np.pi * x_) * np.sin(2 * np.pi * y_)], axis=-1)
+
+
+starts = np.column_stack([np.linspace(0.28, 0.46, 6), np.full(6, 0.25)])  # from a cell centre outwards
+starts = np.vstack([starts, rng_db.uniform(-0.45, 0.45, (26, 2))])
+t_bs, dt_bs = np.linspace(0, 3, 301), 0.01
+path = [starts]
+for _ in range(len(t_bs) - 1):  # RK4
+    p0 = path[-1]
+    k1 = cellular_velocity(p0)
+    k2 = cellular_velocity(p0 + 0.5 * dt_bs * k1)
+    k3 = cellular_velocity(p0 + 0.5 * dt_bs * k2)
+    k4 = cellular_velocity(p0 + dt_bs * k3)
+    path.append(p0 + dt_bs * (k1 + 2 * k2 + 2 * k3 + k4) / 6)
+path = np.array(path)
+beltrami = xr.Dataset(
+    {"x": (("t", "marker"), path[..., 0]), "y": (("t", "marker"), path[..., 1])},
+    coords={"t": t_bs, "marker": np.arange(path.shape[1])},
+)
+save(
+    beltrami.struphy.plot.paths(
+        near=[tuple(p) for p in starts[:6]],
+        background=psi.isel(eta3=0),
+        background_options={"levels": 12, "fill": False, "cmap": "Greys", "title": "Marker paths over the streamlines"},
+    ),
+    "marker_paths.png",
+)
+
+# Hasegawa-Wakatani-like: drift-wave eddies that give way to a zonal flow
+L_hw, n_hw = 20.0, 64
+t_hw = np.linspace(0.0, 30.0, 31)
+hw_e = (np.arange(n_hw) + 0.5) / n_hw
+HX, HY = np.meshgrid(L_hw * hw_e, L_hw * hw_e, indexing="ij")
+kx0, ky0 = 2 * np.pi / L_hw, 2 * np.pi / L_hw
+rng_hw = np.random.default_rng(2)
+modes_hw = [(rng_hw.integers(1, 5), rng_hw.integers(1, 5), rng_hw.uniform(0, 2 * np.pi), rng_hw.uniform(0.3, 1.0)) for _ in range(12)]
+phi_values, omega_values, n_values = [], [], []
+for ti in t_hw:
+    zonal_amp, wave_amp = 0.6 * np.tanh(ti / 12), np.exp(-ti / 25)
+    phi_t = zonal_amp * np.sin(kx0 * 2 * HX)
+    omega_t = -zonal_amp * (2 * kx0) ** 2 * np.sin(kx0 * 2 * HX)
+    n_t = 0.3 * zonal_amp * np.sin(kx0 * 2 * HX)
+    for mx, my, phase, amp in modes_hw:
+        wave = np.cos(mx * kx0 * HX + my * ky0 * HY - 0.4 * my * ti + phase)
+        phi_t = phi_t + wave_amp * amp * 0.3 * wave
+        omega_t = omega_t - wave_amp * amp * 0.3 * ((mx * kx0) ** 2 + (my * ky0) ** 2) * wave
+        n_t = n_t + wave_amp * amp * 0.3 * np.cos(mx * kx0 * HX + my * ky0 * HY - 0.4 * my * ti + phase + 0.5)
+    phi_values.append(phi_t)
+    omega_values.append(omega_t)
+    n_values.append(n_t)
+phi_hw, _, _ = unit_square(np.array(phi_values), n_hw, n_hw, t=t_hw, name="phi", label=r"$\phi$", scale=(L_hw, L_hw))
+omega_hw = phi_hw.copy(data=np.array(omega_values)[..., None]).rename("omega")
+omega_hw.attrs.update(label=r"$\omega$")
+density_hw = phi_hw.copy(data=np.array(n_values)[..., None]).rename("n")
+density_hw.attrs.update(label="$n$")
+animation_hw = omega_hw.struphy.plot.animation(
+    coords="physical", plane="XY", eta3=0, alongside=[density_hw], cmap="RdBu_r", symmetric=True, robust=True
+)
+animation_hw.save(PUBLIC_OUT / "fields_side_by_side.gif", writer="pillow", fps=6)
+print(f"wrote {PUBLIC_OUT / 'fields_side_by_side.gif'}")
+
+# Recipe: the E x B kinetic energy of drift waves and of the zonal flow, from gradient()
+grad_phi = phi_hw.struphy.analysis.gradient()
+total_energy = 0.5 * (grad_phi.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
+zonal = xr.zeros_like(phi_hw) + phi_hw.mean("eta2")  # keeps the X, Y coordinates
+grad_zonal = zonal.struphy.analysis.gradient()
+zonal_energy = 0.5 * (grad_zonal.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
+fig, ax = plt.subplots(figsize=(7, 4), layout="constrained")
+ax.stackplot(
+    t_hw, (total_energy - zonal_energy).values, zonal_energy.values,
+    labels=[r"drift waves ($k_y \neq 0$)", r"zonal flow ($k_y = 0$)"], colors=["#168aad", "#f08a4b"], alpha=0.85,
+)
+ax.set(xlabel="$t$", ylabel=r"$\frac{1}{2}\langle|\nabla\phi|^2\rangle$", title="E×B kinetic energy")
+ax.legend(loc="upper right", fontsize="small")
+save_fig(fig, "zonal_energy.png")
+
+
+# =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
 #
 # plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium

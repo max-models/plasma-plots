@@ -157,6 +157,56 @@ px.scatter(frame, x="x", y="y", color="density")
 
 <PlotlyChart src="/plotly/plotly_scatter.json" />
 
+## Markers over a field
+
+`scatter()` draws a field behind the markers, at the same time
+(`background=`, with its other dimensions selected). The field is drawn in
+logical or physical coordinates, whichever the marker positions are.
+`color_at` colors each marker by a variable at another time, e.g. its initial
+position, to follow where fluid parcels go:
+
+```python
+markers.struphy.plot.scatter(
+    x="x", y="y", color="x", color_at="first", t="last",
+    background=density.isel(eta3=0), background_options={"cmap": "Blues"},
+)
+```
+
+![Fluid markers colored by their initial x over the kernel density](../../../assets/figures/markers_over_density.png)
+
+## Marker animations
+
+`animation()` moves the markers through time, optionally over a field animated
+in sync (drawn at the nearest time of each frame, with fixed color limits).
+Markers that leave the domain disappear, and the axes limits stay fixed:
+
+```python
+anim = markers.struphy.plot.animation(
+    x="x", y="y", color="x", color_at="first", background=density.isel(eta3=0),
+    background_options={"cmap": "Blues"},
+)
+anim.save("dam_break.gif", writer="pillow", fps=8)
+```
+
+![A collapsing column of fluid markers over its density](/struphy-plots/figures/markers_animation.gif)
+
+## Marker paths
+
+`paths()` draws the paths of a few markers in a plane, with a circle where
+each starts and a cross where it ends. `markers` is a number (spread over the
+saved markers) or a list of indices. `near` picks instead the marker starting
+closest to each of a list of points. A background field, e.g. the contour
+lines of a stream function, shows what the markers should follow:
+
+```python
+markers.struphy.plot.paths(
+    near=[(x, 0.25) for x in np.linspace(0.28, 0.46, 6)],
+    background=psi, background_options={"levels": 12, "fill": False, "cmap": "Greys"},
+)
+```
+
+![Marker paths along the closed streamlines of a cellular flow](../../../assets/figures/marker_paths.png)
+
 ## Orbits over a background field
 
 ```python

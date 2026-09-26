@@ -253,7 +253,7 @@ def plot_mode_amplitudes(
             artists.append(ax.plot(result.time, result.fitted, "--", color=artist.get_color(), lw=1)[0])
     if logy:
         ax.set_yscale("log")
-    ax.set(xlabel=axis_label(amplitudes, "t"), ylabel="amplitude", title=title)
+    ax.set(xlabel=axis_label(amplitudes, "t"), ylabel=amplitudes.attrs.get("label", "amplitude"), title=title)
     ax.legend(fontsize="small")
     return PlotResult(fig, ax, artists, fits, data={"amplitudes": amplitudes})
 

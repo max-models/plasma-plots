@@ -542,9 +542,13 @@ class _SliceRenderer:
         title=None,
         symmetric=False,
         robust=False,
+        levels=None,
+        fill=True,
     ):
         self.data = _select(data, view)
         self.symmetric, self.robust = symmetric, robust
+        self.levels, self.fill = levels, fill
+        self._lines = {}  # contour lines drawn per axes, removed on the next draw there
         self.view = View(
             x=view.x,
             y=view.y,
@@ -562,7 +566,22 @@ class _SliceRenderer:
     def draw(self, ax, data):
         values, (xg, yg, xlabel, ylabel) = _slice_data(data, self.view)
         lo, hi = self.limits if self.shared_clim else self._limits(values)
-        mesh = ax.pcolormesh(xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap)
+        mesh = ax.pcolormesh(
+            xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap, alpha=None if self.fill else 0.0
+        )
+        previous = self._lines.pop(id(ax), None)
+        if previous is not None:
+            previous.remove()
+        if self.levels is not None:
+            levels = (
+                np.linspace(lo, hi, int(self.levels) + 2)[1:-1]
+                if isinstance(self.levels, (int, np.integer))
+                else np.atleast_1d(self.levels)
+            )
+            finite = np.asarray(values, dtype=float)
+            if np.isfinite(finite).any() and np.nanmin(finite) < max(levels) and np.nanmax(finite) > min(levels):
+                style = dict(colors="k", linewidths=0.8) if self.fill else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
+                self._lines[id(ax)] = ax.contour(xg, yg, np.asarray(values), levels=levels, **style)
         ax.set(
             xlabel=xlabel,
             ylabel=ylabel,
@@ -597,6 +616,8 @@ def plot_slice(
     shared_clim=True,
     symmetric=False,
     robust=False,
+    levels=None,
+    fill=True,
 ):
     """Render one selected two-dimensional slice."""
     renderer = _SliceRenderer(
@@ -609,6 +630,8 @@ def plot_slice(
         title=title,
         symmetric=symmetric,
         robust=robust,
+        levels=levels,
+        fill=fill,
         shared_clim=shared_clim,
     )
     run_label = shared_run_label(data) if run_label is None else run_label
@@ -637,6 +660,8 @@ def plot_panels(
     equal_aspect=None,
     symmetric=False,
     robust=False,
+    levels=None,
+    fill=True,
 ):
     """Plot snapshots with common color limits over the entire selected sweep by default."""
     renderer = _SliceRenderer(
@@ -650,6 +675,8 @@ def plot_panels(
         title=title,
         symmetric=symmetric,
         robust=robust,
+        levels=levels,
+        fill=fill,
     )
     renderer.indices(1)
     if nrows < 1 or ncols < 1:
@@ -697,6 +724,8 @@ class InteractiveSliceViewer:
         title=None,
         symmetric=False,
         robust=False,
+        levels=None,
+        fill=True,
     ):
         self.data = validate_array(data)
         self.view = view or View()
@@ -709,6 +738,8 @@ class InteractiveSliceViewer:
             title=title,
             symmetric=symmetric,
             robust=robust,
+            levels=levels,
+            fill=fill,
         )
         self.run_label = shared_run_label(data) if run_label is None else run_label
         self.result = None
@@ -781,6 +812,8 @@ def animate_slices(
     title=None,
     symmetric=False,
     robust=False,
+    levels=None,
+    fill=True,
 ):
     """Animate slices with fixed color limits over the selected sweep by default."""
     from matplotlib.animation import FuncAnimation
@@ -796,6 +829,8 @@ def animate_slices(
         title=title,
         symmetric=symmetric,
         robust=robust,
+        levels=levels,
+        fill=fill,
     )
     frames = renderer.indices(step)
     sweep = renderer.view.sweep
@@ -818,6 +853,64 @@ def animate_slices(
     return animation
 
 
+def animate_fields(
+    fields,
+    *,
+    view=None,
+    interval=100,
+    step=1,
+    titles=None,
+    **options,
+):
+    """Animate several fields side by side, frame by frame in sync over the same sweep.
+
+    ``fields`` are arrays with the same dimensions and sweep coordinate (e.g. the vorticity and
+    density of a Hasegawa-Wakatani run). ``view`` and ``options`` (``cmap``, ``symmetric``,
+    ``robust``, ``levels``, ...) apply to every field as in :func:`animate_slices`; each field
+    keeps its own color limits and color bar. ``titles`` default to the fields' labels.
+    """
+    from matplotlib.animation import FuncAnimation
+
+    fields = list(fields)
+    if len(fields) < 2:
+        raise ValueError("animate_fields needs at least two fields; use animate_slices for one")
+    view = view or View()
+    renderers = [_SliceRenderer(field, view, **options) for field in fields]
+    sweep = renderers[0].view.sweep
+    frames = renderers[0].indices(step)
+    lengths = {renderer.data.sizes[sweep] for renderer in renderers}
+    if len(lengths) != 1:
+        raise ValueError(f"every field needs the same number of {sweep!r} values; got {sorted(lengths)}")
+    titles = titles or [renderer.title for renderer in renderers]
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, axes = plt.subplots(
+            1, len(fields), figsize=(5.0 * len(fields), 4.2), layout="constrained", squeeze=False
+        )
+        axes = list(axes[0])
+        meshes, colorbars = [], []
+        for ax, renderer, field in zip(axes, renderers, fields):
+            mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
+            meshes.append(mesh)
+            colorbars.append(fig.colorbar(mesh, ax=ax, label=value_label(field)))
+        run_label = shared_run_label(fields)
+        heading = fig.suptitle("")
+
+    def update(index):
+        for i, (ax, renderer) in enumerate(zip(axes, renderers)):
+            meshes[i].remove()
+            meshes[i] = renderer.draw(ax, renderer.data.isel({sweep: index}))
+            colorbars[i].update_normal(meshes[i])
+            ax.set_title(titles[i])
+        value = float(renderers[0].data[sweep][index])
+        heading.set_text(" — ".join(filter(None, (f"{sweep} = {value:.3e}", run_label))))
+        return tuple(meshes)
+
+    update(frames[0])
+    animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _detach_figure(fig)
+    return animation
+
+
 def save_frames(
     data: xr.DataArray,
     directory,
@@ -834,6 +927,8 @@ def save_frames(
     title=None,
     symmetric=False,
     robust=False,
+    levels=None,
+    fill=True,
 ):
     """Export the configured sweep as PNGs, sharing color limits by default."""
     renderer = _SliceRenderer(
@@ -847,6 +942,8 @@ def save_frames(
         title=title,
         symmetric=symmetric,
         robust=robust,
+        levels=levels,
+        fill=fill,
     )
     frames = renderer.indices(step)
     directory = Path(directory)
@@ -1103,6 +1200,42 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     return selected
 
 
+LOGICAL = ("eta1", "eta2", "eta3")
+
+
+def _background_view(x: str, y: str) -> View:
+    """How a field is drawn behind markers whose positions are the variables ``x`` and ``y``:
+    in logical coordinates for ``eta1``/``eta2``/``eta3``, in the physical plane for
+    ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates)."""
+    if x in LOGICAL and y in LOGICAL:
+        return View(x=x, y=y)
+    plane = f"{x}{y}".upper()
+    if plane in PLANES and plane != "RZ":
+        return View(coordinates="physical", plane=plane)
+    raise ValueError(
+        f"a background needs marker positions named after logical (eta1, ...) or physical (x, y, z) "
+        f"coordinates; got {x!r}, {y!r}"
+    )
+
+
+def _at_time(data, t):
+    """``data`` at the time ``t`` (nearest), if it has a time dimension."""
+    if t is None or "t" not in data.dims:
+        return data
+    return data.sel(t=t, method="nearest")
+
+
+def _marker_colors(markers, color, color_at, selection):
+    """The values of ``color`` per marker, at the selection or at the time ``color_at``."""
+    if color is None:
+        return None
+    if color_at is not None and "t" in markers.sizes:
+        source = resolve_marker_selection(markers, {**selection, "t": color_at})
+    else:
+        source = resolve_marker_selection(markers, selection)
+    return source[color]
+
+
 def plot_marker_scatter(
     markers: xr.Dataset,
     *,
@@ -1112,6 +1245,9 @@ def plot_marker_scatter(
     ax=None,
     cmap=None,
     s: int = 8,
+    color_at=None,
+    background: xr.DataArray | None = None,
+    background_options: dict | None = None,
     **selection,
 ):
     """Scatter marker positions from a Dataset (an orbits product, or any per-marker data).
@@ -1120,6 +1256,13 @@ def plot_marker_scatter(
     Lagrangian tracer/weight/density for ``color``); remaining dimensions such as ``t`` are
     selected by keyword, exactly like :meth:`ArrayPlots.lineout`. Useful for checking a marker
     loading scheme, or visualizing an SPH particle cloud colored by density or a tracer.
+
+    ``color_at`` takes the colors at another time (``"first"``, ``"last"``, an index or a
+    value), e.g. each marker's initial position, to follow where fluid parcels go.
+    ``background`` is a field drawn behind the markers at the same time (select its other
+    dimensions first), in logical or physical coordinates to match ``x``/``y``;
+    ``background_options`` are passed to :func:`plot_slice` (e.g. ``cmap``, ``levels``,
+    ``fill=False``).
     """
     missing = [name for name in (x, y) if name not in markers.data_vars]
     if missing:
@@ -1129,17 +1272,171 @@ def plot_marker_scatter(
     if xv.ndim != 1:
         raise ValueError(f"select every dimension except 'marker' before scatter(); got shape {xv.shape}")
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-    colors = np.asarray(selected[color]) if color else None
-    scatter = ax.scatter(xv, yv, c=colors, cmap=cmap or STRUPHY_STYLE["image.cmap"], s=s)
+    artists = []
+    if background is not None:
+        when = float(selected.t) if "t" in selected.coords and selected.t.ndim == 0 else None
+        shown = plot_slice(_at_time(background, when), view=_background_view(x, y), ax=ax, **(background_options or {}))
+        artists += shown.artists
+    colors = _marker_colors(markers, color, color_at, selection)
+    scatter = ax.scatter(
+        xv, yv, c=None if colors is None else np.asarray(colors), cmap=cmap or STRUPHY_STYLE["image.cmap"], s=s,
+        edgecolors="none", zorder=3,
+    )
+    artists.append(scatter)
     if color:
-        fig.colorbar(scatter, ax=ax, label=value_label(selected[color]))
+        label = value_label(colors) + (f" at t = {float(colors.t):.3g}" if color_at is not None and "t" in colors.coords else "")
+        fig.colorbar(scatter, ax=ax, label=label)
     ax.set(
         xlabel=x,
         ylabel=y,
         title=markers.attrs.get("label", "") or "Markers",
         aspect="equal",
     )
-    return PlotResult(fig, ax, [scatter])
+    return PlotResult(fig, ax, artists)
+
+
+def animate_markers(
+    markers: xr.Dataset,
+    *,
+    x: str,
+    y: str,
+    color: str | None = None,
+    color_at=None,
+    background: xr.DataArray | None = None,
+    background_options: dict | None = None,
+    step: int = 1,
+    interval: int = 100,
+    s: int = 8,
+    cmap=None,
+):
+    """Animate marker positions over time, optionally over a field animated in sync.
+
+    ``color`` names a variable to color by: per frame, or fixed at the time ``color_at``
+    (e.g. ``"first"`` for the initial position, to follow fluid parcels). ``background`` is a
+    field with a ``t`` dimension (other dimensions selected), drawn at the nearest time of each
+    frame with shared color limits; ``background_options`` go to its renderer (``cmap``,
+    ``symmetric``, ``levels``, ...). Markers that have left the domain are hidden. The axes
+    limits stay fixed over the whole animation. Retain the returned animation.
+    """
+    from matplotlib.animation import FuncAnimation
+
+    if not isinstance(step, (int, np.integer)) or step < 1:
+        raise ValueError("step must be a positive integer")
+    subset = markers.transpose("t", "marker", ...)
+    positions = np.stack([np.asarray(subset[x]), np.asarray(subset[y])], axis=-1)
+    alive = _alive(subset)
+    positions = np.where(alive[..., None], positions, np.nan)
+    colors = None
+    if color is not None:
+        if color_at is not None:
+            colors = np.asarray(_marker_colors(markers, color, color_at, {}))
+        else:
+            values = np.asarray(subset[color])
+            colors = values
+    frames = range(0, subset.sizes["t"], step)
+    times = np.asarray(subset.t)
+    renderer = None
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, ax = plt.subplots()
+        if background is not None:
+            options = dict(background_options or {})
+            renderer = _SliceRenderer(background, _background_view(x, y), **options)
+            mesh = renderer.draw(ax, _at_time(renderer.data, times[0]))
+            fig.colorbar(mesh, ax=ax, label=value_label(background))
+        first = positions[0]
+        clim = None
+        if colors is not None:
+            finite = colors[np.isfinite(colors)]
+            clim = (float(finite.min()), float(finite.max())) if finite.size else None
+        shading = {}
+        if colors is not None:
+            shading = dict(
+                c=colors if colors.ndim == 1 else colors[0], cmap=cmap or STRUPHY_STYLE["image.cmap"],
+                vmin=None if clim is None else clim[0], vmax=None if clim is None else clim[1],
+            )
+        scatter = ax.scatter(first[:, 0], first[:, 1], s=s, edgecolors="none", zorder=3, **shading)
+        if colors is not None:
+            label = color if color_at is None else f"{color} at t = {float(_marker_colors(markers, color, color_at, {}).t):.3g}"
+            fig.colorbar(scatter, ax=ax, label=label)
+        span = positions.reshape(-1, 2)
+        lo, hi = np.nanmin(span, axis=0), np.nanmax(span, axis=0)
+        pad = 0.03 * np.maximum(hi - lo, 1e-12)
+        ax.set(xlim=(lo[0] - pad[0], hi[0] + pad[0]), ylim=(lo[1] - pad[1], hi[1] + pad[1]), xlabel=x, ylabel=y, aspect="equal")
+        ax.grid(False)
+        _finish(fig, run_label=shared_run_label([markers[x]]))
+    state = {"mesh": mesh if renderer is not None else None}
+
+    def update(index):
+        if renderer is not None:
+            state["mesh"].remove()
+            state["mesh"] = renderer.draw(ax, _at_time(renderer.data, times[index]))
+        scatter.set_offsets(positions[index])
+        if colors is not None and colors.ndim == 2:
+            scatter.set_array(colors[index])
+        ax.set_title(f"{markers.attrs.get('label', '') or 'Markers'} at t = {times[index]:.3e}")
+        return (scatter,)
+
+    update(0)
+    animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _detach_figure(fig)
+    return animation
+
+
+def plot_marker_paths(
+    orbits,
+    *,
+    x: str = "x",
+    y: str = "y",
+    markers=6,
+    near=None,
+    background: xr.DataArray | None = None,
+    background_options: dict | None = None,
+    t="first",
+    ax=None,
+    cmap="viridis",
+):
+    """Paths of a few markers in a plane, with their start (circle) and end (cross).
+
+    ``markers`` is a number (spread evenly over the saved markers) or a list of marker indices;
+    ``near`` picks instead the marker starting closest to each of a list of ``(x, y)`` points,
+    e.g. a row across the domain. Samples after a marker leaves the domain are dropped.
+    ``background`` is a field drawn behind the paths at the time ``t`` (default: the first),
+    with ``background_options`` for :func:`plot_slice`, e.g. ``dict(levels=12, fill=False)`` for
+    the contour lines of a stream function.
+    """
+    subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=(x, y)).transpose("t", "marker", ...)
+    xs, ys = np.asarray(subset[x]), np.asarray(subset[y])
+    alive = _alive(subset)
+    if near is not None:
+        points = np.atleast_2d(np.asarray(near, dtype=float))
+        chosen = [int(np.nanargmin((xs[0] - px) ** 2 + (ys[0] - py) ** 2)) for px, py in points]
+    elif isinstance(markers, (int, np.integer)):
+        chosen = np.unique(np.linspace(0, subset.sizes["marker"] - 1, min(markers, subset.sizes["marker"])).astype(int)).tolist()
+    else:
+        chosen = [int(m) for m in markers]
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    artists = []
+    if background is not None:
+        when = None
+        if "t" in background.dims:
+            when = float(resolve_marker_selection(subset[[x]], {"t": t}).t)
+        shown = plot_slice(_at_time(background, when), view=_background_view(x, y), ax=ax, **(background_options or {}))
+        artists += shown.artists
+    palette = plt.get_cmap(cmap)(np.linspace(0.0, 0.9, max(len(chosen), 1)))
+    starts, ends = [], []
+    for color, marker in zip(palette, chosen):
+        keep = np.flatnonzero(alive[:, marker])
+        if keep.size == 0:
+            continue
+        artists += ax.plot(xs[keep, marker], ys[keep, marker], color=color, lw=2, label=f"marker {marker}")
+        starts.append((xs[keep[0], marker], ys[keep[0], marker]))
+        ends.append((xs[keep[-1], marker], ys[keep[-1], marker]))
+    if starts:
+        artists.append(ax.scatter(*np.array(starts).T, marker="o", s=60, color="#00a884", zorder=4, label="start"))
+        artists.append(ax.scatter(*np.array(ends).T, marker="x", s=70, color="#d1495b", zorder=4, label="end"))
+    ax.set(xlabel=x, ylabel=y, title="Marker paths", aspect="equal")
+    ax.legend(fontsize="x-small", ncol=2)
+    return PlotResult(fig, ax, artists, data={"markers": chosen})
 
 
 def plot_field_with_orbits(

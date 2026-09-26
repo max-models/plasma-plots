@@ -112,6 +112,19 @@ here over radius) and fits growth rates. Both harmonics grow at the seeded
 
 ![Mode amplitudes over the (m, n) plane](../../../assets/figures/spectral_mode_map.png)
 
+`relative=True` divides each mode by the mean (the zero mode) at the same
+point, as growth plots of an instability often show perturbations relative to
+the background. For a ring whose edge ripples, take the amplitudes at the
+interface, since a radial average would cancel the displacement:
+
+```python
+n.sel(eta1=0.59, method="nearest").struphy.plot.mode_amplitudes(
+    dims="eta2", names="m", relative=True, top=3, fit=(8, 20), eta3=0,
+)
+```
+
+![Growth of azimuthal modes relative to the mean density, with fits](../../../assets/figures/relative_modes.png)
+
 Struphy simulates a sector of the torus (`tor_period=6` here), so `n` counts
 periods per sector, and its sign follows the mapping's orientation. n = −1
 here is the full-torus |n| = 6.

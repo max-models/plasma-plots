@@ -76,7 +76,11 @@ Export one PNG per swept step into `directory`.
 All slice presentations (`view`, `slice`, `panels`, `viewer`, `animation`,
 `frames`) and the 3-D `isosurface` and `slices_3d` take `symmetric=True`
 (color limits centered on zero) and `robust=True` (limits from the 1st and
-99th percentiles); see `struphy_plots.plotting.color_limits`. Physical slices
+99th percentiles); see `struphy_plots.plotting.color_limits`. The slice
+presentations also take `levels` (a number or explicit values: contour lines
+on top) and `fill=False` (only the lines, colored by `cmap`). `animation`
+takes `alongside=[...]`, further arrays animated side by side in sync, each
+with its own color limits (`struphy_plots.plotting.animate_fields`). Physical slices
 close the periodic seam of cell-centered grids.
 
 ### Spectral plots
@@ -129,10 +133,23 @@ variables, e.g. an orbits product. Backed by
 ### `trajectories(*, max_markers=200, show_paths=None, ax=None)`
 Same as the `DataArray` accessor's `trajectories()` above.
 
-### `scatter(*, x, y, color=None, ax=None, cmap=None, s=8, **selection)`
+### `scatter(*, x, y, color=None, ax=None, cmap=None, s=8, color_at=None, background=None, background_options=None, **selection)`
 Scatter two position variables (`x`, `y`), optionally colored by a third
 (e.g. a density, weight, or Lagrangian tracer). Remaining dimensions such as
-`t` are selected by keyword, exactly like `lineout()`.
+`t` are selected by keyword, exactly like `lineout()`. `color_at` takes the
+colors at another time (e.g. `"first"`); `background` is a field drawn behind
+the markers at the same time, in logical or physical coordinates to match
+`x`/`y`, with `background_options` for `plot_slice`.
+
+### `animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, interval=100, s=8, cmap=None)`
+Markers moving over time, optionally over a field animated in sync. Lost
+markers are hidden and the axes limits are fixed. Backed by
+`struphy_plots.plotting.animate_markers`.
+
+### `paths(*, x="x", y="y", markers=6, near=None, background=None, background_options=None, t="first", ax=None)`
+Paths of a few markers in a plane, with start (circle) and end (cross)
+markers. `near` picks the markers starting closest to given points. Backed by
+`struphy_plots.plotting.plot_marker_paths`.
 
 ### `orbit_classification(*, x="v_par", y=None, v_par="v_par", t="first", ax=None, s=8)`
 For a guiding-center orbits product (Particles5D or Particles5Dvperp): scatter

@@ -92,6 +92,36 @@ view.animation()
 Physical slices of Struphy's cell-centered fields close the seam of periodic
 directions (e.g. θ = 0) automatically, so a poloidal cross-section has no gap.
 
+### Contour lines
+
+`levels` draws contour lines of the field on top of any slice presentation:
+`slice`, `panels`, `viewer`, `animation` and `frames`. It takes a number of
+evenly spaced levels or explicit values. Use it for an interface, flux
+surfaces, or the streamlines of a stream function. With `fill=False`, only the
+lines are drawn, colored by `cmap`.
+
+```python
+n.struphy.plot.slice(coords="physical", plane="XY", t="last", eta3=0, levels=[0.2])   # the ring's edges
+psi.struphy.plot.slice(levels=12, fill=False, cmap="Greys")                              # streamlines only
+n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])            # the interface in motion
+```
+
+![Charge density of a ring with the interface n = 0.2 as a contour line](../../../assets/figures/contour_interface.png)
+
+### Several fields side by side
+
+`animation(alongside=[...])` animates further fields next to the first one,
+frame by frame in sync. Each field keeps its own color limits and color bar.
+The selection and options apply to all of them:
+
+```python
+omega.struphy.plot.animation(
+    coords="physical", plane="XY", eta3=0, alongside=[density], cmap="RdBu_r", symmetric=True, robust=True,
+)
+```
+
+![Vorticity and density animated side by side](/struphy-plots/figures/fields_side_by_side.gif)
+
 ## Vector fields
 
 ```python

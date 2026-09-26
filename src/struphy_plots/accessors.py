@@ -468,6 +468,7 @@ class ArrayPlots(_ArrayAccessor):
         fit=None,
         reduce: str = "max",
         scale=1,
+        relative: bool = False,
         logy: bool = True,
         ax=None,
         **selection,
@@ -475,13 +476,15 @@ class ArrayPlots(_ArrayAccessor):
         """Amplitude of the strongest ``(m, n)`` modes of this field over time, each reduced
         over the remaining dimensions (e.g. radius) by ``reduce`` (``"max"`` or ``"mean"``),
         with optional growth fits (``fit=(t0, t1)`` or ``True``). ``scale`` multiplies the mode
-        numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a torus. See
+        numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a torus. ``relative=True``
+        shows each mode relative to the mean (the zero mode). See
         :func:`struphy_plots.spectral_plots.plot_mode_amplitudes`."""
         from .spectral import mode_amplitudes, mode_spectrum
         from .spectral_plots import plot_mode_amplitudes
 
         amplitudes = mode_amplitudes(
-            mode_spectrum(self._time_selection(selection), dims=dims, names=names, scale=scale)
+            mode_spectrum(self._time_selection(selection), dims=dims, names=names, scale=scale),
+            relative=relative,
         )
         others = [d for d in amplitudes.dims if d not in ("t", "mode")]
         if others:
@@ -669,6 +672,8 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        levels=None,
+        fill: bool = True,
         **selection,
     ) -> "SliceView":
         """Configure a reusable slice view without rendering a figure.
@@ -681,7 +686,9 @@ class ArrayPlots(_ArrayAccessor):
         frames omitted by a panel layout or export step. False rescales each frame.
         Explicit ``vmin``/``vmax`` override either limit in both modes. ``symmetric`` centers
         the limits on zero (for perturbations with a diverging ``cmap``); ``robust`` uses the
-        1st/99th percentiles, so a few outliers do not wash out the rest. ``cmap``,
+        1st/99th percentiles, so a few outliers do not wash out the rest. ``levels`` (a
+        number, or explicit values) draws contour lines of the field on top, e.g. an interface
+        or flux surfaces; with ``fill=False`` only the lines are drawn, colored by ``cmap``. ``cmap``,
         ``equal_aspect`` and ``title`` apply to every presentation of this view.
 
         Examples
@@ -705,6 +712,8 @@ class ArrayPlots(_ArrayAccessor):
                 title=title,
                 symmetric=symmetric,
                 robust=robust,
+                levels=levels,
+                fill=fill,
             ),
         )
 
@@ -724,6 +733,8 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        levels=None,
+        fill: bool = True,
         ax=None,
         **selection,
     ):
@@ -742,6 +753,8 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
             symmetric=symmetric,
             robust=robust,
+            levels=levels,
+            fill=fill,
             **selection,
         ).slice(ax=ax)
 
@@ -761,6 +774,8 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        levels=None,
+        fill: bool = True,
         nrows: int = 3,
         ncols: int = 4,
         **selection,
@@ -780,6 +795,8 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
             symmetric=symmetric,
             robust=robust,
+            levels=levels,
+            fill=fill,
             **selection,
         ).panels(nrows=nrows, ncols=ncols)
 
@@ -799,6 +816,8 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        levels=None,
+        fill: bool = True,
         **selection,
     ):
         """Create an interactive slider view; retain the returned viewer."""
@@ -816,6 +835,8 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
             symmetric=symmetric,
             robust=robust,
+            levels=levels,
+            fill=fill,
             **selection,
         ).viewer()
 
@@ -835,11 +856,19 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        levels=None,
+        fill: bool = True,
         interval: int = 100,
         step: int = 1,
+        alongside=None,
         **selection,
     ):
-        """Animate the sweep; retain the returned Matplotlib animation."""
+        """Animate the sweep; retain the returned Matplotlib animation.
+
+        ``alongside`` is a list of further arrays with the same dimensions (e.g. the density next
+        to the vorticity), animated side by side in sync, each with its own color limits and the
+        same selection and options. See :func:`struphy_plots.plotting.animate_fields`.
+        """
         return self.view(
             x=x,
             y=y,
@@ -854,8 +883,10 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
             symmetric=symmetric,
             robust=robust,
+            levels=levels,
+            fill=fill,
             **selection,
-        ).animation(interval=interval, step=step)
+        ).animation(interval=interval, step=step, alongside=alongside)
 
     def frames(
         self,
@@ -874,6 +905,8 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        levels=None,
+        fill: bool = True,
         step: int = 1,
         prefix: str = "frame",
         dpi: int = 110,
@@ -894,6 +927,8 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
             symmetric=symmetric,
             robust=robust,
+            levels=levels,
+            fill=fill,
             **selection,
         ).save_frames(directory, step=step, prefix=prefix, dpi=dpi)
 
@@ -1215,12 +1250,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return mode_spectrum(self._array, dims=dims, names=names, periods=periods)
 
-    def mode_amplitudes(self, *, top: int | None = None, real: bool = True) -> xr.DataArray:
+    def mode_amplitudes(self, *, top: int | None = None, real: bool = True, relative: bool = False) -> xr.DataArray:
         """Real amplitudes of this mode spectrum along one ``mode`` dimension; see
         :func:`struphy_plots.spectral.mode_amplitudes`."""
         from .spectral import mode_amplitudes
 
-        return mode_amplitudes(self._array, top=top, real=real)
+        return mode_amplitudes(self._array, top=top, real=real, relative=relative)
 
     def mode_structure(self, omega: float, *, window: str | None = "hann", detrend: bool = True) -> xr.DataArray:
         """Complex amplitude at the exact frequency ``omega`` at every point; see
@@ -1242,6 +1277,13 @@ class ArrayAnalysis(_ArrayAccessor):
         from .spectral import matrix_pencil
 
         return matrix_pencil(self._array, n_modes=n_modes, pencil=pencil, detrend=detrend)
+
+    def gradient(self, *, domain=None) -> xr.DataArray:
+        """The Cartesian gradient of this scalar field on a mapped domain, with a ``component``
+        dimension ``(x, y, z)``; see :func:`struphy_plots.analysis.gradient`."""
+        from .analysis import gradient
+
+        return gradient(self._array, domain=domain)
 
     def drop_periodic_endpoint(self, dim: str, *, period: float = 1.0) -> xr.DataArray:
         """This array without a duplicated periodic endpoint along ``dim``; see
@@ -1325,17 +1367,25 @@ class DatasetPlots:
         ax=None,
         cmap=None,
         s: int = 8,
+        color_at=None,
+        background: xr.DataArray | None = None,
+        background_options: dict | None = None,
         **selection,
     ):
         """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
 
         Remaining dimensions such as ``t`` are selected by keyword, exactly like
         :meth:`ArrayPlots.lineout`: an integer is a position, ``"first"``/``"last"`` are the ends,
-        and a float is the nearest coordinate value.
+        and a float is the nearest coordinate value. ``color_at`` colors by the values at another
+        time (e.g. ``"first"``); ``background`` draws a field behind the markers. See
+        :func:`struphy_plots.plotting.plot_marker_scatter`.
         """
         from .plotting import plot_marker_scatter
 
-        return plot_marker_scatter(self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection)
+        return plot_marker_scatter(
+            self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, color_at=color_at,
+            background=background, background_options=background_options, **selection
+        )
 
     def orbit_classification(
         self,
@@ -1355,6 +1405,52 @@ class DatasetPlots:
         from .plotting import plot_orbit_classification
 
         return plot_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s)
+
+    def animation(
+        self,
+        *,
+        x: str,
+        y: str,
+        color: str | None = None,
+        color_at=None,
+        background: xr.DataArray | None = None,
+        background_options: dict | None = None,
+        step: int = 1,
+        interval: int = 100,
+        s: int = 8,
+        cmap=None,
+    ):
+        """Markers moving over time, optionally over a field animated in sync (e.g. an SPH
+        density); retain the returned animation. See
+        :func:`struphy_plots.plotting.animate_markers`."""
+        from .plotting import animate_markers
+
+        return animate_markers(
+            self._dataset, x=x, y=y, color=color, color_at=color_at, background=background,
+            background_options=background_options, step=step, interval=interval, s=s, cmap=cmap,
+        )
+
+    def paths(
+        self,
+        *,
+        x: str = "x",
+        y: str = "y",
+        markers=6,
+        near=None,
+        background: xr.DataArray | None = None,
+        background_options: dict | None = None,
+        t="first",
+        ax=None,
+    ):
+        """Paths of a few markers in a plane with start and end markers, optionally over a
+        field (e.g. stream-function contour lines). See
+        :func:`struphy_plots.plotting.plot_marker_paths`."""
+        from .plotting import plot_marker_paths
+
+        return plot_marker_paths(
+            self._dataset, x=x, y=y, markers=markers, near=near, background=background,
+            background_options=background_options, t=t, ax=ax,
+        )
 
     def poloidal(
         self,
@@ -1510,10 +1606,15 @@ class SliceView:
 
         return InteractiveSliceViewer(self._array, view=self._view(), **self._options)
 
-    def animation(self, *, interval=100, step=1):
-        """Create a Matplotlib animation using this view's rendering options."""
-        from .plotting import animate_slices
+    def animation(self, *, interval=100, step=1, alongside=None):
+        """Create a Matplotlib animation using this view's rendering options; with
+        ``alongside`` (further arrays), all of them side by side in sync."""
+        from .plotting import animate_fields, animate_slices
 
+        if alongside:
+            return animate_fields(
+                [self._array, *alongside], view=self._view(), interval=interval, step=step, **self._options
+            )
         return animate_slices(
             self._array,
             view=self._view(),

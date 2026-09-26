@@ -40,6 +40,12 @@ detrended 2-D FFT, independent of Struphy. `dim` defaults to the sole
 dimension other than `t`. See `struphy_plots.analysis.power_spectrum` for
 the definition, and `ArrayPlots.dispersion` to plot it directly.
 
+### `gradient(*, domain=None)`
+The Cartesian gradient `J⁻ᵀ ∂f/∂η` of a scalar field, with a `component`
+dimension (x, y, z). The Jacobian comes from `X`, `Y`, `Z` or from a Struphy
+`domain`. Derivatives are spectral around periodic angles. For a 2-D run it is
+the in-plane gradient. Backed by `struphy_plots.analysis.gradient`.
+
 ### Spectral diagnostics
 `fft(dim=...)`, `time_fft()`, `filter_time()`, `band_filter(lo, hi)`,
 `spectral_peaks()`, `spectrogram(length=...)`, `mode_spectrum()`,

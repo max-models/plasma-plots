@@ -1,0 +1,72 @@
+---
+title: Recipes
+description: Short xarray recipes for diagnostics from the Struphy examples that need no dedicated function.
+---
+
+Some diagnostics in the [Struphy examples](https://struphy-hub.github.io/examples/)
+are a line or two of xarray on Struphy's labeled output, so struphy-plots has no
+function for them. Here they are as recipes. Other diagnostics are specific to
+one setup, such as the Lagrangian cell areas of the Beltrami example, which need
+markers loaded on a lattice; those stay with their examples.
+
+## Front position and center of mass
+
+For a dam break, from the orbits of the fluid markers:
+
+```python
+orbits = out.evaluate("euler_fluid")
+front = orbits.x.max("marker")               # the fluid's leading edge
+height = orbits.y.mean("marker")             # the center of mass falls as the column collapses
+front.struphy.plot.timeseries(height, logy=False)
+arrival = float(front.t[int((front >= 0.95).argmax())])
+```
+
+## Error against an analytic solution
+
+With the exact velocity `v1_exact, v2_exact` evaluated at the marker
+positions (e.g. of a Beltrami flow), the relative RMS error over time:
+
+```python
+error = np.sqrt(((orbits.v1 - v1_exact) ** 2 + (orbits.v2 - v2_exact) ** 2).mean("marker"))
+error = error / np.sqrt((orbits.v1**2 + orbits.v2**2).isel(t=0).mean("marker"))
+error.struphy.plot.timeseries()
+```
+
+For a conserved quantity per marker, e.g. the Hamiltonian `H`, the largest
+relative drift is `abs(H - H.isel(t=0)).max("marker") / abs(H.isel(t=0))`.
+For a scalar time series, use `.struphy.analysis.relative_error()`.
+
+## E×B energy of zonal flows and drift waves
+
+In a 2-D drift-wave model with the potential `phi`, the E×B velocity is
+`ẑ × ∇φ`, so its kinetic energy density is `½⟨|∇φ|²⟩`. The zonal flow is the
+part of `phi` averaged along `y` (`ky = 0`), and the drift waves are the rest.
+Their energies add up, because the two parts are orthogonal:
+
+```python
+grad = phi.struphy.analysis.gradient()
+total = 0.5 * (grad.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
+
+zonal = xr.zeros_like(phi) + phi.mean("eta2")          # keeps the X, Y coordinates
+grad_zonal = zonal.struphy.analysis.gradient()
+zonal_energy = 0.5 * (grad_zonal.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
+
+fig, ax = plt.subplots()
+ax.stackplot(phi.t, total - zonal_energy, zonal_energy, labels=["drift waves", "zonal flow"])
+ax.legend()
+```
+
+![The E×B kinetic energy of drift waves giving way to a zonal flow](../../../assets/figures/zonal_energy.png)
+
+## Interfaces and edges
+
+For the inner and outer edge of a ring as curves, draw contour lines
+(`levels=[0.2]`, see [contour lines](/struphy-plots/guides/field-plots/#contour-lines)).
+For their radii at each angle as data, take the first and last radius above
+the threshold:
+
+```python
+inside = (n >= 0.2).isel(eta3=0)
+inner = n.eta1.where(inside).min("eta1")      # per eta2 and t
+outer = n.eta1.where(inside).max("eta1")
+```

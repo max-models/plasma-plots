@@ -75,6 +75,21 @@ products (`f(t, eta1, v1)` and similar) — see
 [Particles & distributions](/struphy-plots/guides/particles/) for those, with
 figures.
 
+## Gradients on mapped domains
+
+```python
+E = -phi.struphy.analysis.gradient()                 # Cartesian components (x, y, z), over time
+E.struphy.plot.vector(x="eta1", y="eta2", t="last", eta3=0)
+```
+
+`gradient()` returns the Cartesian gradient `J⁻ᵀ ∂f/∂η` of a scalar field,
+with a `component` dimension in front of its own dimensions. The Jacobian comes
+from the `X`, `Y`, `Z` coordinates, or exactly from `domain=out.domain`. The
+logical derivatives are spectral around periodic angles, so on a torus the
+gradient is exact up to round-off. For a 2-D run it gives the gradient within
+the plane. The [recipes](/struphy-plots/guides/recipes/#ex-b-energy-of-zonal-flows-and-drift-waves)
+use it for the E×B energy of drift waves and zonal flows.
+
 ## Volume integrals and field energies
 
 ```python

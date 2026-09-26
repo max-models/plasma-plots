@@ -531,7 +531,9 @@ def mode_spectrum(
     return out
 
 
-def mode_amplitudes(modes: xr.DataArray, *, top: int | None = None, real: bool = True) -> xr.DataArray:
+def mode_amplitudes(
+    modes: xr.DataArray, *, top: int | None = None, real: bool = True, relative: bool = False
+) -> xr.DataArray:
     """Mode amplitudes from :func:`mode_spectrum`, stacked along one labeled ``mode`` dimension.
 
     With ``real=True`` (a real field), each ``(m, n)`` is combined with its conjugate
@@ -539,7 +541,9 @@ def mode_amplitudes(modes: xr.DataArray, *, top: int | None = None, real: bool =
     amplitude doubled, so a field ``A*cos(...)`` gives ``A``. A mode without a twin on the grid
     (the Nyquist mode of an even grid) is kept as it is. ``top`` keeps the modes with the
     largest peak amplitude over every other dimension. Coordinates on ``mode`` give each mode's
-    numbers and a label such as ``"(10, -1)"``.
+    numbers and a label such as ``"(10, -1)"``. ``relative=True`` divides by the amplitude of the
+    mean (the mode with all numbers zero), which is then left out: e.g. density perturbations
+    relative to the background density, as growth plots of an instability often show.
     """
     names = modes.attrs.get("mode_names") or [d for d in modes.dims if d in ("m", "n")]
     if not names:
@@ -560,6 +564,12 @@ def mode_amplitudes(modes: xr.DataArray, *, top: int | None = None, real: bool =
     out = stacked.drop_vars(["mode", *names]).assign_coords(
         mode=labels, **{name: ("mode", numbers[:, i]) for i, name in enumerate(names)}
     )
+    if relative:
+        zero = np.flatnonzero((numbers == 0).all(axis=1))
+        if not zero.size:
+            raise ValueError("relative=True needs the mean mode (all mode numbers zero)")
+        reference = out.isel(mode=int(zero[0]))
+        out = out.drop_isel(mode=int(zero[0])) / reference.where(reference != 0)
     if top is not None:
         others = [d for d in out.dims if d != "mode"]
         peak = out.max(others) if others else out
