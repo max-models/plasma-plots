@@ -21,6 +21,7 @@ classifiers = [
 
 [project.optional-dependencies]
 pyvista = ["pyvista"]
+profiling = ["scope-profiler"]
 dev = ["pytest", "ruff", "h5py"]
 
 [project.urls]

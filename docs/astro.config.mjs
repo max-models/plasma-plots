@@ -24,6 +24,7 @@ export default defineConfig({
 						{ label: 'Diagnostics', slug: 'guides/analysis' },
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
+						{ label: 'Profiling', slug: 'guides/profiling' },
 					],
 				},
 				{

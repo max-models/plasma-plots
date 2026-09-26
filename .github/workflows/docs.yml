@@ -26,8 +26,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install struphy-plots (with PyVista)
-        run: pip install -e ".[pyvista]"
+      - name: Install struphy-plots (with PyVista and profiling)
+        run: pip install -e ".[pyvista,profiling]"
 
       # The docs embed live interactive Plotly charts (via <PlotlyChart>) to
       # demonstrate `array.struphy.data`; plotly is not a struphy-plots

@@ -26,7 +26,7 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import plot_convergence, plot_dispersion, plot_scalars
+from struphy_plots.plotting import PlotResult, plot_convergence, plot_dispersion, plot_scalars
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -484,6 +484,58 @@ try:
     print(f"wrote {OUT / 'equilibrium_3d.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped equilibrium figures (PyVista unavailable or headless rendering failed): {exc}")
+
+
+# =============================================================================
+# Whole-run: profiling (optional scope-profiler)
+# =============================================================================
+try:
+    import time as _time
+    import tempfile as _tempfile
+
+    import scope_profiler as _sp
+
+    from struphy_plots.output_accessors import OutputPlots
+
+    class _FakeProfile:
+        def __init__(self, results):
+            self.results = results
+
+    class _FakeOutput:
+        """Anything with a `.profile.results` (a scope_profiler.ProfilingResults) works."""
+
+        def __init__(self, results):
+            self.profile = _FakeProfile(results)
+
+    _profiling_tmp = _tempfile.mkdtemp()
+    with _sp.session(verbose=False, file_path=str(Path(_profiling_tmp) / "profiling_data.h5")):
+        for _ in range(6):
+            with _sp.region("prop: faraday"):
+                _time.sleep(0.001)
+            with _sp.region("prop: push_eta"):
+                with _sp.region("kernel: evaluate"):
+                    _time.sleep(0.002)
+                with _sp.region("kernel: interpolate"):
+                    _time.sleep(0.001)
+        with _sp.region("io: save"):
+            _time.sleep(0.003)
+        profiling_results = _sp.finalize(return_results=True, verbose=False)
+
+    profile_plots = OutputPlots(_FakeOutput(profiling_results)).profile
+    save(PlotResult(*profile_plots.gantt()), "profile_gantt.png")
+    save(PlotResult(*profile_plots.flame()), "profile_flame.png")
+    save(PlotResult(*profile_plots.callgraph(compact=True)), "profile_callgraph.png")
+
+    try:
+        import plotly  # noqa: F401
+
+        fig = profile_plots.gantt(backend="plotly")
+        fig.write_json(PLOTLY_OUT / "plotly_profile_gantt.json")
+        print(f"wrote {PLOTLY_OUT / 'plotly_profile_gantt.json'}")
+    except ImportError:
+        print("skipped plotly_profile_gantt.json (plotly unavailable)")
+except Exception as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped profile_*.png (scope-profiler unavailable): {exc}")
 
 plt.close("all")
 print("done")
