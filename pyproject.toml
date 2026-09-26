@@ -33,6 +33,13 @@ Issues = "https://github.com/struphy-hub/struphy-plots/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.pytest.ini_options]
+# Restrict collection to our own tests: the struphy submodule now lives at
+# ./struphy (with its own nested feectools submodule), and bare `pytest`
+# would otherwise recurse into their test suites too -- and fail on their
+# own optional dependencies (e.g. psydac) that struphy-plots has no need of.
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 120
 
