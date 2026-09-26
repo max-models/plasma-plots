@@ -64,7 +64,8 @@ def test_products_are_found_by_name(run):
     assert run.evaluate("em_fields/E").dims[:2] == ("t", "component")
     assert distribution(run).dims == ("t", "e1", "v1")
     assert density(run).dims == ("t", "e1", "e2", "e3")
-    assert orbits(run).dims == ("t", "marker", "quantity")
+    assert orbits(run).sizes == {"t": 3, "marker": 10}
+    assert set(orbits(run).data_vars) >= {"x", "y", "z"}
     with pytest.raises(ValueError, match="species/variable"):
         run.evaluate("t")
 
@@ -159,7 +160,7 @@ def test_selection_keywords_take_positions_values_and_ends(run):
 def test_products_of_one_species_sit_on_the_output(run):
     assert run.kinetic_ions.e1_v1_density.f.dims == ("t", "e1", "v1")
     assert run.kinetic_ions.view_0.n.dims == ("t", "e1", "e2", "e3")
-    assert run.kinetic_ions.orbits.dims == ("t", "marker", "quantity")
+    assert run.kinetic_ions.orbits.sizes == {"t": 3, "marker": 10}
     assert run.em_fields.E.dims[:2] == ("t", "component")
     assert {"kinetic_ions", "em_fields"} <= set(dir(run))
     with pytest.raises(AttributeError, match="available species"):

@@ -742,11 +742,23 @@ def save_all_scalars(
     return paths
 
 
-def plot_marker_trajectories(orbits: xr.DataArray, *, ax=None, max_markers=200, show_paths=None):
-    """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate."""
-    validate_array(orbits, required_dims=("t", "marker", "quantity"))
+def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=None):
+    """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate.
+
+    ``orbits`` is an orbits product: an ``xarray.Dataset`` with one ``(t, marker)`` variable per
+    saved quantity (as produced by recent Struphy), or, for backward compatibility, a single
+    ``(t, marker, quantity)`` ``xarray.DataArray``.
+    """
+    if isinstance(orbits, xr.DataArray):
+        orbits = orbits.to_dataset(dim="quantity")
+    missing = [name for name in ("x", "y", "z") if name not in orbits.data_vars]
+    if missing:
+        raise ValueError(f"orbits is missing position quantities: {missing}")
+    if "marker" not in orbits.sizes:
+        raise ValueError("orbits must have a 'marker' dimension")
     count = min(orbits.sizes["marker"], max_markers)
-    positions = np.asarray(orbits.isel(marker=slice(0, count)).sel(quantity=["x", "y", "z"]))
+    subset = orbits.isel(marker=slice(0, count))
+    positions = np.stack([np.asarray(subset[name]) for name in ("x", "y", "z")], axis=-1)
     fig = plt.figure() if ax is None else ax.figure
     ax = fig.add_subplot(111, projection="3d") if ax is None else ax
     show_paths = count <= 200 if show_paths is None else show_paths
