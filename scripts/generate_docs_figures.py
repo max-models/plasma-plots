@@ -46,6 +46,9 @@ PUBLIC_OUT.mkdir(parents=True, exist_ok=True)
 # Plotly figure JSON, fetched client-side by <PlotlyChart>; also served as-is from public/.
 PLOTLY_OUT = DOCS / "public" / "plotly"
 PLOTLY_OUT.mkdir(parents=True, exist_ok=True)
+# Standalone interactive PyVista scenes (vtk.js inlined), loaded in an iframe by <PyVistaScene>.
+PYVISTA_OUT = DOCS / "public" / "pyvista"
+PYVISTA_OUT.mkdir(parents=True, exist_ok=True)
 
 
 def field_array(name, label, unit, values, dims, coords):
@@ -646,14 +649,26 @@ try:
 
     pv.OFF_SCREEN = True
 
-    def shot(plotter, filename, *, iso=True, zoom=1.0):
+    def shot(plotter, filename, *, iso=True, zoom=1.0, interactive=True):
+        """Save a PNG and, for 3-D scenes, a standalone interactive HTML for <PyVistaScene>."""
         if iso:
             plotter.camera_position = "iso"
             plotter.reset_camera()
         plotter.camera.zoom(zoom)
         plotter.screenshot(str(OUT / filename), window_size=[1000, 700])
-        plotter.close()
         print(f"wrote {OUT / filename}")
+        if interactive:
+            html = PYVISTA_OUT / filename.replace(".png", ".html")
+            # vtk.js receives pre-mapped RGB colors, so an exported color bar would read 0-255;
+            # the static image next to each scene keeps the correct one.
+            for title in list(plotter.scalar_bars.keys()):
+                plotter.remove_scalar_bar(title)
+            try:
+                plotter.trame.export_html(str(html))
+                print(f"wrote {html}")
+            except Exception as exc:  # optional: needs trame-pyvista (see .github/workflows/docs.yml)
+                print(f"skipped {html.name} (interactive export unavailable): {exc}")
+        plotter.close()
 
     def torus_mapping(e1, e2, e3, squeeze_out=False):
         E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
@@ -732,7 +747,7 @@ try:
         coords={"t": t_orb[:, 0], "marker": np.arange(n_orb)},
     )
     shot(
-        orbits3.struphy.plot.orbits_3d(color_by="classification", domain=mode.isel(t=0), tube_radius=0.015),
+        orbits3.struphy.plot.orbits_3d(color_by="classification", domain=mode.isel(t=0)),
         "3d_orbits.png",
         zoom=1.3,
     )
@@ -754,7 +769,7 @@ try:
         name="phi",
         attrs={"label": "phi"},
     )
-    shot(phi_2d.struphy.plot.isosurface(values=7, cmap="RdBu_r", t=0), "2d_isosurface.png", iso=False)
+    shot(phi_2d.struphy.plot.isosurface(values=7, cmap="RdBu_r", t=0), "2d_isosurface.png", iso=False, interactive=False)
     flow_2d = xr.DataArray(
         np.stack([-CY * np.exp(-2 * CR**2), CX * np.exp(-2 * CR**2), 0 * CX])
         + 0.15 * np.stack([np.cos(3 * CTH), np.sin(3 * CTH), 0 * CX]) * np.sin(np.pi * CR),
@@ -763,7 +778,7 @@ try:
         name="u",
         attrs={"label": "u"},
     )
-    shot(flow_2d.struphy.plot.streamlines(n_points=80), "2d_streamlines.png", iso=False)
+    shot(flow_2d.struphy.plot.streamlines(n_points=80), "2d_streamlines.png", iso=False, interactive=False)
 
     # GIFs go to public/ so Astro keeps them animated (see PUBLIC_OUT above)
     for movie_data, kind, options, filename in (

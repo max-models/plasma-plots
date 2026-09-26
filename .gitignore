@@ -19,6 +19,7 @@ docs/.astro/
 docs/src/assets/figures/
 docs/public/figures/
 docs/public/plotly/
+docs/public/pyvista/
 
 # Editors / OS
 .DS_Store

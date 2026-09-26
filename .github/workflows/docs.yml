@@ -55,6 +55,13 @@ jobs:
       - name: Install struphy-plots (with PyVista and profiling)
         run: pip install -e ".[pyvista,profiling]"
 
+      # The 3-D views guide embeds interactive scenes exported with
+      # plotter.trame.export_html(). trame-vtk >= 2.11.15 is needed for VTK 9.7 and
+      # trame-pyvista requires < 2.11.17. struphy pins an older trame-vtk, which pip
+      # reports as a conflict; figure generation does not use struphy's trame code.
+      - name: Install trame-pyvista (docs interactive scenes only)
+        run: pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
+
       # The docs embed live interactive Plotly charts (via <PlotlyChart>) to
       # demonstrate `array.struphy.data`; plotly is not a struphy-plots
       # dependency, only needed here to export each figure's JSON.
