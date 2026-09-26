@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
+OUT_SIM =  Path(__file__).resolve().parents[1] / "docs" / "src" / "assets" / "simulations"
 OUT = DOCS / "src" / "assets" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -70,7 +71,7 @@ def run_simulation() -> Output:
 
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=tempfile.mkdtemp(), sim_folder="mhd_slab_waves"),
+        env=EnvironmentOptions(sim_folder="mhd_slab_waves"),
         time_opts=Time(dt=0.15, Tend=180.0),
         domain=domains.Cuboid(r3=60.0),
         grid=grids.TensorProductGrid(num_elements=(1, 1, 64)),
@@ -142,7 +143,7 @@ if __name__ == "__main__":
     if not args.pproc_only:
         out = run_simulation()
     else:
-        out = Output(tempfile.gettempdir() + "/mhd_slab_waves")
+        out = Output("mhd_slab_waves")
 
     pproc(out)
 
