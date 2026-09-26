@@ -12,9 +12,15 @@ import xarray as xr
 from . import spectral
 from .analysis import GrowthFit, growth_rate
 from .arrays import axis_label, value_label
-from .plotting import (STRUPHY_STYLE, PlotResult, _finish, _label,
-                       prepare_continuous_spectrum, resolve_marker_selection,
-                       shared_run_label)
+from .plotting import (
+    STRUPHY_STYLE,
+    PlotResult,
+    _finish,
+    _label,
+    prepare_continuous_spectrum,
+    resolve_marker_selection,
+    shared_run_label,
+)
 
 OMEGA = r"$\omega$"
 
@@ -105,13 +111,9 @@ def plot_power_spectrum(
     found = None
     if peaks:
         if lines_over:
-            raise ValueError(
-                "peaks= needs a single line; reduce every dimension but omega"
-            )
+            raise ValueError("peaks= needs a single line; reduce every dimension but omega")
         found = spectral.spectral_peaks(reduced, n_peaks=peaks)
-        artists.append(
-            ax.plot(found.omega, found.power, "v", color="C3", ms=7, label="peaks")[0]
-        )
+        artists.append(ax.plot(found.omega, found.power, "v", color="C3", ms=7, label="peaks")[0])
         for omega, value in zip(found.omega_refined.values, found.power.values):
             ax.annotate(
                 f"{omega:.3g}",
@@ -132,9 +134,7 @@ def plot_power_spectrum(
     ax.set(
         xlabel=OMEGA,
         ylabel=value_label(power) if power.attrs.get("units") else "power per bin",
-        title=(
-            title if title is not None else power.attrs.get("label", "Power spectrum")
-        ),
+        title=(title if title is not None else power.attrs.get("label", "Power spectrum")),
     )
     if any(a.get_label() and not a.get_label().startswith("_") for a in artists):
         ax.legend(fontsize="small")
@@ -148,9 +148,7 @@ def plot_filtered(data: xr.DataArray, result, *, ax=None, **selection):
     from :func:`~struphy_plots.spectral.band_filter`). Every dimension but ``t`` is selected by
     keyword: an integer is a position, ``"first"``/``"last"`` an end, a float the nearest value.
     """
-    filtered = (
-        result.filtered if isinstance(result, spectral.TimeFilterResult) else result
-    )
+    filtered = result.filtered if isinstance(result, spectral.TimeFilterResult) else result
     probe = resolve_marker_selection(data, selection)
     reconstructed = resolve_marker_selection(filtered, selection)
     if probe.dims != ("t",):
@@ -166,9 +164,7 @@ def plot_filtered(data: xr.DataArray, result, *, ax=None, **selection):
         label="signal minus mean",
     )
     (kept,) = ax.plot(reconstructed.t, reconstructed, lw=2, label="filtered")
-    where = ", ".join(
-        f"{k}={float(probe[k]):.3g}" for k in selection if k in probe.coords
-    )
+    where = ", ".join(f"{k}={float(probe[k]):.3g}" for k in selection if k in probe.coords)
     ax.set(
         xlabel=axis_label(probe, "t"),
         ylabel=value_label(probe),
@@ -205,9 +201,7 @@ def plot_spectrogram(
         vmax = float(values.max())
         vmin = vmax - dynamic_range
     fig, ax = _axes(ax)
-    mesh = ax.pcolormesh(
-        power.t, power.omega, values, shading="auto", cmap=cmap, vmin=vmin, vmax=vmax
-    )
+    mesh = ax.pcolormesh(power.t, power.omega, values, shading="auto", cmap=cmap, vmin=vmin, vmax=vmax)
     fig.colorbar(mesh, ax=ax, label="log10(power)" if log else "power")
     artists = [mesh, *_mark_frequencies(ax, frequencies, horizontal=True)]
     if frequencies:
@@ -240,16 +234,10 @@ def plot_mode_amplitudes(
     amplitudes = modes if "mode" in modes.dims else spectral.mode_amplitudes(modes)
     others = [d for d in amplitudes.dims if d not in ("t", "mode")]
     if others:
-        raise ValueError(
-            f"select or average {others} first, e.g. .max('e1') or .sel(e1=0.5)"
-        )
+        raise ValueError(f"select or average {others} first, e.g. .max('e1') or .sel(e1=0.5)")
     peak = amplitudes.max("t")
     amplitudes = amplitudes.isel(mode=np.argsort(np.asarray(peak))[::-1][:top])
-    growth = (
-        None
-        if fit in (None, False)
-        else GrowthFit(window=(None, None) if fit is True else tuple(fit))
-    )
+    growth = None if fit in (None, False) else GrowthFit(window=(None, None) if fit is True else tuple(fit))
     fig, ax = _axes(ax)
     artists, fits = [], []
     names = amplitudes.attrs.get("mode_names", ["m", "n"])
@@ -258,19 +246,11 @@ def plot_mode_amplitudes(
         label = f"({', '.join(names)}) = {line.mode.item()}"
         (artist,) = ax.plot(line.t, line, label=label)
         artists.append(artist)
-        result = (
-            growth_rate(line.drop_vars([c for c in line.coords if c != "t"]), growth)
-            if growth
-            else None
-        )
+        result = growth_rate(line.drop_vars([c for c in line.coords if c != "t"]), growth) if growth else None
         fits.append(result)
         if result is not None:
             artist.set_label(rf"{label}, $\gamma$ = {result.rate:.3g}")
-            artists.append(
-                ax.plot(
-                    result.time, result.fitted, "--", color=artist.get_color(), lw=1
-                )[0]
-            )
+            artists.append(ax.plot(result.time, result.fitted, "--", color=artist.get_color(), lw=1)[0])
     if logy:
         ax.set_yscale("log")
     ax.set(xlabel=axis_label(amplitudes, "t"), ylabel="amplitude", title=title)
@@ -316,11 +296,7 @@ def plot_mode_map(
 
 def _x_values(data, x, x_of):
     coordinate = np.asarray(data[x], dtype=float)
-    return (
-        (np.asarray(x_of(coordinate), dtype=float), "r")
-        if x_of is not None
-        else (coordinate, axis_label(data, x))
-    )
+    return (np.asarray(x_of(coordinate), dtype=float), "r") if x_of is not None else (coordinate, axis_label(data, x))
 
 
 def plot_radial_power(
@@ -415,17 +391,13 @@ def plot_mode_profiles(
     names = [d for d in ("m", "n") if d in structure.dims]
     stacked = structure.stack(mode=names) if names else structure
     if set(stacked.dims) != {x, "mode"}:
-        raise ValueError(
-            f"reduce the structure to ({x!r}, modes) first; got {structure.dims}"
-        )
+        raise ValueError(f"reduce the structure to ({x!r}, modes) first; got {structure.dims}")
     strength = np.asarray(abs(stacked).max(x))
     numbers = [np.atleast_1d(v) for v in stacked["mode"].values]
     if names:
         # (m, n) and (-m, -n) describe one real wave, traveling one way or the other: keep the
         # stronger of each pair and label it by the half whose first nonzero number is positive.
-        canonical = [
-            tuple(v if next((c for c in v if c != 0), 0) >= 0 else -v) for v in numbers
-        ]
+        canonical = [tuple(v if next((c for c in v if c != 0), 0) >= 0 else -v) for v in numbers]
         best = {}
         for i, key in enumerate(canonical):
             if key not in best or strength[i] > strength[best[key]]:
@@ -465,11 +437,7 @@ def plot_mode_profiles(
             artists.append(axes[1].plot(xs, angle, color=line.get_color())[0])
     axes[0].set(
         ylabel="|amplitude|",
-        title=(
-            title
-            if title is not None
-            else structure.attrs.get("label", "Mode profiles")
-        ),
+        title=(title if title is not None else structure.attrs.get("label", "Mode profiles")),
     )
     axes[0].legend(fontsize="small")
     if phase:
@@ -478,49 +446,29 @@ def plot_mode_profiles(
     return PlotResult(fig, axes, artists, data={"profiles": stacked.isel(mode=order)})
 
 
-def plot_cross_spectrum(
-    cross: xr.Dataset, *, omega_max: float | None = None, title: str | None = None
-):
+def plot_cross_spectrum(cross: xr.Dataset, *, omega_max: float | None = None, title: str | None = None):
     """Magnitude (and coherence, if present) and phase of a
     :func:`~struphy_plots.spectral.cross_spectrum`, reduced to ``omega`` only."""
     if cross.magnitude.dims != ("omega",):
-        raise ValueError(
-            f"reduce the cross-spectrum to omega only; got {cross.magnitude.dims}"
-        )
+        raise ValueError(f"reduce the cross-spectrum to omega only; got {cross.magnitude.dims}")
     if omega_max is not None:
         cross = cross.sel(omega=slice(None, omega_max))
     with plt.rc_context(STRUPHY_STYLE):
-        fig, axes = plt.subplots(
-            2, 1, sharex=True, figsize=(7.5, 5.5), layout="constrained"
-        )
+        fig, axes = plt.subplots(2, 1, sharex=True, figsize=(7.5, 5.5), layout="constrained")
     magnitude = np.asarray(cross.magnitude, dtype=float)
     top = float(np.nanmax(magnitude))
-    artists = [
-        axes[0].semilogy(cross.omega, magnitude, ".-", ms=3, label="|cross-spectrum|")[
-            0
-        ]
-    ]
+    artists = [axes[0].semilogy(cross.omega, magnitude, ".-", ms=3, label="|cross-spectrum|")[0]]
     axes[0].set_ylim(top * 1e-6, top * 3)
     if "coherence" in cross:
         twin = axes[0].twinx()
-        artists.append(
-            twin.plot(
-                cross.omega, cross.coherence, color="C1", lw=1, label="coherence"
-            )[0]
-        )
+        artists.append(twin.plot(cross.omega, cross.coherence, color="C1", lw=1, label="coherence")[0])
         twin.set(ylim=(0, 1.05), ylabel="coherence")
         twin.grid(False)
     peak = int(np.nanargmax(np.asarray(cross.magnitude)))
     # the phase of a bin without signal is noise: show it where the magnitude is significant
     significant = magnitude >= 1e-3 * top
-    artists.append(
-        axes[1].plot(
-            cross.omega[significant], np.degrees(cross.phase[significant]), "o", ms=4
-        )[0]
-    )
-    omega_peak, phase_peak = float(cross.omega[peak]), float(
-        np.degrees(cross.phase[peak])
-    )
+    artists.append(axes[1].plot(cross.omega[significant], np.degrees(cross.phase[significant]), "o", ms=4)[0])
+    omega_peak, phase_peak = float(cross.omega[peak]), float(np.degrees(cross.phase[peak]))
     axes[1].axhline(phase_peak, color="C3", lw=0.8, ls="--")
     axes[1].annotate(
         f"{phase_peak:.0f}° at {OMEGA} = {omega_peak:.3g}",
@@ -537,11 +485,7 @@ def plot_cross_spectrum(
     )
     axes[0].set(
         ylabel="magnitude",
-        title=(
-            title
-            if title is not None
-            else cross.phase.attrs.get("label", "Cross-spectrum")
-        ),
+        title=(title if title is not None else cross.phase.attrs.get("label", "Cross-spectrum")),
     )
     return PlotResult(
         fig,
@@ -563,9 +507,7 @@ def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = 
             layout="constrained",
             gridspec_kw={"width_ratios": [1.6, 1]},
         )
-    fine = np.linspace(
-        float(data.t[0]), float(data.t[-1]), max(400, 10 * data.sizes["t"])
-    )
+    fine = np.linspace(float(data.t[0]), float(data.t[-1]), max(400, 10 * data.sizes["t"]))
     model = spectral.pencil_reconstruction(fit, fine)
     artists = [
         axes[0].plot(data.t, data, "o", ms=3.5, label="samples")[0],
@@ -582,9 +524,7 @@ def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = 
         title=title if title is not None else _label(data) or "Signal",
     )
     axes[0].legend(fontsize="small")
-    sizes = 40 + 360 * np.asarray(fit.amplitude) / max(
-        float(fit.amplitude.max()), np.finfo(float).tiny
-    )
+    sizes = 40 + 360 * np.asarray(fit.amplitude) / max(float(fit.amplitude.max()), np.finfo(float).tiny)
     artists.append(
         axes[1].scatter(
             fit.omega,

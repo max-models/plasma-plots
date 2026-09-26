@@ -77,9 +77,7 @@ class OutputPlots:
     def __init__(self, output: "Output"):
         self._output = output
 
-    def scalars(
-        self, names=None, *, relative_to: str | None = None, logy: bool = False
-    ):
+    def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Overview of the scalar time series in one axes.
 
         Parameters
@@ -101,7 +99,14 @@ class OutputPlots:
             run_label=self._output.label,
         )
 
-    def energies(self, *, parts=None, total: str | None = "en_tot", groups: dict | None = None, logy: bool = False):
+    def energies(
+        self,
+        *,
+        parts=None,
+        total: str | None = "en_tot",
+        groups: dict | None = None,
+        logy: bool = False,
+    ):
         """The run's energy budget: its ``en_*`` scalars, the relative drift of ``total``, and,
         with ``groups`` (e.g. ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv",
         "en_fB"]}``), the energy exchanged between them. See
@@ -109,7 +114,12 @@ class OutputPlots:
         from .plotting import plot_energy_budget
 
         return plot_energy_budget(
-            self._output.scalars, parts=parts, total=total, groups=groups, logy=logy, run_label=self._output.label
+            self._output.scalars,
+            parts=parts,
+            total=total,
+            groups=groups,
+            logy=logy,
+            run_label=self._output.label,
         )
 
     def equilibrium(self, ax=None):
@@ -122,13 +132,9 @@ class OutputPlots:
         """Create a PyVista equilibrium view; call ``.show()`` on the returned plotter."""
         from .plotting import show_equilibrium
 
-        return show_equilibrium(
-            self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
-        )
+        return show_equilibrium(self._output.equil, self._output.domain, scalars=scalars, cmap=cmap)
 
-    def domain_3d(
-        self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True
-    ):
+    def domain_3d(self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True):
         """A PyVista wireframe of this run's mapping (``out.domain``); call ``.show()`` on it."""
         from .pyvista_plots import pyvista_domain
 
@@ -164,9 +170,7 @@ class OutputAnalysis:
     def _array(self, product):
         return self._output.evaluate(product) if isinstance(product, str) else product
 
-    def fft(
-        self, product, *, dim: str, detrend: bool = False, window: str | None = None
-    ):
+    def fft(self, product, *, dim: str, detrend: bool = False, window: str | None = None):
         """Two-sided Fourier coefficients along ``dim``; see :func:`struphy_plots.spectral.fft`."""
         from .spectral import fft
 
@@ -179,15 +183,11 @@ class OutputAnalysis:
 
         return time_fft(self._array(product), detrend=detrend, window=window)
 
-    def filter_time(
-        self, product, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0
-    ):
+    def filter_time(self, product, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0):
         """Reconstruct the dominant temporal band; see :func:`struphy_plots.spectral.filter_time`."""
         from .spectral import filter_time
 
-        return filter_time(
-            self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins
-        )
+        return filter_time(self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins)
 
     def linear_mhd_energies(
         self,
@@ -223,16 +223,12 @@ class OutputAnalysis:
         quadrature=weights)`` give its energy as the run's own scalars would."""
         return _quadrature_grid(self._output)
 
-    def mode_spectrum(
-        self, product, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0
-    ):
+    def mode_spectrum(self, product, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0):
         """Complex amplitudes over poloidal/toroidal mode numbers; see
         :func:`struphy_plots.spectral.mode_spectrum`."""
         from .spectral import mode_spectrum
 
-        return mode_spectrum(
-            self._array(product), dims=dims, names=names, periods=periods
-        )
+        return mode_spectrum(self._array(product), dims=dims, names=names, periods=periods)
 
 
 def _quadrature_grid(output):
@@ -271,7 +267,11 @@ def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
         # cell, which neither the mass matrices nor an exact quadrature use)
         if isinstance(product, str):
             return output.evaluate(
-                product, eta1=etas_q["e1"], eta2=etas_q["e2"], eta3=etas_q["e3"], representation=representation
+                product,
+                eta1=etas_q["e1"],
+                eta2=etas_q["e2"],
+                eta3=etas_q["e3"],
+                representation=representation,
             )
         return product
 
@@ -283,29 +283,47 @@ def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
         equil.domain = domain  # the equilibrium profiles are pulled back to this run's mapping
     fields = {
         name: array(value, representation)
-        for name, value, representation in (("u", velocity, "2"), ("b", b_field, "2"), ("p", pressure, "3"))
+        for name, value, representation in (
+            ("u", velocity, "2"),
+            ("b", b_field, "2"),
+            ("p", pressure, "3"),
+        )
         if value is not None
     }
     energies = {}
     if "u" in fields:
         n0 = np.asarray(equil.n0(*etas(fields["u"])), dtype=float)
         energies["en_U"] = field_energy(
-            fields["u"], form=2, weight=n0, domain=domain, quadrature=_matching_quadrature(fields["u"], etas_q, weights_q)
+            fields["u"],
+            form=2,
+            weight=n0,
+            domain=domain,
+            quadrature=_matching_quadrature(fields["u"], etas_q, weights_q),
         )
     if "b" in fields:
         energies["en_B"] = field_energy(
-            fields["b"], form=2, domain=domain, quadrature=_matching_quadrature(fields["b"], etas_q, weights_q)
+            fields["b"],
+            form=2,
+            domain=domain,
+            quadrature=_matching_quadrature(fields["b"], etas_q, weights_q),
         )
     if "p" in fields:
         p0 = np.asarray(equil.p0(*etas(fields["p"])), dtype=float)
         with np.errstate(divide="ignore"):
             inverse = np.where(p0 > 1e-12 * p0.max(), 1.0 / p0, np.nan)
         energies["en_thermal"] = field_energy(
-            fields["p"], form=3, weight=inverse, domain=domain, normalization=1.0 / gamma,
+            fields["p"],
+            form=3,
+            weight=inverse,
+            domain=domain,
+            normalization=1.0 / gamma,
             quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
         )
         energies["en_p"] = volume_integral(
-            fields["p"], form=3, domain=domain, quadrature=_matching_quadrature(fields["p"], etas_q, weights_q)
+            fields["p"],
+            form=3,
+            domain=domain,
+            quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
         ) / (gamma - 1)
     if not energies:
         raise ValueError("pass at least one of velocity, b_field and pressure")

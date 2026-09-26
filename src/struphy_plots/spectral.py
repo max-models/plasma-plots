@@ -21,22 +21,14 @@ import xarray as xr
 
 
 def _provenance(data) -> dict:
-    return {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    return {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
 
 
 def _samples(data, dim, *, real=False):
     if not isinstance(data, xr.DataArray):
         raise TypeError("expected an xarray.DataArray")
-    if (
-        dim not in data.dims
-        or dim not in data.coords
-        or data.coords[dim].dims != (dim,)
-    ):
-        raise ValueError(
-            f"{dim!r} must be a dimension with a one-dimensional coordinate"
-        )
+    if dim not in data.dims or dim not in data.coords or data.coords[dim].dims != (dim,):
+        raise ValueError(f"{dim!r} must be a dimension with a one-dimensional coordinate")
     coordinate = np.asarray(data.coords[dim].values)
     values = np.asarray(data.values)
     if not np.issubdtype(coordinate.dtype, np.number) or np.iscomplexobj(coordinate):
@@ -44,12 +36,8 @@ def _samples(data, dim, *, real=False):
     if len(coordinate) < 2 or not np.isfinite(coordinate).all():
         raise ValueError(f"{dim!r} needs at least two finite samples")
     spacing = np.diff(coordinate.astype(float))
-    if np.any(spacing <= 0) or not np.allclose(
-        spacing, spacing[0], rtol=1e-7, atol=abs(spacing[0]) * 1e-10
-    ):
-        raise ValueError(
-            f"{dim!r} must be strictly increasing and uniformly spaced; select a uniform interval first"
-        )
+    if np.any(spacing <= 0) or not np.allclose(spacing, spacing[0], rtol=1e-7, atol=abs(spacing[0]) * 1e-10):
+        raise ValueError(f"{dim!r} must be strictly increasing and uniformly spaced; select a uniform interval first")
     if not np.issubdtype(values.dtype, np.number) or not np.isfinite(values).all():
         raise ValueError("FFT input must contain finite numeric values")
     if real and np.iscomplexobj(values):
@@ -64,9 +52,7 @@ def hann(n: int) -> np.ndarray:
 
 def _prepare(values, axis, detrend, window):
     if not isinstance(detrend, (bool, np.bool_)):
-        raise ValueError(
-            "detrend must be a boolean (remove the mean or leave it unchanged)"
-        )
+        raise ValueError("detrend must be a boolean (remove the mean or leave it unchanged)")
     if window not in (None, "hann"):
         raise ValueError("window must be None or 'hann'")
     if detrend:
@@ -78,17 +64,13 @@ def _prepare(values, axis, detrend, window):
     return values
 
 
-def _coefficients(
-    data, values, dim, frequency_dim, frequencies, spacing, detrend, window
-):
+def _coefficients(data, values, dim, frequency_dim, frequencies, spacing, detrend, window):
     if frequency_dim in data.coords or frequency_dim in data.dims:
         raise ValueError(f"frequency coordinate {frequency_dim!r} already exists")
     coords = {key: value for key, value in data.coords.items() if dim not in value.dims}
     coords[frequency_dim] = frequencies
     dims = tuple(frequency_dim if name == dim else name for name in data.dims)
-    result = xr.DataArray(
-        values, dims=dims, coords=coords, name="coefficients", attrs=dict(data.attrs)
-    )
+    result = xr.DataArray(values, dims=dims, coords=coords, name="coefficients", attrs=dict(data.attrs))
     result.attrs.update(
         transform_dim=dim,
         n_samples=data.sizes[dim],
@@ -104,17 +86,13 @@ def _coefficients(
     result.attrs.pop("long_name", None)
     unit = data.coords[dim].attrs.get("units", "")
     result.coords[frequency_dim].attrs = {
-        "long_name": (
-            "Angular frequency" if dim == "t" else f"Angular wavenumber along {dim}"
-        ),
+        "long_name": ("Angular frequency" if dim == "t" else f"Angular wavenumber along {dim}"),
         "units": f"rad / {unit}" if unit else "rad / coordinate unit",
     }
     return result
 
 
-def fft(
-    data: xr.DataArray, *, dim: str, detrend: bool = False, window: str | None = None
-) -> xr.DataArray:
+def fft(data: xr.DataArray, *, dim: str, detrend: bool = False, window: str | None = None) -> xr.DataArray:
     """Two-sided, shifted FFT along a named uniform coordinate, normalized by N.
 
     Returns complex coefficients with ``dim`` replaced by ``omega`` for time or
@@ -128,9 +106,7 @@ def fft(
     """
     values, spacing, axis = _samples(data, dim)
     values = _prepare(values, axis, detrend, window)
-    coefficients = np.fft.fftshift(
-        np.fft.fft(values, axis=axis, norm="forward"), axes=axis
-    )
+    coefficients = np.fft.fftshift(np.fft.fft(values, axis=axis, norm="forward"), axes=axis)
     frequencies = 2 * np.pi * np.fft.fftshift(np.fft.fftfreq(data.sizes[dim], spacing))
     return _coefficients(
         data,
@@ -144,9 +120,7 @@ def fft(
     )
 
 
-def time_fft(
-    data: xr.DataArray, *, detrend: bool = False, window: str | None = None
-) -> xr.Dataset:
+def time_fft(data: xr.DataArray, *, detrend: bool = False, window: str | None = None) -> xr.Dataset:
     """One-sided time FFT with complex coefficients and mean-square power per bin.
 
     Replaces ``t`` by ``omega`` and preserves other dimensions and coordinates.
@@ -179,20 +153,14 @@ def time_fft(
     weights[0] = 1.0
     if n % 2 == 0:
         weights[-1] = 1.0
-    power = abs(coefficients) ** 2 * xr.DataArray(
-        weights, dims="omega", coords={"omega": frequencies}
-    )
+    power = abs(coefficients) ** 2 * xr.DataArray(weights, dims="omega", coords={"omega": frequencies})
     power.attrs = {"label": "Mean-square power per frequency bin"}
     if data.attrs.get("units"):
         power.attrs["units"] = f"({data.attrs['units']})^2"
-    return xr.Dataset(
-        {"coefficients": coefficients, "power": power}, attrs=dict(coefficients.attrs)
-    )
+    return xr.Dataset({"coefficients": coefficients, "power": power}, attrs=dict(coefficients.attrs))
 
 
-def inverse_time_fft(
-    coefficients: xr.DataArray, template: xr.DataArray
-) -> xr.DataArray:
+def inverse_time_fft(coefficients: xr.DataArray, template: xr.DataArray) -> xr.DataArray:
     """Invert forward-normalized rFFT coefficients, using template's length and coordinates.
 
     The original length is required to distinguish odd and even sample counts.
@@ -202,9 +170,7 @@ def inverse_time_fft(
     _, spacing, _ = _samples(template, "t", real=True)
     expected_dims = tuple("omega" if dim == "t" else dim for dim in template.dims)
     if set(coefficients.dims) != set(expected_dims):
-        raise ValueError(
-            "coefficient dimensions must match the template with t replaced by omega"
-        )
+        raise ValueError("coefficient dimensions must match the template with t replaced by omega")
     coefficients = coefficients.transpose(*expected_dims)
     expected = 2 * np.pi * np.fft.rfftfreq(template.sizes["t"], spacing)
     if (
@@ -215,12 +181,9 @@ def inverse_time_fft(
         raise ValueError("frequency grid does not match the template")
     for dim in template.dims:
         if dim != "t" and (
-            coefficients.sizes[dim] != template.sizes[dim]
-            or not coefficients.coords[dim].equals(template.coords[dim])
+            coefficients.sizes[dim] != template.sizes[dim] or not coefficients.coords[dim].equals(template.coords[dim])
         ):
-            raise ValueError(
-                f"coefficient coordinate {dim!r} does not match the template"
-            )
+            raise ValueError(f"coefficient coordinate {dim!r} does not match the template")
     if not np.isfinite(coefficients.values).all():
         raise ValueError("coefficients must be finite")
     values = np.fft.irfft(
@@ -238,15 +201,10 @@ def fwhm_window(power, idx_peak: int, idx_min: int = 0, pad_bins: int = 0):
     if power.ndim != 1 or not np.isfinite(power).all() or np.any(power < 0):
         raise ValueError("power must be a finite, nonnegative one-dimensional array")
     if any(
-        isinstance(value, bool) or not isinstance(value, (int, np.integer))
-        for value in (idx_peak, idx_min, pad_bins)
+        isinstance(value, bool) or not isinstance(value, (int, np.integer)) for value in (idx_peak, idx_min, pad_bins)
     ):
         raise ValueError("bin indices and pad_bins must be integers")
-    if (
-        not 0 <= idx_min <= idx_peak < len(power)
-        or pad_bins < 0
-        or power[idx_peak] <= 0
-    ):
+    if not 0 <= idx_min <= idx_peak < len(power) or pad_bins < 0 or power[idx_peak] <= 0:
         raise ValueError("invalid peak, minimum bin or padding")
     half = power[idx_peak] / 2
     lo = hi = idx_peak
@@ -270,9 +228,7 @@ class TimeFilterResult:
     spectrum: xr.Dataset
 
 
-def filter_time(
-    data: xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0
-) -> TimeFilterResult:
+def filter_time(data: xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0) -> TimeFilterResult:
     """Keep the dominant peak's FWHM frequency band and reconstruct the real signal.
 
     Sum power over ``dims`` to select a shared band (default: all dimensions
@@ -285,11 +241,7 @@ def filter_time(
     """
     if not np.isfinite(omega_min) or omega_min <= 0:
         raise ValueError("omega_min must be finite and positive to exclude DC")
-    if (
-        isinstance(pad_bins, bool)
-        or not isinstance(pad_bins, (int, np.integer))
-        or pad_bins < 0
-    ):
+    if isinstance(pad_bins, bool) or not isinstance(pad_bins, (int, np.integer)) or pad_bins < 0:
         raise ValueError("pad_bins must be a nonnegative integer")
     transformed = time_fft(data)
     dims = (
@@ -297,9 +249,7 @@ def filter_time(
         if dims is None
         else ([dims] if isinstance(dims, str) else list(dims))
     )
-    if len(set(dims)) != len(dims) or any(
-        dim not in data.dims or dim == "t" for dim in dims
-    ):
+    if len(set(dims)) != len(dims) or any(dim not in data.dims or dim == "t" for dim in dims):
         raise ValueError("dims must name distinct non-time dimensions of the input")
     power = transformed.power.sum(dims, keep_attrs=True)
     retained = tuple(dim for dim in power.dims if dim != "omega")
@@ -314,18 +264,12 @@ def filter_time(
     for column, values in enumerate(powers.T):
         peak = eligible[np.argmax(values[eligible])]
         # Do not report floating-point roundoff from a DC-only signal as a mode.
-        if values[peak] <= 100 * np.finfo(float).eps ** 2 * max(
-            values.sum(), np.finfo(float).tiny
-        ):
+        if values[peak] <= 100 * np.finfo(float).eps ** 2 * max(values.sum(), np.finfo(float).tiny):
             continue
-        lo, hi = fwhm_window(
-            values, int(peak), idx_min=int(eligible[0]), pad_bins=pad_bins
-        )
+        lo, hi = fwhm_window(values, int(peak), idx_min=int(eligible[0]), pad_bins=pad_bins)
         indices[:, column] = peak, lo, hi
         frequencies[:, column] = omega[[peak, lo, hi]]
-    coords = {
-        key: value for key, value in power.coords.items() if "omega" not in value.dims
-    }
+    coords = {key: value for key, value in power.coords.items() if "omega" not in value.dims}
     shape = tuple(power.sizes[dim] for dim in retained)
     spectrum = xr.Dataset({"power": power}, attrs=dict(transformed.attrs))
     for names, values in (
@@ -333,18 +277,12 @@ def filter_time(
         (["dominant_frequency", "omega_lo", "omega_hi"], frequencies),
     ):
         for name, value in zip(names, values):
-            spectrum[name] = xr.DataArray(
-                value.reshape(shape), dims=retained, coords=coords
-            )
+            spectrum[name] = xr.DataArray(value.reshape(shape), dims=retained, coords=coords)
             if name.startswith("omega") or name == "dominant_frequency":
                 spectrum[name].attrs["units"] = transformed.omega.attrs["units"]
     spectrum["has_peak"] = spectrum.idx_dominant >= 0
-    spectrum.attrs.update(
-        omega_min=float(omega_min), pad_bins=int(pad_bins), power_reduction_dims=dims
-    )
-    mask = (transformed.omega >= spectrum.omega_lo) & (
-        transformed.omega <= spectrum.omega_hi
-    )
+    spectrum.attrs.update(omega_min=float(omega_min), pad_bins=int(pad_bins), power_reduction_dims=dims)
+    mask = (transformed.omega >= spectrum.omega_lo) & (transformed.omega <= spectrum.omega_hi)
     filtered = inverse_time_fft(transformed.coefficients.where(mask, 0), data)
     filtered.attrs.update(
         time_filter="dominant FWHM band",
@@ -359,9 +297,7 @@ def filter_time(
 # ---------------------------------------------------------------------------------------------
 
 
-def drop_periodic_endpoint(
-    data: xr.DataArray, dim: str, *, period: float = 1.0
-) -> xr.DataArray:
+def drop_periodic_endpoint(data: xr.DataArray, dim: str, *, period: float = 1.0) -> xr.DataArray:
     """``data`` without the last sample along ``dim`` if it repeats the first one period later.
 
     Struphy's logical grids often include both ends of a periodic direction (``e2 = 0`` and
@@ -369,20 +305,14 @@ def drop_periodic_endpoint(
     back unchanged.
     """
     if dim not in data.dims:
-        raise ValueError(
-            f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}"
-        )
+        raise ValueError(f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}")
     coordinate = np.asarray(data[dim], dtype=float)
-    if len(coordinate) > 1 and np.isclose(
-        coordinate[-1] - coordinate[0], period, rtol=1e-9, atol=1e-12
-    ):
+    if len(coordinate) > 1 and np.isclose(coordinate[-1] - coordinate[0], period, rtol=1e-9, atol=1e-12):
         return data.isel({dim: slice(None, -1)})
     return data
 
 
-def band_filter(
-    data: xr.DataArray, omega_lo: float, omega_hi: float, *, detrend: bool = False
-) -> xr.DataArray:
+def band_filter(data: xr.DataArray, omega_lo: float, omega_hi: float, *, detrend: bool = False) -> xr.DataArray:
     """Reconstruct only the frequencies in ``[omega_lo, omega_hi]`` (inclusive), at every point.
 
     The explicit counterpart of :func:`filter_time`, e.g. to separate two known modes, or to
@@ -394,9 +324,7 @@ def band_filter(
     transformed = time_fft(data, detrend=detrend)
     mask = (transformed.omega >= omega_lo) & (transformed.omega <= omega_hi)
     filtered = inverse_time_fft(transformed.coefficients.where(mask, 0), data)
-    filtered.attrs.update(
-        time_filter="band", omega_lo=float(omega_lo), omega_hi=float(omega_hi)
-    )
+    filtered.attrs.update(time_filter="band", omega_lo=float(omega_lo), omega_hi=float(omega_hi))
     return filtered
 
 
@@ -430,9 +358,7 @@ def _power_1d(data, *, dims=None, detrend=True, window=None) -> xr.DataArray:
     dims = others if dims is None else ([dims] if isinstance(dims, str) else list(dims))
     reduced = power.sum(dims, keep_attrs=True) if dims else power
     if reduced.dims != ("omega",):
-        raise ValueError(
-            f"reduce every dimension but 'omega' first; {reduced.dims} remain"
-        )
+        raise ValueError(f"reduce every dimension but 'omega' first; {reduced.dims} remain")
     return reduced
 
 
@@ -472,9 +398,7 @@ def spectral_peaks(
         interior[-1] = True  # a peak at the Nyquist edge
     candidates = np.flatnonzero(interior & eligible)
     if candidates.size:
-        candidates = candidates[
-            values[candidates] >= rel_height * values[candidates].max()
-        ]
+        candidates = candidates[values[candidates] >= rel_height * values[candidates].max()]
     order = candidates[np.argsort(values[candidates])[::-1]][:n_peaks]
     refined, lows, highs = [], [], []
     first = int(np.flatnonzero(eligible)[0]) if eligible.any() else 0
@@ -504,11 +428,7 @@ def spectral_peaks(
             "omega_hi": ("peak", np.asarray(highs, dtype=float), {"units": units}),
         },
         coords={"peak": peak},
-        attrs={
-            "frequency_resolution": (
-                float(omega[1] - omega[0]) if len(omega) > 1 else np.nan
-            )
-        },
+        attrs={"frequency_resolution": (float(omega[1] - omega[0]) if len(omega) > 1 else np.nan)},
     )
     return out
 
@@ -531,11 +451,7 @@ def spectrogram(
     _, spacing, _ = _samples(data, "t", real=True)
 
     def samples(value, name):
-        count = (
-            int(value)
-            if isinstance(value, (int, np.integer))
-            else int(round(value / spacing))
-        )
+        count = int(value) if isinstance(value, (int, np.integer)) else int(round(value / spacing))
         if count < 1:
             raise ValueError(f"{name} must span at least one sample")
         return count
@@ -543,24 +459,16 @@ def spectrogram(
     n_window = samples(length, "length")
     n_step = samples(step, "step") if step is not None else max(n_window // 4, 1)
     if n_window < 4 or n_window > data.sizes["t"]:
-        raise ValueError(
-            f"length must span 4 to {data.sizes['t']} samples; got {n_window}"
-        )
+        raise ValueError(f"length must span 4 to {data.sizes['t']} samples; got {n_window}")
     starts = range(0, data.sizes["t"] - n_window + 1, n_step)
     pieces, centers = [], []
     for start in starts:
         segment = data.isel(t=slice(start, start + n_window))
         power = time_fft(segment, detrend=detrend, window=window).power
         # every window has the same bins, up to rounding in its own sample spacing
-        pieces.append(
-            power if not pieces else power.assign_coords(omega=pieces[0].omega)
-        )
+        pieces.append(power if not pieces else power.assign_coords(omega=pieces[0].omega))
         centers.append(float(segment.t.mean()))
-    out = (
-        xr.concat(pieces, dim="t", join="exact")
-        .assign_coords(t=centers)
-        .transpose("t", "omega", ...)
-    )
+    out = xr.concat(pieces, dim="t", join="exact").assign_coords(t=centers).transpose("t", "omega", ...)
     out.attrs = {
         **_provenance(data),
         "label": f"spectrogram of {data.name or 'signal'}",
@@ -610,9 +518,7 @@ def mode_spectrum(
                 f"numbers; its {len(coordinate)} points cover {covered:.6g}"
             )
         out = fft(out, dim=dim)
-        numbers = np.rint(np.asarray(out[f"k_{dim}"]) * period / (2 * np.pi)).astype(
-            int
-        )
+        numbers = np.rint(np.asarray(out[f"k_{dim}"]) * period / (2 * np.pi)).astype(int)
         out = out.rename({f"k_{dim}": name}).assign_coords({name: numbers * int(factor)})
         out[name].attrs = {"long_name": f"mode number along {dim}"}
     out.name = "modes"
@@ -625,9 +531,7 @@ def mode_spectrum(
     return out
 
 
-def mode_amplitudes(
-    modes: xr.DataArray, *, top: int | None = None, real: bool = True
-) -> xr.DataArray:
+def mode_amplitudes(modes: xr.DataArray, *, top: int | None = None, real: bool = True) -> xr.DataArray:
     """Mode amplitudes from :func:`mode_spectrum`, stacked along one labeled ``mode`` dimension.
 
     With ``real=True`` (a real field), each ``(m, n)`` is combined with its conjugate
@@ -639,9 +543,7 @@ def mode_amplitudes(
     """
     names = modes.attrs.get("mode_names") or [d for d in modes.dims if d in ("m", "n")]
     if not names:
-        raise ValueError(
-            "expected the output of mode_spectrum (with mode_names in its attrs)"
-        )
+        raise ValueError("expected the output of mode_spectrum (with mode_names in its attrs)")
     stacked = abs(modes).stack(mode=names)
     numbers = np.array([stacked.indexes["mode"].get_level_values(n) for n in names]).T
     if real:
@@ -652,9 +554,7 @@ def mode_amplitudes(
         # the Nyquist mode of an even grid) already carries its full amplitude
         keep = (first > 0) | ~paired
         factor = np.where(paired & (first > 0), 2.0, 1.0)
-        stacked = stacked.isel(mode=np.flatnonzero(keep)) * xr.DataArray(
-            factor[keep], dims="mode"
-        )
+        stacked = stacked.isel(mode=np.flatnonzero(keep)) * xr.DataArray(factor[keep], dims="mode")
         numbers = numbers[keep]
     labels = ["(" + ", ".join(str(v) for v in row) + ")" for row in numbers]
     out = stacked.drop_vars(["mode", *names]).assign_coords(
@@ -755,9 +655,7 @@ def cross_spectrum(
         with np.errstate(invalid="ignore", divide="ignore"):
             coherence = abs(cross) / total
         variables["coherence"] = coherence.where(np.isfinite(coherence))
-    variables.update(
-        cross=cross, magnitude=abs(cross), phase=xr.apply_ufunc(np.angle, cross)
-    )
+    variables.update(cross=cross, magnitude=abs(cross), phase=xr.apply_ufunc(np.angle, cross))
     out = xr.Dataset(variables, attrs={**_provenance(first), "label": "cross-spectrum"})
     out["phase"].attrs = {
         "units": "rad",
@@ -802,23 +700,17 @@ def matrix_pencil(
     pencil = n // 2 if pencil is None else int(pencil)
     if not order <= pencil <= n - order or n < 2 * order + 1:
         raise ValueError(
-            f"{n} samples cannot fit {order} exponentials with pencil {pencil}; "
-            "use more samples or fewer modes"
+            f"{n} samples cannot fit {order} exponentials with pencil {pencil}; use more samples or fewer modes"
         )
     hankel = np.lib.stride_tricks.sliding_window_view(values, pencil + 1)
     _, singular, vh = np.linalg.svd(hankel, full_matrices=False)
-    signal = vh[
-        :order
-    ].T  # rows of vh span the Hankel row space, which holds [1, z, z**2, ...]
+    signal = vh[:order].T  # rows of vh span the Hankel row space, which holds [1, z, z**2, ...]
     z = np.linalg.eigvals(np.linalg.pinv(signal[:-1]) @ signal[1:])
     s = np.log(z.astype(complex)) / spacing
     vandermonde = z[None, :] ** np.arange(n)[:, None]
     a = np.linalg.lstsq(vandermonde, values, rcond=None)[0]
     fitted = vandermonde @ a
-    residual = float(
-        np.linalg.norm(fitted - values)
-        / max(np.linalg.norm(values), np.finfo(float).tiny)
-    )
+    residual = float(np.linalg.norm(fitted - values) / max(np.linalg.norm(values), np.finfo(float).tiny))
 
     omega, gamma, amplitude, phase = s.imag, s.real, np.abs(a), np.angle(a)
     if is_real:
@@ -827,9 +719,7 @@ def matrix_pencil(
         still = np.abs(omega) <= tolerance
         amplitude = np.where(keep, 2 * amplitude, amplitude)
         selected = keep | still
-        omega, gamma, amplitude, phase = (
-            x[selected] for x in (omega, gamma, amplitude, phase)
-        )
+        omega, gamma, amplitude, phase = (x[selected] for x in (omega, gamma, amplitude, phase))
         omega = np.abs(omega)
         # oscillations first (strongest first), then non-oscillating components
         ranking = np.lexsort((-amplitude, omega <= tolerance))[:n_modes]
