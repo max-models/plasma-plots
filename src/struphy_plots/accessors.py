@@ -19,184 +19,6 @@ Coordinates = Literal["logical", "physical"]
 Plane = Literal["XY", "XZ", "YZ", "RZ"]
 
 
-@xr.register_dataarray_accessor("struphy")
-class StruphyAccessor:
-    """Struphy diagnostics of one array: ``array.struphy.plot`` and ``array.struphy.analysis``."""
-
-    def __init__(self, array: xr.DataArray):
-        self._array = array
-
-    @property
-    def plot(self) -> "ArrayPlots":
-        """Plots of this array, e.g. ``array.struphy.plot.slice(x="e1", y="v1", t="last")``."""
-        return ArrayPlots(self._array)
-
-    @property
-    def analysis(self) -> "ArrayAnalysis":
-        """Diagnostics of this array, e.g. ``array.struphy.analysis.growth_rate()``."""
-        return ArrayAnalysis(self._array)
-
-    @property
-    def data(self) -> "ArrayData":
-        """The data behind each plot, without rendering it, e.g. for a different plotting
-        library: ``array.struphy.data.slice(x="e1", y="v1", t="last")``."""
-        return ArrayData(self._array)
-
-
-@xr.register_dataset_accessor("struphy")
-class StruphyDatasetAccessor:
-    """Struphy diagnostics of one dataset, e.g. an ``orbits`` product: ``dataset.struphy.plot``."""
-
-    def __init__(self, dataset: xr.Dataset):
-        self._dataset = dataset
-
-    @property
-    def plot(self) -> "DatasetPlots":
-        """Plots of this dataset, e.g. ``orbits.struphy.plot.trajectories()``."""
-        return DatasetPlots(self._dataset)
-
-    @property
-    def data(self) -> "DatasetData":
-        """The data behind each plot, without rendering it: ``orbits.struphy.data.scatter(...)``."""
-        return DatasetData(self._dataset)
-
-    @property
-    def analysis(self) -> "DatasetAnalysis":
-        """Diagnostics of this dataset, e.g. ``orbits.struphy.analysis.classify_orbits()``."""
-        return DatasetAnalysis(self._dataset)
-
-
-class DatasetAnalysis:
-    """Quantitative diagnostics of one dataset, as ``dataset.struphy.analysis.<quantity>(...)``."""
-
-    def __init__(self, dataset: xr.Dataset):
-        self._dataset = dataset
-
-    def classify_orbits(self, *, v_par: str = "v_par") -> xr.DataArray:
-        """Passing (0), trapped (1) or lost (-1) per marker of this guiding-center orbits product.
-
-        See :func:`struphy_plots.analysis.classify_orbits` for the criteria.
-        """
-        from .analysis import classify_orbits
-
-        return classify_orbits(self._dataset, v_par=v_par)
-
-
-class DatasetPlots:
-    """Plots of one dataset, as ``dataset.struphy.plot.<kind>(...)``."""
-
-    def __init__(self, dataset: xr.Dataset):
-        self._dataset = dataset
-
-    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
-        """Three-dimensional paths of saved markers, for an ``orbits`` product."""
-        from .plotting import plot_marker_trajectories
-
-        return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
-
-    def scatter(
-        self,
-        *,
-        x: str,
-        y: str,
-        color: str | None = None,
-        ax=None,
-        cmap=None,
-        s: int = 8,
-        **selection,
-    ):
-        """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
-
-        Remaining dimensions such as ``t`` are selected by keyword, exactly like
-        :meth:`ArrayPlots.lineout`: an integer is a position, ``"first"``/``"last"`` are the ends,
-        and a float is the nearest coordinate value.
-        """
-        from .plotting import plot_marker_scatter
-
-        return plot_marker_scatter(self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection)
-
-    def orbit_classification(
-        self,
-        *,
-        x: str = "v_par",
-        y: str | None = None,
-        v_par: str = "v_par",
-        t="first",
-        ax=None,
-        s: int = 8,
-    ):
-        """Markers in a phase-space plane (default: initial ``v_par`` against ``mu``), colored as
-        passing, trapped or lost; for a guiding-center orbits product.
-
-        See :func:`struphy_plots.plotting.plot_orbit_classification`.
-        """
-        from .plotting import plot_orbit_classification
-
-        return plot_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s)
-
-    def orbits_3d(
-        self,
-        *,
-        color_by: str = "t",
-        max_markers: int = 200,
-        tube_radius: float | None = None,
-        cmap=None,
-        domain: xr.DataArray | None = None,
-        title: str | None = None,
-        plotter=None,
-    ):
-        """PyVista 3-D orbit lines, colored by ``"t"``, ``"classification"`` or any variable;
-        ``domain`` is a field whose boundary is drawn for context.
-        See :func:`struphy_plots.pyvista_plots.pyvista_orbits`.
-        """
-        from .pyvista_plots import pyvista_orbits
-
-        return pyvista_orbits(
-            self._dataset,
-            color_by=color_by,
-            max_markers=max_markers,
-            tube_radius=tube_radius,
-            cmap=cmap,
-            domain=domain,
-            title=title,
-            plotter=plotter,
-        )
-
-
-class DatasetData:
-    """The data behind each plot in :class:`DatasetPlots`, without rendering it."""
-
-    def __init__(self, dataset: xr.Dataset):
-        self._dataset = dataset
-
-    def trajectories(self, *, max_markers: int = 200) -> xr.Dataset:
-        """The marker-position subset :meth:`DatasetPlots.trajectories` would plot."""
-        from .plotting import prepare_orbits
-
-        return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
-
-    def scatter(self, *, x: str, y: str, color: str | None = None, **selection) -> xr.Dataset:
-        """The selected dataset :meth:`DatasetPlots.scatter` would plot -- ``.to_dataframe()``
-        hands it straight to e.g. Plotly Express."""
-        from .plotting import resolve_marker_selection
-
-        missing = [name for name in (x, y) if name not in self._dataset.data_vars]
-        if missing:
-            raise ValueError(
-                f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}"
-            )
-        return resolve_marker_selection(self._dataset, selection)
-
-    def orbit_classification(
-        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t="first"
-    ) -> xr.Dataset:
-        """The per-marker ``x``, ``y`` and ``classification`` :meth:`DatasetPlots.orbit_classification`
-        would plot."""
-        from .plotting import prepare_orbit_classification
-
-        return prepare_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t)
-
-
 class _ArrayAccessor:
     def __init__(self, array: xr.DataArray):
         self._array = array
@@ -215,7 +37,9 @@ class _ArrayAccessor:
             elif value == "last":
                 index[dim] = -1
             elif isinstance(value, (bool, str)):
-                raise TypeError(f'cannot select {dim}={value!r}; use a number, or "first"/"last"')
+                raise TypeError(
+                    f'cannot select {dim}={value!r}; use a number, or "first"/"last"'
+                )
             elif isinstance(value, (int, np.integer)):
                 index[dim] = int(value)
             else:
@@ -270,9 +94,13 @@ class ArrayPlots(_ArrayAccessor):
         if fit is not None and fit is not False:
             window = (None, None) if fit is True else tuple(fit)
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
-        return plot_timeseries([self._array, *others], ax=ax, logy=logy, fit=growth, title=title)
+        return plot_timeseries(
+            [self._array, *others], ax=ax, logy=logy, fit=growth, title=title
+        )
 
-    def lineout(self, *, x: str | None = None, ax=None, title: str | None = None, **selection):
+    def lineout(
+        self, *, x: str | None = None, ax=None, title: str | None = None, **selection
+    ):
         """Plot a one-dimensional profile after selecting every other dimension."""
         from .plotting import _select, plot_lineout
 
@@ -304,24 +132,34 @@ class ArrayPlots(_ArrayAccessor):
             ax=ax,
         )
 
-    def volume_slices(self, *, indices: dict[str, int] | None = None, cmap=None, **selection):
+    def volume_slices(
+        self, *, indices: dict[str, int] | None = None, cmap=None, **selection
+    ):
         """Render three orthogonal slices of a selected scalar volume."""
         from .plotting import _select, plot_volume_slices
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return plot_volume_slices(_select(self._array, view), indices=indices, cmap=cmap)
+        return plot_volume_slices(
+            _select(self._array, view), indices=indices, cmap=cmap
+        )
 
-    def volume(self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection):
+    def volume(
+        self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection
+    ):
         """Create a PyVista volume plotter for a selected scalar field."""
         from .plotting import _select, pyvista_volume
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return pyvista_volume(_select(self._array, view), name=name, cmap=cmap, opacity=opacity)
+        return pyvista_volume(
+            _select(self._array, view), name=name, cmap=cmap, opacity=opacity
+        )
 
     def _spatial_selection(self, selection):
         from .plotting import _select
 
-        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
+        return _select(
+            self._array, self._view(None, None, "t", "logical", "XY", selection)
+        )
 
     def isosurface(
         self,
@@ -500,7 +338,9 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import plot_field_with_orbits
 
         view = self._view(x, y, "t", "logical", "XY", selection)
-        return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
+        return plot_field_with_orbits(
+            self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap
+        )
 
     def dispersion(
         self,
@@ -761,77 +601,14 @@ class ArrayPlots(_ArrayAccessor):
             **selection,
         ).save_frames(directory, step=step, prefix=prefix, dpi=dpi)
 
-    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
+    def trajectories(
+        self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None
+    ):
         """Three-dimensional paths of saved markers; for an orbit product."""
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(self._array, ax=ax, max_markers=max_markers, show_paths=show_paths)
-
-
-class SliceView:
-    """A configured array view, shared by static, interactive and exported plots.
-
-    Construct with ``array.struphy.plot.view(...)``. Configuration does not create
-    figures or copy the underlying array.
-    """
-
-    def __init__(self, array, coordinates, selection, options):
-        self._array = array
-        self._coordinates = dict(coordinates)
-        self._selection = dict(selection)
-        self._options = dict(options)
-
-    def _view(self, **selection):
-        return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
-
-    def slice(self, *, ax=None, **selection):
-        """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
-        # Resolve shared limits before selecting a single snapshot, so it uses
-        # the same scale as panels, animation and export of this configured view.
-        from .plotting import _SliceRenderer, plot_slice
-
-        options = dict(self._options)
-        if options["shared_clim"]:
-            renderer = _SliceRenderer(self._array, self._view(), **options)
-            options.update(zip(("vmin", "vmax"), renderer.limits))
-        return plot_slice(self._array, view=self._view(**selection), ax=ax, **options)
-
-    def panels(self, *, nrows=3, ncols=4):
-        """Draw snapshots spread along the sweep; return a PlotResult."""
-        from .plotting import plot_panels
-
-        return plot_panels(self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options)
-
-    def viewer(self):
-        """Create a viewer with sliders for unselected dimensions."""
-        from .plotting import InteractiveSliceViewer
-
-        return InteractiveSliceViewer(self._array, view=self._view(), **self._options)
-
-    def animation(self, *, interval=100, step=1):
-        """Create a Matplotlib animation using this view's rendering options."""
-        from .plotting import animate_slices
-
-        return animate_slices(
-            self._array,
-            view=self._view(),
-            interval=interval,
-            step=step,
-            **self._options,
-        )
-
-    def save_frames(self, directory, *, step=1, prefix="frame", dpi=110):
-        """Export PNG frames using this view's rendering options; return paths."""
-        from .plotting import save_frames
-
-        return save_frames(
-            self._array,
-            directory,
-            view=self._view(),
-            step=step,
-            prefix=prefix,
-            dpi=dpi,
-            **self._options,
+        return plot_marker_trajectories(
+            self._array, ax=ax, max_markers=max_markers, show_paths=show_paths
         )
 
 
@@ -864,9 +641,13 @@ class ArrayData(_ArrayAccessor):
         from .plotting import _select, prepare_vector
 
         view = self._view(None, None, "t", coordinates, "XY", selection)
-        return prepare_vector(_select(self._array, view), x=x, y=y, components=components, stride=stride)
+        return prepare_vector(
+            _select(self._array, view), x=x, y=y, components=components, stride=stride
+        )
 
-    def volume_slices(self, *, indices: dict[str, int] | None = None, **selection) -> dict[str, xr.DataArray]:
+    def volume_slices(
+        self, *, indices: dict[str, int] | None = None, **selection
+    ) -> dict[str, xr.DataArray]:
         """The three orthogonal planes :meth:`ArrayPlots.volume_slices` would plot."""
         from .plotting import _select, prepare_volume_slices
 
@@ -939,7 +720,9 @@ class ArrayData(_ArrayAccessor):
         selected, _grids = _slice_data(self._array, view)
         return selected
 
-    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+    def dispersion(
+        self, *, dim: str | None = None, detrend: bool = True
+    ) -> xr.DataArray:
         """The space-time power spectrum :meth:`ArrayPlots.dispersion` would plot. Same as
         :meth:`ArrayAnalysis.dispersion`; included here too for parity with every other plot.
         """
@@ -960,7 +743,9 @@ class ArrayData(_ArrayAccessor):
         """The marker-position subset :meth:`ArrayPlots.trajectories` would plot."""
         from .plotting import prepare_orbits
 
-        return prepare_orbits(self._array, max_markers=max_markers, required=("x", "y", "z"))
+        return prepare_orbits(
+            self._array, max_markers=max_markers, required=("x", "y", "z")
+        )
 
     def timeseries(self, *others) -> list[xr.DataArray]:
         """This time series and any ``others``, validated, as plotted by :meth:`ArrayPlots.timeseries`."""
@@ -1051,7 +836,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return velocity_moments(self._array, dims=dims)
 
-    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+    def dispersion(
+        self, *, dim: str | None = None, detrend: bool = True
+    ) -> xr.DataArray:
         """The space-time power spectrum of this ``(t, dim)`` field: a plain FFT, as a function of
         angular frequency and wavenumber -- the data behind a dispersion-relation plot
         (:meth:`ArrayPlots.dispersion`).
@@ -1085,4 +872,265 @@ class ArrayAnalysis(_ArrayAccessor):
             k_range=k_range,
             noise_level=noise_level,
             order=order,
+        )
+
+
+@xr.register_dataarray_accessor("struphy")
+class StruphyAccessor:
+    """Struphy diagnostics of one array: ``array.struphy.plot`` and ``array.struphy.analysis``."""
+
+    def __init__(self, array: xr.DataArray):
+        self._array = array
+
+    @property
+    def plot(self) -> "ArrayPlots":
+        """Plots of this array, e.g. ``array.struphy.plot.slice(x="e1", y="v1", t="last")``."""
+        return ArrayPlots(self._array)
+
+    @property
+    def analysis(self) -> "ArrayAnalysis":
+        """Diagnostics of this array, e.g. ``array.struphy.analysis.growth_rate()``."""
+        return ArrayAnalysis(self._array)
+
+    @property
+    def data(self) -> "ArrayData":
+        """The data behind each plot, without rendering it, e.g. for a different plotting
+        library: ``array.struphy.data.slice(x="e1", y="v1", t="last")``."""
+        return ArrayData(self._array)
+
+
+class DatasetAnalysis:
+    """Quantitative diagnostics of one dataset, as ``dataset.struphy.analysis.<quantity>(...)``."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    def classify_orbits(self, *, v_par: str = "v_par") -> xr.DataArray:
+        """Passing (0), trapped (1) or lost (-1) per marker of this guiding-center orbits product.
+
+        See :func:`struphy_plots.analysis.classify_orbits` for the criteria.
+        """
+        from .analysis import classify_orbits
+
+        return classify_orbits(self._dataset, v_par=v_par)
+
+
+class DatasetPlots:
+    """Plots of one dataset, as ``dataset.struphy.plot.<kind>(...)``."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    def trajectories(
+        self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None
+    ):
+        """Three-dimensional paths of saved markers, for an ``orbits`` product."""
+        from .plotting import plot_marker_trajectories
+
+        return plot_marker_trajectories(
+            self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths
+        )
+
+    def scatter(
+        self,
+        *,
+        x: str,
+        y: str,
+        color: str | None = None,
+        ax=None,
+        cmap=None,
+        s: int = 8,
+        **selection,
+    ):
+        """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
+
+        Remaining dimensions such as ``t`` are selected by keyword, exactly like
+        :meth:`ArrayPlots.lineout`: an integer is a position, ``"first"``/``"last"`` are the ends,
+        and a float is the nearest coordinate value.
+        """
+        from .plotting import plot_marker_scatter
+
+        return plot_marker_scatter(
+            self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection
+        )
+
+    def orbit_classification(
+        self,
+        *,
+        x: str = "v_par",
+        y: str | None = None,
+        v_par: str = "v_par",
+        t="first",
+        ax=None,
+        s: int = 8,
+    ):
+        """Markers in a phase-space plane (default: initial ``v_par`` against ``mu``), colored as
+        passing, trapped or lost; for a guiding-center orbits product.
+
+        See :func:`struphy_plots.plotting.plot_orbit_classification`.
+        """
+        from .plotting import plot_orbit_classification
+
+        return plot_orbit_classification(
+            self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s
+        )
+
+    def orbits_3d(
+        self,
+        *,
+        color_by: str = "t",
+        max_markers: int = 200,
+        tube_radius: float | None = None,
+        cmap=None,
+        domain: xr.DataArray | None = None,
+        title: str | None = None,
+        plotter=None,
+    ):
+        """PyVista 3-D orbit lines, colored by ``"t"``, ``"classification"`` or any variable;
+        ``domain`` is a field whose boundary is drawn for context.
+        See :func:`struphy_plots.pyvista_plots.pyvista_orbits`.
+        """
+        from .pyvista_plots import pyvista_orbits
+
+        return pyvista_orbits(
+            self._dataset,
+            color_by=color_by,
+            max_markers=max_markers,
+            tube_radius=tube_radius,
+            cmap=cmap,
+            domain=domain,
+            title=title,
+            plotter=plotter,
+        )
+
+
+class DatasetData:
+    """The data behind each plot in :class:`DatasetPlots`, without rendering it."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    def trajectories(self, *, max_markers: int = 200) -> xr.Dataset:
+        """The marker-position subset :meth:`DatasetPlots.trajectories` would plot."""
+        from .plotting import prepare_orbits
+
+        return prepare_orbits(
+            self._dataset, max_markers=max_markers, required=("x", "y", "z")
+        )
+
+    def scatter(
+        self, *, x: str, y: str, color: str | None = None, **selection
+    ) -> xr.Dataset:
+        """The selected dataset :meth:`DatasetPlots.scatter` would plot -- ``.to_dataframe()``
+        hands it straight to e.g. Plotly Express."""
+        from .plotting import resolve_marker_selection
+
+        missing = [name for name in (x, y) if name not in self._dataset.data_vars]
+        if missing:
+            raise ValueError(
+                f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}"
+            )
+        return resolve_marker_selection(self._dataset, selection)
+
+    def orbit_classification(
+        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t="first"
+    ) -> xr.Dataset:
+        """The per-marker ``x``, ``y`` and ``classification`` :meth:`DatasetPlots.orbit_classification`
+        would plot."""
+        from .plotting import prepare_orbit_classification
+
+        return prepare_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t)
+
+
+@xr.register_dataset_accessor("struphy")
+class StruphyDatasetAccessor:
+    """Struphy diagnostics of one dataset, e.g. an ``orbits`` product: ``dataset.struphy.plot``."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    @property
+    def plot(self) -> "DatasetPlots":
+        """Plots of this dataset, e.g. ``orbits.struphy.plot.trajectories()``."""
+        return DatasetPlots(self._dataset)
+
+    @property
+    def data(self) -> "DatasetData":
+        """The data behind each plot, without rendering it: ``orbits.struphy.data.scatter(...)``."""
+        return DatasetData(self._dataset)
+
+    @property
+    def analysis(self) -> "DatasetAnalysis":
+        """Diagnostics of this dataset, e.g. ``orbits.struphy.analysis.classify_orbits()``."""
+        return DatasetAnalysis(self._dataset)
+
+
+class SliceView:
+    """A configured array view, shared by static, interactive and exported plots.
+
+    Construct with ``array.struphy.plot.view(...)``. Configuration does not create
+    figures or copy the underlying array.
+    """
+
+    def __init__(self, array, coordinates, selection, options):
+        self._array = array
+        self._coordinates = dict(coordinates)
+        self._selection = dict(selection)
+        self._options = dict(options)
+
+    def _view(self, **selection):
+        return ArrayPlots(self._array)._view(
+            **self._coordinates, selection={**self._selection, **selection}
+        )
+
+    def slice(self, *, ax=None, **selection):
+        """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
+        # Resolve shared limits before selecting a single snapshot, so it uses
+        # the same scale as panels, animation and export of this configured view.
+        from .plotting import _SliceRenderer, plot_slice
+
+        options = dict(self._options)
+        if options["shared_clim"]:
+            renderer = _SliceRenderer(self._array, self._view(), **options)
+            options.update(zip(("vmin", "vmax"), renderer.limits))
+        return plot_slice(self._array, view=self._view(**selection), ax=ax, **options)
+
+    def panels(self, *, nrows=3, ncols=4):
+        """Draw snapshots spread along the sweep; return a PlotResult."""
+        from .plotting import plot_panels
+
+        return plot_panels(
+            self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options
+        )
+
+    def viewer(self):
+        """Create a viewer with sliders for unselected dimensions."""
+        from .plotting import InteractiveSliceViewer
+
+        return InteractiveSliceViewer(self._array, view=self._view(), **self._options)
+
+    def animation(self, *, interval=100, step=1):
+        """Create a Matplotlib animation using this view's rendering options."""
+        from .plotting import animate_slices
+
+        return animate_slices(
+            self._array,
+            view=self._view(),
+            interval=interval,
+            step=step,
+            **self._options,
+        )
+
+    def save_frames(self, directory, *, step=1, prefix="frame", dpi=110):
+        """Export PNG frames using this view's rendering options; return paths."""
+        from .plotting import save_frames
+
+        return save_frames(
+            self._array,
+            directory,
+            view=self._view(),
+            step=step,
+            prefix=prefix,
+            dpi=dpi,
+            **self._options,
         )

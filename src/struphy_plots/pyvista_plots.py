@@ -27,12 +27,16 @@ def _pv():
     try:
         import pyvista
     except ImportError as error:  # pragma: no cover
-        raise ImportError('PyVista plots need the optional extra: pip install "struphy-plots[pyvista]"') from error
+        raise ImportError(
+            'PyVista plots need the optional extra: pip install "struphy-plots[pyvista]"'
+        ) from error
     return pyvista
 
 
 def _label(data):
-    return data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
+    return (
+        data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
+    )
 
 
 def _plotter(plotter):
@@ -48,15 +52,25 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
     validate_array(data, required_dims=extra)
     others = set(data.dims) - {*extra, *SPATIAL}
     if others:
-        raise ValueError(f"select every dimension except {(*extra, *SPATIAL)} first; {sorted(others)} remain")
+        raise ValueError(
+            f"select every dimension except {(*extra, *SPATIAL)} first; {sorted(others)} remain"
+        )
     missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
     if missing:
-        raise ValueError(f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}")
+        raise ValueError(
+            f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}"
+        )
     absent = [dim for dim in SPATIAL if dim not in data.dims]
     if len(absent) > 1:
-        raise ValueError(f"3-D views need at least two of e1, e2, e3; {data.name!r} has dims {data.dims}")
+        raise ValueError(
+            f"3-D views need at least two of e1, e2, e3; {data.name!r} has dims {data.dims}"
+        )
     for dim in absent:
-        data = data.expand_dims(dim) if dim in data.coords else data.expand_dims({dim: [0.0]})
+        data = (
+            data.expand_dims(dim)
+            if dim in data.coords
+            else data.expand_dims({dim: [0.0]})
+        )
     coords = {}
     for name in ("X", "Y", "Z"):
         coordinate = data.coords[name]
@@ -90,7 +104,9 @@ def _camera(plotter, grid):
     if normal is None:
         return
     axis = int(np.abs(normal).argmax())
-    if abs(normal[axis]) > 0.999:  # an axis-aligned plane: keep both in-plane axes pointing right/up
+    if (
+        abs(normal[axis]) > 0.999
+    ):  # an axis-aligned plane: keep both in-plane axes pointing right/up
         (plotter.view_yz, plotter.view_xz, plotter.view_xy)[axis]()
     else:
         up = (0.0, 0.0, 1.0) if abs(normal[2]) < 0.9 else (0.0, 1.0, 0.0)
@@ -99,7 +115,10 @@ def _camera(plotter, grid):
 
 
 def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    return tuple(np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float) for name in ("X", "Y", "Z"))
+    return tuple(
+        np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float)
+        for name in ("X", "Y", "Z")
+    )
 
 
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
@@ -116,7 +135,9 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
     name = name or _label(data)
     if vector:
         if data.sizes["component"] != 3:
-            raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+            raise ValueError(
+                f"a vector field needs 3 components; got {data.sizes['component']}"
+            )
         vectors = np.stack([np.asarray(c).ravel(order="F") for c in data], axis=-1)
         grid.point_data[name] = vectors
         grid.point_data[f"|{name}|"] = np.linalg.norm(vectors, axis=1)
@@ -137,7 +158,9 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
     """
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
-        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+        raise ValueError(
+            f"a vector field needs 3 components; got {data.sizes['component']}"
+        )
     short = [dim for dim in SPATIAL if data.sizes[dim] < 2]
     if short:
         raise ValueError(f"pushing forward needs at least two points along {short}")
@@ -156,7 +179,9 @@ def _vector_grid(data, components, name):
     if components == "contravariant":
         data = push_forward(data)
     elif components != "cartesian":
-        raise ValueError(f'components must be "cartesian" or "contravariant"; got {components!r}')
+        raise ValueError(
+            f'components must be "cartesian" or "contravariant"; got {components!r}'
+        )
     return structured_grid(data, name=name)
 
 
@@ -169,7 +194,9 @@ def _clim(values, clim):
         return tuple(clim)
     finite = np.asarray(values)[np.isfinite(values)]
     if not finite.size:
-        raise ValueError("cannot determine color limits without finite values; pass clim")
+        raise ValueError(
+            "cannot determine color limits without finite values; pass clim"
+        )
     return float(finite.min()), float(finite.max())
 
 
@@ -265,7 +292,9 @@ def pyvista_isosurface(
     grid = structured_grid(data)
     name = grid.active_scalars_name
     lo, hi = _clim(grid[name], clim)
-    levels = np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    levels = (
+        np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    )
     own = plotter is None
     plotter = _plotter(plotter)
     contours = grid.contour(isosurfaces=list(levels), scalars=name)
@@ -294,7 +323,9 @@ def pyvista_isosurface(
                 scalar_bar_args=bar,
                 name="isosurface",
             )
-    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
+    return _finish(
+        plotter, _label(data) if title is None else title, grid if own else None
+    )
 
 
 def _cut_indices(data, cuts):
@@ -317,7 +348,9 @@ def _cut_indices(data, cuts):
     return indices
 
 
-def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[xr.DataArray]:
+def prepare_slices_3d(
+    data: xr.DataArray, *, cuts: dict | None = None
+) -> list[xr.DataArray]:
     """The logical cuts of a scalar ``(e1, e2, e3)`` field that :func:`pyvista_slices` draws.
 
     ``cuts`` maps ``e1``/``e2``/``e3`` to one position or a list: a float is the nearest
@@ -331,7 +364,11 @@ def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[x
         if 1 in data.shape:
             return [data]
         cuts = {dim: data.sizes[dim] // 2 for dim in SPATIAL}
-    return [data.isel({dim: [index]}) for dim, indices in _cut_indices(data, cuts).items() for index in indices]
+    return [
+        data.isel({dim: [index]})
+        for dim, indices in _cut_indices(data, cuts).items()
+        for index in indices
+    ]
 
 
 def pyvista_slices(
@@ -370,7 +407,9 @@ def pyvista_slices(
             scalar_bar_args=_bar(value_label(data)),
             name=f"slice{i}",
         )
-    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
+    return _finish(
+        plotter, _label(data) if title is None else title, grid if own else None
+    )
 
 
 def pyvista_glyphs(
@@ -395,7 +434,9 @@ def pyvista_glyphs(
         raise ValueError("stride must be positive")
     name = _label(data)
     full = _vector_grid(data, components, name)
-    thinned = _vector_grid(data.isel({dim: slice(None, None, stride) for dim in SPATIAL}), components, name)
+    thinned = _vector_grid(
+        data.isel({dim: slice(None, None, stride) for dim in SPATIAL}), components, name
+    )
     magnitude = thinned[f"|{name}|"]
     peak = float(magnitude.max()) if magnitude.size else 0.0
     length = 0.1 * full.length if scale is None else scale
@@ -442,7 +483,9 @@ def pyvista_streamlines(
     max_length = 4 * grid.length if max_length is None else max_length
     if is_flat(grid):
         # Seeding in a sphere would miss a plane; seed on the grid itself instead.
-        seeds = np.linspace(0, grid.n_points - 1, min(n_points, grid.n_points)).astype(int)
+        seeds = np.linspace(0, grid.n_points - 1, min(n_points, grid.n_points)).astype(
+            int
+        )
         lines = grid.streamlines_from_source(
             pv.PolyData(np.asarray(grid.points)[seeds]),
             vectors=name,
@@ -454,7 +497,9 @@ def pyvista_streamlines(
         lines = grid.streamlines(
             vectors=name,
             n_points=n_points,
-            source_radius=(0.25 * grid.length if source_radius is None else source_radius),
+            source_radius=(
+                0.25 * grid.length if source_radius is None else source_radius
+            ),
             source_center=grid.center if source_center is None else source_center,
             max_length=max_length,
             integration_direction="both",
@@ -501,11 +546,15 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     if color_by == "t":
         colors = np.broadcast_to(np.asarray(subset.t)[:, None], alive.shape)
     elif color_by == "classification":
-        colors = np.broadcast_to(np.asarray(classify_orbits(subset))[None, :], alive.shape)
+        colors = np.broadcast_to(
+            np.asarray(classify_orbits(subset))[None, :], alive.shape
+        )
     elif color_by in subset.data_vars:
         colors = np.asarray(subset[color_by].transpose("t", "marker"))
     else:
-        raise ValueError(f'color_by must be "t", "classification" or a variable of {tuple(subset.data_vars)}')
+        raise ValueError(
+            f'color_by must be "t", "classification" or a variable of {tuple(subset.data_vars)}'
+        )
     points, cells, scalars = [], [], []
     for marker in range(positions.shape[1]):
         keep = np.flatnonzero(alive[:, marker])
@@ -591,7 +640,9 @@ def pyvista_domain(
     2-D run's plane.
     """
     pv = _pv()
-    fine = [np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)]
+    fine = [
+        np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)
+    ]
     x, y, z = (np.asarray(c, dtype=float) for c in domain(*fine, squeeze_out=False))
     grid = pv.StructuredGrid(x, y, z)
     own = plotter is None
