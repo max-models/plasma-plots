@@ -73,11 +73,7 @@ def run_simulation() -> Output:
         model=model,
         env=EnvironmentOptions(sim_folder="mhd_slab_waves"),
         time_opts=Time(dt=0.15, Tend=180.0),
-        # r3 and num_elements are scaled up together (x4) from the original 60.0/64: the FFT's k
-        # spacing is set by the domain length alone (dk = 2*pi/r3), so a longer domain sharpens
-        # the dispersion plot's k-axis, while scaling num_elements along with it keeps the same
-        # element size and thus the same k_max (Nyquist) as before.
-        domain=domains.Cuboid(r3=240.0),
+        domain=domains.Cuboid(r3=60.0),
         grid=grids.TensorProductGrid(num_elements=(1, 1, 256)),
         derham_opts=DerhamOptions(degree=(1, 1, 3)),
         equil=equil,
@@ -98,7 +94,7 @@ def pproc(out: Output):
     pressure_spectrum = pressure.struphy.analysis.dispersion(dim="e3")
 
     (alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(n_branches=1, noise_level=0.5)
-    slow_branch, fast_branch = pressure_spectrum.struphy.analysis.fit_branches(n_branches=2, noise_level=0.4)
+    slow_branch, fast_branch = pressure_spectrum.struphy.analysis.fit_branches(n_branches=2, noise_level=0.1)
     measured_alfven, measured_slow, measured_fast = (
         alfven_branch.velocity,
         slow_branch.velocity,
@@ -108,7 +104,10 @@ def pproc(out: Output):
     for branch, exact in exact_speeds.items():
         print(f"{branch}: measured {measured_speeds[branch]:.4f}, exact {exact:.4f}")
 
-    kmax, omega_max = 0.5, 1.3 * exact_speeds["fast magnetosonic"] * 0.5
+    # Show the whole resolved spectrum, as struphy's own gallery script does, rather than an
+    # arbitrary crop -- k_top is the largest k either field's FFT actually resolves.
+    k_top = min(float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max()))
+    kmax, omega_max = k_top, exact_speeds["fast magnetosonic"] * k_top
 
     velocity_path = OUT / "real_dispersion_velocity.png"
     velocity_result = velocity.struphy.plot.dispersion(
