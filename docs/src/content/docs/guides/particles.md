@@ -1,6 +1,6 @@
 ---
 title: Particles & distributions
-description: Phase-space slices, velocity moments, spatial averages, and marker trajectories.
+description: Phase-space slices, velocity moments, spatial averages, marker trajectories, scatter, and orbit overlays.
 ---
 
 ## Phase-space slices
@@ -51,3 +51,31 @@ saved quantity: `x`, `y`, `z`, `v1`, `v2`, `v3`, `weight`, ...), or on the
 older `(t, marker, quantity)` `DataArray` form.
 
 ![3-D marker trajectories](../../../assets/figures/trajectories.png)
+
+## Marker scatter and particle clouds
+
+```python
+markers.struphy.plot.scatter(x="x", y="y", color="density", t="last")
+```
+
+Scatters two position-like variables from any per-marker Dataset (not just
+an orbits product — any Dataset with a `marker` dimension), optionally
+colored by a third variable such as a density, weight, or a Lagrangian
+tracer a particle carries. Useful for checking a marker loading scheme, or
+visualizing an SPH particle cloud:
+
+![An expanding particle cloud, colored by a density-like tracer](../../../assets/figures/marker_scatter.png)
+
+## Orbits over a background field
+
+```python
+field.struphy.plot.overlay_orbits(orbits, x="e1", y="e2", t="last")
+```
+
+Draws this field's 2-D slice with marker paths from an orbits-like Dataset
+overlaid — a Poincare-style diagnostic for checking particle confinement or
+orbit topology against a background field (e.g. `|B|` or a flux function in
+a poloidal cross-section). `orbits` needs position variables named `x` and
+`y` too, matching the field's chosen axes:
+
+![Confined orbits at different radii overlaid on a potential well](../../../assets/figures/orbit_overlay.png)

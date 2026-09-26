@@ -62,6 +62,17 @@ class DatasetPlots:
 
         return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
+    def scatter(self, *, x: str, y: str, color: str | None = None, ax=None, cmap=None, s: int = 8, **selection):
+        """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
+
+        Remaining dimensions such as ``t`` are selected by keyword, exactly like
+        :meth:`ArrayPlots.lineout`: an integer is a position, ``"first"``/``"last"`` are the ends,
+        and a float is the nearest coordinate value.
+        """
+        from .plotting import plot_marker_scatter
+
+        return plot_marker_scatter(self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection)
+
 
 class _ArrayAccessor:
     def __init__(self, array: xr.DataArray):
@@ -169,6 +180,20 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import plot_compare
 
         return plot_compare(self._array, other, mode=mode, ax=ax)
+
+    def overlay_orbits(
+        self, orbits: xr.Dataset, *, x: str, y: str, max_markers: int = 200, ax=None, cmap=None, **selection
+    ):
+        """This field slice with marker orbit paths from ``orbits`` overlaid: a Poincare-style
+        diagnostic for checking particle confinement or orbit topology against a background field.
+
+        ``orbits`` must have position variables named ``x`` and ``y`` too (e.g. logical ``e1``,
+        ``e2``, to overlay directly on a logical-coordinates slice of this field).
+        """
+        from .plotting import plot_field_with_orbits
+
+        view = self._view(x, y, "t", "logical", "XY", selection)
+        return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
 
     def view(
         self,

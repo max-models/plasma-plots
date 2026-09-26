@@ -26,7 +26,7 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import plot_scalars
+from struphy_plots.plotting import plot_convergence, plot_scalars
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -233,6 +233,57 @@ orbits = xr.Dataset(
     attrs={"product": "orbits", "label": "marker orbits"},
 )
 save(orbits.struphy.plot.trajectories(show_paths=True), "trajectories.png")
+
+# A cloud of Lagrangian particles (e.g. an SPH gas expansion), colored by a
+# tracer they carry -- their own initial radius.
+n_particles = 400
+rng_p = np.random.default_rng(2)
+angle = rng_p.uniform(0, 2 * np.pi, n_particles)
+radius0 = rng_p.rayleigh(0.15, n_particles)
+tracer = radius0.copy()
+expansion = 2.2
+x_p = expansion * radius0 * np.cos(angle)
+y_p = expansion * radius0 * np.sin(angle)
+cloud = xr.Dataset(
+    {"x": ("marker", x_p), "y": ("marker", y_p), "density": ("marker", np.exp(-(radius0**2) / (2 * 0.15**2)))},
+    coords={"marker": np.arange(n_particles)},
+    attrs={"label": "Expanding particle cloud"},
+)
+save(cloud.struphy.plot.scatter(x="x", y="y", color="density"), "marker_scatter.png")
+
+# Marker orbits overlaid on a background field (a Poincare-style diagnostic):
+# a potential well with a few near-circular confined orbits at different radii.
+n_bg = 96
+e1_bg, e2_bg = np.linspace(0.0, 1.0, n_bg), np.linspace(0.0, 1.0, n_bg)
+E1_BG, E2_BG = np.meshgrid(e1_bg, e2_bg, indexing="ij")
+well = field_array(
+    "phi", r"$\phi$", "a.u.", np.exp(-((E1_BG - 0.5) ** 2 + (E2_BG - 0.5) ** 2) / (2 * 0.2**2)), ("e1", "e2"),
+    {"e1": e1_bg, "e2": e2_bg},
+)
+n_orbit_steps, n_confined = 60, 6
+s_orbit = np.linspace(0.0, 2 * np.pi, n_orbit_steps)
+radii_orbit = np.linspace(0.15, 0.3, n_confined)
+phases_orbit = rng_p.uniform(0, 2 * np.pi, n_confined)
+orbit_e1 = 0.5 + radii_orbit[None, :] * np.cos(s_orbit[:, None] + phases_orbit[None, :])
+orbit_e2 = 0.5 + radii_orbit[None, :] * np.sin(s_orbit[:, None] + phases_orbit[None, :])
+confined_orbits = xr.Dataset(
+    {"e1": (("t", "marker"), orbit_e1), "e2": (("t", "marker"), orbit_e2)},
+    coords={"t": s_orbit, "marker": np.arange(n_confined)},
+)
+save(well.struphy.plot.overlay_orbits(confined_orbits, x="e1", y="e2"), "orbit_overlay.png")
+
+
+# =============================================================================
+# Diagnostics: a convergence study
+# =============================================================================
+sizes = np.array([8.0, 16.0, 32.0, 64.0, 128.0])
+first_order = 0.4 / sizes
+second_order = 0.4 / sizes**2
+fig, ax = plt.subplots()
+plot_convergence(sizes, first_order, ax=ax, label="scheme A")
+plot_convergence(sizes, second_order, ax=ax, label="scheme B")
+ax.legend(fontsize="small")
+save_fig(fig, "convergence.png")
 
 
 # =============================================================================

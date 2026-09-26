@@ -12,10 +12,12 @@ from struphy_plots.plotting import (  # noqa: E402
     InteractiveSliceViewer,
     View,
     animate_slices,
+    convergence_order,
     drift,
     growth_rate,
     logical_grids,
     physical_grids,
+    plot_convergence,
     plot_lineout,
     plot_panels,
     plot_scalars,
@@ -61,6 +63,18 @@ def physical_field():
 def scalar_dataset():
     t = np.linspace(0, 1, 6)
     return xr.Dataset({"en_tot": ("t", 2 + 0.02 * t), "en_e": ("t", 1 + 0.1 * t)}, coords={"t": t})
+
+
+def orbits_dataset(n_t=5, n_m=6):
+    rng = np.random.default_rng(0)
+    return xr.Dataset(
+        {
+            "x": (("t", "marker"), rng.uniform(-1, 1, (n_t, n_m))),
+            "y": (("t", "marker"), rng.uniform(-1, 1, (n_t, n_m))),
+            "weight": (("t", "marker"), rng.uniform(0, 1, (n_t, n_m))),
+        },
+        coords={"t": np.linspace(0, 1, n_t), "marker": np.arange(n_m)},
+    )
 
 
 def test_lineout_vector_and_orthogonal_volume_slices_render():
@@ -295,4 +309,58 @@ def test_sweep_rejects_invalid_step(tmp_path, step):
         animate_slices(phase_space(), view=View(x="e1", y="v1"), step=step)
     with pytest.raises(ValueError, match="positive integer"):
         save_frames(phase_space(), tmp_path, view=View(x="e1", y="v1"), step=step)
+
+
+def test_convergence_order_fits_the_slope_in_log_log_space():
+    sizes = np.array([8.0, 16.0, 32.0, 64.0])
+    errors = 0.5 * (1.0 / sizes) ** 2
+    fit = convergence_order(sizes, errors)
+    assert fit is not None
+    assert fit.order == pytest.approx(-2.0, abs=1e-6)
+
+    result = plot_convergence(sizes, errors)
+    assert len(result.artists) == 2  # data points, and the fitted order line
+
+
+def test_convergence_order_needs_two_positive_finite_samples():
+    assert convergence_order([1.0], [1.0]) is None
+    assert convergence_order([1.0, 2.0], [1.0, -1.0]) is None
+
+
+def test_plot_convergence_with_explicit_order_draws_a_reference_instead_of_fitting():
+    result = plot_convergence([1.0, 2.0, 4.0], [1.0, 0.3, 0.09], order=2)
+    assert len(result.artists) == 2
+    assert "order 2" in result.artists[1].get_label()
+
+
+def test_marker_scatter_selects_a_time_and_colors_by_a_variable():
+    markers = orbits_dataset(n_t=5, n_m=6)
+    result = markers.struphy.plot.scatter(x="x", y="y", color="weight", t="last")
+    assert result.artists[0].get_offsets().shape == (6, 2)
+    assert result.fig.axes[-1].get_ylabel()  # the colorbar carries the color variable's label
+
+
+def test_marker_scatter_rejects_unknown_variables_and_unresolved_dimensions():
+    markers = orbits_dataset()
+    with pytest.raises(ValueError, match="not data variables"):
+        markers.struphy.plot.scatter(x="missing", y="y")
+    with pytest.raises(ValueError, match="select every dimension"):
+        markers.struphy.plot.scatter(x="x", y="y")
+
+
+def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
+    e1, e2 = np.linspace(0, 1, 5), np.linspace(0, 1, 5)
+    field = data_array(np.ones((5, 5)), ("e1", "e2"), {"e1": e1, "e2": e2}, name="phi")
+    n_t, n_m = 4, 3
+    track = np.linspace(0.2, 0.8, n_t)[:, None] * np.ones((1, n_m))
+    orbits = xr.Dataset(
+        {"e1": (("t", "marker"), track), "e2": (("t", "marker"), track)},
+        coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
+    )
+
+    result = field.struphy.plot.overlay_orbits(orbits, x="e1", y="e2")
+    assert len(result.artists) == 1 + n_m  # the field mesh, plus one path per marker
+
+    with pytest.raises(ValueError, match="position variable"):
+        field.struphy.plot.overlay_orbits(orbits.rename({"e1": "px"}), x="e1", y="e2")
 

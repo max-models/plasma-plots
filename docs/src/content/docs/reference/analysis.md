@@ -37,3 +37,12 @@ Density, mean velocity, and variance over velocity dimensions. Returns an
 ### `dispersion(*, component=0, slice_at=(None, 0, 0), physical=False, **kwargs)`
 Space-time power spectrum and dispersion-relation fit. Requires normalized
 time and the main `struphy` package (`struphy.post_processing.spectral`).
+
+## Standalone functions
+
+### `struphy_plots.analysis.convergence_order(sizes, errors)`
+Fits `error = constant * size**order` in log-log space, for a convergence
+study (`sizes` a resolution or step size, `errors` the corresponding error
+norms). Returns a `ConvergenceFit` (`.order`, `.constant`, `.sizes`,
+`.fitted`), or `None` with fewer than two valid (finite, positive) samples.
+Used by `struphy_plots.plotting.plot_convergence`.

@@ -49,6 +49,23 @@ conserved:
 
 ![Relative energy-conservation error growing over a run](../../../assets/figures/relative_error.png)
 
+## Convergence studies
+
+```python
+from struphy_plots.plotting import plot_convergence
+
+plot_convergence(resolutions, errors, order=2)  # a reference slope
+plot_convergence(resolutions, errors)           # or fit the observed order
+```
+
+`plot_convergence` is a standalone function (not tied to a single array —
+`resolutions`/`errors` are usually your own arrays from a resolution or `dt`
+scan), plotted log-log. Give it an explicit `order` to draw a reference
+slope (e.g. `2` for an expected second-order scheme), or leave it to fit and
+report the observed order via `struphy_plots.analysis.convergence_order`:
+
+![Two schemes' error decaying with resolution, each with a fitted order](../../../assets/figures/convergence.png)
+
 ## Distribution moments and spatial averaging
 
 `spatial_average()` and `velocity_moments()` work on binned distribution
