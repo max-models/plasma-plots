@@ -67,12 +67,12 @@ points and `coherence = |Σ cross| / Σ |cross|` (0 to 1) is added.
 
 ## Modes and eigenfunctions
 
-### `mode_spectrum(data, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0, scale=1)`
+### `mode_spectrum(data, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0, scale=1)`
 Complex Fourier amplitudes over integer mode numbers along periodic
 directions, with a duplicate endpoint dropped first. Each direction must sample
 a full period. `scale` multiplies the mode numbers, e.g. `(1, 6)` for
 full-torus `n` of a sixth of a torus. Other dimensions are
-kept, e.g. `(t, e1, m, n)`.
+kept, e.g. `(t, eta1, m, n)`.
 
 ### `mode_amplitudes(modes, *, top=None, real=True)`
 Stacks a mode spectrum along one labeled `mode` dimension, with coordinates
@@ -98,7 +98,7 @@ The real signal described by a fit, at times `t`.
 ## Plots (`struphy_plots.spectral_plots`)
 
 Each returns a `PlotResult`. The accessor forms take keyword selections of
-every dimension except `t` (and those a plot keeps), e.g. `e1=0.5`.
+every dimension except `t` (and those a plot keeps), e.g. `eta1=0.5`.
 
 ### `plot_power_spectrum(data, *, dims=None, detrend=True, window=None, peaks=None, band=None, frequencies=None, logy=True, dynamic_range=8.0, omega_max=None)`
 Power per bin, averaged over `dims` (default: all but `component`), with one
@@ -108,7 +108,7 @@ reference `frequencies`. Accessor: `plot.power_spectrum(...)`, and
 
 ### `plot_filtered(data, result, **selection)`
 A probe of the signal, minus its mean, against its filtered reconstruction.
-Accessor: `plot.filtered(result, e1=..., ...)`.
+Accessor: `plot.filtered(result, eta1=..., ...)`.
 
 ### `plot_spectrogram(power, *, log=True, dynamic_range=4.0, omega_max=None, frequencies=None)`
 Power over `(t, omega)`. Accessor: `plot.spectrogram(length=..., step=...)`,
@@ -122,12 +122,12 @@ or `True`. Accessor: `plot.mode_amplitudes(top=..., fit=..., reduce="max")`.
 The absolute amplitude over the `(m, n)` plane. Accessor:
 `plot.mode_map(t="last", ...)`.
 
-### `plot_radial_power(power, *, x="e1", x_of=None, continuum=None, log=True, dynamic_range=3.0, omega_max=None)`
+### `plot_radial_power(power, *, x="eta1", x_of=None, continuum=None, log=True, dynamic_range=3.0, omega_max=None)`
 Power over `(omega, radius)`. `x_of` maps the coordinate to the plotted axis,
 and `continuum` is a `(spectrum, modes)` pair or a prepared continuous
 spectrum. Accessor: `plot.radial_power(...)`, which averages the angles.
 
-### `plot_mode_profiles(structure, *, x="e1", x_of=None, top=4, phase=True)`
+### `plot_mode_profiles(structure, *, x="eta1", x_of=None, top=4, phase=True)`
 Radial amplitude and phase of each harmonic; `(m, n)` and `(-m, -n)` count as
 one. Accessor: `plot.mode_profiles(omega, ...)` for the eigenfunction at a
 frequency, or `plot.mode_profiles(t=...)` for the amplitudes at one time; both

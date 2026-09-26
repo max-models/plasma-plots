@@ -36,7 +36,7 @@ oscillation sits at r = 0.8.
   and a mode exp(2πi(m η₂ + n η₃)) at (m, n).
 - Grids must be uniform, finite and strictly increasing. Periodic spatial
   grids that include both endpoints need
-  `.struphy.analysis.drop_periodic_endpoint("e2")` before `fft` (the mode
+  `.struphy.analysis.drop_periodic_endpoint("eta2")` before `fft` (the mode
   tools do this themselves).
 
 The dispersion plot (`plot.dispersion()`) is built on the same `fft`, so its
@@ -46,10 +46,10 @@ power follows these conventions too.
 
 ```python
 spectrum = phi.struphy.analysis.time_fft(detrend=True)   # Dataset: coefficients, power
-spectrum.power.mean(("e1", "e2", "e3"))                   # power per bin, averaged over space
+spectrum.power.mean(("eta1", "eta2", "eta3"))                   # power per bin, averaged over space
 phi.struphy.analysis.spectral_peaks(n_peaks=2)           # peak frequencies, refined below the bin spacing
 
-band = phi.struphy.analysis.filter_time(dims=("e1", "e2", "e3"), pad_bins=3)
+band = phi.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
 phi.struphy.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap-centre estimate": omega_tae})
 ```
 
@@ -75,10 +75,10 @@ keeps the zero frequency. `pad_bins` widens the band. That matters for a
 growing or damped mode, whose line is broader than one bin:
 
 ```python
-band = phi.struphy.analysis.filter_time(dims=("e1", "e2", "e3"), pad_bins=3)
+band = phi.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
 band.filtered                  # same dims, coordinates and units as phi
 band.spectrum                  # reduced power, dominant_frequency, omega_lo/hi, has_peak
-phi.struphy.plot.filtered(band, e1=0.4, e2=0.0, e3=0.0)
+phi.struphy.plot.filtered(band, eta1=0.4, eta2=0.0, eta3=0.0)
 ```
 
 ![A probe of the signal against its filtered reconstruction](../../../assets/figures/spectral_filtered.png)
@@ -93,11 +93,11 @@ eigenfrequency.
 ## Mode numbers
 
 `mode_spectrum` Fourier-transforms along the periodic directions, poloidal
-`e2` → m and toroidal `e3` → n by default, and keeps every other dimension:
+`eta2` → m and toroidal `eta3` → n by default, and keeps every other dimension:
 
 ```python
-modes = phi.struphy.analysis.mode_spectrum()          # complex, (t, e1, m, n)
-amplitudes = modes.struphy.analysis.mode_amplitudes(top=4)  # (t, e1, mode), labels like "(10, -1)"
+modes = phi.struphy.analysis.mode_spectrum()          # complex, (t, eta1, m, n)
+amplitudes = modes.struphy.analysis.mode_amplitudes(top=4)  # (t, eta1, mode), labels like "(10, -1)"
 phi.struphy.plot.mode_amplitudes(top=2, fit=(100, 500))
 phi.struphy.plot.mode_map(t="last", m_range=(0, 16), n_range=(-3, 3))
 ```
@@ -119,14 +119,14 @@ here is the full-torus |n| = 6.
 ## Where each frequency lives
 
 `radial_power` averages the power over the angles and plots it against
-radius. `x_of` maps the logical `e1` to the minor radius, and `continuum`
+radius. `x_of` maps the logical `eta1` to the minor radius, and `continuum`
 draws the continuous spectra on top: any function `omega(r, m, n)`, or
 Struphy's `MhdContinousSpectraCylinder`, as for the
 [continuous-spectrum plot](/struphy-plots/reference/plot/):
 
 ```python
 phi.struphy.plot.radial_power(
-    x_of=lambda e1: 0.1 + 0.9 * e1, xlabel="r/a",
+    x_of=lambda eta1: 0.1 + 0.9 * eta1, xlabel="r/a",
     continuum=(alfven_continuum, [(10, 6), (11, 6)]), omega_max=0.3,
 )
 ```
@@ -175,8 +175,8 @@ the radial profile of each harmonic:
 
 ```python
 omega = float(phi.struphy.analysis.spectral_peaks(n_peaks=1, window="hann").omega_refined[0])
-structure = phi.struphy.analysis.mode_structure(omega)     # complex, (e1, e2, e3)
-phi.struphy.plot.mode_profiles(omega, x_of=lambda e1: 0.1 + 0.9 * e1, top=2)
+structure = phi.struphy.analysis.mode_structure(omega)     # complex, (eta1, eta2, eta3)
+phi.struphy.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
 ```
 
 The m = 10 and m = 11 harmonics peak either side of r* = 0.5, and their
@@ -191,7 +191,7 @@ time. `scale` multiplies the mode numbers, so `scale=(1, 6)` labels a sixth of
 a torus (`tor_period=6`) with full-torus toroidal mode numbers:
 
 ```python
-phi.struphy.plot.mode_profiles(t="last", scale=(1, 6), x_of=lambda e1: 0.1 + 0.9 * e1, top=2)
+phi.struphy.plot.mode_profiles(t="last", scale=(1, 6), x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
 ```
 
 ![Radial amplitude of each harmonic at the last time, with full-torus n](../../../assets/figures/mode_profiles_snapshot.png)
@@ -203,7 +203,7 @@ The filtered mode, drawn in its torus sector with the
 [3-D views](/struphy-plots/guides/3d-views/):
 
 ```python
-band.filtered.isel(t=-1).struphy.plot.slices_3d(cuts={"e3": [0, 0.5, 1], "e1": 0.44}, cmap="RdBu_r")
+band.filtered.isel(t=-1).struphy.plot.slices_3d(cuts={"eta3": [0, 0.5, 1], "eta1": 0.44}, cmap="RdBu_r")
 ```
 
 <PyVistaScene src="/pyvista/spectral_tae_3d.html" image={fig_tae_3d} alt="The filtered TAE on poloidal cuts and a flux surface of the torus sector" />
@@ -260,7 +260,7 @@ standing shear-Alfvén wave, velocity and magnetic perturbation exchange energy
 a quarter period apart:
 
 ```python
-u.struphy.plot.cross_spectrum(b, dims="e3", omega_max=1.5)
+u.struphy.plot.cross_spectrum(b, dims="eta3", omega_max=1.5)
 ```
 
 ![Cross-spectrum of velocity and magnetic perturbation: 90 degrees, coherent](../../../assets/figures/spectral_cross.png)
@@ -272,8 +272,8 @@ u.struphy.plot.cross_spectrum(b, dims="e3", omega_max=1.5)
 
 ```python
 out.analysis.time_fft("mhd/velocity")
-out.analysis.fft(field, dim="e2")
-out.analysis.filter_time(field, dims=("e1", "e2"), pad_bins=2)
+out.analysis.fft(field, dim="eta2")
+out.analysis.filter_time(field, dims=("eta1", "eta2"), pad_bins=2)
 out.analysis.mode_spectrum("mhd/velocity")
 ```
 

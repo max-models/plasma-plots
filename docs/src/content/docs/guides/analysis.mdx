@@ -71,7 +71,7 @@ report the observed order via `struphy_plots.analysis.convergence_order`:
 ## Distribution moments and spatial averaging
 
 `spatial_average()` and `velocity_moments()` work on binned distribution
-products (`f(t, e1, v1)` and similar) — see
+products (`f(t, eta1, v1)` and similar) — see
 [Particles & distributions](/struphy-plots/guides/particles/) for those, with
 figures.
 
@@ -110,14 +110,14 @@ growth rates from short records, see
 [Spectral analysis](/struphy-plots/guides/spectral/).
 
 ```python
-field.struphy.plot.dispersion(dim="e1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
+field.struphy.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
 ```
 
 `.plot.dispersion(...)` is a plain space-time FFT of a `(t, dim)` field —
 independent of Struphy, so it works on any wave-like signal recorded over
 time along one spatial direction. `dim` defaults to the sole dimension other
-than `t`; select every other dimension away first (e.g. `component`, `e2`,
-`e3`). `branches` optionally overlays named theoretical curves — a mapping
+than `t`; select every other dimension away first (e.g. `component`, `eta2`,
+`eta3`). `branches` optionally overlays named theoretical curves — a mapping
 of label to a callable `omega(k)`, or an explicit `(k, omega)` pair — to
 compare the measured ridge against theory:
 
@@ -138,7 +138,7 @@ definition (a detrended 2-D FFT).
 ```python
 import plotly.graph_objects as go
 
-spectrum = field.struphy.data.dispersion(dim="e1")
+spectrum = field.struphy.data.dispersion(dim="eta1")
 positive = spectrum.omega.values >= 0
 fig = go.Figure(go.Heatmap(
     z=np.log10(spectrum.values[positive] + 1e-300),

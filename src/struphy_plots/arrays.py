@@ -14,9 +14,9 @@ import xarray as xr
 
 DIM_LABELS = {
     "t": r"$t$",
-    "e1": r"$\eta_1$",
-    "e2": r"$\eta_2$",
-    "e3": r"$\eta_3$",
+    "eta1": r"$\eta_1$",
+    "eta2": r"$\eta_2$",
+    "eta3": r"$\eta_3$",
     "v1": r"$v_1$",
     "v2": r"$v_2$",
     "v3": r"$v_3$",
@@ -125,7 +125,7 @@ def periodicity(points: np.ndarray, axis: int) -> str | None:
 
 def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
     """``data`` with the first slice repeated at the end of every direction in ``dims`` that
-    wraps around in physical space (default: those of ``e1``, ``e2``, ``e3`` it has).
+    wraps around in physical space (default: those of ``eta1``, ``eta2``, ``eta3`` it has).
 
     Struphy evaluates fields at cell centers, which leave out the seam of a periodic direction
     (e.g. the poloidal angle), so a surface or pcolormesh drawn through the points has a gap
@@ -133,7 +133,7 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
     first one; a radius, or the ends of a torus sector, do not. Needs the physical ``X``, ``Y``,
     ``Z`` coordinates; without them ``data`` comes back unchanged.
     """
-    dims = [d for d in (dims or ("e1", "e2", "e3")) if d in data.dims]
+    dims = [d for d in (dims or ("eta1", "eta2", "eta3")) if d in data.dims]
     if not dims or any(name not in data.coords for name in ("X", "Y", "Z")):
         return data
 
@@ -192,10 +192,10 @@ def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
     """The Jacobian ``J[a, i] = dX_a / de_i`` of the mapping, shape ``(3, 3, n1, n2, n3)``.
 
     Differentiated numerically from the ``X``, ``Y``, ``Z`` coordinates of ``data`` on its
-    ``(e1, e2, e3)`` grid: spectrally around periodic directions (see :func:`periodicity`),
+    ``(eta1, eta2, eta3)`` grid: spectrally around periodic directions (see :func:`periodicity`),
     second order elsewhere, so every direction needs at least two points.
     """
-    spatial = ("e1", "e2", "e3")
+    spatial = ("eta1", "eta2", "eta3")
     missing = [d for d in spatial if d not in data.dims]
     short = [d for d in spatial if d in data.dims and data.sizes[d] < 2]
     if missing or short:

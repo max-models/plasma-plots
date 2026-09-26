@@ -74,7 +74,7 @@ simulated, such as a filtered mode:
 
 ```python
 etas, weights = out.analysis.quadrature_grid()        # Gauss points and weights per direction
-u = out.evaluate("mhd/velocity", eta1=etas["e1"], eta2=etas["e2"], eta3=etas["e3"], representation="2")
+u = out.evaluate("mhd/velocity", eta1=etas["eta1"], eta2=etas["eta2"], eta3=etas["eta3"], representation="2")
 mode = u.struphy.analysis.filter_time(pad_bins=1).filtered
 out.analysis.linear_mhd_energies(velocity=mode, b_field=None, pressure=None).en_U   # energy in that mode
 ```

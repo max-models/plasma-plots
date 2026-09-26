@@ -29,8 +29,8 @@ scene itself, exported with PyVista's `plotter.trame.export_html(...)`.
 Each method returns a `pyvista.Plotter` without showing it. Call `.show()` in
 a notebook or an interactive session, or `.screenshot("view.png")` in a batch
 job (set `pyvista.OFF_SCREEN = True` first). To draw several views into one
-scene, pass the plotter back in with `plotter=`. Dimensions other than `e1`,
-`e2`, `e3` (and `component` for vectors) are selected by keyword, exactly as
+scene, pass the plotter back in with `plotter=`. Dimensions other than `eta1`,
+`eta2`, `eta3` (and `component` for vectors) are selected by keyword, exactly as
 for the 2-D plots, e.g. `t="last"`.
 
 ## Isosurfaces
@@ -47,20 +47,20 @@ it off).
 
 ## Cuts at fixed logical coordinates
 
-`slices_3d(cuts=...)` draws surfaces of constant `e1`, `e2` or `e3` where they
-sit in physical space. On a torus, cuts in `e3` are poloidal cross-sections:
+`slices_3d(cuts=...)` draws surfaces of constant `eta1`, `eta2` or `eta3` where they
+sit in physical space. On a torus, cuts in `eta3` are poloidal cross-sections:
 
 ```python
-phi.struphy.plot.slices_3d(cuts={"e3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0)
+phi.struphy.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0)
 ```
 
 <PyVistaScene src="/pyvista/3d_slices.html" image={fig_slices} alt="Poloidal cross-sections of a mode in a torus" />
 
-A cut in `e1` shows the field on one flux surface, the usual way to see a
+A cut in `eta1` shows the field on one flux surface, the usual way to see a
 mode's poloidal and toroidal structure:
 
 ```python
-phi.struphy.plot.slices_3d(cuts={"e1": 0.5}, cmap="RdBu_r", t=0)
+phi.struphy.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0)
 ```
 
 <PyVistaScene src="/pyvista/3d_flux_surface.html" image={fig_flux_surface} alt="A mode on one flux surface" />
@@ -81,10 +81,10 @@ b.struphy.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius
 <PyVistaScene src="/pyvista/3d_streamlines.html" image={fig_streamlines} alt="Magnetic field lines in a torus" />
 
 `glyphs()` draws arrows colored by magnitude. `stride` thins the grid, and
-selecting a single `e1` shows the field on one surface:
+selecting a single `eta1` shows the field on one surface:
 
 ```python
-b.isel(e1=[24]).struphy.plot.glyphs(stride=3, scale=0.5)
+b.isel(eta1=[24]).struphy.plot.glyphs(stride=3, scale=0.5)
 ```
 
 <PyVistaScene src="/pyvista/3d_glyphs.html" image={fig_glyphs} alt="Magnetic field arrows on a flux surface" />
@@ -113,7 +113,7 @@ orbits.struphy.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0))
 
 `out.plot.domain_3d()` draws a run's mapping as a wireframe. The grid lines
 cover the real boundary and, with `cross_section=True` (the default), the whole
-`e3 = 0` face. Periodic seams and polar axes are left out. This is useful for
+`eta3 = 0` face. Periodic seams and polar axes are left out. This is useful for
 checking a geometry and its orientation:
 
 ```python
@@ -128,7 +128,7 @@ pyvista_domain(domain, n1=6, n2=24, n3=36)
 ## 2-D runs
 
 In a 2-D run one logical direction has a single grid point, or you have
-selected it away (`phi.isel(e3=0)`). The same methods then show the plane
+selected it away (`phi.isel(eta3=0)`). The same methods then show the plane
 itself, and the camera looks straight at it:
 
 - `isosurface()` draws the colored plane with contour lines.
@@ -154,7 +154,7 @@ which comes with the `pyvista` extra) or a video such as `.mp4` (needs
 camera stays fixed after the first frame:
 
 ```python
-phi.struphy.plot.movie("mode.gif", kind="slices", cuts={"e3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
+phi.struphy.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
 phi_2d.struphy.plot.movie("mode_2d.gif", kind="isosurface", values=7, cmap="RdBu_r")
 ```
 

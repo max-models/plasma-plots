@@ -26,7 +26,7 @@ Importing `struphy_plots` registers the `.struphy` accessor on every
 import struphy_plots  # registers DataArray.struphy
 
 field = out.evaluate("em_fields/phi")
-field.struphy.plot.slice(x="e1", y="e2", t="last")
+field.struphy.plot.slice(x="eta1", y="eta2", t="last")
 ```
 
 You don't need to keep a reference to `struphy_plots` around — the import
@@ -80,9 +80,9 @@ matplotlib's convention:
 ```python
 import plotly.express as px
 
-selected = field.struphy.data.slice(x="e1", y="e2", t="last")
+selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
 fig = px.imshow(
-    selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2,
+    selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2,
     origin="lower", color_continuous_scale="viridis",
 )
 ```

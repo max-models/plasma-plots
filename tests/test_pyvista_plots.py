@@ -12,37 +12,37 @@ from struphy_plots import pyvista_plots as p3  # noqa: E402
 
 
 def torus_coords(n1=6, n2=12, n3=16, R0=3.0, full=True):
-    e1, e2, e3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.linspace(0, 1, n3)
-    E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    eta1, eta2, eta3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.linspace(0, 1, n3)
+    E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, (2 * np.pi if full else np.pi) * E3
     X = (R0 + r * np.cos(theta)) * np.cos(phi)
     Y = (R0 + r * np.cos(theta)) * np.sin(phi)
     Z = r * np.sin(theta)
-    return {"e1": e1, "e2": e2, "e3": e3, **{n: (("e1", "e2", "e3"), c) for n, c in zip("XYZ", (X, Y, Z))}}
+    return {"eta1": eta1, "eta2": eta2, "eta3": eta3, **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (X, Y, Z))}}
 
 
 def scalar(coords, t=None):
-    shape = tuple(len(coords[d]) for d in ("e1", "e2", "e3"))
+    shape = tuple(len(coords[d]) for d in ("eta1", "eta2", "eta3"))
     Z = coords["Z"][1]
     values = np.broadcast_to(Z, shape).copy()
     if t is None:
-        return xr.DataArray(values, dims=("e1", "e2", "e3"), coords=coords, name="p", attrs={"label": "p"})
+        return xr.DataArray(values, dims=("eta1", "eta2", "eta3"), coords=coords, name="p", attrs={"label": "p"})
     stacked = np.stack([values * (1 + ti) for ti in t])
-    return xr.DataArray(stacked, dims=("t", "e1", "e2", "e3"), coords={"t": t, **coords}, name="p", attrs={"label": "p"})
+    return xr.DataArray(stacked, dims=("t", "eta1", "eta2", "eta3"), coords={"t": t, **coords}, name="p", attrs={"label": "p"})
 
 
 def plane_coords(n1=10, n2=12):
-    """A 2-D run: a square in the x-y plane, e3 with a single point."""
-    e1, e2, e3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.array([0.5])
-    E1, E2, _ = np.meshgrid(e1, e2, e3, indexing="ij")
-    return {"e1": e1, "e2": e2, "e3": e3, "X": (("e1", "e2", "e3"), 2 * E1 - 1),
-            "Y": (("e1", "e2", "e3"), 2 * E2 - 1), "Z": (("e1", "e2", "e3"), 0 * E1)}
+    """A 2-D run: a square in the x-y plane, eta3 with a single point."""
+    eta1, eta2, eta3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.array([0.5])
+    E1, E2, _ = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    return {"eta1": eta1, "eta2": eta2, "eta3": eta3, "X": (("eta1", "eta2", "eta3"), 2 * E1 - 1),
+            "Y": (("eta1", "eta2", "eta3"), 2 * E2 - 1), "Z": (("eta1", "eta2", "eta3"), 0 * E1)}
 
 
 def vortex(coords):
     X, Y = coords["X"][1], coords["Y"][1]
     u = np.stack([-Y, X, 0 * X])
-    return xr.DataArray(u, dims=("component", "e1", "e2", "e3"), coords={"component": [0, 1, 2], **coords},
+    return xr.DataArray(u, dims=("component", "eta1", "eta2", "eta3"), coords={"component": [0, 1, 2], **coords},
                         name="u", attrs={"label": "u"})
 
 
@@ -67,19 +67,19 @@ def test_structured_grid_carries_scalars_and_vectors_on_physical_points():
 
 
 def test_a_selected_away_spatial_dimension_comes_back_flat():
-    field = scalar(plane_coords()).isel(e3=0)
-    assert "e3" not in field.dims
+    field = scalar(plane_coords()).isel(eta3=0)
+    assert "eta3" not in field.dims
     grid = p3.structured_grid(field)
     assert grid.dimensions == (10, 12, 1)
     assert p3.is_flat(grid)
     with pytest.raises(ValueError, match="at least two"):
-        p3.structured_grid(scalar(plane_coords()).isel(e2=0, e3=0))
+        p3.structured_grid(scalar(plane_coords()).isel(eta2=0, eta3=0))
 
 
 def test_push_forward_recovers_cartesian_components():
     coords = torus_coords(n1=20, n2=40, n3=48)
     X, Y, Z = (coords[n][1] for n in "XYZ")
-    E1, E2, E3 = np.meshgrid(coords["e1"], coords["e2"], coords["e3"], indexing="ij")
+    E1, E2, E3 = np.meshgrid(coords["eta1"], coords["eta2"], coords["eta3"], indexing="ij")
     r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, 2 * np.pi * E3
     R = 3.0 + r * np.cos(theta)
     # the analytic Jacobian dX_a/de_i of torus_coords' mapping
@@ -103,7 +103,7 @@ def test_boundary_faces_drop_periodic_seams_and_polar_axes():
     def points(coords):
         return np.stack([coords[n][1] for n in "XYZ"], axis=-1)
 
-    # full torus: phi seam dropped, both e1 faces kept, e2 (theta) seam dropped
+    # full torus: phi seam dropped, both eta1 faces kept, eta2 (theta) seam dropped
     assert len(p3.boundary_faces(points(torus_coords(full=True)))) == 2
     # half torus: the two phi end caps are real boundaries
     assert len(p3.boundary_faces(points(torus_coords(full=False)))) == 4
@@ -126,18 +126,18 @@ def test_isosurface_is_a_surface_in_3d_and_contour_lines_in_2d():
 def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
     field = scalar(torus_coords())
     assert [piece.shape for piece in p3.prepare_slices_3d(field)] == [(1, 12, 16), (6, 1, 16), (6, 12, 1)]
-    cuts = p3.prepare_slices_3d(field, cuts={"e3": [0.0, "last"], "e1": 2})
+    cuts = p3.prepare_slices_3d(field, cuts={"eta3": [0.0, "last"], "eta1": 2})
     assert [piece.shape for piece in cuts] == [(6, 12, 1), (6, 12, 1), (1, 12, 16)]
-    assert cuts[1].e3.item() == 1.0
-    with pytest.raises(ValueError, match="e1, e2 or e3"):
+    assert cuts[1].eta3.item() == 1.0
+    with pytest.raises(ValueError, match="eta1, eta2 or eta3"):
         p3.prepare_slices_3d(field, cuts={"t": 0})
 
     flat = scalar(plane_coords())
     assert [piece.shape for piece in p3.prepare_slices_3d(flat)] == [flat.shape]
-    plotter = field.struphy.plot.slices_3d(cuts={"e3": [0, 0.5]})
+    plotter = field.struphy.plot.slices_3d(cuts={"eta3": [0, 0.5]})
     assert {"slice0", "slice1"} <= actor_names(plotter)
     plotter.close()
-    assert len(field.struphy.data.slices_3d(cuts={"e1": 0.5})) == 1
+    assert len(field.struphy.data.slices_3d(cuts={"eta1": 0.5})) == 1
 
 
 def test_glyphs_and_streamlines_for_a_2d_vector_field():
@@ -173,8 +173,8 @@ def test_orbit_polylines_drop_lost_samples_and_color_by_class():
 
 
 def test_domain_wireframe_draws_only_boundary_lines():
-    def cylinder(e1, e2, e3, squeeze_out=False):
-        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    def cylinder(eta1, eta2, eta3, squeeze_out=False):
+        E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
         r, theta = E1, 2 * np.pi * E2
         return r * np.cos(theta), r * np.sin(theta), 4 * E3
 

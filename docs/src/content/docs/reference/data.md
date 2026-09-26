@@ -22,7 +22,7 @@ The selected, strided vector field `plot.vector(...)` would draw.
 
 ### `volume_slices(*, indices=None, **selection)`
 The three orthogonal planes `plot.volume_slices(...)` would draw, as a dict
-keyed by the fixed dimension (`"e1"`, `"e2"`, `"e3"`).
+keyed by the fixed dimension (`"eta1"`, `"eta2"`, `"eta3"`).
 
 ### `compare(other, *, mode="difference")`
 The aligned difference or ratio `plot.compare(...)` would draw.

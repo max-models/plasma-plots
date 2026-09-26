@@ -17,7 +17,7 @@ def signal(n=400, bins=5.0, dt=0.5):
     profile = np.exp(-(((x - 0.5) / 0.15) ** 2))
     main = np.sin(2 * np.pi * bins * np.arange(n) / n)[:, None] * profile
     other = 0.4 * np.cos(2 * np.pi * 12 * np.arange(n) / n)[:, None] * profile
-    data = xr.DataArray(main + other + 0.7, dims=("t", "e1"), coords={"t": t, "e1": x}, name="velocity")
+    data = xr.DataArray(main + other + 0.7, dims=("t", "eta1"), coords={"t": t, "eta1": x}, name="velocity")
     data.attrs.update(units="m/s", run="synthetic")
     return data, main
 
@@ -25,9 +25,9 @@ def signal(n=400, bins=5.0, dt=0.5):
 @pytest.mark.parametrize("n", [399, 400])
 def test_normalization_and_inverse_for_odd_even_records(n):
     data, _ = signal(n=n)
-    data = data.assign_coords(X=("e1", data.e1.values * 2), moving=("t", data.t.values + 1))
+    data = data.assign_coords(X=("eta1", data.eta1.values * 2), moving=("t", data.t.values + 1))
     spectrum = time_fft(data)
-    assert spectrum.coefficients.dims == ("omega", "e1")
+    assert spectrum.coefficients.dims == ("omega", "eta1")
     assert "X" in spectrum.coords and "moving" not in spectrum.coords
     assert spectrum.attrs["run"] == "synthetic"
     assert spectrum.power.attrs["units"] == "(m/s)^2"
@@ -78,7 +78,7 @@ def test_component_bands_and_nonleading_time_axis():
     first, main = signal()
     second, second_main = signal(bins=8)
     data = xr.concat([first, second, xr.zeros_like(first), xr.ones_like(first)], dim="component")
-    data = data.assign_coords(component=["radial", "poloidal", "zero", "constant"]).transpose("e1", "component", "t")
+    data = data.assign_coords(component=["radial", "poloidal", "zero", "constant"]).transpose("eta1", "component", "t")
     result = filter_time(data)
     assert result.filtered.dims == data.dims
     assert result.spectrum.power.dims == ("omega", "component")
@@ -89,8 +89,8 @@ def test_component_bands_and_nonleading_time_axis():
     assert not result.filtered.sel(component=["zero", "constant"]).values.any()
     assert np.isnan(result.spectrum.dominant_frequency.sel(component="zero"))
     # A shared band can also be selected explicitly across components.
-    assert filter_time(data, dims=("e1", "component")).spectrum.power.dims == ("omega",)
-    assert filter_time(data, dims=()).spectrum.power.dims == ("omega", "e1", "component")
+    assert filter_time(data, dims=("eta1", "component")).spectrum.power.dims == ("omega",)
+    assert filter_time(data, dims=()).spectrum.power.dims == ("omega", "eta1", "component")
 
 
 def test_fwhm_window_and_cutoff():
@@ -113,10 +113,10 @@ def test_hann_window_detrending_and_complex_spatial_fft():
     np.testing.assert_allclose(transformed.power.sum("omega"), (expected**2).mean("t"), atol=1e-14)
     xr.testing.assert_allclose(inverse_time_fft(transformed.coefficients, data), expected)
     theta = np.arange(64) / 64
-    wave = xr.DataArray(np.exp(2j * np.pi * 11 * theta), dims="e2", coords={"e2": theta})
-    modes = fft(wave, dim="e2")
-    peak = int(abs(modes).argmax(dim="k_e2"))
-    assert float(modes.k_e2[peak]) == pytest.approx(2 * np.pi * 11)
+    wave = xr.DataArray(np.exp(2j * np.pi * 11 * theta), dims="eta2", coords={"eta2": theta})
+    modes = fft(wave, dim="eta2")
+    peak = int(abs(modes).argmax(dim="k_eta2"))
+    assert float(modes.k_eta2[peak]) == pytest.approx(2 * np.pi * 11)
     assert abs(complex(modes[peak])) == pytest.approx(1)
     assert float((abs(modes) ** 2).sum()) == pytest.approx(1)
 
@@ -145,7 +145,7 @@ def test_invalid_time_grids(times):
         {"omega_min": np.nan},
         {"omega_min": 100},
         {"dims": "t"},
-        {"dims": ["e1", "e1"]},
+        {"dims": ["eta1", "eta1"]},
         {"dims": "missing"},
     ],
 )

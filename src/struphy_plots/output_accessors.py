@@ -217,13 +217,13 @@ class OutputAnalysis:
 
     def quadrature_grid(self):
         """``(etas, weights)``: Gauss-Legendre points (spline degree + 1 per element) and their
-        weights for each of ``e1``, ``e2``, ``e3`` -- the grid on which spline fields squared
-        integrate exactly. Evaluate a field there (``out.evaluate(name, eta1=etas["e1"], ...,
+        weights for each of ``eta1``, ``eta2``, ``eta3`` -- the grid on which spline fields squared
+        integrate exactly. Evaluate a field there (``out.evaluate(name, eta1=etas["eta1"], ...,
         representation="2")``), filter it, and ``linear_mhd_energies`` or ``field_energy(...,
         quadrature=weights)`` give its energy as the run's own scalars would."""
         return _quadrature_grid(self._output)
 
-    def mode_spectrum(self, product, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0):
+    def mode_spectrum(self, product, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0):
         """Complex amplitudes over poloidal/toroidal mode numbers; see
         :func:`struphy_plots.spectral.mode_spectrum`."""
         from .spectral import mode_spectrum
@@ -236,7 +236,7 @@ def _quadrature_grid(output):
     elements = tuple(output.grid.num_elements)
     degrees = tuple(output.derham_opts.degree)
     etas, weights = {}, {}
-    for dim, n_elements, degree in zip(("e1", "e2", "e3"), elements, degrees):
+    for dim, n_elements, degree in zip(("eta1", "eta2", "eta3"), elements, degrees):
         x, w = np.polynomial.legendre.leggauss(int(degree) + 1)
         starts = np.arange(n_elements)[:, None] / n_elements
         etas[dim] = (starts + (x[None] + 1) / (2 * n_elements)).ravel()
@@ -246,7 +246,7 @@ def _quadrature_grid(output):
 
 def _matching_quadrature(field, etas, weights):
     """The Gauss weights if ``field`` sits on the Gauss grid, else ``None`` (default rules)."""
-    for dim in ("e1", "e2", "e3"):
+    for dim in ("eta1", "eta2", "eta3"):
         if dim not in field.dims or field.sizes[dim] != etas[dim].size:
             return None
         if not np.allclose(np.asarray(field[dim], dtype=float), etas[dim]):
@@ -268,15 +268,15 @@ def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
         if isinstance(product, str):
             return output.evaluate(
                 product,
-                eta1=etas_q["e1"],
-                eta2=etas_q["e2"],
-                eta3=etas_q["e3"],
+                eta1=etas_q["eta1"],
+                eta2=etas_q["eta2"],
+                eta3=etas_q["eta3"],
                 representation=representation,
             )
         return product
 
     def etas(field):
-        return [np.asarray(field[d], dtype=float) for d in ("e1", "e2", "e3")]
+        return [np.asarray(field[d], dtype=float) for d in ("eta1", "eta2", "eta3")]
 
     domain, equil = output.domain, output.equil
     if not hasattr(equil, "_domain"):
