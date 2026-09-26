@@ -27,7 +27,6 @@ from scipy.signal import argrelextrema
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
-from struphy_plots.analysis import power_spectrum
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -107,8 +106,8 @@ velocity = velocity.assign_coords(e3=("e3", velocity["Z"].values))
 pressure = out.evaluate("mhd/pressure").isel(e1=0, e2=0)
 pressure = pressure.assign_coords(e3=("e3", pressure["Z"].values))
 
-velocity_spectrum = power_spectrum(velocity, dim="e3")
-pressure_spectrum = power_spectrum(pressure, dim="e3")
+velocity_spectrum = velocity.struphy.analysis.dispersion(dim="e3")
+pressure_spectrum = pressure.struphy.analysis.dispersion(dim="e3")
 
 (measured_alfven,) = fitted_branch(velocity_spectrum, n_branches=1, noise_level=0.5)
 measured_slow, measured_fast = fitted_branch(pressure_spectrum, n_branches=2, noise_level=0.4)
