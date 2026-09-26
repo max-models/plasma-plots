@@ -1,0 +1,46 @@
+---
+title: struphy-plots
+description: Optional plotting and diagnostics layer for labeled Struphy output.
+template: splash
+hero:
+  tagline: Plotting, animation, and diagnostics for Struphy simulation output — built on xarray.
+  actions:
+    - text: Getting started
+      link: /struphy-plots/guides/getting-started/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/struphy-hub/struphy-plots
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is struphy-plots?
+
+`struphy-plots` registers a `.struphy` accessor on `xarray.DataArray` and adds
+whole-run helpers for [Struphy](https://github.com/struphy-hub/struphy)
+output, so you can go from a saved simulation to a figure in one line:
+
+```python
+out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
+```
+
+<CardGrid stagger>
+	<Card title="Field plots" icon="seti:image">
+		Time series, lineouts, 2-D slices, panels, vector fields, and animations —
+		all driven by the labeled dimensions already on your output arrays.
+	</Card>
+	<Card title="Diagnostics" icon="seti:graphql">
+		Growth/damping rate fits, envelopes, spatial averages, velocity moments,
+		and dispersion relations via `.struphy.analysis`.
+	</Card>
+	<Card title="Whole-run overviews" icon="seti:folder">
+		Scalar energy histories and equilibrium profiles straight from a
+		Struphy `Output` object.
+	</Card>
+	<Card title="3-D volumes" icon="seti:db">
+		Optional PyVista integration for interactive 3-D volume rendering of
+		scalar fields and equilibria.
+	</Card>
+</CardGrid>

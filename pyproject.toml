@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "struphy-plots"
+version = "0.1.0"
+description = "Optional plotting and diagnostics for labeled Struphy output"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Max Lindqvist", email = "max.lindqvist@ipp.mpg.de" }]
+requires-python = ">=3.10"
+dependencies = ["matplotlib", "numpy", "xarray", "ipywidgets"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+
+[project.optional-dependencies]
+pyvista = ["pyvista"]
+dev = ["pytest", "ruff", "h5py"]
+
+[project.urls]
+Homepage = "https://github.com/struphy-hub/struphy-plots"
+Repository = "https://github.com/struphy-hub/struphy-plots"
+Documentation = "https://struphy-hub.github.io/struphy-plots"
+Issues = "https://github.com/struphy-hub/struphy-plots/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = [
+    "E265",
+    "E402",
+    "E701",
+    "E722",
+    "E731",
+    "E741",
+    "E742",
+    "E743",
+    "E902",
+    "F401",
+    "F403",
+    "F405",
+    "F841",
+]

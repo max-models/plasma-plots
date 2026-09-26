@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Docs (Astro/Starlight)
+docs/node_modules/
+docs/dist/
+docs/.astro/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
