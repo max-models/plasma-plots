@@ -4,6 +4,8 @@ description: Optional plotting and diagnostics layer for labeled Struphy output.
 template: splash
 hero:
   tagline: Plotting, animation, and diagnostics for Struphy simulation output — built on xarray.
+  image:
+    file: ../../assets/figures/panels.png
   actions:
     - text: Getting started
       link: /struphy-plots/guides/getting-started/
@@ -44,3 +46,17 @@ out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
 		scalar fields and equilibria.
 	</Card>
 </CardGrid>
+
+## A few examples
+
+<CardGrid>
+	<Card title="Vector field">
+		![Quiver plot of a vector field](../../assets/figures/vector.png)
+	</Card>
+	<Card title="Marker trajectories">
+		![3-D marker trajectories](../../assets/figures/trajectories.png)
+	</Card>
+</CardGrid>
+
+See the [Plotting guide](/struphy-plots/guides/plotting/) for the rest — 2-D
+slices, panels, lineouts, comparisons, and growth-rate fits.

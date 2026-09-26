@@ -20,6 +20,8 @@ out.struphy.plot.equilibrium_3d(scalars="p0", cmap="viridis")
   recorded scalar time series (e.g. field/kinetic energies) in one figure.
   Pass `names` to restrict to a subset, or `relative_to` to normalize each
   series against its initial value.
+
+  ![Overview of every scalar time series in one run](../../../assets/figures/scalars.png)
 - **`equilibrium(ax=None)`** — radial equilibrium profiles read from the
   run's `geometry.vts`.
 - **`equilibrium_3d(scalars="p0", cmap="viridis")`** — interactive 3-D

@@ -15,7 +15,10 @@ rate, amplitude = energy.struphy.analysis.damping_rate()
 ```
 
 Both fit an exponential to the (enveloped, for damping) time series and
-return the fitted rate.
+return the fitted rate. `array.struphy.plot.timeseries(fit=...)` draws the
+same fit on top of the series:
+
+![A time series with an exponential growth-rate fit overlaid](../../../assets/figures/timeseries.png)
 
 ## Norms, drift, and error
 

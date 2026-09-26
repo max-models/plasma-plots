@@ -17,11 +17,20 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: docs
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install struphy-plots
+        run: pip install -e .
+
+      - name: Generate example figures
+        run: make figures
 
       - uses: actions/setup-node@v4
         with:
@@ -29,10 +38,11 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install docs dependencies
+        run: make docs-install
 
       - name: Build site
+        working-directory: docs
         run: npm run build
 
       - name: Upload artifact

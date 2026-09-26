@@ -15,13 +15,21 @@ main repo (`pip install -e /path/to/struphy` or
 
 ## Docs
 
-The documentation site (Astro + Starlight) lives in `docs/`:
+The documentation site (Astro + Starlight) lives in `docs/`. It embeds
+example figures (`docs/src/assets/figures/*.png`) rendered by
+`scripts/generate_docs_figures.py` from synthetic data via `struphy_plots`
+itself -- they aren't checked into git, so generate them before building or
+running the site locally:
 
 ```bash
-cd docs
-npm install
-npm run dev
+pip install -e .
+make figures       # renders docs/src/assets/figures/
+make docs-dev       # figures + npm run dev
+make docs-build     # figures + npm run build
 ```
+
+CI (`.github/workflows/docs.yml`) regenerates the figures the same way on
+every push to `devel`, before deploying to GitHub Pages.
 
 ## Branches and releases
 
