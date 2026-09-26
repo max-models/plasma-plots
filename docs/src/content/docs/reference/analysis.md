@@ -34,9 +34,11 @@ Mean over the logical space dimensions.
 Density, mean velocity, and variance over velocity dimensions. Returns an
 `xarray.Dataset`.
 
-### `dispersion(*, component=0, slice_at=(None, 0, 0), physical=False, **kwargs)`
-Space-time power spectrum and dispersion-relation fit. Requires normalized
-time and the main `struphy` package (`struphy.post_processing.spectral`).
+### `dispersion(*, dim=None, detrend=True)`
+The `(omega, k)` space-time power spectrum of this `(t, dim)` field — a
+detrended 2-D FFT, independent of Struphy. `dim` defaults to the sole
+dimension other than `t`. See `struphy_plots.analysis.power_spectrum` for
+the definition, and `ArrayPlots.dispersion` to plot it directly.
 
 ## Standalone functions
 
@@ -46,3 +48,9 @@ study (`sizes` a resolution or step size, `errors` the corresponding error
 norms). Returns a `ConvergenceFit` (`.order`, `.constant`, `.sizes`,
 `.fitted`), or `None` with fewer than two valid (finite, positive) samples.
 Used by `struphy_plots.plotting.plot_convergence`.
+
+### `struphy_plots.analysis.power_spectrum(data, *, dim=None, detrend=True)`
+The 2-D power spectrum of a `(t, dim)` signal, as a function of angular
+frequency `omega` and wavenumber `k` — a plain FFT (detrended by default),
+the basis of a dispersion-relation plot. Returns an `xarray.DataArray` with
+dims `(omega, k)`.

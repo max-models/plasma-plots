@@ -135,10 +135,12 @@ def test_analysis_by_name(run):
     np.testing.assert_allclose(scalar(run, "en_phi").struphy.analysis.drift().isel(t=0), 0.0)
 
 
-def test_dispersion_rejects_fields_in_seconds(run):
-    physical = run.with_time_units("physical")
-    with pytest.raises(ValueError, match="normalized"):
-        physical.fields.em_fields.E.struphy.analysis.dispersion()
+def test_dispersion_needs_an_explicit_dim_for_a_multi_dimensional_field(run):
+    with pytest.raises(ValueError, match="dim is required"):
+        run.fields.em_fields.E.struphy.analysis.dispersion()
+
+    spectrum = run.fields.em_fields.E.isel(component=0, e2=0, e3=0).struphy.analysis.dispersion(dim="e1")
+    assert set(spectrum.dims) == {"omega", "k"}
 
 
 def test_selection_keywords_take_positions_values_and_ends(run):

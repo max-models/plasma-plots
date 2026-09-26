@@ -3,6 +3,8 @@ title: Diagnostics
 description: Growth/damping rates, envelopes, norms, drift, and error.
 ---
 
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
 These live on `array.struphy.analysis`, next to plotting on the same
 accessor, and return plain `xarray` objects or fit results rather than
 figures — plot them however you like. Full signatures are in the
@@ -76,10 +78,41 @@ figures.
 ## Dispersion relations
 
 ```python
-field.struphy.analysis.dispersion(component=0, slice_at=(None, 0, 0))
+field.struphy.plot.dispersion(dim="e1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
 ```
 
-Computes a space-time power spectrum and fits a dispersion relation, via
-`struphy.post_processing.spectral`. This module isn't present on every
-struphy version — if you get a `ModuleNotFoundError` here, your installed
-struphy doesn't currently ship it.
+`.plot.dispersion(...)` is a plain space-time FFT of a `(t, dim)` field —
+independent of Struphy, so it works on any wave-like signal recorded over
+time along one spatial direction. `dim` defaults to the sole dimension other
+than `t`; select every other dimension away first (e.g. `component`, `e2`,
+`e3`). `branches` optionally overlays named theoretical curves — a mapping
+of label to a callable `omega(k)`, or an explicit `(k, omega)` pair — to
+compare the measured ridge against theory:
+
+![A dispersion relation recovered from a space-time FFT, with the Bohm-Gross branch overlaid](../../../assets/figures/dispersion.png)
+
+A dispersion relation's power spans many orders of magnitude (the ridge
+against an otherwise near-empty plane), so `.plot.dispersion(...)` defaults
+its color limits to the top `dynamic_range=6` decades below the peak rather
+than the full range down to numerical noise — pass `vmin`/`vmax` yourself if
+the ridge still looks washed out, or `kmax`/`omega_max` to zoom into it.
+
+`.struphy.analysis.dispersion(...)` (or the matching `.struphy.data.dispersion(...)`)
+returns just the `(omega, k)` power spectrum, an `xarray.DataArray`, without
+plotting it — see `struphy_plots.analysis.power_spectrum` for the exact
+definition (a detrended 2-D FFT).
+
+:::tip[Plot it with Plotly instead]
+```python
+import plotly.graph_objects as go
+
+spectrum = field.struphy.data.dispersion(dim="e1")
+positive = spectrum.omega.values >= 0
+fig = go.Figure(go.Heatmap(
+    z=np.log10(spectrum.values[positive] + 1e-300),
+    x=spectrum.k.values, y=spectrum.omega.values[positive],
+))
+```
+:::
+
+<PlotlyChart src="/plotly/plotly_dispersion.json" />

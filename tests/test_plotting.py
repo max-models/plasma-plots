@@ -18,6 +18,7 @@ from struphy_plots.plotting import (  # noqa: E402
     logical_grids,
     physical_grids,
     plot_convergence,
+    plot_dispersion,
     plot_lineout,
     plot_panels,
     plot_scalars,
@@ -25,6 +26,7 @@ from struphy_plots.plotting import (  # noqa: E402
     plot_timeseries,
     plot_vector,
     plot_volume_slices,
+    power_spectrum,
     pyvista_volume,
     relative_error,
     save_all_scalars,
@@ -417,4 +419,47 @@ def test_dataset_data_mirrors_what_dataset_plot_would_render():
         coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
     )
     assert with_z.struphy.data.trajectories(max_markers=3).sizes["marker"] == 3
+
+
+def dispersive_wave(ks=(2.0, 4.0), omega=lambda k: np.sqrt(1.0 + 3.0 * k**2), nt=300, nx=96, length=2 * np.pi):
+    t = np.linspace(0.0, 60.0, nt)
+    x = np.linspace(0.0, length, nx, endpoint=False)
+    X, T = np.meshgrid(x, t)
+    values = np.zeros_like(X)
+    for k in ks:
+        w = omega(k)
+        values += np.cos(k * X - w * T) + np.cos(k * X + w * T)
+    return data_array(values, ("t", "e1"), {"t": t, "e1": x}, name="phi", label=r"$\phi$")
+
+
+def test_power_spectrum_recovers_a_known_dispersion_branch():
+    omega = lambda k: np.sqrt(1.0 + 3.0 * k**2)  # noqa: E731
+    field = dispersive_wave(ks=(2.0, 4.0), omega=omega)
+    spectrum = power_spectrum(field)
+    assert set(spectrum.dims) == {"omega", "k"}
+
+    positive = spectrum.sel(omega=slice(0, None))
+    for k in (2.0, 4.0):
+        column = positive.sel(k=k, method="nearest")
+        measured = float(column.omega[int(np.argmax(column.values))])
+        assert measured == pytest.approx(omega(k), rel=0.05)
+
+
+def test_power_spectrum_requires_dim_for_ambiguous_arrays():
+    cube = data_array(np.ones((2, 3, 4)), ("t", "e1", "e2"), {"t": [0, 1], "e1": range(3), "e2": range(4)})
+    with pytest.raises(ValueError, match="dim is required"):
+        power_spectrum(cube)
+    assert set(power_spectrum(cube.isel(e2=0), dim="e1").dims) == {"omega", "k"}
+    with pytest.raises(ValueError, match="not a dimension"):
+        power_spectrum(cube, dim="missing")
+
+
+def test_plot_dispersion_overlays_named_branches():
+    field = dispersive_wave()
+    result = field.struphy.plot.dispersion(branches={"Bohm-Gross": lambda k: np.sqrt(1.0 + 3.0 * k**2)})
+    assert len(result.artists) == 2  # the spectrum mesh, plus the branch line
+    assert result.ax.get_legend() is not None
+
+    spectrum = field.struphy.data.dispersion()
+    assert spectrum.equals(field.struphy.analysis.dispersion())
 
