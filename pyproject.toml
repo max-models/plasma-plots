@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-pyvista = ["pyvista"]
+pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]
 dev = ["pytest", "ruff", "h5py"]
 

@@ -99,8 +99,12 @@ def _camera(plotter, grid):
     normal = _plane_normal(grid)
     if normal is None:
         return
-    up = (0.0, 1.0, 0.0) if abs(normal[1]) < 0.9 else (0.0, 0.0, 1.0)
-    plotter.view_vector(tuple(normal if normal[np.abs(normal).argmax()] > 0 else -normal), viewup=up)
+    axis = int(np.abs(normal).argmax())
+    if abs(normal[axis]) > 0.999:  # an axis-aligned plane: keep both in-plane axes pointing right/up
+        (plotter.view_yz, plotter.view_xz, plotter.view_xy)[axis]()
+    else:
+        up = (0.0, 0.0, 1.0) if abs(normal[2]) < 0.9 else (0.0, 1.0, 0.0)
+        plotter.view_vector(tuple(normal if normal[axis] > 0 else -normal), viewup=up)
     plotter.reset_camera()
 
 
@@ -175,6 +179,10 @@ def _vector_grid(data, components, name):
     return structured_grid(data, name=name)
 
 
+def _bar(title):
+    return {"title": title, "fmt": "%.3g"}
+
+
 def _clim(values, clim):
     if clim is not None:
         return tuple(clim)
@@ -192,29 +200,47 @@ def _face(points, axis, index):
     return points[tuple(face)]
 
 
-def boundary_faces(points: np.ndarray) -> list[np.ndarray]:
-    """The logical boundary faces of a ``(n1, n2, n3, 3)`` point array that are real boundaries.
+def boundary_keys(points: np.ndarray) -> list[tuple[int, int]]:
+    """``(axis, index)`` of the logical faces of a ``(n1, n2, n3, 3)`` point array that are real
+    boundaries; ``index`` is ``0`` or ``-1``.
 
     Faces that collapse to a line or point (a polar axis) and pairs of opposite faces that
     coincide (the seam of a periodic direction, e.g. ``phi = 0`` of a full torus) are dropped.
     A grid that is flat in one direction (a 2-D run) is its own single face.
     """
-    scale = max(float(np.ptp(points.reshape(-1, 3), axis=0).max()), 1e-300)
     flat = [axis for axis in range(3) if points.shape[axis] == 1]
     if flat:
-        return [points]
-    faces = []
+        return [(flat[0], 0)]
+    scale = max(float(np.ptp(points.reshape(-1, 3), axis=0).max()), 1e-300)
+    keys = []
     for axis in range(3):
         low, high = _face(points, axis, 0), _face(points, axis, -1)
         if np.allclose(low, high, atol=1e-9 * scale):
             continue
-        for face in (low, high):
-            spread = np.ptp(face.reshape(-1, 3), axis=0)
-            if (
-                np.sort(spread)[1] > 1e-9 * scale
-            ):  # spans a surface, not a line or point
-                faces.append(face)
-    return faces
+        for index, face in ((0, low), (-1, high)):
+            spread = np.sort(np.ptp(face.reshape(-1, 3), axis=0))
+            if spread[1] > 1e-9 * scale:  # spans a surface, not a line or point
+                keys.append((axis, index))
+    return keys
+
+
+def boundary_faces(points: np.ndarray) -> list[np.ndarray]:
+    """The real boundary faces of a point array, see :func:`boundary_keys`."""
+    return [_face(points, axis, index) for axis, index in boundary_keys(points)]
+
+
+def _face_lines(face: np.ndarray, resolution: int):
+    """Grid lines of a face (a point array with one size-one axis), every ``resolution`` samples."""
+    face = face.squeeze(axis=[a for a in range(3) if face.shape[a] == 1][0])
+    lines = []
+    for along in (0, 1):
+        n_other = face.shape[1 - along]
+        picks = sorted({*range(0, n_other, resolution), n_other - 1})
+        for k in picks:
+            line = face[:, k] if along == 0 else face[k, :]
+            if len(line) > 1 and np.ptp(line, axis=0).max() > 0:  # skip collapsed lines
+                lines.append(line)
+    return lines
 
 
 def _grid_points(grid) -> np.ndarray:
@@ -254,7 +280,8 @@ def pyvista_isosurface(
     """Contour surfaces of a selected scalar ``(e1, e2, e3)`` field in physical space.
 
     ``values`` is the number of evenly spaced levels, or explicit levels. ``show_domain`` draws
-    the domain's outer surface translucently for context.
+    the domain's outer surface translucently for context. For a 2-D field (one logical
+    direction with a single point) the levels are contour lines over the colored plane.
     """
     grid = structured_grid(data)
     name = grid.active_scalars_name
@@ -262,20 +289,25 @@ def pyvista_isosurface(
     levels = (
         np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
     )
+    own = plotter is None
     plotter = _plotter(plotter)
-    _add_context(plotter, grid, show_domain)
     contours = grid.contour(isosurfaces=list(levels), scalars=name)
-    if contours.n_points:
+    bar = _bar(value_label(data))
+    if is_flat(grid):
         plotter.add_mesh(
-            contours,
-            scalars=name,
-            cmap=cmap,
-            clim=(lo, hi),
-            opacity=opacity,
-            scalar_bar_args={"title": value_label(data)},
-            name="isosurface",
+            grid, scalars=name, cmap=cmap, clim=(lo, hi), opacity=opacity,
+            scalar_bar_args=bar, name="plane",
         )
-    return _finish(plotter, _label(data) if title is None else title)
+        if contours.n_points:
+            plotter.add_mesh(contours, color="black", line_width=1.5, name="isosurface")
+    else:
+        _add_context(plotter, grid, show_domain)
+        if contours.n_points:
+            plotter.add_mesh(
+                contours, scalars=name, cmap=cmap, clim=(lo, hi), opacity=opacity,
+                scalar_bar_args=bar, name="isosurface",
+            )
+    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 
 def _cut_indices(data, cuts):
@@ -305,12 +337,15 @@ def prepare_slices_3d(
 
     ``cuts`` maps ``e1``/``e2``/``e3`` to one position or a list: a float is the nearest
     logical coordinate, an integer a grid index, ``"first"``/``"last"`` an end. The default is
-    the middle of every dimension with more than one point. Each cut keeps its size-one
-    dimension, so it still maps onto a surface in physical space.
+    the middle of every dimension with more than one point, or for a 2-D field (one dimension
+    with a single point) the whole plane. Each cut keeps its size-one dimension, so it still
+    maps onto a surface in physical space.
     """
     data = _spatial(data)
     if cuts is None:
-        cuts = {dim: data.sizes[dim] // 2 for dim in SPATIAL if data.sizes[dim] > 1}
+        if 1 in data.shape:
+            return [data]
+        cuts = {dim: data.sizes[dim] // 2 for dim in SPATIAL}
     return [
         data.isel({dim: [index]})
         for dim, indices in _cut_indices(data, cuts).items()
@@ -337,17 +372,24 @@ def pyvista_slices(
     data = _spatial(data)
     pieces = prepare_slices_3d(data, cuts=cuts)
     lo, hi = _clim(np.asarray(data), clim)
+    own = plotter is None
     plotter = _plotter(plotter)
-    _add_context(plotter, structured_grid(data), show_domain)
+    grid = structured_grid(data)
+    if not (is_flat(grid) and len(pieces) == 1 and pieces[0].shape == data.shape):
+        _add_context(plotter, grid, show_domain)
     for i, piece in enumerate(pieces):
         plotter.add_mesh(
             structured_grid(piece, name=_label(data)),
             cmap=cmap,
             clim=(lo, hi),
-            scalar_bar_args={"title": value_label(data)},
+            line_width=3,  # cuts through a 2-D field are lines
+            ambient=0.6,  # keep colors readable on cuts seen at grazing angles
+            diffuse=0.45,
+            specular=0.0,
+            scalar_bar_args=_bar(value_label(data)),
             name=f"slice{i}",
         )
-    return _finish(plotter, _label(data) if title is None else title)
+    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 
 def pyvista_glyphs(
@@ -378,6 +420,7 @@ def pyvista_glyphs(
     magnitude = thinned[f"|{name}|"]
     peak = float(magnitude.max()) if magnitude.size else 0.0
     length = 0.1 * full.length if scale is None else scale
+    own = plotter is None
     plotter = _plotter(plotter)
     _add_context(plotter, full, show_domain)
     if peak > 0:
@@ -386,10 +429,10 @@ def pyvista_glyphs(
             arrows,
             scalars=f"|{name}|",
             cmap=cmap,
-            scalar_bar_args={"title": f"|{name}|"},
+            scalar_bar_args=_bar(f"|{name}|"),
             name="glyphs",
         )
-    return _finish(plotter, name if title is None else title)
+    return _finish(plotter, name if title is None else title, full if own else None)
 
 
 def pyvista_streamlines(
@@ -410,18 +453,34 @@ def pyvista_streamlines(
 
     Lines are traced in both directions from ``n_points`` seeds in a sphere of ``source_radius``
     (default: a quarter of the domain size) around ``source_center`` (default: the domain
-    center). See :func:`pyvista_glyphs` for ``components``.
+    center). For a 2-D field the seeds are ``n_points`` grid points spread over the plane
+    instead, and the lines stay on it (the out-of-plane component is ignored). See
+    :func:`pyvista_glyphs` for ``components``.
     """
+    pv = _pv()
     name = _label(data)
     grid = _vector_grid(data, components, name)
-    lines = grid.streamlines(
-        vectors=name,
-        n_points=n_points,
-        source_radius=0.25 * grid.length if source_radius is None else source_radius,
-        source_center=grid.center if source_center is None else source_center,
-        max_length=4 * grid.length if max_length is None else max_length,
-        integration_direction="both",
-    )
+    max_length = 4 * grid.length if max_length is None else max_length
+    if is_flat(grid):
+        # Seeding in a sphere would miss a plane; seed on the grid itself instead.
+        seeds = np.linspace(0, grid.n_points - 1, min(n_points, grid.n_points)).astype(int)
+        lines = grid.streamlines_from_source(
+            pv.PolyData(np.asarray(grid.points)[seeds]),
+            vectors=name,
+            max_length=max_length,
+            integration_direction="both",
+            surface_streamlines=True,
+        )
+    else:
+        lines = grid.streamlines(
+            vectors=name,
+            n_points=n_points,
+            source_radius=0.25 * grid.length if source_radius is None else source_radius,
+            source_center=grid.center if source_center is None else source_center,
+            max_length=max_length,
+            integration_direction="both",
+        )
+    own = plotter is None
     plotter = _plotter(plotter)
     _add_context(plotter, grid, show_domain)
     if lines.n_points:
@@ -432,10 +491,12 @@ def pyvista_streamlines(
             scalars=f"|{name}|",
             cmap=cmap,
             line_width=2,
-            scalar_bar_args={"title": f"|{name}|"},
+            scalar_bar_args=_bar(f"|{name}|"),
             name="streamlines",
         )
-    return _finish(plotter, f"{name} field lines" if title is None else title)
+    return _finish(
+        plotter, f"{name} field lines" if title is None else title, grid if own else None
+    )
 
 
 def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int = 200):
@@ -524,7 +585,7 @@ def pyvista_orbits(
             scalars=color_by,
             cmap=cmap or "viridis",
             line_width=2,
-            scalar_bar_args={"title": color_by},
+            scalar_bar_args=_bar(color_by),
             name="orbits",
         )
     return _finish(plotter, "Marker orbits" if title is None else title)
@@ -539,50 +600,41 @@ def pyvista_domain(
     resolution: int = 4,
     color="black",
     surface: bool = True,
+    cross_section: bool = True,
     title: str | None = None,
     plotter=None,
 ):
     """The mapping of a Struphy ``domain`` as a wireframe of logical grid lines.
 
-    Grid lines are drawn on the logical boundary faces only (for a torus: the outer surface
-    and the poloidal cross-section at ``e3 = 0``), ``n1``, ``n2``, ``n3`` per direction, each
-    sampled ``resolution`` times finer so curved lines stay smooth. ``surface`` adds the
-    translucent boundary. Useful to check the geometry (and its orientation) of a run.
+    Grid lines are drawn on the real boundary faces (see :func:`boundary_keys`; for a torus the
+    outer and inner surfaces) and, with ``cross_section``, over the whole ``e3 = 0`` face (for a
+    torus a poloidal cross-section). ``n1``, ``n2``, ``n3`` lines per direction, each sampled
+    ``resolution`` times finer so curved lines stay smooth. ``surface`` adds the translucent
+    boundary. Useful to check the geometry (and its orientation) of a run; ``n3=1`` shows a
+    2-D run's plane.
     """
     pv = _pv()
-    fine = [np.linspace(0.0, 1.0, (n - 1) * resolution + 1) for n in (n1, n2, n3)]
+    fine = [np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)]
     x, y, z = (np.asarray(c, dtype=float) for c in domain(*fine, squeeze_out=False))
     grid = pv.StructuredGrid(x, y, z)
+    own = plotter is None
     plotter = _plotter(plotter)
     if surface:
         _add_context(plotter, grid, True)
     points = np.stack([x, y, z], axis=-1)
+    keys = boundary_keys(points)
+    if cross_section and (2, 0) not in keys and points.shape[2] > 1:
+        keys.append((2, 0))
     segments, cells = [], []
-    for axis in range(3):
-        if points.shape[axis] < 2:
-            continue
-        others = [a for a in range(3) if a != axis]
-        last = [points.shape[a] - 1 for a in others]
-        for i in range(0, points.shape[others[0]], resolution):
-            for j in range(0, points.shape[others[1]], resolution):
-                if i not in (0, last[0]) and j not in (0, last[1]):
-                    continue  # an interior line
-                index = [slice(None)] * 3
-                index[others[0]], index[others[1]] = i, j
-                line = points[tuple(index)]
-                if (
-                    np.ptp(line, axis=0).max() == 0
-                ):  # a collapsed line, e.g. a polar axis
-                    continue
-                start = sum(len(s) for s in segments)
-                segments.append(line)
-                cells.append(
-                    np.concatenate([[len(line)], start + np.arange(len(line))])
-                )
+    for axis, index in keys:
+        for line in _face_lines(_face(points, axis, index), resolution):
+            start = sum(len(s) for s in segments)
+            segments.append(line)
+            cells.append(np.concatenate([[len(line)], start + np.arange(len(line))]))
     if segments:
         wires = pv.PolyData(np.concatenate(segments), lines=np.concatenate(cells))
         plotter.add_mesh(wires, color=color, line_width=1, name="wireframe")
-    return _finish(plotter, "Domain" if title is None else title)
+    return _finish(plotter, "Domain" if title is None else title, grid if own else None)
 
 
 RENDERERS = {
@@ -635,8 +687,12 @@ def save_movie(
                 plotter.clear_actors()
             render(snapshot, plotter=plotter, title=label, **options)
             if not frame:
-                plotter.camera_position = "iso"
-                plotter.reset_camera()
+                grid = structured_grid(snapshot)
+                if is_flat(grid):
+                    _camera(plotter, grid)
+                else:
+                    plotter.camera_position = "iso"
+                    plotter.reset_camera()
             plotter.write_frame()
     finally:
         plotter.close()

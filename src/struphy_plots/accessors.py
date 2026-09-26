@@ -142,6 +142,28 @@ class DatasetPlots:
             self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s
         )
 
+    def orbits_3d(
+        self,
+        *,
+        color_by: str = "t",
+        max_markers: int = 200,
+        tube_radius: float | None = None,
+        cmap=None,
+        domain: xr.DataArray | None = None,
+        title: str | None = None,
+        plotter=None,
+    ):
+        """PyVista 3-D orbit lines, colored by ``"t"``, ``"classification"`` or any variable;
+        ``domain`` is a field whose boundary is drawn for context.
+        See :func:`struphy_plots.pyvista_plots.pyvista_orbits`.
+        """
+        from .pyvista_plots import pyvista_orbits
+
+        return pyvista_orbits(
+            self._dataset, color_by=color_by, max_markers=max_markers, tube_radius=tube_radius,
+            cmap=cmap, domain=domain, title=title, plotter=plotter,
+        )
+
 
 class DatasetData:
     """The data behind each plot in :class:`DatasetPlots`, without rendering it."""
@@ -314,6 +336,126 @@ class ArrayPlots(_ArrayAccessor):
         view = self._view(None, None, "t", "logical", "XY", selection)
         return pyvista_volume(
             _select(self._array, view), name=name, cmap=cmap, opacity=opacity
+        )
+
+    def _spatial_selection(self, selection):
+        from .plotting import _select
+
+        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
+
+    def isosurface(
+        self,
+        *,
+        values=5,
+        cmap="viridis",
+        opacity: float = 1.0,
+        clim=None,
+        show_domain: bool = True,
+        title: str | None = None,
+        plotter=None,
+        **selection,
+    ):
+        """PyVista contour surfaces of this scalar field in physical space, after selecting every
+        dimension but ``e1``, ``e2``, ``e3`` (e.g. ``t="last"``). For a 2-D field, contour
+        lines over the colored plane. See :func:`struphy_plots.pyvista_plots.pyvista_isosurface`.
+        """
+        from .pyvista_plots import pyvista_isosurface
+
+        return pyvista_isosurface(
+            self._spatial_selection(selection), values=values, cmap=cmap, opacity=opacity,
+            clim=clim, show_domain=show_domain, title=title, plotter=plotter,
+        )
+
+    def slices_3d(
+        self,
+        *,
+        cuts: dict | None = None,
+        cmap="viridis",
+        clim=None,
+        show_domain: bool = True,
+        title: str | None = None,
+        plotter=None,
+        **selection,
+    ):
+        """PyVista surfaces of constant logical coordinate, drawn in physical space: e.g.
+        ``cuts={"e3": [0, 0.25]}`` for poloidal cross-sections, ``cuts={"e1": 0.8}`` for one
+        flux surface. A 2-D field is shown as its whole plane by default.
+        See :func:`struphy_plots.pyvista_plots.pyvista_slices`.
+        """
+        from .pyvista_plots import pyvista_slices
+
+        return pyvista_slices(
+            self._spatial_selection(selection), cuts=cuts, cmap=cmap, clim=clim,
+            show_domain=show_domain, title=title, plotter=plotter,
+        )
+
+    def glyphs(
+        self,
+        *,
+        components: Literal["cartesian", "contravariant"] = "cartesian",
+        stride: int = 2,
+        scale: float | None = None,
+        cmap="viridis",
+        show_domain: bool = True,
+        title: str | None = None,
+        plotter=None,
+        **selection,
+    ):
+        """PyVista arrows of this ``(component, e1, e2, e3)`` vector field, colored by magnitude.
+        See :func:`struphy_plots.pyvista_plots.pyvista_glyphs` for ``components``.
+        """
+        from .pyvista_plots import pyvista_glyphs
+
+        return pyvista_glyphs(
+            self._spatial_selection(selection), components=components, stride=stride,
+            scale=scale, cmap=cmap, show_domain=show_domain, title=title, plotter=plotter,
+        )
+
+    def streamlines(
+        self,
+        *,
+        components: Literal["cartesian", "contravariant"] = "cartesian",
+        n_points: int = 100,
+        source_radius: float | None = None,
+        source_center=None,
+        max_length: float | None = None,
+        tube_radius: float | None = None,
+        cmap="viridis",
+        show_domain: bool = True,
+        title: str | None = None,
+        plotter=None,
+        **selection,
+    ):
+        """PyVista field lines of this vector field, e.g. magnetic field lines.
+        See :func:`struphy_plots.pyvista_plots.pyvista_streamlines`.
+        """
+        from .pyvista_plots import pyvista_streamlines
+
+        return pyvista_streamlines(
+            self._spatial_selection(selection), components=components, n_points=n_points,
+            source_radius=source_radius, source_center=source_center, max_length=max_length,
+            tube_radius=tube_radius, cmap=cmap, show_domain=show_domain, title=title,
+            plotter=plotter,
+        )
+
+    def movie(
+        self,
+        path,
+        *,
+        kind: Literal["isosurface", "slices", "glyphs", "streamlines"] = "slices",
+        step: int = 1,
+        framerate: int = 10,
+        clim=None,
+        **options,
+    ):
+        """Render one PyVista 3-D view per time step into a GIF or video; returns the path.
+        ``options`` go to the chosen view, e.g. ``cuts=`` for ``kind="slices"``.
+        See :func:`struphy_plots.pyvista_plots.save_movie`.
+        """
+        from .pyvista_plots import save_movie
+
+        return save_movie(
+            self._array, path, kind=kind, step=step, framerate=framerate, clim=clim, **options
         )
 
     def compare(
@@ -734,6 +876,25 @@ class ArrayData(_ArrayAccessor):
 
         view = self._view(None, None, "t", "logical", "XY", selection)
         return prepare_volume_slices(_select(self._array, view), indices=indices)
+
+    def grid(self, *, name: str | None = None, **selection):
+        """This field as a ``pyvista.StructuredGrid`` on its physical points, after selecting
+        every dimension but ``e1``, ``e2``, ``e3`` (and ``component``) -- the data behind every
+        3-D view, ready for any PyVista filter.
+        """
+        from .plotting import _select
+        from .pyvista_plots import structured_grid
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return structured_grid(_select(self._array, view), name=name)
+
+    def slices_3d(self, *, cuts: dict | None = None, **selection) -> list[xr.DataArray]:
+        """The logical cuts :meth:`ArrayPlots.slices_3d` would draw."""
+        from .plotting import _select
+        from .pyvista_plots import prepare_slices_3d
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return prepare_slices_3d(_select(self._array, view), cuts=cuts)
 
     def compare(
         self,

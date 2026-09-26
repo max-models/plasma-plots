@@ -36,5 +36,11 @@ out.struphy.plot.equilibrium_3d(scalars="p0", cmap="viridis")
 
   ![A 3-D equilibrium view shaded by a scalar field](../../../assets/figures/equilibrium_3d.png)
 
+- **`domain_3d(n1=8, n2=32, n3=32, surface=True)`** — a PyVista wireframe of
+  the run's mapping (`out.domain`), for checking its geometry. See
+  [3-D views](/struphy-plots/guides/3d-views/#the-domain).
+
+  ![Wireframe of a toroidal mapping](../../../assets/figures/3d_domain.png)
+
 See the [Whole-run reference](/struphy-plots/reference/output/) for full
 signatures.

@@ -69,6 +69,12 @@ class OutputPlots:
             self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
         )
 
+    def domain_3d(self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True):
+        """A PyVista wireframe of this run's mapping (``out.domain``); call ``.show()`` on it."""
+        from .pyvista_plots import pyvista_domain
+
+        return pyvista_domain(self._output.domain, n1=n1, n2=n2, n3=n3, surface=surface)
+
     @property
     def profile(self) -> "ProfilePlots":
         """Plots of this run's timing regions, e.g. ``out.struphy.plot.profile.gantt()``.

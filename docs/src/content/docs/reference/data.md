@@ -52,6 +52,15 @@ The marker-position subset `plot.trajectories(...)` would draw, as an
 This time series and any `others`, validated — the same list
 `plot.timeseries(...)` would draw.
 
+### `grid(*, name=None, **selection)`
+This field as a `pyvista.StructuredGrid` on its physical `X`, `Y`, `Z`
+points: the data behind every 3-D view, ready for any PyVista filter. Vector
+fields also get their magnitude as `"|name|"`.
+
+### `slices_3d(*, cuts=None, **selection)`
+The list of logical cuts `plot.slices_3d(...)` would draw, each an
+`xarray.DataArray` that keeps its size-one cut dimension.
+
 ## `dataset.struphy.data`
 
 ### `trajectories(*, max_markers=200)`

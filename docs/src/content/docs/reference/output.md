@@ -18,6 +18,11 @@ Radial profiles of the run's fluid equilibrium (`out.equil`, `out.domain`):
 Interactive 3-D equilibrium view via PyVista. Requires
 `pip install "struphy-plots[pyvista]"`.
 
+### `domain_3d(*, n1=8, n2=32, n3=32, surface=True)`
+A PyVista wireframe of the run's mapping (`out.domain`): grid lines on the
+real boundary and on the `e3 = 0` cross-section. See
+`struphy_plots.pyvista_plots.pyvista_domain` for more options.
+
 ### `profile`
 A `ProfilePlots`, wrapping `out.profile.results` (a
 `scope_profiler.ProfilingResults`, from a run started with
