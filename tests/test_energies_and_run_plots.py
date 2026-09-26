@@ -33,12 +33,12 @@ def close_figures():
 
 
 def hollow_torus(n1=24, n2=48, n3=48, cell_centred=False):
-    """r = 0.2 + 0.8 e1, theta = 2 pi e2, phi = 2 pi e3, with its analytic Jacobian."""
+    """r = 0.2 + 0.8 eta1, theta = 2 pi eta2, phi = 2 pi eta3, with its analytic Jacobian."""
     if cell_centred:
-        e1, e2, e3 = ((np.arange(n) + 0.5) / n for n in (n1, n2, n3))
+        eta1, eta2, eta3 = ((np.arange(n) + 0.5) / n for n in (n1, n2, n3))
     else:
-        e1, e2, e3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.linspace(0, 1, n3)
-    E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+        eta1, eta2, eta3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.linspace(0, 1, n3)
+    E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, 2 * np.pi * E3
     R = R0 + r * np.cos(theta)
     X, Y, Z = R * np.cos(phi), R * np.sin(phi), r * np.sin(theta)
@@ -47,7 +47,7 @@ def hollow_torus(n1=24, n2=48, n3=48, cell_centred=False):
         [0.8 * np.cos(theta) * np.sin(phi), -2 * np.pi * r * np.sin(theta) * np.sin(phi), 2 * np.pi * R * np.cos(phi)],
         [0.8 * np.sin(theta), 2 * np.pi * r * np.cos(theta), 0 * E1],
     ])
-    coords = {"e1": e1, "e2": e2, "e3": e3, **{n: (("e1", "e2", "e3"), c) for n, c in zip("XYZ", (X, Y, Z))}}
+    coords = {"eta1": eta1, "eta2": eta2, "eta3": eta3, **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (X, Y, Z))}}
     return coords, jac, (X, Y, Z)
 
 
@@ -55,12 +55,12 @@ VOLUME = 2 * np.pi * R0 * np.pi * (1.0**2 - 0.2**2)
 
 
 def scalar_field(coords, values, name="f"):
-    return xr.DataArray(values, dims=("e1", "e2", "e3"), coords=coords, name=name, attrs={"label": name})
+    return xr.DataArray(values, dims=("eta1", "eta2", "eta3"), coords=coords, name=name, attrs={"label": name})
 
 
 def vector_field(coords, values, name="u"):
     return xr.DataArray(
-        values, dims=("component", "e1", "e2", "e3"), coords={"component": [0, 1, 2], **coords}, name=name
+        values, dims=("component", "eta1", "eta2", "eta3"), coords={"component": [0, 1, 2], **coords}, name=name
     )
 
 
@@ -104,14 +104,14 @@ def test_field_energy_is_the_same_in_every_representation():
 def test_field_energy_keeps_time_and_takes_explicit_quadrature():
     coords, _, _ = hollow_torus(n1=6, n2=12, n3=12)
     values = np.stack([np.ones((6, 12, 12)) * a for a in (1.0, 2.0)])
-    field = xr.DataArray(values, dims=("t", "e1", "e2", "e3"), coords={"t": [0.0, 1.0], **coords})
+    field = xr.DataArray(values, dims=("t", "eta1", "eta2", "eta3"), coords={"t": [0.0, 1.0], **coords})
     energy = field_energy(field)
     assert energy.dims == ("t",)
     assert float(energy[1] / energy[0]) == pytest.approx(4.0)
-    unit = {d: np.full(field.sizes[d], 1.0 / field.sizes[d]) for d in ("e1", "e2", "e3")}
+    unit = {d: np.full(field.sizes[d], 1.0 / field.sizes[d]) for d in ("eta1", "eta2", "eta3")}
     assert field_energy(field, quadrature=unit).dims == ("t",)
     with pytest.raises(ValueError, match="quadrature weights"):
-        field_energy(field, quadrature={"e1": [1.0]})
+        field_energy(field, quadrature={"eta1": [1.0]})
 
 
 def test_color_limits_symmetric_and_robust():
@@ -127,12 +127,12 @@ def test_color_limits_symmetric_and_robust():
 def test_physical_slices_close_the_periodic_seam_of_cell_centred_grids():
     coords, _, (X, _, _) = hollow_torus(n1=6, n2=16, n3=4, cell_centred=True)
     field = scalar_field(coords, X)
-    selected, (xg, yg, _, _) = _slice_data(field.isel(e3=0), View(x="e1", y="e2", coordinates="physical", plane="RZ"))
-    assert selected.sizes["e2"] == 17
+    selected, (xg, yg, _, _) = _slice_data(field.isel(eta3=0), View(x="eta1", y="eta2", coordinates="physical", plane="RZ"))
+    assert selected.sizes["eta2"] == 17
     np.testing.assert_allclose(xg[:, -1], xg[:, 0])  # the seam is closed
-    logical, _ = _slice_data(field.isel(e3=0), View(x="e1", y="e2"))
-    assert logical.sizes["e2"] == 16  # logical plots are unchanged
-    result = field.struphy.plot.slice(x="e1", y="e2", coords="physical", plane="RZ", e3=0, symmetric=True)
+    logical, _ = _slice_data(field.isel(eta3=0), View(x="eta1", y="eta2"))
+    assert logical.sizes["eta2"] == 16  # logical plots are unchanged
+    result = field.struphy.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", eta3=0, symmetric=True)
     lo, hi = result.artists[0].get_clim()
     assert lo == -hi
 
@@ -161,13 +161,13 @@ def test_energy_budget_with_groups():
 
 def test_profiles_at_several_times_against_a_mapped_radius():
     t = np.linspace(0, 1, 11)
-    e1 = np.linspace(0, 1, 20)
-    field = xr.DataArray(np.outer(1 + t, np.sin(np.pi * e1)), dims=("t", "e1"), coords={"t": t, "e1": e1}, name="u")
-    result = plot_profiles(field, x="e1", x_of=lambda e: 0.1 + 0.9 * e)
+    eta1 = np.linspace(0, 1, 20)
+    field = xr.DataArray(np.outer(1 + t, np.sin(np.pi * eta1)), dims=("t", "eta1"), coords={"t": t, "eta1": eta1}, name="u")
+    result = plot_profiles(field, x="eta1", x_of=lambda e: 0.1 + 0.9 * e)
     assert len(result.artists) == 4
     np.testing.assert_allclose(result.artists[0].get_xdata()[[0, -1]], [0.1, 1.0])
-    cube = field.expand_dims(e2=[0.0, 0.5]).transpose("t", "e1", "e2")
-    assert len(cube.struphy.plot.profiles(x="e1", at=[0, 0.5, "last"] if False else [0, 0.5], e2=0.5).artists) == 2
+    cube = field.expand_dims(eta2=[0.0, 0.5]).transpose("t", "eta1", "eta2")
+    assert len(cube.struphy.plot.profiles(x="eta1", at=[0, 0.5, "last"] if False else [0, 0.5], eta2=0.5).artists) == 2
 
 
 def orbits_dataset():
@@ -209,11 +209,11 @@ def test_orbit_poloidal_projection_and_quantities():
 
 
 def test_mode_numbers_scaled_to_the_full_torus_and_profiles_at_one_time():
-    e1, e2, e3 = np.linspace(0, 1, 9), np.arange(32) / 32, np.arange(8) / 8
-    R, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    eta1, eta2, eta3 = np.linspace(0, 1, 9), np.arange(32) / 32, np.arange(8) / 8
+    R, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     field = xr.DataArray(
-        np.sin(np.pi * R) * np.cos(2 * np.pi * (10 * E2 - E3)), dims=("e1", "e2", "e3"),
-        coords={"e1": e1, "e2": e2, "e3": e3}, name="u",
+        np.sin(np.pi * R) * np.cos(2 * np.pi * (10 * E2 - E3)), dims=("eta1", "eta2", "eta3"),
+        coords={"eta1": eta1, "eta2": eta2, "eta3": eta3}, name="u",
     )
     amplitudes = sp.mode_amplitudes(sp.mode_spectrum(field, scale=(1, 6)), top=1)
     assert amplitudes.mode.values.tolist() == ["(10, -6)"]
@@ -235,7 +235,7 @@ def test_vtk_export_of_a_time_series(tmp_path):
     pv = pytest.importorskip("pyvista")
     coords, _, (X, _, _) = hollow_torus(n1=4, n2=8, n3=6)
     series = xr.DataArray(
-        np.stack([X, 2 * X]), dims=("t", "e1", "e2", "e3"), coords={"t": [0.0, 0.5], **coords}, name="p"
+        np.stack([X, 2 * X]), dims=("t", "eta1", "eta2", "eta3"), coords={"t": [0.0, 0.5], **coords}, name="p"
     )
     paths = series.struphy.data.to_vtk(tmp_path / "frames")
     assert paths[0].endswith("p.pvd") and len(paths) == 3

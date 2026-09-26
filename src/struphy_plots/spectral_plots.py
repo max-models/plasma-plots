@@ -228,13 +228,13 @@ def plot_mode_amplitudes(
 
     ``modes`` is :func:`~struphy_plots.spectral.mode_spectrum` output (complex) or
     :func:`~struphy_plots.spectral.mode_amplitudes` output, reduced to ``(t, mode)`` or
-    ``(t, m, n)``: average or select other dimensions (e.g. ``e1``) first. ``fit`` is a time
+    ``(t, m, n)``: average or select other dimensions (e.g. ``eta1``) first. ``fit`` is a time
     window ``(t0, t1)``, or ``True`` for the whole record; rates go to ``result.fit_results``.
     """
     amplitudes = modes if "mode" in modes.dims else spectral.mode_amplitudes(modes)
     others = [d for d in amplitudes.dims if d not in ("t", "mode")]
     if others:
-        raise ValueError(f"select or average {others} first, e.g. .max('e1') or .sel(e1=0.5)")
+        raise ValueError(f"select or average {others} first, e.g. .max('eta1') or .sel(eta1=0.5)")
     peak = amplitudes.max("t")
     amplitudes = amplitudes.isel(mode=np.argsort(np.asarray(peak))[::-1][:top])
     growth = None if fit in (None, False) else GrowthFit(window=(None, None) if fit is True else tuple(fit))
@@ -302,7 +302,7 @@ def _x_values(data, x, x_of):
 def plot_radial_power(
     power: xr.DataArray,
     *,
-    x: str = "e1",
+    x: str = "eta1",
     x_of=None,
     xlabel: str | None = None,
     continuum=None,
@@ -317,7 +317,7 @@ def plot_radial_power(
 
     ``power`` is a :func:`~struphy_plots.spectral.time_fft` Dataset or power array reduced to
     ``(omega, x)`` (average the angles away first). ``x_of`` maps the ``x`` coordinate to the
-    plotted axis, e.g. ``lambda e1: 0.1 + 0.9 * e1`` for the minor radius of a hollow torus.
+    plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1`` for the minor radius of a hollow torus.
     ``continuum`` overlays continuous spectra: a ``(spectrum, modes)`` pair as for
     :func:`~struphy_plots.plotting.plot_continuous_spectrum`, evaluated on the plotted axis, or
     a ``(mode, branch, x)`` array from :func:`~struphy_plots.plotting.prepare_continuous_spectrum`.
@@ -371,7 +371,7 @@ def plot_radial_power(
 def plot_mode_profiles(
     structure: xr.DataArray,
     *,
-    x: str = "e1",
+    x: str = "eta1",
     x_of=None,
     xlabel: str | None = None,
     top: int = 4,

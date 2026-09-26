@@ -79,9 +79,9 @@ def save_fig(fig, filename):
 # =============================================================================
 n_t, n_e1, n_e2 = 24, 96, 96
 t = np.linspace(0.0, 2 * np.pi, n_t)
-e1 = np.linspace(0.0, 1.0, n_e1)
-e2 = np.linspace(0.0, 1.0, n_e2)
-E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+eta1 = np.linspace(0.0, 1.0, n_e1)
+eta2 = np.linspace(0.0, 1.0, n_e2)
+E1, E2 = np.meshgrid(eta1, eta2, indexing="ij")
 
 radius = 0.28
 center1 = 0.5 + radius * np.cos(t)
@@ -94,14 +94,14 @@ for i in range(n_t):
     phi[i] = np.exp(-dist2 / (2 * sigma**2)) * np.cos(10.0 * (E1 - center1[i]))
 
 field = field_array(
-    "phi", r"$\phi$", "a.u.", phi, ("t", "e1", "e2"), {"t": t, "e1": e1, "e2": e2}
+    "phi", r"$\phi$", "a.u.", phi, ("t", "eta1", "eta2"), {"t": t, "eta1": eta1, "eta2": eta2}
 )
 
-save(field.struphy.plot.slice(x="e1", y="e2", t="last"), "slice.png")
-save(field.struphy.plot.panels(x="e1", y="e2", nrows=2, ncols=3), "panels.png")
-save(field.struphy.plot.lineout(x="e1", t="last", e2=0.5), "lineout.png")
+save(field.struphy.plot.slice(x="eta1", y="eta2", t="last"), "slice.png")
+save(field.struphy.plot.panels(x="eta1", y="eta2", nrows=2, ncols=3), "panels.png")
+save(field.struphy.plot.lineout(x="eta1", t="last", eta2=0.5), "lineout.png")
 
-anim = field.struphy.plot.animation(x="e1", y="e2", step=2, interval=120)
+anim = field.struphy.plot.animation(x="eta1", y="eta2", step=2, interval=120)
 anim_path = PUBLIC_OUT / "animation.gif"
 anim.save(anim_path, writer="pillow", fps=8)
 print(f"wrote {anim_path}")
@@ -120,11 +120,11 @@ vector = field_array(
         ],
         axis=1,
     ),
-    ("t", "component", "e1", "e2"),
-    {"t": t, "e1": e1, "e2": e2},
+    ("t", "component", "eta1", "eta2"),
+    {"t": t, "eta1": eta1, "eta2": eta2},
 )
 save(
-    vector.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=6, t="last"),
+    vector.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t="last"),
     "vector.png",
 )
 
@@ -136,7 +136,7 @@ blob = np.exp(
     -((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2)
 )
 volume_data = field_array(
-    "n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3}
+    "n", "$n$", "a.u.", blob, ("eta1", "eta2", "eta3"), {"eta1": e1_3, "eta2": e2_3, "eta3": e3_3}
 )
 save(volume_data.struphy.plot.volume_slices(), "volume_slices.png")
 
@@ -146,9 +146,9 @@ try:
     pv.OFF_SCREEN = True
 
     physical = volume_data.assign_coords(
-        X=(("e1", "e2", "e3"), E1_3),
-        Y=(("e1", "e2", "e3"), E2_3),
-        Z=(("e1", "e2", "e3"), E3_3),
+        X=(("eta1", "eta2", "eta3"), E1_3),
+        Y=(("eta1", "eta2", "eta3"), E2_3),
+        Z=(("eta1", "eta2", "eta3"), E3_3),
     )
     plotter = physical.struphy.plot.volume(cmap="viridis")
     plotter.camera_position = "iso"
@@ -258,19 +258,19 @@ beam = beam_amplitude * np.exp(-((V1P - 3.0) ** 2) / (2 * 0.4**2))
 f = (bulk + beam) * (1.0 + 0.15 * np.cos(2 * np.pi * E1P))
 
 distribution = field_array(
-    "f", "$f$", "a.u.", f, ("t", "e1", "v1"), {"t": tp, "e1": e1p, "v1": v1p}
+    "f", "$f$", "a.u.", f, ("t", "eta1", "v1"), {"t": tp, "eta1": e1p, "v1": v1p}
 )
 
-save(distribution.struphy.plot.slice(x="e1", y="v1", t="last"), "phase_space.png")
+save(distribution.struphy.plot.slice(x="eta1", y="v1", t="last"), "phase_space.png")
 
 moments = distribution.struphy.analysis.velocity_moments()
 final = moments.isel(t=-1)
 fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), layout="constrained")
 for ax, name in zip(axes, ("density", "mean_v1", "variance_v1")):
     array = final[name]
-    ax.plot(array.e1, array)
+    ax.plot(array.eta1, array)
     ax.set(
-        xlabel=axis_label(array, "e1"),
+        xlabel=axis_label(array, "eta1"),
         ylabel=value_label(array),
         title=array.attrs.get("label", name),
     )
@@ -337,8 +337,8 @@ well = field_array(
     r"$\phi$",
     "a.u.",
     np.exp(-((E1_BG - 0.5) ** 2 + (E2_BG - 0.5) ** 2) / (2 * 0.2**2)),
-    ("e1", "e2"),
-    {"e1": e1_bg, "e2": e2_bg},
+    ("eta1", "eta2"),
+    {"eta1": e1_bg, "eta2": e2_bg},
 )
 n_orbit_steps, n_confined = 60, 6
 s_orbit = np.linspace(0.0, 2 * np.pi, n_orbit_steps)
@@ -347,11 +347,11 @@ phases_orbit = rng_p.uniform(0, 2 * np.pi, n_confined)
 orbit_e1 = 0.5 + radii_orbit[None, :] * np.cos(s_orbit[:, None] + phases_orbit[None, :])
 orbit_e2 = 0.5 + radii_orbit[None, :] * np.sin(s_orbit[:, None] + phases_orbit[None, :])
 confined_orbits = xr.Dataset(
-    {"e1": (("t", "marker"), orbit_e1), "e2": (("t", "marker"), orbit_e2)},
+    {"eta1": (("t", "marker"), orbit_e1), "eta2": (("t", "marker"), orbit_e2)},
     coords={"t": s_orbit, "marker": np.arange(n_confined)},
 )
 save(
-    well.struphy.plot.overlay_orbits(confined_orbits, x="e1", y="e2"),
+    well.struphy.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2"),
     "orbit_overlay.png",
 )
 
@@ -394,7 +394,7 @@ for k in (2.0, 3.0, 4.0, 5.0):
 wave += 0.05 * rng_disp.standard_normal(wave.shape)
 
 dispersive_field = field_array(
-    "phi", r"$\phi$", "a.u.", wave, ("t", "e1"), {"t": t_disp, "e1": x_disp}
+    "phi", r"$\phi$", "a.u.", wave, ("t", "eta1"), {"t": t_disp, "eta1": x_disp}
 )
 save(
     dispersive_field.struphy.plot.dispersion(
@@ -422,15 +422,15 @@ try:
         fig.write_json(PLOTLY_OUT / f"{filename}.json")
         print(f"wrote {PLOTLY_OUT / f'{filename}.json'}")
 
-    selected = field.struphy.data.slice(x="e1", y="e2", t="last")
+    selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
     fig = px.imshow(
-        selected.transpose("e2", "e1"),
-        x=selected.e1,
-        y=selected.e2,
+        selected.transpose("eta2", "eta1"),
+        x=selected.eta1,
+        y=selected.eta2,
         origin="lower",
         color_continuous_scale="viridis",
     )
-    fig.update_layout(xaxis_title="e1", yaxis_title="e2")
+    fig.update_layout(xaxis_title="eta1", yaxis_title="eta2")
     save_plotly(fig, "plotly_slice")
 
     frame = cloud.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
@@ -451,9 +451,9 @@ try:
     save_plotly(fig, "plotly_timeseries")
 
     vec = vector.struphy.data.vector(
-        x="e1", y="e2", components=(0, 1), stride=4, t="last"
+        x="eta1", y="eta2", components=(0, 1), stride=4, t="last"
     )
-    xg, yg = np.meshgrid(vec.e1.values, vec.e2.values, indexing="ij")
+    xg, yg = np.meshgrid(vec.eta1.values, vec.eta2.values, indexing="ij")
     fig = ff.create_quiver(
         xg.ravel(),
         yg.ravel(),
@@ -461,7 +461,7 @@ try:
         vec.isel(component=1).values.ravel(),
         scale=0.05,
     )
-    fig.update_layout(xaxis_title="e1", yaxis_title="e2")
+    fig.update_layout(xaxis_title="eta1", yaxis_title="eta2")
     save_plotly(fig, "plotly_vector")
 
     planes = volume_data.struphy.data.volume_slices()
@@ -498,15 +498,15 @@ try:
     fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
     save_plotly(fig, "plotly_trajectories", height=520)
 
-    phase_space_selected = distribution.struphy.data.slice(x="e1", y="v1", t="last")
+    phase_space_selected = distribution.struphy.data.slice(x="eta1", y="v1", t="last")
     fig = px.imshow(
-        phase_space_selected.transpose("v1", "e1"),
-        x=phase_space_selected.e1,
+        phase_space_selected.transpose("v1", "eta1"),
+        x=phase_space_selected.eta1,
         y=phase_space_selected.v1,
         origin="lower",
         color_continuous_scale="viridis",
     )
-    fig.update_layout(xaxis_title="e1", yaxis_title="v1")
+    fig.update_layout(xaxis_title="eta1", yaxis_title="v1")
     save_plotly(fig, "plotly_phase_space")
 
     result = run_a.struphy.data.compare(run_b, mode="ratio")
@@ -514,13 +514,13 @@ try:
     save_plotly(fig, "plotly_compare")
 
     field_slice, orbit_subset = well.struphy.data.overlay_orbits(
-        confined_orbits, x="e1", y="e2"
+        confined_orbits, x="eta1", y="eta2"
     )
     fig = go.Figure(
         go.Heatmap(
-            z=field_slice.transpose("e2", "e1").values,
-            x=field_slice.e1.values,
-            y=field_slice.e2.values,
+            z=field_slice.transpose("eta2", "eta1").values,
+            x=field_slice.eta1.values,
+            y=field_slice.eta2.values,
             colorscale="viridis",
             showscale=False,
         )
@@ -529,14 +529,14 @@ try:
         path = orbit_subset.sel(marker=marker)
         fig.add_trace(
             go.Scatter(
-                x=path.e1,
-                y=path.e2,
+                x=path.eta1,
+                y=path.eta2,
                 mode="lines",
                 line=dict(color="#ffb347"),
                 showlegend=False,
             )
         )
-    fig.update_layout(xaxis_title="e1", yaxis_title="e2")
+    fig.update_layout(xaxis_title="eta1", yaxis_title="eta2")
     save_plotly(fig, "plotly_overlay_orbits")
 
     disp_spectrum = dispersive_field.struphy.data.dispersion()
@@ -575,7 +575,7 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # Spectral analysis: struphy_plots.spectral / spectral_plots
 #
 # A synthetic toroidal Alfven eigenmode (TAE) in a sixth of a hollow torus, with the
-# parameters of Struphy's TAE tutorial: r = 0.1 + 0.9*e1, q = 1.71 + 0.16 r^2,
+# parameters of Struphy's TAE tutorial: r = 0.1 + 0.9*eta1, q = 1.71 + 0.16 r^2,
 # n0 = 1 - 0.8 r^2, B0 = 3, R0 = 10, harmonics m = 10, 11 with n = 6 (one per sector).
 # Coupled m = 10/11 harmonics peaked either side of r* = 0.5 oscillate at the gap
 # frequency and grow slowly; a continuum-damped m = 10 oscillation sits at r = 0.8.
@@ -626,12 +626,12 @@ phi_tae = field_array(
     r"$\phi$",
     "a.u.",
     np.stack(tae_snapshots),
-    ("t", "e1", "e2", "e3"),
-    {"t": t_tae, "e1": s1, "e2": s2, "e3": s3},
+    ("t", "eta1", "eta2", "eta3"),
+    {"t": t_tae, "eta1": s1, "eta2": s2, "eta3": s3},
 )
-radius_of = lambda e1: 0.1 + 0.9 * e1  # noqa: E731
+radius_of = lambda eta1: 0.1 + 0.9 * eta1  # noqa: E731
 
-band_tae = phi_tae.struphy.analysis.filter_time(dims=("e1", "e2", "e3"), pad_bins=3)
+band_tae = phi_tae.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
 save(
     phi_tae.struphy.plot.power_spectrum(
         peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate": omega_tae}, omega_max=0.5,
@@ -639,7 +639,7 @@ save(
     ),
     "spectral_power.png",
 )
-save(phi_tae.struphy.plot.filtered(band_tae, e1=0.4, e2=0.0, e3=0.0), "spectral_filtered.png")
+save(phi_tae.struphy.plot.filtered(band_tae, eta1=0.4, eta2=0.0, eta3=0.0), "spectral_filtered.png")
 save(phi_tae.struphy.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)), "spectral_mode_amplitudes.png")
 save(phi_tae.struphy.plot.mode_map(t="last", m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
 save(
@@ -688,13 +688,13 @@ omega_wave = 2 * np.pi * 16 / 128
 noise = rng_tae.normal(0, 0.15, (2, 512, 24))
 u_wave = field_array(
     "u", "$u_x$", "a.u.", np.cos(z_wave)[None] * np.sin(omega_wave * t_wave)[:, None] + noise[0],
-    ("t", "e3"), {"t": t_wave, "e3": z_wave},
+    ("t", "eta3"), {"t": t_wave, "eta3": z_wave},
 )
 b_wave = field_array(
     "b", "$b_x$", "a.u.", np.sin(z_wave)[None] * np.cos(omega_wave * t_wave)[:, None] + noise[1],
-    ("t", "e3"), {"t": t_wave, "e3": z_wave},
+    ("t", "eta3"), {"t": t_wave, "eta3": z_wave},
 )
-save(u_wave.struphy.plot.cross_spectrum(b_wave, dims="e3", omega_max=1.5), "spectral_cross.png")
+save(u_wave.struphy.plot.cross_spectrum(b_wave, dims="eta3", omega_max=1.5), "spectral_cross.png")
 
 
 # =============================================================================
@@ -725,7 +725,7 @@ save(
 
 # Radial profiles of the synthetic TAE at a few times, and its harmonics at the last time
 save(
-    phi_tae.struphy.plot.profiles(x="e1", at=[0, 100, 200, 299], x_of=radius_of, xlabel=r"$r/a$", e2=0.0, e3=0.0),
+    phi_tae.struphy.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=radius_of, xlabel=r"$r/a$", eta2=0.0, eta3=0.0),
     "profiles.png",
 )
 save(
@@ -767,11 +767,11 @@ orbits_gc = xr.Dataset(
 e1_b, e2_b = np.linspace(0, 1, 5), (np.arange(64) + 0.5) / 64
 E1_b, E2_b = np.meshgrid(e1_b, e2_b, indexing="ij")
 boundary_field = field_array(
-    "b", "b", "", np.ones((5, 64, 1)), ("e1", "e2", "e3"), {"e1": e1_b, "e2": e2_b, "e3": [0.0]}
+    "b", "b", "", np.ones((5, 64, 1)), ("eta1", "eta2", "eta3"), {"eta1": e1_b, "eta2": e2_b, "eta3": [0.0]}
 ).assign_coords(
-    X=(("e1", "e2", "e3"), ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None]),
-    Y=(("e1", "e2", "e3"), np.zeros((5, 64, 1))),
-    Z=(("e1", "e2", "e3"), ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None]),
+    X=(("eta1", "eta2", "eta3"), ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None]),
+    Y=(("eta1", "eta2", "eta3"), np.zeros((5, 64, 1))),
+    Z=(("eta1", "eta2", "eta3"), ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None]),
 )
 save(orbits_gc.struphy.plot.orbit_classification(), "orbit_classification.png")
 save(orbits_gc.struphy.plot.poloidal(boundary=boundary_field), "orbits_poloidal.png")
@@ -797,8 +797,8 @@ save(orbits_gc.struphy.plot.quantities(markers=4), "orbits_quantities.png")
 # Whole-run: equilibrium profiles (optional PyVista)
 #
 # plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium
-# (``.p0(e1, e2, e3)``, optionally ``.n0(...)``) and domain mapping
-# (``domain(e1, e2, e3, squeeze_out=False) -> (X, Y, Z)``) -- normally
+# (``.p0(eta1, eta2, eta3)``, optionally ``.n0(...)``) and domain mapping
+# (``domain(eta1, eta2, eta3, squeeze_out=False) -> (X, Y, Z)``) -- normally
 # ``out.equil``/``out.domain`` from a real run. These small duck-typed
 # stand-ins keep this figure synthetic without a struphy install.
 # =============================================================================
@@ -813,17 +813,17 @@ try:
     class RadialEquil:
         """A pressure/density profile decreasing from the core outward."""
 
-        def p0(self, e1, e2, e3):
-            r = np.meshgrid(e1, e2, e3, indexing="ij")[0]
+        def p0(self, eta1, eta2, eta3):
+            r = np.meshgrid(eta1, eta2, eta3, indexing="ij")[0]
             return (1 - r**2) ** 1.5 + 0.05
 
-        def n0(self, e1, e2, e3):
-            r = np.meshgrid(e1, e2, e3, indexing="ij")[0]
+        def n0(self, eta1, eta2, eta3):
+            r = np.meshgrid(eta1, eta2, eta3, indexing="ij")[0]
             return (1 - r**2) + 0.1
 
-    def radial_domain(e1, e2, e3, squeeze_out=True):
-        """A trivial straight radial line: e1 *is* the physical radius."""
-        r = np.meshgrid(e1, e2, e3, indexing="ij")[0]
+    def radial_domain(eta1, eta2, eta3, squeeze_out=True):
+        """A trivial straight radial line: eta1 *is* the physical radius."""
+        r = np.meshgrid(eta1, eta2, eta3, indexing="ij")[0]
         return r, np.zeros_like(r), np.zeros_like(r)
 
     save(plot_equilibrium_profile(RadialEquil(), radial_domain), "equilibrium.png")
@@ -831,13 +831,13 @@ try:
     class ShellEquil:
         """A poloidally-varying pressure on a toroidal boundary shell."""
 
-        def p0(self, e1, e2, e3):
-            theta = 2 * np.pi * np.meshgrid(e1, e2, e3, indexing="ij")[1]
+        def p0(self, eta1, eta2, eta3):
+            theta = 2 * np.pi * np.meshgrid(eta1, eta2, eta3, indexing="ij")[1]
             return 1.0 + 0.6 * np.cos(2 * theta)
 
-    def shell_domain(e1, e2, e3, squeeze_out=True):
-        """A toroidal shell, thickened slightly along e1 to avoid a degenerate grid."""
-        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    def shell_domain(eta1, eta2, eta3, squeeze_out=True):
+        """A toroidal shell, thickened slightly along eta1 to avoid a degenerate grid."""
+        E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
         r_minor, R0 = 0.35 * (0.85 + 0.15 * E1), 1.0
         theta, phi_ = 2 * np.pi * E2, 2 * np.pi * E3
         x = (R0 + r_minor * np.cos(theta)) * np.cos(phi_)
@@ -862,7 +862,7 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 #
 # A synthetic torus (the same X/Y/Z-coordinate layout every Struphy field product
 # has) with a helical m=3, n=2 mode and a tokamak-like magnetic field; then a 2-D
-# run, i.e. a cylinder cross-section whose e3 direction has a single point.
+# run, i.e. a cylinder cross-section whose eta3 direction has a single point.
 # =============================================================================
 try:
     import pyvista as pv
@@ -892,8 +892,8 @@ try:
                 print(f"skipped {html.name} (interactive export unavailable): {exc}")
         plotter.close()
 
-    def torus_mapping(e1, e2, e3, squeeze_out=False):
-        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    def torus_mapping(eta1, eta2, eta3, squeeze_out=False):
+        E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
         r, theta, phi_ = 0.1 + 0.9 * E1, 2 * np.pi * E2, 2 * np.pi * E3
         return (
             (3.0 + r * np.cos(theta)) * np.cos(phi_),
@@ -904,8 +904,8 @@ try:
     t1, t2, t3 = np.linspace(0, 1, 32), np.linspace(0, 1, 64), np.linspace(0, 1, 96)
     TX, TY, TZ = torus_mapping(t1, t2, t3)
     torus = {
-        "e1": t1, "e2": t2, "e3": t3,
-        **{n: (("e1", "e2", "e3"), c) for n, c in zip("XYZ", (TX, TY, TZ))},
+        "eta1": t1, "eta2": t2, "eta3": t3,
+        **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (TX, TY, TZ))},
     }
     TR = 0.1 + 0.9 * t1[:, None, None]
     TTH, TPH = 2 * np.pi * t2[None, :, None], 2 * np.pi * t3[None, None, :]
@@ -914,25 +914,25 @@ try:
         np.stack(
             [np.sin(np.pi * TR) ** 2 * np.cos(3 * TTH - 2 * TPH - 2 * np.pi * ti) + 0 * TX for ti in t_mode]
         ),
-        dims=("t", "e1", "e2", "e3"),
+        dims=("t", "eta1", "eta2", "eta3"),
         coords={"t": t_mode, **torus},
         name="phi",
         attrs={"label": "phi"},
     )
     shot(mode.struphy.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0), "3d_isosurface.png", zoom=1.3)
     shot(
-        mode.struphy.plot.slices_3d(cuts={"e3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0),
+        mode.struphy.plot.slices_3d(cuts={"eta3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0),
         "3d_slices.png",
         zoom=1.3,
     )
-    shot(mode.struphy.plot.slices_3d(cuts={"e1": 0.5}, cmap="RdBu_r", t=0), "3d_flux_surface.png", zoom=1.3)
+    shot(mode.struphy.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0), "3d_flux_surface.png", zoom=1.3)
 
     TRR = np.hypot(TX, TY)
     e_phi = np.stack([-TY / TRR, TX / TRR, 0 * TRR])
     e_theta = np.stack([-np.sin(TTH) * TX / TRR, -np.sin(TTH) * TY / TRR, np.cos(TTH) + 0 * TX])
     b_field = xr.DataArray(
         3.0 / TRR * e_phi + 3.0 * TR / ((1.2 + TR**2) * TRR) * e_theta,
-        dims=("component", "e1", "e2", "e3"),
+        dims=("component", "eta1", "eta2", "eta3"),
         coords={"component": [0, 1, 2], **torus},
         name="b_field",
         attrs={"label": "B"},
@@ -942,10 +942,10 @@ try:
         "3d_streamlines.png",
         zoom=1.3,
     )
-    shot(b_field.isel(e1=[24]).struphy.plot.glyphs(stride=3, scale=0.5), "3d_glyphs.png", zoom=1.3)
-    def solid_torus(e1, e2, e3, squeeze_out=False):
-        """A torus with a polar axis at e1 = 0, as in most tokamak runs."""
-        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    shot(b_field.isel(eta1=[24]).struphy.plot.glyphs(stride=3, scale=0.5), "3d_glyphs.png", zoom=1.3)
+    def solid_torus(eta1, eta2, eta3, squeeze_out=False):
+        """A torus with a polar axis at eta1 = 0, as in most tokamak runs."""
+        E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
         theta, phi_ = 2 * np.pi * E2, 2 * np.pi * E3
         return (3.0 + E1 * np.cos(theta)) * np.cos(phi_), (3.0 + E1 * np.cos(theta)) * np.sin(phi_), E1 * np.sin(theta)
 
@@ -974,19 +974,19 @@ try:
         zoom=1.3,
     )
 
-    # A 2-D run: a cylinder cross-section, e3 has one point, the plane is z = 0
+    # A 2-D run: a cylinder cross-section, eta3 has one point, the plane is z = 0
     c1, c2, c3 = np.linspace(0, 1, 48), np.linspace(0, 1, 96), np.array([0.0])
     C1, C2, _ = np.meshgrid(c1, c2, c3, indexing="ij")
     CR, CTH = 0.05 + 0.95 * C1, 2 * np.pi * C2
     CX, CY = CR * np.cos(CTH), CR * np.sin(CTH)
     cyl = {
-        "e1": c1, "e2": c2, "e3": c3,
-        **{n: (("e1", "e2", "e3"), c) for n, c in zip("XYZ", (CX, CY, 0 * CX))},
+        "eta1": c1, "eta2": c2, "eta3": c3,
+        **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (CX, CY, 0 * CX))},
     }
     t_2d = np.linspace(0.0, 1.0, 16, endpoint=False)
     phi_2d = xr.DataArray(
         np.stack([np.sin(np.pi * CR) * np.cos(3 * CTH - 2 * np.pi * ti) for ti in t_2d]),
-        dims=("t", "e1", "e2", "e3"),
+        dims=("t", "eta1", "eta2", "eta3"),
         coords={"t": t_2d, **cyl},
         name="phi",
         attrs={"label": "phi"},
@@ -995,7 +995,7 @@ try:
     flow_2d = xr.DataArray(
         np.stack([-CY * np.exp(-2 * CR**2), CX * np.exp(-2 * CR**2), 0 * CX])
         + 0.15 * np.stack([np.cos(3 * CTH), np.sin(3 * CTH), 0 * CX]) * np.sin(np.pi * CR),
-        dims=("component", "e1", "e2", "e3"),
+        dims=("component", "eta1", "eta2", "eta3"),
         coords={"component": [0, 1, 2], **cyl},
         name="u",
         attrs={"label": "u"},
@@ -1004,7 +1004,7 @@ try:
 
     # GIFs go to public/ so Astro keeps them animated (see PUBLIC_OUT above)
     for movie_data, kind, options, filename in (
-        (mode, "slices", {"cuts": {"e3": [0.0, 0.25, 0.5, 0.75]}, "cmap": "RdBu_r"}, "3d_slices.gif"),
+        (mode, "slices", {"cuts": {"eta3": [0.0, 0.25, 0.5, 0.75]}, "cmap": "RdBu_r"}, "3d_slices.gif"),
         (phi_2d, "isosurface", {"values": 7, "cmap": "RdBu_r"}, "2d_isosurface.gif"),
     ):
         path = movie_data.struphy.plot.movie(
@@ -1014,12 +1014,12 @@ try:
     # The filtered TAE from the spectral-analysis section, in its torus sector
     sector_R = 10.0 + r_tae * np.cos(2 * np.pi * S2)
     sector = {
-        "X": (("e1", "e2", "e3"), sector_R * np.cos(2 * np.pi * S3 / 6)),
-        "Y": (("e1", "e2", "e3"), sector_R * np.sin(2 * np.pi * S3 / 6)),
-        "Z": (("e1", "e2", "e3"), r_tae * np.sin(2 * np.pi * S2)),
+        "X": (("eta1", "eta2", "eta3"), sector_R * np.cos(2 * np.pi * S3 / 6)),
+        "Y": (("eta1", "eta2", "eta3"), sector_R * np.sin(2 * np.pi * S3 / 6)),
+        "Z": (("eta1", "eta2", "eta3"), r_tae * np.sin(2 * np.pi * S2)),
     }
     tae_3d = band_tae.filtered.isel(t=-1).assign_coords(sector)
-    shot(tae_3d.struphy.plot.slices_3d(cuts={"e3": [0.0, 0.5, 1.0], "e1": 0.44}, cmap="RdBu_r"), "spectral_tae_3d.png", zoom=1.2)
+    shot(tae_3d.struphy.plot.slices_3d(cuts={"eta3": [0.0, 0.5, 1.0], "eta1": 0.44}, cmap="RdBu_r"), "spectral_tae_3d.png", zoom=1.2)
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped 3-D view figures (PyVista unavailable or headless rendering failed): {exc}")
 

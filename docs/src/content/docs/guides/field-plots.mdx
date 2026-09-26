@@ -12,7 +12,7 @@ signatures are in the [Plotting reference](/struphy-plots/reference/plot/).
 ## 1-D: lineouts
 
 ```python
-field.struphy.plot.lineout(x="e1", t="last", e2=0.5)
+field.struphy.plot.lineout(x="eta1", t="last", eta2=0.5)
 ```
 
 Selects every dimension except `x` (via keyword selection) and plots the
@@ -23,7 +23,7 @@ remaining 1-D profile.
 Several profiles in one axes, e.g. at a few times, against the minor radius:
 
 ```python
-phi.struphy.plot.profiles(x="e1", at=[0, 100, 200, 299], x_of=lambda e1: 0.1 + 0.9 * e1, e2=0.0, e3=0.0)
+phi.struphy.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=lambda eta1: 0.1 + 0.9 * eta1, eta2=0.0, eta3=0.0)
 ```
 
 `at` picks the times (integers are positions, floats nearest values; the
@@ -38,7 +38,7 @@ sweep instead of `t`.
 (`x`, `y`) and which dimension to sweep over (`sweep`, default `"t"`):
 
 ```python
-view = field.struphy.plot.view(x="e1", y="e2", sweep="t")
+view = field.struphy.plot.view(x="eta1", y="eta2", sweep="t")
 
 view.slice(t="last")              # one snapshot
 view.panels(nrows=3, ncols=4)     # a grid of snapshots
@@ -64,8 +64,8 @@ for why the extra `.transpose(...)` is needed):
 ```python
 import plotly.express as px
 
-selected = field.struphy.data.slice(x="e1", y="e2", t="last")
-px.imshow(selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="lower")
+selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
+px.imshow(selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2, origin="lower")
 ```
 :::
 
@@ -85,7 +85,7 @@ few extreme values do not wash out the rest. The 3-D views take the same two
 options.
 
 ```python
-view = u.struphy.plot.view(x="e1", y="e2", coords="physical", plane="RZ", cmap="RdBu_r", symmetric=True, e3=0)
+view = u.struphy.plot.view(x="eta1", y="eta2", coords="physical", plane="RZ", cmap="RdBu_r", symmetric=True, eta3=0)
 view.animation()
 ```
 
@@ -95,7 +95,7 @@ directions (e.g. θ = 0) automatically, so a poloidal cross-section has no gap.
 ## Vector fields
 
 ```python
-b_field.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=4)
+b_field.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=4)
 ```
 
 ![A quiver plot of two vector components](../../../assets/figures/vector.png)
@@ -109,8 +109,8 @@ takes flat position and component arrays instead of a grid, so flatten
 import numpy as np
 import plotly.figure_factory as ff
 
-selected = b_field.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=4)
-xg, yg = np.meshgrid(selected.e1, selected.e2, indexing="ij")
+selected = b_field.struphy.data.vector(x="eta1", y="eta2", components=(0, 1), stride=4)
+xg, yg = np.meshgrid(selected.eta1, selected.eta2, indexing="ij")
 ff.create_quiver(
     xg.ravel(), yg.ravel(),
     selected.isel(component=0).values.ravel(), selected.isel(component=1).values.ravel(),

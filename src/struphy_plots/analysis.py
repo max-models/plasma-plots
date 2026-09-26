@@ -122,7 +122,7 @@ def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
     return out
 
 
-SPATIAL_DIMS = ("e1", "e2", "e3")
+SPATIAL_DIMS = ("eta1", "eta2", "eta3")
 VELOCITY_DIMS = ("v1", "v2", "v3")
 
 
@@ -144,9 +144,9 @@ def _select_dims(data: xr.DataArray, dims, default) -> list[str]:
 
 
 def spatial_average(data: xr.DataArray, *, dims=None) -> xr.DataArray:
-    """Mean over the logical space dimensions, e.g. a binned f(t, e1, v1) becomes f(t, v1).
+    """Mean over the logical space dimensions, e.g. a binned f(t, eta1, v1) becomes f(t, v1).
 
-    ``dims`` defaults to every one of ``e1``, ``e2``, ``e3`` that ``data`` has. The mean is
+    ``dims`` defaults to every one of ``eta1``, ``eta2``, ``eta3`` that ``data`` has. The mean is
     uniform in the logical coordinates, which is the volume average on a Cartesian domain; on a
     mapped domain it is not weighted by the Jacobian. Physical ``X``, ``Y``, ``Z`` coordinates
     that depend on the averaged dimensions are dropped.
@@ -170,7 +170,7 @@ def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
     """Moments of a binned distribution function over its velocity dimensions.
 
     ``dims`` defaults to every one of ``v1``, ``v2``, ``v3`` that ``f`` has; the moments are
-    functions of the remaining dimensions, for example ``(t, e1)`` for an ``e1_v1`` product.
+    functions of the remaining dimensions, for example ``(t, eta1)`` for an ``e1_v1`` product.
     The integrals are sums over the bins, weighted by the bin widths.
 
     Returns a Dataset with
@@ -412,7 +412,7 @@ def _geometry(data: xr.DataArray, domain=None):
     """
     missing = [d for d in SPATIAL_DIMS if d not in data.dims]
     if missing:
-        raise ValueError(f"integrals need the logical dimensions e1, e2, e3; {missing} are missing")
+        raise ValueError(f"integrals need the logical dimensions eta1, eta2, eta3; {missing} are missing")
     if domain is not None:
         etas = [np.asarray(data[d], dtype=float) for d in SPATIAL_DIMS]
         sqrt_g = np.abs(np.asarray(domain.jacobian_det(*etas), dtype=float))
@@ -450,9 +450,9 @@ def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=No
 
     ``form=0`` (default) is a function, integrated with the volume element ``|sqrt g| de``;
     ``form=3`` is a density (a 3-form, e.g. Struphy's L2 fields), integrated as ``int f de``.
-    ``weight`` is an optional ``(e1, e2, e3)`` array. The geometry comes from a struphy
+    ``weight`` is an optional ``(eta1, eta2, eta3)`` array. The geometry comes from a struphy
     ``domain`` (``out.domain``, exact) or, without one, from the X, Y, Z coordinates.
-    ``quadrature`` maps ``e1``/``e2``/``e3`` to explicit weights (e.g. Gauss weights, see
+    ``quadrature`` maps ``eta1``/``eta2``/``eta3`` to explicit weights (e.g. Gauss weights, see
     ``out.analysis.quadrature_grid()``); by default see :func:`quadrature_weights`.
     """
     if form not in (0, 3):

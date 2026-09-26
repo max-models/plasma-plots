@@ -160,7 +160,7 @@ class ArrayPlots(_ArrayAccessor):
         **selection,
     ):
         """PyVista contour surfaces of this scalar field in physical space, after selecting every
-        dimension but ``e1``, ``e2``, ``e3`` (e.g. ``t="last"``). For a 2-D field, contour
+        dimension but ``eta1``, ``eta2``, ``eta3`` (e.g. ``t="last"``). For a 2-D field, contour
         lines over the colored plane. See :func:`struphy_plots.pyvista_plots.pyvista_isosurface`.
         """
         from .pyvista_plots import pyvista_isosurface
@@ -192,7 +192,7 @@ class ArrayPlots(_ArrayAccessor):
         **selection,
     ):
         """PyVista surfaces of constant logical coordinate, drawn in physical space: e.g.
-        ``cuts={"e3": [0, 0.25]}`` for poloidal cross-sections, ``cuts={"e1": 0.8}`` for one
+        ``cuts={"eta3": [0, 0.25]}`` for poloidal cross-sections, ``cuts={"eta1": 0.8}`` for one
         flux surface. A 2-D field is shown as its whole plane by default.
         See :func:`struphy_plots.pyvista_plots.pyvista_slices`.
         """
@@ -222,7 +222,7 @@ class ArrayPlots(_ArrayAccessor):
         plotter=None,
         **selection,
     ):
-        """PyVista arrows of this ``(component, e1, e2, e3)`` vector field, colored by magnitude.
+        """PyVista arrows of this ``(component, eta1, eta2, eta3)`` vector field, colored by magnitude.
         See :func:`struphy_plots.pyvista_plots.pyvista_glyphs` for ``components``.
         """
         from .pyvista_plots import pyvista_glyphs
@@ -324,8 +324,8 @@ class ArrayPlots(_ArrayAccessor):
         """This field slice with marker orbit paths from ``orbits`` overlaid: a Poincare-style
         diagnostic for checking particle confinement or orbit topology against a background field.
 
-        ``orbits`` must have position variables named ``x`` and ``y`` too (e.g. logical ``e1``,
-        ``e2``, to overlay directly on a logical-coordinates slice of this field).
+        ``orbits`` must have position variables named ``x`` and ``y`` too (e.g. logical ``eta1``,
+        ``eta2``, to overlay directly on a logical-coordinates slice of this field).
         """
         from .plotting import plot_field_with_orbits
 
@@ -462,7 +462,7 @@ class ArrayPlots(_ArrayAccessor):
     def mode_amplitudes(
         self,
         *,
-        dims=("e2", "e3"),
+        dims=("eta2", "eta3"),
         names=("m", "n"),
         top: int = 6,
         fit=None,
@@ -491,7 +491,7 @@ class ArrayPlots(_ArrayAccessor):
     def mode_map(
         self,
         *,
-        dims=("e2", "e3"),
+        dims=("eta2", "eta3"),
         m_range=None,
         n_range=None,
         reduce: str = "max",
@@ -515,7 +515,7 @@ class ArrayPlots(_ArrayAccessor):
     def radial_power(
         self,
         *,
-        x: str = "e1",
+        x: str = "eta1",
         x_of=None,
         xlabel: str | None = None,
         continuum=None,
@@ -552,8 +552,8 @@ class ArrayPlots(_ArrayAccessor):
         self,
         omega: float | None = None,
         *,
-        x: str = "e1",
-        dims=("e2", "e3"),
+        x: str = "eta1",
+        dims=("eta2", "eta3"),
         x_of=None,
         xlabel: str | None = None,
         top: int = 4,
@@ -587,7 +587,7 @@ class ArrayPlots(_ArrayAccessor):
     def profiles(
         self,
         *,
-        x: str = "e1",
+        x: str = "eta1",
         over: str = "t",
         at=None,
         x_of=None,
@@ -597,7 +597,7 @@ class ArrayPlots(_ArrayAccessor):
         **selection,
     ):
         """Profiles along ``x`` at several values of ``over`` (default: four times) in one
-        axes, after selecting every other dimension by keyword, e.g. ``e2=0.125, e3=0``.
+        axes, after selecting every other dimension by keyword, e.g. ``eta2=0.125, eta3=0``.
         ``x_of`` maps ``x`` to the plotted axis (e.g. the minor radius). See
         :func:`struphy_plots.plotting.plot_profiles`."""
         from .plotting import _select, plot_profiles
@@ -686,7 +686,7 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> view = f.struphy.plot.view(x="e1", y="v1", cmap="RdBu_r")
+        >>> view = f.struphy.plot.view(x="eta1", y="v1", cmap="RdBu_r")
         >>> view.slice(t="last")
         >>> view.panels(nrows=2, ncols=3)
         >>> view.save_frames("frames")
@@ -944,7 +944,7 @@ class ArrayData(_ArrayAccessor):
 
     def grid(self, *, name: str | None = None, **selection):
         """This field as a ``pyvista.StructuredGrid`` on its physical points, after selecting
-        every dimension but ``e1``, ``e2``, ``e3`` (and ``component``) -- the data behind every
+        every dimension but ``eta1``, ``eta2``, ``eta3`` (and ``component``) -- the data behind every
         3-D view, ready for any PyVista filter.
         """
         from .plotting import _select
@@ -1112,7 +1112,7 @@ class ArrayAnalysis(_ArrayAccessor):
         return relative_error(self._array, ref=ref, skip_first=skip_first)
 
     def spatial_average(self, *, dims=None) -> xr.DataArray:
-        """Mean over the logical space dimensions ``e1``, ``e2``, ``e3`` (or ``dims``).
+        """Mean over the logical space dimensions ``eta1``, ``eta2``, ``eta3`` (or ``dims``).
 
         For a binned ``e1_v1`` distribution this is f(v1, t) averaged over space; see
         :func:`struphy_plots.analysis.spatial_average`.
@@ -1208,7 +1208,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return spectrogram(self._array, length=length, step=step, detrend=detrend, window=window)
 
-    def mode_spectrum(self, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0) -> xr.DataArray:
+    def mode_spectrum(self, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0) -> xr.DataArray:
         """Complex amplitudes over poloidal/toroidal mode numbers; see
         :func:`struphy_plots.spectral.mode_spectrum`."""
         from .spectral import mode_spectrum
@@ -1260,7 +1260,7 @@ class StruphyAccessor:
 
     @property
     def plot(self) -> "ArrayPlots":
-        """Plots of this array, e.g. ``array.struphy.plot.slice(x="e1", y="v1", t="last")``."""
+        """Plots of this array, e.g. ``array.struphy.plot.slice(x="eta1", y="v1", t="last")``."""
         return ArrayPlots(self._array)
 
     @property
@@ -1271,7 +1271,7 @@ class StruphyAccessor:
     @property
     def data(self) -> "ArrayData":
         """The data behind each plot, without rendering it, e.g. for a different plotting
-        library: ``array.struphy.data.slice(x="e1", y="v1", t="last")``."""
+        library: ``array.struphy.data.slice(x="eta1", y="v1", t="last")``."""
         return ArrayData(self._array)
 
 

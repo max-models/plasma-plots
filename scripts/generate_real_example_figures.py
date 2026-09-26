@@ -83,16 +83,16 @@ def run_simulation() -> Output:
     return out
 
 def pproc(out: Output):
-    # Both fields are evaluated at a single (e1, e2) point, physical z as the remaining spatial
-    # coordinate (logical e3 swapped for physical Z, so k comes out in physical units, matching
+    # Both fields are evaluated at a single (eta1, eta2) point, physical z as the remaining spatial
+    # coordinate (logical eta3 swapped for physical Z, so k comes out in physical units, matching
     # the exact speeds above).
-    velocity = out.evaluate("mhd/velocity", component=0).isel(e1=0, e2=0)
-    velocity = velocity.assign_coords(e3=("e3", velocity["Z"].values))
-    pressure = out.evaluate("mhd/pressure").isel(e1=0, e2=0)
-    pressure = pressure.assign_coords(e3=("e3", pressure["Z"].values))
+    velocity = out.evaluate("mhd/velocity", component=0).isel(eta1=0, eta2=0)
+    velocity = velocity.assign_coords(eta3=("eta3", velocity["Z"].values))
+    pressure = out.evaluate("mhd/pressure").isel(eta1=0, eta2=0)
+    pressure = pressure.assign_coords(eta3=("eta3", pressure["Z"].values))
 
-    velocity_spectrum = velocity.struphy.analysis.dispersion(dim="e3")
-    pressure_spectrum = pressure.struphy.analysis.dispersion(dim="e3")
+    velocity_spectrum = velocity.struphy.analysis.dispersion(dim="eta3")
+    pressure_spectrum = pressure.struphy.analysis.dispersion(dim="eta3")
 
     fit_k_range = (0.2, 2.0)
     (alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(

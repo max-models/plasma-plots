@@ -347,9 +347,9 @@ def plot_vector(
     )
     if coordinates == "physical":
         planes = {
-            frozenset(("e1", "e2")): "XY",
-            frozenset(("e1", "e3")): "XZ",
-            frozenset(("e2", "e3")): "YZ",
+            frozenset(("eta1", "eta2")): "XY",
+            frozenset(("eta1", "eta3")): "XZ",
+            frozenset(("eta2", "eta3")): "YZ",
         }
         plane = planes.get(frozenset((x, y)))
         if plane is None:
@@ -372,15 +372,15 @@ def plot_vector(
 def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None) -> dict[str, xr.DataArray]:
     """Three orthogonal midpoint (or chosen-index) planes through a scalar volume.
 
-    Returns a dict keyed by the dimension held fixed for each plane (``"e3"``, ``"e2"``,
-    ``"e1"``), each a 2-D ``xr.DataArray``. Used by :func:`plot_volume_slices`.
+    Returns a dict keyed by the dimension held fixed for each plane (``"eta3"``, ``"eta2"``,
+    ``"eta1"``), each a 2-D ``xr.DataArray``. Used by :func:`plot_volume_slices`.
     """
-    validate_array(data, required_dims=("e1", "e2", "e3"))
-    if set(data.dims) != {"e1", "e2", "e3"}:
+    validate_array(data, required_dims=("eta1", "eta2", "eta3"))
+    if set(data.dims) != {"eta1", "eta2", "eta3"}:
         raise ValueError(f"select every non-spatial dimension before volume_slices(); got {data.dims}")
     indices = {dim: data.sizes[dim] // 2 for dim in data.dims} | (indices or {})
     planes = {}
-    for normal, x, y in zip(("e3", "e2", "e1"), ("e1", "e1", "e2"), ("e2", "e3", "e3")):
+    for normal, x, y in zip(("eta3", "eta2", "eta1"), ("eta1", "eta1", "eta2"), ("eta2", "eta3", "eta3")):
         plane = data.isel({normal: indices[normal]}).transpose(x, y)
         plane.attrs["fixed_index"] = indices[normal]
         planes[normal] = plane
@@ -442,8 +442,8 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     """
     import pyvista as pv
 
-    validate_array(data, required_dims=("e1", "e2", "e3"))
-    if set(data.dims) != {"e1", "e2", "e3"}:
+    validate_array(data, required_dims=("eta1", "eta2", "eta3"))
+    if set(data.dims) != {"eta1", "eta2", "eta3"}:
         raise ValueError(f"select every non-spatial dimension before pyvista_volume(); got {data.dims}")
     if any(coord not in data.coords for coord in ("X", "Y", "Z")):
         raise ValueError("pyvista_volume() requires mapped X, Y, and Z coordinates")
@@ -481,11 +481,11 @@ def show_equilibrium(
     """
     import pyvista as pv
 
-    e1 = np.linspace(0.0, 1.0, n1)
-    e2 = np.linspace(0.0, 1.0, n2)
-    e3 = np.linspace(0.0, 1.0, n3)
-    x, y, z = domain(e1, e2, e3, squeeze_out=False)
-    values = np.asarray(getattr(equil, scalars)(e1, e2, e3), dtype=float)
+    eta1 = np.linspace(0.0, 1.0, n1)
+    eta2 = np.linspace(0.0, 1.0, n2)
+    eta3 = np.linspace(0.0, 1.0, n3)
+    x, y, z = domain(eta1, eta2, eta3, squeeze_out=False)
+    values = np.asarray(getattr(equil, scalars)(eta1, eta2, eta3), dtype=float)
     grid = pv.StructuredGrid(
         np.asarray(x, dtype=float),
         np.asarray(y, dtype=float),
@@ -1310,21 +1310,21 @@ def plot_continuous_spectrum(
 
 
 def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):
-    """Plot radial profiles of a fluid equilibrium along ``e1`` (at ``e2 = e3 = 0``).
+    """Plot radial profiles of a fluid equilibrium along ``eta1`` (at ``eta2 = eta3 = 0``).
 
     ``equil`` is a :class:`~struphy.fields_background.base.FluidEquilibrium` (e.g. from
     ``out.equil``) and ``domain`` its mapping (``out.domain``). Plots ``p0``, and ``n0`` and
     ``T0 = p0 / n0`` if ``equil`` has a density profile too.
     """
-    e1 = np.linspace(0.0, 1.0, n_points)
-    e2 = e3 = np.zeros(1)
-    x, y, _z = (np.asarray(c).ravel() for c in domain(e1, e2, e3, squeeze_out=False))
+    eta1 = np.linspace(0.0, 1.0, n_points)
+    eta2 = eta3 = np.zeros(1)
+    x, y, _z = (np.asarray(c).ravel() for c in domain(eta1, eta2, eta3, squeeze_out=False))
     radius = np.sqrt(x**2 + y**2)
-    pressure = np.asarray(equil.p0(e1, e2, e3), dtype=float).ravel()
+    pressure = np.asarray(equil.p0(eta1, eta2, eta3), dtype=float).ravel()
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     ax.plot(radius, pressure, label=r"$p_0$")
     if hasattr(equil, "n0"):
-        density = np.asarray(equil.n0(e1, e2, e3), dtype=float).ravel()
+        density = np.asarray(equil.n0(eta1, eta2, eta3), dtype=float).ravel()
         ax.plot(radius, density, label=r"$n_0$")
         with np.errstate(divide="ignore", invalid="ignore"):
             ax.plot(radius, pressure / density, label=r"$T_0$")
@@ -1433,7 +1433,7 @@ def plot_profiles(
     ``data`` has exactly the dimensions ``x`` and ``over`` (select the rest first). ``at`` picks
     the values of ``over``: integers are positions, floats nearest values; the default is four
     evenly spaced positions. ``x_of`` maps the ``x`` coordinate to the plotted axis, e.g.
-    ``lambda e1: 0.1 + 0.9 * e1`` for the minor radius of a hollow torus.
+    ``lambda eta1: 0.1 + 0.9 * eta1`` for the minor radius of a hollow torus.
     """
     validate_array(data, required_dims=(x, over))
     if set(data.dims) != {x, over}:
@@ -1489,8 +1489,8 @@ def plot_orbit_poloidal(
     Passing orbits circle the magnetic axis, trapped ones trace bananas. ``color_by`` is
     ``"classification"`` (needs ``v_par``, see :func:`~struphy_plots.analysis.classify_orbits`)
     or ``None`` for one color per marker. Samples where a marker is lost are dropped.
-    ``boundary`` is any field with physical coordinates, whose outer (last ``e1``) surface is
-    drawn at its first ``e3`` as the domain boundary.
+    ``boundary`` is any field with physical coordinates, whose outer (last ``eta1``) surface is
+    drawn at its first ``eta3`` as the domain boundary.
     """
     subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z")).transpose("t", "marker", ...)
     alive = _alive(subset)
@@ -1520,8 +1520,8 @@ def plot_orbit_poloidal(
             label=label,
         )
     if boundary is not None:
-        edge = boundary.isel({d: 0 for d in boundary.dims if d not in ("e1", "e2", "e3")})
-        edge = close_periodic(edge.isel(e1=-1, e3=0), ("e2",)) if "e3" in edge.dims else edge.isel(e1=-1)
+        edge = boundary.isel({d: 0 for d in boundary.dims if d not in ("eta1", "eta2", "eta3")})
+        edge = close_periodic(edge.isel(eta1=-1, eta3=0), ("eta2",)) if "eta3" in edge.dims else edge.isel(eta1=-1)
         artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2, label="boundary")
     ax.set(xlabel="R", ylabel="z", title="Orbits in the poloidal plane", aspect="equal")
     if labeled or boundary is not None:

@@ -19,7 +19,7 @@ def multi_branch_field(
     length=2 * np.pi,
     seed=0,
 ):
-    """A broadband (t, e3) field exciting a straight branch omega = +-v*k for each of
+    """A broadband (t, eta3) field exciting a straight branch omega = +-v*k for each of
     ``velocities``, at every one of the first ``n_modes`` spatial Fourier modes, with an
     independent random phase per mode and direction -- similar in spirit to noise-driven,
     bidirectionally propagating waves in a real simulation, but built directly in Fourier
@@ -37,7 +37,7 @@ def multi_branch_field(
             phase = rng.uniform(0.0, 2 * np.pi, size=(len(k_modes), 1, 1))
             values += np.cos(K * X[None] + sign * v * K * T[None] + phase).sum(axis=0)
     return xr.DataArray(
-        values, dims=("t", "e3"), coords={"t": t, "e3": x}, name="field", attrs={"label": "field"}
+        values, dims=("t", "eta3"), coords={"t": t, "eta3": x}, name="field", attrs={"label": "field"}
     )
 
 
@@ -60,7 +60,7 @@ def test_fit_dispersion_branches_separates_two_branches_by_increasing_omega():
 
 
 def test_fit_dispersion_branches_requires_omega_and_k_dims():
-    not_a_spectrum = xr.DataArray(np.ones((3, 4)), dims=("t", "e3"))
+    not_a_spectrum = xr.DataArray(np.ones((3, 4)), dims=("t", "eta3"))
     with pytest.raises(ValueError, match="omega.*k"):
         fit_dispersion_branches(not_a_spectrum, n_branches=1)
 

@@ -19,7 +19,7 @@ import xarray as xr
 from .analysis import ORBIT_CLASSES, classify_orbits
 from .arrays import close_periodic, mapping_jacobian, validate_array, value_label
 
-SPATIAL = ("e1", "e2", "e3")
+SPATIAL = ("eta1", "eta2", "eta3")
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
 
 
@@ -40,9 +40,9 @@ def _plotter(plotter):
 
 
 def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
-    """``data`` transposed to ``(*extra, e1, e2, e3)``, checking nothing else is left.
+    """``data`` transposed to ``(*extra, eta1, eta2, eta3)``, checking nothing else is left.
 
-    A spatial dimension that was selected away (e.g. ``field.isel(e3=0)`` of a 2-D run) comes
+    A spatial dimension that was selected away (e.g. ``field.isel(eta3=0)`` of a 2-D run) comes
     back with a single point, so a plane is still a (flat) structured grid.
     """
     validate_array(data, required_dims=extra)
@@ -54,7 +54,7 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
         raise ValueError(f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}")
     absent = [dim for dim in SPATIAL if dim not in data.dims]
     if len(absent) > 1:
-        raise ValueError(f"3-D views need at least two of e1, e2, e3; {data.name!r} has dims {data.dims}")
+        raise ValueError(f"3-D views need at least two of eta1, eta2, eta3; {data.name!r} has dims {data.dims}")
     for dim in absent:
         data = data.expand_dims(dim) if dim in data.coords else data.expand_dims({dim: [0.0]})
     coords = {}
@@ -103,7 +103,7 @@ def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
-    """A ``pyvista.StructuredGrid`` of a selected ``(e1, e2, e3)`` field on its physical points.
+    """A ``pyvista.StructuredGrid`` of a selected ``(eta1, eta2, eta3)`` field on its physical points.
 
     A scalar field becomes point data ``name`` (default: the field's label); a vector field with
     a ``component`` dimension of three Cartesian components becomes point vectors ``name``, plus
@@ -130,7 +130,7 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
 def push_forward(data: xr.DataArray) -> xr.DataArray:
     """Cartesian components of a vector field given by contravariant logical components.
 
-    ``data`` has dims ``(component, e1, e2, e3)``, e.g. from
+    ``data`` has dims ``(component, eta1, eta2, eta3)``, e.g. from
     ``out.evaluate(name, eta1=..., eta2=..., eta3=..., representation="v")``. The Cartesian
     field is ``sum_i v^i dX/de_i``, with the Jacobian of the mapping differentiated numerically
     from the attached ``X``, ``Y``, ``Z`` coordinates, so every logical direction needs at least
@@ -254,7 +254,7 @@ def pyvista_isosurface(
     robust: bool = False,
     plotter=None,
 ):
-    """Contour surfaces of a selected scalar ``(e1, e2, e3)`` field in physical space.
+    """Contour surfaces of a selected scalar ``(eta1, eta2, eta3)`` field in physical space.
 
     ``values`` is the number of evenly spaced levels, or explicit levels (between the color
     limits, which ``symmetric``/``robust`` set as in :func:`~struphy_plots.plotting.color_limits`).
@@ -301,7 +301,7 @@ def _cut_indices(data, cuts):
     indices = {}
     for dim, positions in (cuts or {}).items():
         if dim not in SPATIAL:
-            raise ValueError(f"cuts are along e1, e2 or e3; got {dim!r}")
+            raise ValueError(f"cuts are along eta1, eta2 or eta3; got {dim!r}")
         coordinate = np.asarray(data[dim], dtype=float)
         chosen = []
         for position in np.atleast_1d(positions).tolist():
@@ -318,9 +318,9 @@ def _cut_indices(data, cuts):
 
 
 def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[xr.DataArray]:
-    """The logical cuts of a scalar ``(e1, e2, e3)`` field that :func:`pyvista_slices` draws.
+    """The logical cuts of a scalar ``(eta1, eta2, eta3)`` field that :func:`pyvista_slices` draws.
 
-    ``cuts`` maps ``e1``/``e2``/``e3`` to one position or a list: a float is the nearest
+    ``cuts`` maps ``eta1``/``eta2``/``eta3`` to one position or a list: a float is the nearest
     logical coordinate, an integer a grid index, ``"first"``/``"last"`` an end. The default is
     the middle of every dimension with more than one point, or for a 2-D field (one dimension
     with a single point) the whole plane. Each cut keeps its size-one dimension, so it still
@@ -348,8 +348,8 @@ def pyvista_slices(
 ):
     """Surfaces of constant logical coordinate through a scalar field, drawn in physical space.
 
-    On a mapped domain these are the natural cuts: ``cuts={"e3": [0, 0.25]}`` gives poloidal
-    cross-sections of a torus, ``cuts={"e1": 0.8}`` the field on one flux surface. See
+    On a mapped domain these are the natural cuts: ``cuts={"eta3": [0, 0.25]}`` gives poloidal
+    cross-sections of a torus, ``cuts={"eta1": 0.8}`` the field on one flux surface. See
     :func:`prepare_slices_3d` for ``cuts``; color limits are shared by every cut.
     """
     data = _spatial(data)
@@ -386,7 +386,7 @@ def pyvista_glyphs(
     title: str | None = None,
     plotter=None,
 ):
-    """Arrows of a selected ``(component, e1, e2, e3)`` vector field, colored by magnitude.
+    """Arrows of a selected ``(component, eta1, eta2, eta3)`` vector field, colored by magnitude.
 
     ``components="cartesian"`` (default) for x/y/z components, e.g. a ``*_phy`` product;
     ``"contravariant"`` for logical components, pushed forward by :func:`push_forward`.
@@ -596,7 +596,7 @@ def pyvista_domain(
     """The mapping of a Struphy ``domain`` as a wireframe of logical grid lines.
 
     Grid lines are drawn on the real boundary faces (see :func:`boundary_keys`; for a torus the
-    outer and inner surfaces) and, with ``cross_section``, over the whole ``e3 = 0`` face (for a
+    outer and inner surfaces) and, with ``cross_section``, over the whole ``eta3 = 0`` face (for a
     torus a poloidal cross-section). ``n1``, ``n2``, ``n3`` lines per direction, each sampled
     ``resolution`` times finer so curved lines stay smooth. ``surface`` adds the translucent
     boundary. Useful to check the geometry (and its orientation) of a run; ``n3=1`` shows a

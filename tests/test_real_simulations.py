@@ -83,13 +83,13 @@ def orbit_run(tmp_path_factory):
 
 def test_mode_spectrum_finds_the_seeded_torus_harmonics(torus_run):
     velocity = torus_run.evaluate("mhd/velocity").isel(t=0, component=0)
-    top = velocity.struphy.analysis.mode_spectrum().struphy.analysis.mode_amplitudes(top=2).max("e1")
+    top = velocity.struphy.analysis.mode_spectrum().struphy.analysis.mode_amplitudes(top=2).max("eta1")
     assert set(top.mode.values) == {"(10, -1)", "(11, -1)"}
 
 
 def test_push_forward_matches_struphys_cartesian_product(torus_run):
     cartesian = torus_run.evaluate("mhd/velocity_xyz").isel(t=0)
-    etas = [np.asarray(cartesian[d]) for d in ("e1", "e2", "e3")]
+    etas = [np.asarray(cartesian[d]) for d in ("eta1", "eta2", "eta3")]
     contravariant = torus_run.evaluate(
         "mhd/velocity", eta1=etas[0], eta2=etas[1], eta3=etas[2], representation="v", t=0
     ).isel(t=0)
@@ -102,9 +102,9 @@ def test_push_forward_matches_struphys_cartesian_product(torus_run):
 def test_cell_centred_fields_close_the_periodic_seam(torus_run):
     velocity = torus_run.evaluate("mhd/velocity").isel(t=-1, component=0)
     grid = p3.structured_grid(velocity)
-    assert grid.dimensions == (velocity.sizes["e1"], velocity.sizes["e2"] + 1, velocity.sizes["e3"])
-    plane = p3.structured_grid(velocity.isel(e3=0))
-    assert plane.dimensions[1] == velocity.sizes["e2"] + 1
+    assert grid.dimensions == (velocity.sizes["eta1"], velocity.sizes["eta2"] + 1, velocity.sizes["eta3"])
+    plane = p3.structured_grid(velocity.isel(eta3=0))
+    assert plane.dimensions[1] == velocity.sizes["eta2"] + 1
 
 
 def test_every_3d_view_renders_on_real_output(torus_run):
@@ -112,8 +112,8 @@ def test_every_3d_view_renders_on_real_output(torus_run):
     cartesian = torus_run.evaluate("mhd/velocity_xyz").isel(t=-1)
     views = {
         "isosurface": velocity.struphy.plot.isosurface(values=4),
-        "slices": velocity.struphy.plot.slices_3d(cuts={"e3": [0.0, 0.5], "e1": 0.5}),
-        "plane": velocity.isel(e3=0).struphy.plot.isosurface(values=4),
+        "slices": velocity.struphy.plot.slices_3d(cuts={"eta3": [0.0, 0.5], "eta1": 0.5}),
+        "plane": velocity.isel(eta3=0).struphy.plot.isosurface(values=4),
         "glyphs": cartesian.struphy.plot.glyphs(stride=2),
         "streamlines": cartesian.struphy.plot.streamlines(n_points=40),
         "domain": torus_run.plot.domain_3d(n1=4, n2=16, n3=6),
@@ -152,7 +152,7 @@ def test_linear_mhd_energies_from_fields_match_the_saved_scalars(torus_run):
         assert float(abs(energies[name] - saved).max() / abs(saved).max()) < 1e-10, name
     # the energy of the filtered dominant mode is a part of the total
     etas, _ = torus_run.analysis.quadrature_grid()
-    velocity = torus_run.evaluate("mhd/velocity", eta1=etas["e1"], eta2=etas["e2"], eta3=etas["e3"], representation="2")
+    velocity = torus_run.evaluate("mhd/velocity", eta1=etas["eta1"], eta2=etas["eta2"], eta3=etas["eta3"], representation="2")
     filtered = velocity.struphy.analysis.filter_time(pad_bins=1).filtered
     mode = torus_run.analysis.linear_mhd_energies(velocity=filtered, b_field=None, pressure=None)
     assert 0 < float(mode.en_U.max()) <= 1.5 * float(energies.en_U.max())
@@ -160,9 +160,9 @@ def test_linear_mhd_energies_from_fields_match_the_saved_scalars(torus_run):
 
 def test_physical_slices_and_vtk_export_on_real_output(torus_run, tmp_path):
     velocity = torus_run.evaluate("mhd/velocity").isel(component=0)
-    result = velocity.struphy.plot.slice(x="e1", y="e2", coords="physical", plane="RZ", t=-1, e3=0, symmetric=True)
+    result = velocity.struphy.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", t=-1, eta3=0, symmetric=True)
     mesh = result.artists[0]
-    assert mesh.get_coordinates().shape[1] == velocity.sizes["e2"] + 2  # seam closed: 33 points, 34 cell edges
+    assert mesh.get_coordinates().shape[1] == velocity.sizes["eta2"] + 2  # seam closed: 33 points, 34 cell edges
     paths = velocity.struphy.data.to_vtk(tmp_path / "velocity")
     assert paths[0].endswith(".pvd") and len(paths) == velocity.sizes["t"] + 1
 
@@ -189,14 +189,14 @@ def test_linear_mhd_two_alfven_modes(tmp_path):
     )
     output = simulation.run().pproc(physical=True)
     for product in ("mhd/velocity", "mhd/velocity_xyz"):
-        velocity = output.evaluate(product).isel(component=0, e1=0, e2=0)
+        velocity = output.evaluate(product).isel(component=0, eta1=0, eta2=0)
         result = output.analysis.filter_time(velocity, pad_bins=2)
         spectrum = result.spectrum
         assert abs(float(spectrum.dominant_frequency) - 2 * np.pi / 20) < spectrum.attrs["frequency_resolution"]
         assert float(spectrum.omega_hi) < 3 * 2 * np.pi / 20
 
         def mode_amplitude(field, n):
-            return abs((field * np.sin(2 * np.pi * n * field.e3)).sum("e3")).max().item()
+            return abs((field * np.sin(2 * np.pi * n * field.eta3)).sum("eta3")).max().item()
 
         raw_ratio = mode_amplitude(velocity, 3) / mode_amplitude(velocity, 1)
         filtered_ratio = mode_amplitude(result.filtered, 3) / mode_amplitude(result.filtered, 1)

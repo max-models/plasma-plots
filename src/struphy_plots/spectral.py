@@ -300,8 +300,8 @@ def filter_time(data: xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_b
 def drop_periodic_endpoint(data: xr.DataArray, dim: str, *, period: float = 1.0) -> xr.DataArray:
     """``data`` without the last sample along ``dim`` if it repeats the first one period later.
 
-    Struphy's logical grids often include both ends of a periodic direction (``e2 = 0`` and
-    ``e2 = 1``); a Fourier transform must see each point once. Arrays without a duplicate come
+    Struphy's logical grids often include both ends of a periodic direction (``eta2 = 0`` and
+    ``eta2 = 1``); a Fourier transform must see each point once. Arrays without a duplicate come
     back unchanged.
     """
     if dim not in data.dims:
@@ -483,17 +483,17 @@ def spectrogram(
 def mode_spectrum(
     data: xr.DataArray,
     *,
-    dims=("e2", "e3"),
+    dims=("eta2", "eta3"),
     names=("m", "n"),
     periods=1.0,
     scale=1,
 ) -> xr.DataArray:
     """Complex Fourier amplitudes over integer mode numbers along periodic directions.
 
-    For a torus with ``theta = 2*pi*e2`` and ``phi = 2*pi*e3``, the default gives
+    For a torus with ``theta = 2*pi*eta2`` and ``phi = 2*pi*eta3``, the default gives
     coefficients over poloidal ``m`` and toroidal ``n``, as functions of every remaining
-    dimension, e.g. ``(t, e1, m, n)``. A duplicate periodic endpoint is dropped first. The mode
-    ``exp(2*pi*i*(m*e2 + n*e3))`` appears at ``(m, n)``, so a real field ``cos(...)`` of
+    dimension, e.g. ``(t, eta1, m, n)``. A duplicate periodic endpoint is dropped first. The mode
+    ``exp(2*pi*i*(m*eta2 + n*eta3))`` appears at ``(m, n)``, so a real field ``cos(...)`` of
     amplitude ``A`` has ``A/2`` at ``(m, n)`` and at ``(-m, -n)``; see :func:`mode_amplitudes`.
     A sector of the torus (``tor_period`` in Struphy) counts ``n`` per sector; multiply by the
     number of sectors for the full-torus mode number. ``periods`` is each direction's period

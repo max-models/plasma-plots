@@ -63,8 +63,8 @@ def orbits(run):
 def test_products_are_found_by_name(run):
     assert scalar(run, "en_tot").dims == ("t",)
     assert run.evaluate("em_fields/E").dims[:2] == ("t", "component")
-    assert distribution(run).dims == ("t", "e1", "v1")
-    assert density(run).dims == ("t", "e1", "e2", "e3")
+    assert distribution(run).dims == ("t", "eta1", "v1")
+    assert density(run).dims == ("t", "eta1", "eta2", "eta3")
     assert orbits(run).sizes == {"t": 3, "marker": 10}
     assert set(orbits(run).data_vars) >= {"x", "y", "z"}
     with pytest.raises(ValueError, match="species/variable"):
@@ -112,11 +112,11 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
     product = distribution(run)
-    assert product.struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
-    assert len(product.struphy.plot.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
-    viewer = run.evaluate("em_fields/E").struphy.plot.viewer(x="e1", y="e2", component=0)
+    assert product.struphy.plot.slice(x="eta1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert len(product.struphy.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
+    viewer = run.evaluate("em_fields/E").struphy.plot.viewer(x="eta1", y="eta2", component=0)
     viewer.draw()
-    assert set(viewer.sliders) == {"t", "e3"}
+    assert set(viewer.sliders) == {"t", "eta3"}
 
 
 def test_orbits_plot_their_trajectories(run):
@@ -144,7 +144,7 @@ def test_dispersion_needs_an_explicit_dim_for_a_multi_dimensional_field(run):
     with pytest.raises(ValueError, match="dim is required"):
         run.fields.em_fields.E.struphy.analysis.dispersion()
 
-    spectrum = run.fields.em_fields.E.isel(component=0, e2=0, e3=0).struphy.analysis.dispersion(dim="e1")
+    spectrum = run.fields.em_fields.E.isel(component=0, eta2=0, eta3=0).struphy.analysis.dispersion(dim="eta1")
     assert set(spectrum.dims) == {"omega", "k"}
 
 
@@ -152,21 +152,21 @@ def test_selection_keywords_take_positions_values_and_ends(run):
     product = distribution(run)
     times = product.t.values
 
-    by_position = product.struphy.plot.slice(x="e1", y="v1", t=-1)
-    by_value = product.struphy.plot.slice(x="e1", y="v1", t=float(times[-1]))
-    by_end = product.struphy.plot.slice(x="e1", y="v1", t="last")
+    by_position = product.struphy.plot.slice(x="eta1", y="v1", t=-1)
+    by_value = product.struphy.plot.slice(x="eta1", y="v1", t=float(times[-1]))
+    by_end = product.struphy.plot.slice(x="eta1", y="v1", t="last")
     for result in (by_value, by_end):
         np.testing.assert_allclose(result.artists[0].get_array(), by_position.artists[0].get_array())
 
     with pytest.raises(TypeError, match="not a dimension"):
-        product.struphy.plot.slice(x="e1", y="v1", time=-1)
+        product.struphy.plot.slice(x="eta1", y="v1", time=-1)
     with pytest.raises(TypeError, match="use a number"):
-        product.struphy.plot.slice(x="e1", y="v1", t="final")
+        product.struphy.plot.slice(x="eta1", y="v1", t="final")
 
 
 def test_products_of_one_species_sit_on_the_output(run):
-    assert run.kinetic_ions.e1_v1_density.f.dims == ("t", "e1", "v1")
-    assert run.kinetic_ions.view_0.n.dims == ("t", "e1", "e2", "e3")
+    assert run.kinetic_ions.e1_v1_density.f.dims == ("t", "eta1", "v1")
+    assert run.kinetic_ions.view_0.n.dims == ("t", "eta1", "eta2", "eta3")
     assert run.kinetic_ions.orbits.sizes == {"t": 3, "marker": 10}
     assert run.em_fields.E.dims[:2] == ("t", "component")
     assert {"kinetic_ions", "em_fields"} <= set(dir(run))
@@ -186,15 +186,15 @@ def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
     assert "em_fields/E" not in products.catalog
     assert "e1_v1_density/f" in repr(products)
     assert run.distribution_catalog._cache == {}
-    assert products["e1_v1_density/f"].dims == ("t", "e1", "v1")
+    assert products["e1_v1_density/f"].dims == ("t", "eta1", "v1")
     assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f"] is products.catalog["e1_v1_density/f"]
 
 
 def test_arrays_plot_themselves(run):
     phase_space = run.kinetic_ions.e1_v1_density.f
-    assert phase_space.struphy.plot.slice(x="e1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
-    assert len(phase_space.struphy.plot.panels(x="e1", y="v1", nrows=1, ncols=2).artists) == 2
-    assert set(phase_space.struphy.plot.viewer(x="e1", y="v1").sliders) == set()
+    assert phase_space.struphy.plot.slice(x="eta1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert len(phase_space.struphy.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
+    assert set(phase_space.struphy.plot.viewer(x="eta1", y="v1").sliders) == set()
     assert run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=2).ax.name == "3d"
 
 
@@ -206,15 +206,15 @@ def test_the_accessor_works_on_derived_arrays(run):
 
 
 def test_products_by_name_and_by_attribute_agree(run):
-    by_output = distribution(run).struphy.plot.slice(x="e1", y="v1", t="last")
-    by_attribute = run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="e1", y="v1", t="last")
+    by_output = distribution(run).struphy.plot.slice(x="eta1", y="v1", t="last")
+    by_attribute = run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="eta1", y="v1", t="last")
     np.testing.assert_allclose(by_output.artists[0].get_array(), by_attribute.artists[0].get_array())
     assert by_output.fig._suptitle.get_text() == by_attribute.fig._suptitle.get_text() == run.label
 
 
 def test_selection_rejects_unknown_dimensions(run):
     with pytest.raises(TypeError, match="not a dimension"):
-        run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="e1", y="v1", time=-1)
+        run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="eta1", y="v1", time=-1)
 
 
 def oscillating_energy(rate=-0.3, omega=3.0):
@@ -247,11 +247,11 @@ def test_norm_reduces_all_but_time(run):
     squared = e_field.struphy.analysis.norm(squared=True)
     assert squared.dims == ("t",)
     np.testing.assert_allclose(squared, (np.asarray(e_field) ** 2).sum(axis=(1, 2, 3, 4)))
-    assert e_field.struphy.analysis.norm(dims=["e1"]).dims == (
+    assert e_field.struphy.analysis.norm(dims=["eta1"]).dims == (
         "t",
         "component",
-        "e2",
-        "e3",
+        "eta2",
+        "eta3",
     )
     assert growth_rate(squared, fit=None) is not None
 
@@ -260,16 +260,16 @@ def test_physical_coords_are_attached_to_products_without_them(run):
     density_data = density(run)
     assert "X" not in density_data.coords
     mapped = run.with_physical_coords(density_data)
-    expected = run.domain(*(np.asarray(density_data[dim]) for dim in ("e1", "e2", "e3")))
+    expected = run.domain(*(np.asarray(density_data[dim]) for dim in ("eta1", "eta2", "eta3")))
     for name, values in zip(("X", "Y", "Z"), expected):
-        assert mapped[name].dims == ("e1", "e2", "e3")
+        assert mapped[name].dims == ("eta1", "eta2", "eta3")
         np.testing.assert_allclose(mapped[name], values)
 
-    plane = run.with_physical_coords(density_data.isel(e3=0, drop=True))
-    assert plane.X.dims == ("e1", "e2")
+    plane = run.with_physical_coords(density_data.isel(eta3=0, drop=True))
+    assert plane.X.dims == ("eta1", "eta2")
 
     phase_space = run.with_physical_coords(distribution(run))
-    assert phase_space.X.dims == ("e1",)
+    assert phase_space.X.dims == ("eta1",)
 
     field = run.evaluate("em_fields/E")
     assert run.with_physical_coords(field) is field

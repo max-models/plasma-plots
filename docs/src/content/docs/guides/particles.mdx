@@ -12,10 +12,10 @@ labeled array, so every [field plot](/struphy-plots/guides/field-plots/)
 works on it directly:
 
 ```python
-distribution.struphy.plot.slice(x="e1", y="v1", t="last")
+distribution.struphy.plot.slice(x="eta1", y="v1", t="last")
 ```
 
-![A bump-on-tail distribution in (e1, v1) phase space](../../../assets/figures/phase_space.png)
+![A bump-on-tail distribution in (eta1, v1) phase space](../../../assets/figures/phase_space.png)
 
 :::tip[Plot it with Plotly instead]
 Same recipe as any other [field slice](/struphy-plots/guides/field-plots/):
@@ -23,8 +23,8 @@ Same recipe as any other [field slice](/struphy-plots/guides/field-plots/):
 ```python
 import plotly.express as px
 
-selected = distribution.struphy.data.slice(x="e1", y="v1", t="last")
-px.imshow(selected.transpose("v1", "e1"), x=selected.e1, y=selected.v1, origin="lower")
+selected = distribution.struphy.data.slice(x="eta1", y="v1", t="last")
+px.imshow(selected.transpose("v1", "eta1"), x=selected.eta1, y=selected.v1, origin="lower")
 ```
 :::
 
@@ -38,9 +38,9 @@ moments = distribution.struphy.analysis.velocity_moments()
 
 Returns an `xarray.Dataset` with `density` (the zeroth moment), `mean_<dim>`
 and `variance_<dim>` for each integrated velocity dimension — functions of
-the remaining dimensions (e.g. `(t, e1)` for an `e1_v1` product):
+the remaining dimensions (e.g. `(t, eta1)` for an `e1_v1` product):
 
-![Density, mean velocity, and variance of a distribution along e1](../../../assets/figures/velocity_moments.png)
+![Density, mean velocity, and variance of a distribution along eta1](../../../assets/figures/velocity_moments.png)
 
 ## Spatial averaging
 
@@ -48,7 +48,7 @@ the remaining dimensions (e.g. `(t, e1)` for an `e1_v1` product):
 distribution.struphy.analysis.spatial_average()
 ```
 
-Averages over the logical space dimensions, e.g. turning `f(t, e1, v1)` into
+Averages over the logical space dimensions, e.g. turning `f(t, eta1, v1)` into
 `f(t, v1)` — plot the result like any other 2-D field to see the velocity
 distribution evolve over a run:
 
@@ -160,7 +160,7 @@ px.scatter(frame, x="x", y="y", color="density")
 ## Orbits over a background field
 
 ```python
-field.struphy.plot.overlay_orbits(orbits, x="e1", y="e2", t="last")
+field.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2", t="last")
 ```
 
 Draws this field's 2-D slice with marker paths from an orbits-like Dataset
@@ -178,11 +178,11 @@ a heatmap plus one line trace per marker:
 ```python
 import plotly.graph_objects as go
 
-selected, orbit_subset = field.struphy.data.overlay_orbits(orbits, x="e1", y="e2", t="last")
-fig = go.Figure(go.Heatmap(z=selected.transpose("e2", "e1").values, x=selected.e1, y=selected.e2))
+selected, orbit_subset = field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t="last")
+fig = go.Figure(go.Heatmap(z=selected.transpose("eta2", "eta1").values, x=selected.eta1, y=selected.eta2))
 for marker in orbit_subset.marker.values:
     path = orbit_subset.sel(marker=marker)
-    fig.add_trace(go.Scatter(x=path.e1, y=path.e2, mode="lines", showlegend=False))
+    fig.add_trace(go.Scatter(x=path.eta1, y=path.eta2, mode="lines", showlegend=False))
 ```
 :::
 

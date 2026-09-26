@@ -28,10 +28,10 @@ def series(values, t, name="u"):
 
 
 def torus_field(n_t=24, omega=0.4, growth=0.05):
-    """(t, e1, e2, e3): an m=10 and an m=11 harmonic (n=-1) with radial envelopes, growing."""
+    """(t, eta1, eta2, eta3): an m=10 and an m=11 harmonic (n=-1) with radial envelopes, growing."""
     t = np.arange(n_t) * 0.5
-    e1, e2, e3 = np.linspace(0, 1, 11), np.linspace(0, 1, 49), np.linspace(0, 1, 9)
-    R, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    eta1, eta2, eta3 = np.linspace(0, 1, 11), np.linspace(0, 1, 49), np.linspace(0, 1, 9)
+    R, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     values = np.stack(
         [
             np.exp(growth * ti)
@@ -43,18 +43,18 @@ def torus_field(n_t=24, omega=0.4, growth=0.05):
         ]
     )
     return xr.DataArray(
-        values, dims=("t", "e1", "e2", "e3"), coords={"t": t, "e1": e1, "e2": e2, "e3": e3}, name="u",
+        values, dims=("t", "eta1", "eta2", "eta3"), coords={"t": t, "eta1": eta1, "eta2": eta2, "eta3": eta3}, name="u",
         attrs={"label": "u", "run": "synthetic"},
     )
 
 
 def test_drop_periodic_endpoint_only_drops_a_true_duplicate():
-    closed = xr.DataArray(np.arange(5.0), dims="e2", coords={"e2": np.linspace(0, 1, 5)})
-    assert sp.drop_periodic_endpoint(closed, "e2").sizes["e2"] == 4
-    open_grid = closed.assign_coords(e2=np.arange(5) / 5)
-    assert sp.drop_periodic_endpoint(open_grid, "e2").sizes["e2"] == 5
+    closed = xr.DataArray(np.arange(5.0), dims="eta2", coords={"eta2": np.linspace(0, 1, 5)})
+    assert sp.drop_periodic_endpoint(closed, "eta2").sizes["eta2"] == 4
+    open_grid = closed.assign_coords(eta2=np.arange(5) / 5)
+    assert sp.drop_periodic_endpoint(open_grid, "eta2").sizes["eta2"] == 5
     with pytest.raises(ValueError, match="not a dimension"):
-        sp.drop_periodic_endpoint(closed, "e3")
+        sp.drop_periodic_endpoint(closed, "eta3")
 
 
 def test_band_filter_separates_two_on_bin_modes():
@@ -95,12 +95,12 @@ def test_spectrogram_follows_a_chirp_on_one_frequency_grid():
 def test_mode_spectrum_and_amplitudes_find_the_seeded_harmonics():
     field = torus_field()
     modes = sp.mode_spectrum(field)
-    assert modes.dims == ("t", "e1", "m", "n")
+    assert modes.dims == ("t", "eta1", "m", "n")
     assert modes.attrs["run"] == "synthetic"
     amplitudes = sp.mode_amplitudes(modes, top=2)
     assert list(amplitudes.mode.values) == ["(10, -1)", "(11, -1)"]
     assert list(amplitudes.m.values) == [10, 11]
-    peak = amplitudes.isel(t=0).max("e1")
+    peak = amplitudes.isel(t=0).max("eta1")
     np.testing.assert_allclose(peak, [1.0, 0.5], rtol=1e-6)
     assert field.struphy.analysis.mode_spectrum().equals(modes)
 
@@ -110,10 +110,10 @@ def test_mode_structure_recovers_amplitude_and_phase_at_an_off_bin_frequency():
     t = np.arange(300) * 0.2
     field = xr.DataArray(
         np.sin(np.pi * x)[None] * np.cos(0.83 * t[:, None] + 0.5 + x[None]),
-        dims=("t", "e1"), coords={"t": t, "e1": x},
+        dims=("t", "eta1"), coords={"t": t, "eta1": x},
     )
     structure = sp.mode_structure(field, 0.83)
-    assert structure.dims == ("e1",)
+    assert structure.dims == ("eta1",)
     np.testing.assert_allclose(abs(structure), np.sin(np.pi * x), atol=1e-3)
     inner = slice(1, -1)
     np.testing.assert_allclose(np.angle(structure.values[inner]), 0.5 + x[inner], atol=1e-3)
@@ -132,12 +132,12 @@ def test_cross_spectrum_phase_and_coherence():
     rng = np.random.default_rng(1)
     x = np.arange(20)
     noisy = xr.DataArray(
-        np.cos(omega * t)[:, None] + rng.normal(0, 0.1, (256, 20)), dims=("t", "e1"), coords={"t": t, "e1": x}
+        np.cos(omega * t)[:, None] + rng.normal(0, 0.1, (256, 20)), dims=("t", "eta1"), coords={"t": t, "eta1": x}
     )
     lagged = xr.DataArray(
-        np.cos(omega * t - 1.0)[:, None] + rng.normal(0, 0.1, (256, 20)), dims=("t", "e1"), coords={"t": t, "e1": x}
+        np.cos(omega * t - 1.0)[:, None] + rng.normal(0, 0.1, (256, 20)), dims=("t", "eta1"), coords={"t": t, "eta1": x}
     )
-    averaged = noisy.struphy.analysis.cross_spectrum(lagged, dims="e1")
+    averaged = noisy.struphy.analysis.cross_spectrum(lagged, dims="eta1")
     peak = int(averaged.magnitude.argmax("omega"))
     assert float(averaged.coherence[peak]) > 0.95
     assert float(averaged.phase[peak]) == pytest.approx(-1.0, abs=0.05)
@@ -175,10 +175,10 @@ def test_power_spectrum_plot_with_peaks_band_and_reference_lines():
     assert data.struphy.analysis.time_fft().struphy.plot.power_spectrum().ax is not None
 
     field = torus_field()
-    per_radius = spp.plot_power_spectrum(field, dims=("e2", "e3"), omega_max=2.0)
-    assert len(per_radius.artists) == field.sizes["e1"]
+    per_radius = spp.plot_power_spectrum(field, dims=("eta2", "eta3"), omega_max=2.0)
+    assert len(per_radius.artists) == field.sizes["eta1"]
     with pytest.raises(ValueError, match="single line"):
-        spp.plot_power_spectrum(field, dims=("e2", "e3"), peaks=1)
+        spp.plot_power_spectrum(field, dims=("eta2", "eta3"), peaks=1)
 
 
 def test_mode_plots_on_a_torus_field():
@@ -188,12 +188,12 @@ def test_mode_plots_on_a_torus_field():
     assert field.struphy.plot.mode_map(t="last", m_range=(0, 15), n_range=(-4, 4)).data["amplitude"].dims == ("n", "m")
     profiles = field.struphy.plot.mode_profiles(0.4, top=2)
     peaks = profiles.data["profiles"]
-    assert abs(peaks).idxmax("e1").values.tolist() == pytest.approx([0.4, 0.6])
+    assert abs(peaks).idxmax("eta1").values.tolist() == pytest.approx([0.4, 0.6])
     radial = field.struphy.plot.radial_power(
-        x_of=lambda e1: 0.1 + 0.9 * e1, continuum=(lambda r, m, n: {"alfven": np.abs(n + m / (1 + r))}, [(1, 0)]),
+        x_of=lambda eta1: 0.1 + 0.9 * eta1, continuum=(lambda r, m, n: {"alfven": np.abs(n + m / (1 + r))}, [(1, 0)]),
         omega_max=2.0,
     )
-    assert radial.data["power"].dims == ("omega", "e1")
+    assert radial.data["power"].dims == ("omega", "eta1")
     assert len(radial.artists) == 2
 
 
@@ -202,8 +202,8 @@ def test_spectrogram_filtered_cross_and_pencil_plots():
     data = series(np.sin((0.5 + 0.01 * t) * t), t)
     assert data.struphy.plot.spectrogram(length=20.0, frequencies={"start": 0.5}).data["spectrogram"].dims == ("omega", "t")
     field = torus_field(n_t=64)
-    result = field.struphy.analysis.filter_time(dims=("e1", "e2", "e3"))
-    probe = field.struphy.plot.filtered(result, e1=0.4, e2=0.0, e3=0.0)
+    result = field.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
+    probe = field.struphy.plot.filtered(result, eta1=0.4, eta2=0.0, eta3=0.0)
     assert len(probe.artists) == 2
     u, b = series(np.cos(0.5 * t), t, "u"), series(-np.sin(0.5 * t), t, "b")
     assert u.struphy.plot.cross_spectrum(b).data["peak_phase_deg"] == pytest.approx(90, abs=5)
@@ -224,26 +224,26 @@ def test_output_analysis_matches_the_array_accessor(tmp_path):
         file.create_dataset("scalar/en_phi", data=np.cos(time))
     write_manifest(path)
     out = Output(path)
-    field = out.fields.em_fields.E.isel(component=0, e2=0, e3=0)
+    field = out.fields.em_fields.E.isel(component=0, eta2=0, eta3=0)
     xr.testing.assert_identical(out.analysis.time_fft(field), field.struphy.analysis.time_fft())
-    xr.testing.assert_identical(out.analysis.fft(field, dim="e1"), field.struphy.analysis.fft(dim="e1"))
+    xr.testing.assert_identical(out.analysis.fft(field, dim="eta1"), field.struphy.analysis.fft(dim="eta1"))
     xr.testing.assert_identical(out.analysis.filter_time(field).filtered, field.struphy.analysis.filter_time().filtered)
     by_name = out.analysis.time_fft("em_fields/E")
     assert "omega" in by_name.dims and "t" not in by_name.dims
 
 
 def test_mode_spectrum_rejects_a_field_that_does_not_cover_a_full_period():
-    e2 = np.linspace(0, 0.5, 33)
-    half = xr.DataArray(np.cos(2 * np.pi * 10 * e2), dims="e2", coords={"e2": e2})
+    eta2 = np.linspace(0, 0.5, 33)
+    half = xr.DataArray(np.cos(2 * np.pi * 10 * eta2), dims="eta2", coords={"eta2": eta2})
     with pytest.raises(ValueError, match="full period"):
-        sp.mode_spectrum(half, dims="e2", names="m")
-    assert sp.mode_spectrum(half, dims="e2", names="m", periods=0.5 * 33 / 32).sizes["m"] == 33
+        sp.mode_spectrum(half, dims="eta2", names="m")
+    assert sp.mode_spectrum(half, dims="eta2", names="m", periods=0.5 * 33 / 32).sizes["m"] == 33
 
 
 def test_mode_amplitudes_keep_the_nyquist_mode_of_an_even_grid():
-    e2 = np.arange(8) / 8
-    field = xr.DataArray(np.cos(2 * np.pi * 4 * e2) + 0.5, dims="e2", coords={"e2": e2})
-    amplitudes = sp.mode_amplitudes(sp.mode_spectrum(field, dims="e2", names="m"))
+    eta2 = np.arange(8) / 8
+    field = xr.DataArray(np.cos(2 * np.pi * 4 * eta2) + 0.5, dims="eta2", coords={"eta2": eta2})
+    amplitudes = sp.mode_amplitudes(sp.mode_spectrum(field, dims="eta2", names="m"))
     by_mode = dict(zip(amplitudes.m.values.tolist(), amplitudes.values.tolist()))
     assert by_mode[-4] == pytest.approx(1.0)
     assert by_mode[0] == pytest.approx(0.5)
