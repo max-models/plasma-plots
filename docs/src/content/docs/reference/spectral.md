@@ -65,6 +65,15 @@ Dataset of `cross` (`conj(F1) * F2`), `magnitude` and `phase` (radians, how
 far `second` leads `first`). With `dims`, the values are summed over those
 points and `coherence = |Σ cross| / Σ |cross|` (0 to 1) is added.
 
+### `trace_branch(spectrum, theory, *, window=0.2, k_range=None, threshold=1e-3)`
+The measured frequency of a dispersion branch near `theory(k)`, at every
+`k ≥ 0` of an `(omega, k)` spectrum (from `array.struphy.analysis.dispersion()`).
+The power at `+k` and `−k` is added, so waves moving either way count. The
+branch may be curved. Returns a Dataset over `k` with `omega` (refined below
+the bin spacing), `omega_theory` and `relative_error`. A `k` is NaN without a
+local maximum in the window, or when that maximum is weaker than `threshold`
+times the strongest one.
+
 ## Modes and eigenfunctions
 
 ### `mode_spectrum(data, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0, scale=1)`
@@ -74,10 +83,11 @@ a full period. `scale` multiplies the mode numbers, e.g. `(1, 6)` for
 full-torus `n` of a sixth of a torus. Other dimensions are
 kept, e.g. `(t, eta1, m, n)`.
 
-### `mode_amplitudes(modes, *, top=None, real=True)`
+### `mode_amplitudes(modes, *, top=None, real=True, relative=False)`
 Stacks a mode spectrum along one labeled `mode` dimension, with coordinates
 such as `"(10, -1)"` and `m`, `n`. For a real field, each conjugate pair is
-merged and its amplitude doubled.
+merged and its amplitude doubled. `relative=True` divides by the mean (the
+zero mode), which is then left out.
 
 ### `mode_structure(data, omega, *, window="hann", detrend=True)`
 The complex amplitude at an exact frequency, at every point: `a·exp(iφ)` for a

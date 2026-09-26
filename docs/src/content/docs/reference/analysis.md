@@ -40,6 +40,50 @@ detrended 2-D FFT, independent of Struphy. `dim` defaults to the sole
 dimension other than `t`. See `struphy_plots.analysis.power_spectrum` for
 the definition, and `ArrayPlots.dispersion` to plot it directly.
 
+### `gradient(*, domain=None)`
+The Cartesian gradient `J⁻ᵀ ∂f/∂η` of a scalar field, with a `component`
+dimension (x, y, z). The Jacobian comes from `X`, `Y`, `Z` or from a Struphy
+`domain`. Derivatives are spectral around periodic angles. For a 2-D run it is
+the in-plane gradient. Backed by `struphy_plots.analysis.gradient`.
+
+### `error(exact, *, norm="rms", relative=False, dims=None, weighted=False, domain=None, args=None)`
+The error against an exact solution: an array, or a function of the
+coordinates (default `X`, `Y`, `Z`, then `t`; see `evaluate_on`). `norm` is
+`"rms"`, `"max"`, `"l1"`, `"l2"` or `"pointwise"`, taken over `dims` (default:
+all but `t`). Unweighted norms average over the grid points; `weighted=True`
+integrates over the physical volume with |√g|. `relative` divides by the norm
+of the exact solution.
+
+### `project_mode(*, dim, number, kind="sin", period=1.0, bin_correction=False)`
+The amplitude of one Fourier mode along a periodic `dim`:
+`2⟨f sin(2π n x / period)⟩` (or `cos`, or a complex amplitude with
+`kind="complex"`). `bin_correction` divides by `sinc(n h / period)`, for binned
+data.
+
+### `divergence(*, components="cartesian", domain=None)` and `curl(...)`
+The divergence and the Cartesian curl of a `(component, ...)` vector field on a
+mapped domain, with derivatives as in `gradient()`. `components="contravariant"`
+pushes logical components forward first.
+
+### `flux_function()`
+The flux (or stream) function `A` of an in-plane, divergence-free field
+(`B_x = ∂A/∂y`, `B_y = −∂A/∂x`) on a Cartesian slab or box, with zero mean.
+
+### `cylindrical_components()` and `toroidal_components(*, R0, Z0=0.0)`
+Cartesian components rotated to `(R, phi, Z)`, or to `(radial, poloidal,
+toroidal)` about a circular axis at `(R0, Z0)`, at every point.
+
+### `polar_coordinates(*, center=(0.0, 0.0))`
+This array with coordinates `r` and `theta` of its points about `center` in the
+`X`-`Y` plane.
+
+### `trace_branch(theory, *, window=0.2, k_range=None, threshold=1e-3)`
+On an `(omega, k)` spectrum: the strongest frequency within
+`theory(k) × (1 ± window)` at each `k ≥ 0`, for waves moving either way, refined
+below the bin spacing. Returns a Dataset over `k` with `omega`, `omega_theory`
+and `relative_error`. `k` without a local maximum in the window, or weaker than
+`threshold` times the strongest, are NaN. See `struphy_plots.spectral.trace_branch`.
+
 ### Spectral diagnostics
 `fft(dim=...)`, `time_fft()`, `filter_time()`, `band_filter(lo, hi)`,
 `spectral_peaks()`, `spectrogram(length=...)`, `mode_spectrum()`,
@@ -58,7 +102,22 @@ value. It is lost if every saved quantity is zero at some time, which is
 how Struphy stores a marker that has left the domain. Lost takes precedence
 over trapped. The class names are in `attrs["flag_meanings"]`.
 
+### `orbit_invariants(*, absB=None)`
+A Dataset over `(t, marker)` of the invariants the saved quantities allow: the
+`speed` from `v1`, `v2`, `v3`, and, with `v_par`, `mu` and `absB` (a function
+of `x, y, z`), the guiding-center `energy` `½v_par² + μ|B|` and `pitch`. NaN
+after a marker is lost.
+
+### `bounce_period(*, v_par="v_par")`
+Each marker's bounce period, twice the mean time between sign changes of
+`v_par`, interpolated between samples. NaN with fewer than two sign changes.
+
 ## Standalone functions
+
+### `struphy_plots.analysis.evaluate_on(data, function, args=None)`
+`function` evaluated on the coordinates of `data` and broadcast to its shape.
+`args` names the coordinates passed in order; by default `X`, `Y`, `Z` (or
+the logical dimensions), then `t`.
 
 ### `struphy_plots.analysis.volume_integral(data, *, form=0, weight=None, domain=None, quadrature=None)`
 `∫ w f dV` over the logical grid, as a function of the other dimensions.

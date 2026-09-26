@@ -30,6 +30,7 @@ export default defineConfig({
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 						{ label: 'Profiling', slug: 'guides/profiling' },
+						{ label: 'Recipes', slug: 'guides/recipes' },
 						{ label: 'MHD slab waves', slug: 'guides/real-example' },
 					],
 				},
