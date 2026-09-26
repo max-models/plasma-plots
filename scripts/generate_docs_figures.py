@@ -32,12 +32,8 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import (
-    PlotResult,
-    plot_convergence,
-    plot_dispersion,
-    plot_scalars,
-)
+from struphy_plots.plotting import (PlotResult, plot_convergence,
+                                    plot_dispersion, plot_scalars)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -584,7 +580,8 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 try:
     import pyvista as pv
 
-    from struphy_plots.plotting import plot_equilibrium_profile, show_equilibrium
+    from struphy_plots.plotting import (plot_equilibrium_profile,
+                                        show_equilibrium)
 
     pv.OFF_SCREEN = True
 

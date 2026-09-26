@@ -6,18 +6,13 @@ import pytest
 import xarray as xr
 
 matplotlib.use("Agg")
-from struphy.dispersion_relations.analytic import (  # noqa: E402
-    MhdContinousSpectraCylinder,
-    MhdContinousSpectraShearedSlab,
-)
-
 import struphy_plots  # noqa: E402, F401  (registers the accessors)
+from struphy.dispersion_relations.analytic import (  # noqa: E402
+    MhdContinousSpectraCylinder, MhdContinousSpectraShearedSlab)
 from struphy_plots.analysis import classify_orbits  # noqa: E402
-from struphy_plots.plotting import (  # noqa: E402
-    plot_continuous_spectrum,
-    plot_orbit_classification,
-    prepare_continuous_spectrum,
-)
+from struphy_plots.plotting import (plot_continuous_spectrum,  # noqa: E402
+                                    plot_orbit_classification,
+                                    prepare_continuous_spectrum)
 
 
 def guiding_center_orbits():

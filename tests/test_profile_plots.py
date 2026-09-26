@@ -10,10 +10,8 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 scope_profiler = pytest.importorskip("scope_profiler")
 
-from struphy_plots.output_accessors import (
-    OutputPlots,  # noqa: E402
-    ProfilePlots,
-)
+from struphy_plots.output_accessors import OutputPlots  # noqa: E402
+from struphy_plots.output_accessors import ProfilePlots
 
 
 class FakeProfile:

@@ -10,13 +10,11 @@ matplotlib.use("Agg")
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
-from struphy.post_processing.output import Output  # noqa: E402
-from struphy.post_processing.tests.test_output import (  # noqa: E402
-    write_manifest,
-    write_tree,
-)
 
 import struphy_plots  # noqa: F401, E402
+from struphy.post_processing.output import Output  # noqa: E402
+from struphy.post_processing.tests.test_output import (  # noqa: E402
+    write_manifest, write_tree)
 from struphy_plots.analysis import damping_rate, envelope, growth_rate, norm
 from struphy_plots.output_accessors import OutputPlots
 from struphy_plots.plotting import save_all_scalars

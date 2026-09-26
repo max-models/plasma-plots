@@ -40,10 +40,11 @@ OUT.mkdir(parents=True, exist_ok=True)
 # the shear Alfvén wave, and the slow and fast magnetosonic waves.
 # Adapted from struphy's own gallery example (mhd-slab-waves).
 # =============================================================================
-from struphy import DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, perturbations
+from struphy import (DerhamOptions, EnvironmentOptions, Time, domains, equils,
+                     grids, perturbations)
 from struphy.models import LinearMHD
-from struphy.simulation.sim import Simulation
 from struphy.post_processing.output import Output
+from struphy.simulation.sim import Simulation
 
 # The background: B0 = (0, 1, 1), density 0.7, plasma beta 3 (thermal over magnetic pressure).
 B0x, B0y, B0z = 0.0, 1.0, 1.0

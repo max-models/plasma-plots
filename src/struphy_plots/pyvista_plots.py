@@ -44,8 +44,12 @@ def _plotter(plotter):
 
 
 def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
-    """``data`` transposed to ``(*extra, e1, e2, e3)``, checking nothing else is left."""
-    validate_array(data, required_dims=(*extra, *SPATIAL))
+    """``data`` transposed to ``(*extra, e1, e2, e3)``, checking nothing else is left.
+
+    A spatial dimension that was selected away (e.g. ``field.isel(e3=0)`` of a 2-D run) comes
+    back with a single point, so a plane is still a (flat) structured grid.
+    """
+    validate_array(data, required_dims=extra)
     others = set(data.dims) - {*extra, *SPATIAL}
     if others:
         raise ValueError(
@@ -56,7 +60,48 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
         raise ValueError(
             f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}"
         )
-    return data.transpose(*extra, *SPATIAL)
+    absent = [dim for dim in SPATIAL if dim not in data.dims]
+    if len(absent) > 1:
+        raise ValueError(
+            f"3-D views need at least two of e1, e2, e3; {data.name!r} has dims {data.dims}"
+        )
+    for dim in absent:
+        data = data.expand_dims(dim) if dim in data.coords else data.expand_dims({dim: [0.0]})
+    coords = {}
+    for name in ("X", "Y", "Z"):
+        coordinate = data.coords[name]
+        for dim in SPATIAL:
+            if dim not in coordinate.dims:
+                coordinate = coordinate.expand_dims({dim: data.sizes[dim]})
+        coords[name] = coordinate.transpose(*SPATIAL).variable
+    return data.assign_coords(coords).transpose(*extra, *SPATIAL)
+
+
+def is_flat(grid) -> bool:
+    """Whether a structured grid has a single point in one logical direction (a 2-D run or cut)."""
+    return 1 in tuple(grid.dimensions)
+
+
+def _plane_normal(grid):
+    """The normal of a flat grid that lies in one physical plane, else ``None``."""
+    points = np.asarray(grid.points, dtype=float)
+    centered = points - points.mean(axis=0)
+    _, singular, vt = np.linalg.svd(centered, full_matrices=False)
+    if singular[-1] > 1e-6 * max(singular[0], 1e-300):
+        return None
+    return vt[-1]
+
+
+def _camera(plotter, grid):
+    """Look straight at a planar grid (a 2-D run); leave 3-D scenes at the default view."""
+    if not is_flat(grid):
+        return
+    normal = _plane_normal(grid)
+    if normal is None:
+        return
+    up = (0.0, 1.0, 0.0) if abs(normal[1]) < 0.9 else (0.0, 0.0, 1.0)
+    plotter.view_vector(tuple(normal if normal[np.abs(normal).argmax()] > 0 else -normal), viewup=up)
+    plotter.reset_camera()
 
 
 def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -185,10 +230,13 @@ def _add_context(plotter, grid, show_domain):
         plotter.add_mesh(surface, color="lightgrey", opacity=0.12, name=f"domain{i}")
 
 
-def _finish(plotter, title):
+def _finish(plotter, title, grid=None):
+    """Title and axes; with ``grid`` (a plotter this module created), aim the camera at it."""
     if title:
         plotter.add_text(title, font_size=10, name="title")
     plotter.show_axes()
+    if grid is not None:
+        _camera(plotter, grid)
     return plotter
 
 
