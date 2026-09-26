@@ -572,6 +572,132 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 
 
 # =============================================================================
+# Spectral analysis: struphy_plots.spectral / spectral_plots
+#
+# A synthetic toroidal Alfven eigenmode (TAE) in a sixth of a hollow torus, with the
+# parameters of Struphy's TAE tutorial: r = 0.1 + 0.9*e1, q = 1.71 + 0.16 r^2,
+# n0 = 1 - 0.8 r^2, B0 = 3, R0 = 10, harmonics m = 10, 11 with n = 6 (one per sector).
+# Coupled m = 10/11 harmonics peaked either side of r* = 0.5 oscillate at the gap
+# frequency and grow slowly; a continuum-damped m = 10 oscillation sits at r = 0.8.
+# =============================================================================
+from struphy_plots import spectral_plots as spp  # noqa: E402
+from struphy_plots.spectral import (  # noqa: E402
+    cross_spectrum,
+    filter_time,
+    matrix_pencil,
+)
+
+R0_tae, B0_tae, n_tae = 10.0, 3.0, 6
+
+
+def q_tae(r):
+    return 1.71 + 0.16 * np.asarray(r) ** 2
+
+
+def vA_tae(r):
+    return B0_tae / np.sqrt(1.0 - 0.8 * np.asarray(r) ** 2)
+
+
+def alfven_continuum(r, m, n):
+    """The uncoupled shear-Alfven continuum of harmonic (m, n), as for plot_continuous_spectrum."""
+    return {"shear_Alfvén": vA_tae(r) / R0_tae * np.abs(n - m / q_tae(r))}
+
+
+omega_tae = float(vA_tae(0.5) / (2 * q_tae(0.5) * R0_tae))
+omega_continuum = float(alfven_continuum(0.8, 10, n_tae)["shear_Alfvén"])
+s1, s2, s3 = np.linspace(0, 1, 28), np.linspace(0, 1, 49), np.linspace(0, 1, 9)
+S1, S2, S3 = np.meshgrid(s1, s2, s3, indexing="ij")
+r_tae = 0.1 + 0.9 * S1
+t_tae = np.arange(300) * 2.0
+rng_tae = np.random.default_rng(7)
+tae_snapshots = []
+for ti in t_tae:
+    helical10 = 2 * np.pi * (10 * S2 - S3)
+    helical11 = 2 * np.pi * (11 * S2 - S3)
+    snapshot = np.exp(0.003 * ti) * (
+        np.exp(-(((r_tae - 0.45) / 0.1) ** 2)) * np.cos(helical10 - omega_tae * ti)
+        + 0.8 * np.exp(-(((r_tae - 0.56) / 0.1) ** 2)) * np.cos(helical11 - omega_tae * ti + 0.3)
+    ) + 0.6 * np.exp(-0.004 * ti) * np.exp(-(((r_tae - 0.8) / 0.04) ** 2)) * np.cos(
+        helical10 - omega_continuum * ti
+    )
+    tae_snapshots.append(snapshot + 0.02 * rng_tae.standard_normal(snapshot.shape))
+phi_tae = field_array(
+    "phi",
+    r"$\phi$",
+    "a.u.",
+    np.stack(tae_snapshots),
+    ("t", "e1", "e2", "e3"),
+    {"t": t_tae, "e1": s1, "e2": s2, "e3": s3},
+)
+radius_of = lambda e1: 0.1 + 0.9 * e1  # noqa: E731
+
+band_tae = phi_tae.struphy.analysis.filter_time(dims=("e1", "e2", "e3"), pad_bins=3)
+save(
+    phi_tae.struphy.plot.power_spectrum(
+        peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate": omega_tae}, omega_max=0.5,
+        title="Power spectrum, averaged over the torus sector",
+    ),
+    "spectral_power.png",
+)
+save(phi_tae.struphy.plot.filtered(band_tae, e1=0.4, e2=0.0, e3=0.0), "spectral_filtered.png")
+save(phi_tae.struphy.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)), "spectral_mode_amplitudes.png")
+save(phi_tae.struphy.plot.mode_map(t="last", m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
+save(
+    phi_tae.struphy.plot.radial_power(
+        x_of=radius_of, xlabel=r"$r/a$", continuum=(alfven_continuum, [(10, n_tae), (11, n_tae)]),
+        omega_max=0.3,
+    ),
+    "spectral_radial_power.png",
+)
+peaks_tae = phi_tae.struphy.analysis.spectral_peaks(n_peaks=2, window="hann")
+omega_measured = float(peaks_tae.omega_refined[0])
+save(
+    phi_tae.struphy.plot.mode_profiles(omega_measured, x_of=radius_of, xlabel=r"$r/a$", top=2),
+    "spectral_mode_profiles.png",
+)
+
+# The TAE period is ~66: a run to t = 20 covers a third of it, below the first FFT bin.
+t_short = np.arange(21) * 1.0
+probe_short = field_array(
+    "phi",
+    r"$\phi$ at $r_*$",
+    "a.u.",
+    np.exp(0.003 * t_short) * np.cos(omega_tae * t_short + 0.4) + 1e-3 * rng_tae.standard_normal(21),
+    ("t",),
+    {"t": t_short},
+)
+save(probe_short.struphy.plot.pencil_fit(n_modes=1), "spectral_pencil.png")
+
+# An energetic-particle-like mode chirping down in frequency, beside a steady mode
+t_chirp = np.arange(1600) * 0.5
+omega_chirp = 0.3 - 0.15 * t_chirp / t_chirp[-1]
+chirp = field_array(
+    "phi",
+    r"$\phi$",
+    "a.u.",
+    np.sin(np.cumsum(omega_chirp) * 0.5) + 0.5 * np.cos(0.1 * t_chirp),
+    ("t",),
+    {"t": t_chirp},
+)
+save(chirp.struphy.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45), "spectral_spectrogram.png")
+
+# A standing shear-Alfven wave: velocity and magnetic perturbation a quarter period apart
+z_wave = np.linspace(0.02, np.pi / 2 - 0.02, 24)
+t_wave = np.arange(512) * 0.25
+omega_wave = 2 * np.pi * 16 / 128
+noise = rng_tae.normal(0, 0.15, (2, 512, 24))
+u_wave = field_array(
+    "u", "$u_x$", "a.u.", np.cos(z_wave)[None] * np.sin(omega_wave * t_wave)[:, None] + noise[0],
+    ("t", "e3"), {"t": t_wave, "e3": z_wave},
+)
+b_wave = field_array(
+    "b", "$b_x$", "a.u.", np.sin(z_wave)[None] * np.cos(omega_wave * t_wave)[:, None] + noise[1],
+    ("t", "e3"), {"t": t_wave, "e3": z_wave},
+)
+save(u_wave.struphy.plot.cross_spectrum(b_wave, dims="e3", omega_max=1.5), "spectral_cross.png")
+
+
+# =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
 #
 # plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium
@@ -789,6 +915,15 @@ try:
             PUBLIC_OUT / filename, kind=kind, framerate=8, window_size=(800, 560), **options
         )
         print(f"wrote {path}")
+    # The filtered TAE from the spectral-analysis section, in its torus sector
+    sector_R = 10.0 + r_tae * np.cos(2 * np.pi * S2)
+    sector = {
+        "X": (("e1", "e2", "e3"), sector_R * np.cos(2 * np.pi * S3 / 6)),
+        "Y": (("e1", "e2", "e3"), sector_R * np.sin(2 * np.pi * S3 / 6)),
+        "Z": (("e1", "e2", "e3"), r_tae * np.sin(2 * np.pi * S2)),
+    }
+    tae_3d = band_tae.filtered.isel(t=-1).assign_coords(sector)
+    shot(tae_3d.struphy.plot.slices_3d(cuts={"e3": [0.0, 0.5, 1.0], "e1": 0.44}, cmap="RdBu_r"), "spectral_tae_3d.png", zoom=1.2)
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped 3-D view figures (PyVista unavailable or headless rendering failed): {exc}")
 

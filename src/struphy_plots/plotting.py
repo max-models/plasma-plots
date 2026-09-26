@@ -16,25 +16,11 @@ import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
-from .analysis import (
-    ORBIT_CLASSES,
-    FitResult,
-    GrowthFit,
-    classify_orbits,
-    convergence_order,
-    drift,
-    growth_rate,
-    power_spectrum,
-    relative_error,
-)
-from .arrays import (
-    SCALARS_EXCLUDE,
-    axis_label,
-    save_scalars,
-    scalar_names,
-    validate_array,
-    value_label,
-)
+from .analysis import (ORBIT_CLASSES, FitResult, GrowthFit, classify_orbits,
+                       convergence_order, drift, growth_rate, power_spectrum,
+                       relative_error)
+from .arrays import (SCALARS_EXCLUDE, axis_label, save_scalars, scalar_names,
+                     validate_array, value_label)
 
 logger = logging.getLogger("struphy")
 

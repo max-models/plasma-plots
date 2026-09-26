@@ -383,6 +383,254 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
         )
 
+    # Spectral plots: every dimension but t (and those a plot keeps) can be selected by keyword.
+
+    def _time_selection(self, selection):
+        from .plotting import _select
+
+        return _select(
+            self._array, self._view(None, None, "t", "logical", "XY", selection)
+        )
+
+    def power_spectrum(
+        self,
+        *,
+        dims=None,
+        detrend: bool = True,
+        window: str | None = None,
+        peaks: int | None = None,
+        band=None,
+        frequencies: dict | None = None,
+        logy: bool = True,
+        omega_max: float | None = None,
+        ax=None,
+        title: str | None = None,
+        **selection,
+    ):
+        """Power per frequency bin, averaged over ``dims`` (default: all but ``component``),
+        with optional peak labels, a shaded filter ``band`` and reference ``frequencies``. See
+        :func:`struphy_plots.spectral_plots.plot_power_spectrum`."""
+        from .spectral_plots import plot_power_spectrum
+
+        return plot_power_spectrum(
+            self._time_selection(selection),
+            dims=dims,
+            detrend=detrend,
+            window=window,
+            peaks=peaks,
+            band=band,
+            frequencies=frequencies,
+            logy=logy,
+            omega_max=omega_max,
+            ax=ax,
+            title=title,
+        )
+
+    def filtered(self, result, *, ax=None, **selection):
+        """A probe of this signal against a filtered reconstruction (``filter_time`` result or
+        filtered array), selected by keyword. See :func:`struphy_plots.spectral_plots.plot_filtered`.
+        """
+        from .spectral_plots import plot_filtered
+
+        return plot_filtered(self._array, result, ax=ax, **selection)
+
+    def spectrogram(
+        self,
+        *,
+        length,
+        step=None,
+        detrend: bool = True,
+        window: str | None = "hann",
+        log: bool = True,
+        dynamic_range: float = 4.0,
+        omega_max: float | None = None,
+        frequencies: dict | None = None,
+        ax=None,
+        **selection,
+    ):
+        """Short-time power spectra over ``(t, omega)``; any remaining dimensions are averaged.
+        See :func:`struphy_plots.spectral.spectrogram`."""
+        from .spectral import spectrogram
+        from .spectral_plots import plot_spectrogram
+
+        power = spectrogram(
+            self._time_selection(selection),
+            length=length,
+            step=step,
+            detrend=detrend,
+            window=window,
+        )
+        others = [d for d in power.dims if d not in ("t", "omega")]
+        power = power.mean(others, keep_attrs=True) if others else power
+        return plot_spectrogram(
+            power,
+            log=log,
+            dynamic_range=dynamic_range,
+            omega_max=omega_max,
+            frequencies=frequencies,
+            ax=ax,
+        )
+
+    def mode_amplitudes(
+        self,
+        *,
+        dims=("e2", "e3"),
+        names=("m", "n"),
+        top: int = 6,
+        fit=None,
+        reduce: str = "max",
+        logy: bool = True,
+        ax=None,
+        **selection,
+    ):
+        """Amplitude of the strongest ``(m, n)`` modes of this field over time, each reduced
+        over the remaining dimensions (e.g. radius) by ``reduce`` (``"max"`` or ``"mean"``),
+        with optional growth fits (``fit=(t0, t1)`` or ``True``). See
+        :func:`struphy_plots.spectral_plots.plot_mode_amplitudes`."""
+        from .spectral import mode_amplitudes, mode_spectrum
+        from .spectral_plots import plot_mode_amplitudes
+
+        amplitudes = mode_amplitudes(
+            mode_spectrum(self._time_selection(selection), dims=dims, names=names)
+        )
+        others = [d for d in amplitudes.dims if d not in ("t", "mode")]
+        if others:
+            amplitudes = getattr(amplitudes, reduce)(others, keep_attrs=True)
+        return plot_mode_amplitudes(amplitudes, top=top, fit=fit, logy=logy, ax=ax)
+
+    def mode_map(
+        self,
+        *,
+        dims=("e2", "e3"),
+        m_range=None,
+        n_range=None,
+        reduce: str = "max",
+        log: bool = True,
+        ax=None,
+        **selection,
+    ):
+        """``|amplitude|`` over the ``(m, n)`` plane at one time (select it, e.g. ``t="last"``),
+        reduced over the remaining dimensions by ``reduce``. See
+        :func:`struphy_plots.spectral_plots.plot_mode_map`."""
+        from .spectral import mode_spectrum
+        from .spectral_plots import plot_mode_map
+
+        modes = abs(mode_spectrum(self._time_selection(selection), dims=dims))
+        others = [d for d in modes.dims if d not in ("m", "n")]
+        if others:
+            modes = getattr(modes, reduce)(others, keep_attrs=True)
+        return plot_mode_map(modes, m_range=m_range, n_range=n_range, log=log, ax=ax)
+
+    def radial_power(
+        self,
+        *,
+        x: str = "e1",
+        x_of=None,
+        xlabel: str | None = None,
+        continuum=None,
+        detrend: bool = True,
+        window: str | None = None,
+        log: bool = True,
+        dynamic_range: float = 3.0,
+        omega_max: float | None = None,
+        ax=None,
+        **selection,
+    ):
+        """Time-power over ``(omega, x)``, averaged over the other dimensions (e.g. the
+        angles), with optional continuous spectra on top. See
+        :func:`struphy_plots.spectral_plots.plot_radial_power`."""
+        from .spectral import time_fft
+        from .spectral_plots import plot_radial_power
+
+        power = time_fft(
+            self._time_selection(selection), detrend=detrend, window=window
+        ).power
+        others = [d for d in power.dims if d not in ("omega", x)]
+        power = power.mean(others, keep_attrs=True) if others else power
+        return plot_radial_power(
+            power,
+            x=x,
+            x_of=x_of,
+            xlabel=xlabel,
+            continuum=continuum,
+            log=log,
+            dynamic_range=dynamic_range,
+            omega_max=omega_max,
+            ax=ax,
+        )
+
+    def mode_profiles(
+        self,
+        omega: float,
+        *,
+        x: str = "e1",
+        dims=("e2", "e3"),
+        x_of=None,
+        xlabel: str | None = None,
+        top: int = 4,
+        phase: bool = True,
+        **selection,
+    ):
+        """Radial eigenfunction (amplitude and phase) of each ``(m, n)`` harmonic of this field
+        at frequency ``omega``: ``mode_spectrum(mode_structure(field, omega))``. See
+        :func:`struphy_plots.spectral_plots.plot_mode_profiles`."""
+        from .spectral import mode_spectrum, mode_structure
+        from .spectral_plots import plot_mode_profiles
+
+        structure = mode_spectrum(
+            mode_structure(self._time_selection(selection), omega), dims=dims
+        )
+        return plot_mode_profiles(
+            structure,
+            x=x,
+            x_of=x_of,
+            xlabel=xlabel,
+            top=top,
+            phase=phase,
+            title=f"Harmonics of {self._array.name or 'the field'} at omega = {omega:.4g}",
+        )
+
+    def cross_spectrum(
+        self,
+        other: xr.DataArray,
+        *,
+        dims=None,
+        detrend: bool = True,
+        window=None,
+        omega_max=None,
+    ):
+        """Magnitude, coherence (with ``dims``) and phase of ``other`` relative to this signal.
+        See :func:`struphy_plots.spectral.cross_spectrum`."""
+        from .spectral import cross_spectrum
+        from .spectral_plots import plot_cross_spectrum
+
+        return plot_cross_spectrum(
+            cross_spectrum(
+                self._array, other, dims=dims, detrend=detrend, window=window
+            ),
+            omega_max=omega_max,
+        )
+
+    def pencil_fit(
+        self,
+        *,
+        n_modes: int = 1,
+        pencil: int | None = None,
+        detrend: bool = False,
+        **selection,
+    ):
+        """A matrix-pencil fit of this ``(t,)`` series: the samples against the fit, and the
+        modes in the complex-frequency plane. See :func:`struphy_plots.spectral.matrix_pencil`.
+        """
+        from .spectral import matrix_pencil
+        from .spectral_plots import plot_pencil_fit
+
+        signal = self._time_selection(selection)
+        return plot_pencil_fit(
+            signal,
+            matrix_pencil(signal, n_modes=n_modes, pencil=pencil, detrend=detrend),
+        )
+
     def view(
         self,
         *,
@@ -874,6 +1122,120 @@ class ArrayAnalysis(_ArrayAccessor):
             order=order,
         )
 
+    # Spectral diagnostics: see struphy_plots.spectral for the definitions and conventions.
+
+    def fft(
+        self, *, dim: str, detrend: bool = False, window: str | None = None
+    ) -> xr.DataArray:
+        """Two-sided Fourier coefficients along ``dim``; see :func:`struphy_plots.spectral.fft`."""
+        from .spectral import fft
+
+        return fft(self._array, dim=dim, detrend=detrend, window=window)
+
+    def time_fft(
+        self, *, detrend: bool = False, window: str | None = None
+    ) -> xr.Dataset:
+        """One-sided temporal coefficients and power per bin; see
+        :func:`struphy_plots.spectral.time_fft`."""
+        from .spectral import time_fft
+
+        return time_fft(self._array, detrend=detrend, window=window)
+
+    def filter_time(self, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0):
+        """The dominant frequency band, reconstructed; see
+        :func:`struphy_plots.spectral.filter_time`."""
+        from .spectral import filter_time
+
+        return filter_time(
+            self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins
+        )
+
+    def band_filter(
+        self, omega_lo: float, omega_hi: float, *, detrend: bool = False
+    ) -> xr.DataArray:
+        """Only the frequencies in ``[omega_lo, omega_hi]``; see
+        :func:`struphy_plots.spectral.band_filter`."""
+        from .spectral import band_filter
+
+        return band_filter(self._array, omega_lo, omega_hi, detrend=detrend)
+
+    def spectral_peaks(
+        self, *, n_peaks: int = 3, dims=None, omega_min: float = 1e-8, window=None
+    ) -> xr.Dataset:
+        """The strongest spectral peaks, with sub-bin frequencies; see
+        :func:`struphy_plots.spectral.spectral_peaks`."""
+        from .spectral import spectral_peaks
+
+        return spectral_peaks(
+            self._array, n_peaks=n_peaks, dims=dims, omega_min=omega_min, window=window
+        )
+
+    def spectrogram(
+        self, *, length, step=None, detrend: bool = True, window: str | None = "hann"
+    ) -> xr.DataArray:
+        """Power spectra in sliding time windows; see :func:`struphy_plots.spectral.spectrogram`."""
+        from .spectral import spectrogram
+
+        return spectrogram(
+            self._array, length=length, step=step, detrend=detrend, window=window
+        )
+
+    def mode_spectrum(
+        self, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0
+    ) -> xr.DataArray:
+        """Complex amplitudes over poloidal/toroidal mode numbers; see
+        :func:`struphy_plots.spectral.mode_spectrum`."""
+        from .spectral import mode_spectrum
+
+        return mode_spectrum(self._array, dims=dims, names=names, periods=periods)
+
+    def mode_amplitudes(
+        self, *, top: int | None = None, real: bool = True
+    ) -> xr.DataArray:
+        """Real amplitudes of this mode spectrum along one ``mode`` dimension; see
+        :func:`struphy_plots.spectral.mode_amplitudes`."""
+        from .spectral import mode_amplitudes
+
+        return mode_amplitudes(self._array, top=top, real=real)
+
+    def mode_structure(
+        self, omega: float, *, window: str | None = "hann", detrend: bool = True
+    ) -> xr.DataArray:
+        """Complex amplitude at the exact frequency ``omega`` at every point; see
+        :func:`struphy_plots.spectral.mode_structure`."""
+        from .spectral import mode_structure
+
+        return mode_structure(self._array, omega, window=window, detrend=detrend)
+
+    def cross_spectrum(
+        self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None
+    ) -> xr.Dataset:
+        """Cross-spectrum, phase (of ``other`` relative to this) and coherence; see
+        :func:`struphy_plots.spectral.cross_spectrum`."""
+        from .spectral import cross_spectrum
+
+        return cross_spectrum(
+            self._array, other, dims=dims, detrend=detrend, window=window
+        )
+
+    def matrix_pencil(
+        self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False
+    ) -> xr.Dataset:
+        """Frequencies and growth rates beyond the FFT resolution; see
+        :func:`struphy_plots.spectral.matrix_pencil`."""
+        from .spectral import matrix_pencil
+
+        return matrix_pencil(
+            self._array, n_modes=n_modes, pencil=pencil, detrend=detrend
+        )
+
+    def drop_periodic_endpoint(self, dim: str, *, period: float = 1.0) -> xr.DataArray:
+        """This array without a duplicated periodic endpoint along ``dim``; see
+        :func:`struphy_plots.spectral.drop_periodic_endpoint`."""
+        from .spectral import drop_periodic_endpoint
+
+        return drop_periodic_endpoint(self._array, dim, period=period)
+
 
 @xr.register_dataarray_accessor("struphy")
 class StruphyAccessor:
@@ -920,6 +1282,19 @@ class DatasetPlots:
 
     def __init__(self, dataset: xr.Dataset):
         self._dataset = dataset
+
+    def power_spectrum(self, **options):
+        """The power of a ``time_fft`` Dataset; see
+        :func:`struphy_plots.spectral_plots.plot_power_spectrum` for ``options``."""
+        from .spectral_plots import plot_power_spectrum
+
+        return plot_power_spectrum(self._dataset, **options)
+
+    def cross_spectrum(self, *, omega_max: float | None = None):
+        """Magnitude, coherence and phase of a ``cross_spectrum`` Dataset."""
+        from .spectral_plots import plot_cross_spectrum
+
+        return plot_cross_spectrum(self._dataset, omega_max=omega_max)
 
     def trajectories(
         self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None

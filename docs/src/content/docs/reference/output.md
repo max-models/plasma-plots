@@ -51,3 +51,11 @@ A flame chart reconstructing the call stack from region timings.
 ### `callgraph(**kwargs)`
 The explicit call graph (which region calls which), without timings. Pass
 `compact=True` to collapse every invocation of a region into one node.
+
+## `OutputAnalysis`
+
+`struphy_plots.output_accessors.OutputAnalysis`, accessed as `out.analysis`.
+`fft(product, *, dim, ...)`, `time_fft(product, ...)`,
+`filter_time(product, ...)` and `mode_spectrum(product, ...)` take a product
+name (evaluated with `out.evaluate`) or an array. See the
+[spectral reference](/struphy-plots/reference/spectral/).

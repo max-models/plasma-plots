@@ -26,6 +26,7 @@ export default defineConfig({
 						{ label: '3-D views', slug: 'guides/3d-views' },
 						{ label: 'Time series & comparisons', slug: 'guides/timeseries' },
 						{ label: 'Diagnostics', slug: 'guides/analysis' },
+						{ label: 'Spectral analysis', slug: 'guides/spectral' },
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 						{ label: 'Profiling', slug: 'guides/profiling' },
