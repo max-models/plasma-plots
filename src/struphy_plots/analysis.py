@@ -72,11 +72,7 @@ def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult |
     if np.count_nonzero(valid) < 2:
         return None
     selected_time = time[valid]
-    signal = (
-        np.log(np.sqrt(values[valid]))
-        if fit.amplitude_from_quadratic
-        else np.log(values[valid])
-    )
+    signal = np.log(np.sqrt(values[valid])) if fit.amplitude_from_quadratic else np.log(values[valid])
     rate, intercept = np.polyfit(selected_time, signal, 1)
     scale = 2.0 if fit.amplitude_from_quadratic else 1.0
     fitted = np.exp(scale * (rate * selected_time + intercept))
@@ -110,13 +106,9 @@ def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArra
     dims = [dim for dim in data.dims if dim != "t"] if dims is None else list(dims)
     total = (data**2).sum(dims)
     out = total if squared else np.sqrt(total)
-    out.attrs = {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
     label = _label(data)
-    out.attrs["label"] = (
-        f"squared norm of {label}".strip() if squared else f"norm of {label}".strip()
-    )
+    out.attrs["label"] = f"squared norm of {label}".strip() if squared else f"norm of {label}".strip()
     return out
 
 
@@ -135,25 +127,19 @@ VELOCITY_DIMS = ("v1", "v2", "v3")
 
 
 def _provenance(data: xr.DataArray) -> dict:
-    return {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    return {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
 
 
 def _select_dims(data: xr.DataArray, dims, default) -> list[str]:
     if dims is None:
         selected = [dim for dim in default if dim in data.dims]
         if not selected:
-            raise ValueError(
-                f"{data.name!r} has none of the dimensions {default}; its dimensions are {data.dims}"
-            )
+            raise ValueError(f"{data.name!r} has none of the dimensions {default}; its dimensions are {data.dims}")
         return selected
     selected = [dims] if isinstance(dims, str) else list(dims)
     missing = [dim for dim in selected if dim not in data.dims]
     if missing:
-        raise ValueError(
-            f"{data.name!r} has no dimensions {missing}; its dimensions are {data.dims}"
-        )
+        raise ValueError(f"{data.name!r} has no dimensions {missing}; its dimensions are {data.dims}")
     return selected
 
 
@@ -177,9 +163,7 @@ def _bin_widths(data: xr.DataArray, dim: str) -> xr.DataArray:
     coordinate = np.asarray(data.coords[dim]) if dim in data.coords else None
     if coordinate is None or len(coordinate) < 2:
         raise ValueError(f"dimension {dim!r} needs a coordinate with at least two bins")
-    return xr.DataArray(
-        np.gradient(coordinate), dims=(dim,), coords={dim: data.coords[dim]}
-    )
+    return xr.DataArray(np.gradient(coordinate), dims=(dim,), coords={dim: data.coords[dim]})
 
 
 def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
@@ -232,9 +216,7 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
     if np.any(np.asarray(reference) == 0):
         raise ValueError("cannot take a relative error against a reference of zero")
     out = abs(data - reference) / abs(reference)
-    out.attrs = {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
     out.attrs.update(label=f"relative error of {_label(data)}".strip(), units="")
     return out.isel(t=slice(1, None)) if skip_first else out
 
@@ -256,9 +238,7 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
             f"orbit classification needs the parallel velocity {v_par!r}; this dataset has {tuple(orbits.data_vars)}"
         )
     if set(orbits[v_par].dims) != {"t", "marker"}:
-        raise ValueError(
-            f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}"
-        )
+        raise ValueError(f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}")
     velocity = orbits[v_par].transpose("t", "marker")
     trapped = (velocity * velocity.isel(t=0) < 0).any("t")
     all_zero = velocity == 0
@@ -269,11 +249,7 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
     codes = xr.where(lost, -1, xr.where(trapped, 1, 0)).astype(int)
     codes.name = "classification"
     codes.attrs = {
-        **{
-            key: value
-            for key, value in orbits.attrs.items()
-            if key in ("run", "run_name")
-        },
+        **{key: value for key, value in orbits.attrs.items() if key in ("run", "run_name")},
         "label": "orbit classification",
         "flag_values": list(ORBIT_CLASSES),
         "flag_meanings": " ".join(ORBIT_CLASSES.values()),
@@ -334,9 +310,7 @@ def fit_dispersion_branches(
     ``k_range``; ``.velocity`` is the fitted slope, ``.k``/``.omega`` the ridge points used.
     """
     if not {"omega", "k"} <= set(spectrum.dims):
-        raise ValueError(
-            f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}"
-        )
+        raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
     if n_branches < 1:
         raise ValueError("n_branches must be positive")
 
@@ -377,9 +351,7 @@ def fit_dispersion_branches(
     ]
 
 
-def power_spectrum(
-    data: xr.DataArray, *, dim: str | None = None, detrend: bool = True
-) -> xr.DataArray:
+def power_spectrum(data: xr.DataArray, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
     """The 2-D power spectrum of a ``(t, dim)`` signal: a plain space-time FFT, as a function of
     angular frequency and wavenumber -- the basis of a dispersion-relation plot
     (:meth:`~struphy_plots.accessors.ArrayPlots.dispersion`), independent of Struphy.
@@ -394,25 +366,176 @@ def power_spectrum(
     others = [d for d in data.dims if d != "t"]
     if dim is None:
         if len(others) != 1:
-            raise ValueError(
-                f"dim is required unless data has exactly one dimension besides 't'; got {data.dims}"
-            )
+            raise ValueError(f"dim is required unless data has exactly one dimension besides 't'; got {data.dims}")
         dim = others[0]
     elif dim not in data.dims:
-        raise ValueError(
-            f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}"
-        )
+        raise ValueError(f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}")
     if set(data.dims) != {"t", dim}:
-        raise ValueError(
-            f"select every dimension except 't' and {dim!r} first; got {data.dims}"
-        )
+        raise ValueError(f"select every dimension except 't' and {dim!r} first; got {data.dims}")
     from .spectral import fft
 
     signal = data.transpose("t", dim).reset_coords(drop=True)
     coefficients = fft(fft(signal, dim="t", detrend=detrend), dim=dim)
-    spectrum = (
-        (abs(coefficients) ** 2).rename({f"k_{dim}": "k"}).transpose("omega", "k")
-    )
+    spectrum = (abs(coefficients) ** 2).rename({f"k_{dim}": "k"}).transpose("omega", "k")
     spectrum.name = "power"
     spectrum.attrs = {"label": f"power spectrum of {_label(data)}".strip(), "units": ""}
     return spectrum
+
+
+# ---------------------------------------------------------------------------------------------
+# Volume integrals and field energies (after struphy's TAE_example_Shrut field_energies.py)
+# ---------------------------------------------------------------------------------------------
+
+
+def quadrature_weights(coordinate) -> np.ndarray:
+    """Quadrature weights for samples of a logical coordinate in ``[0, 1]``.
+
+    Struphy's cell centers (uniform, half a cell from each end) get the midpoint rule, which
+    integrates over the whole unit interval; any other grid gets the trapezoidal rule over the
+    sampled range. A single point (a 2-D run's flat direction) has weight 1.
+    """
+    x = np.asarray(coordinate, dtype=float)
+    if x.size == 1:
+        return np.ones(1)
+    h = np.diff(x)
+    if np.allclose(h, h[0]) and np.isclose(x[0], h[0] / 2) and np.isclose(x[-1], 1 - h[0] / 2):
+        return np.full(x.size, h[0])
+    weights = np.empty(x.size)
+    weights[1:-1] = (x[2:] - x[:-2]) / 2
+    weights[0], weights[-1] = h[0] / 2, h[-1] / 2
+    return weights
+
+
+def _geometry(data: xr.DataArray, domain=None):
+    """``|sqrt g|`` and the metric ``G`` (3, 3, n1, n2, n3) on the logical grid of ``data``: from a
+    struphy ``domain`` (exact), or from the Jacobian of the attached X, Y, Z coordinates.
+    """
+    missing = [d for d in SPATIAL_DIMS if d not in data.dims]
+    if missing:
+        raise ValueError(f"integrals need the logical dimensions e1, e2, e3; {missing} are missing")
+    if domain is not None:
+        etas = [np.asarray(data[d], dtype=float) for d in SPATIAL_DIMS]
+        sqrt_g = np.abs(np.asarray(domain.jacobian_det(*etas), dtype=float))
+        metric = np.asarray(domain.metric(*etas), dtype=float)
+        return sqrt_g.reshape([data.sizes[d] for d in SPATIAL_DIMS]), metric
+    from .arrays import mapping_jacobian
+
+    jacobian = mapping_jacobian(data)
+    sqrt_g = np.abs(np.linalg.det(np.moveaxis(jacobian, (0, 1), (-2, -1))))
+    metric = np.einsum("ai...,aj...->ij...", jacobian, jacobian)
+    return sqrt_g, metric
+
+
+def _integrate(integrand: xr.DataArray, quadrature=None) -> xr.DataArray:
+    weights = 1.0
+    for dim in SPATIAL_DIMS:
+        given = (quadrature or {}).get(dim)
+        values = quadrature_weights(integrand[dim]) if given is None else np.asarray(given, dtype=float)
+        if values.size != integrand.sizes[dim]:
+            raise ValueError(f"{values.size} quadrature weights for {integrand.sizes[dim]} points along {dim!r}")
+        weights = weights * xr.DataArray(values, dims=(dim,))
+    return (integrand * weights).sum(list(SPATIAL_DIMS))
+
+
+def _spatial_array(values, data):
+    return xr.DataArray(
+        np.asarray(values, dtype=float),
+        dims=SPATIAL_DIMS,
+        coords={d: data[d] for d in SPATIAL_DIMS},
+    )
+
+
+def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=None, quadrature=None) -> xr.DataArray:
+    """``int w f dV`` over the logical grid, as a function of every other dimension (e.g. ``t``).
+
+    ``form=0`` (default) is a function, integrated with the volume element ``|sqrt g| de``;
+    ``form=3`` is a density (a 3-form, e.g. Struphy's L2 fields), integrated as ``int f de``.
+    ``weight`` is an optional ``(e1, e2, e3)`` array. The geometry comes from a struphy
+    ``domain`` (``out.domain``, exact) or, without one, from the X, Y, Z coordinates.
+    ``quadrature`` maps ``e1``/``e2``/``e3`` to explicit weights (e.g. Gauss weights, see
+    ``out.analysis.quadrature_grid()``); by default see :func:`quadrature_weights`.
+    """
+    if form not in (0, 3):
+        raise ValueError("volume_integral takes form=0 (a function) or form=3 (a density)")
+    validate_array(data)
+    integrand = data
+    if form == 0:
+        sqrt_g, _ = _geometry(data, domain)
+        integrand = integrand * _spatial_array(sqrt_g, data)
+    if weight is not None:
+        integrand = integrand * np.asarray(weight, dtype=float)
+    out = _integrate(integrand, quadrature)
+    out.attrs = {**_provenance(data), "label": f"integral of {_label(data)}".strip()}
+    return out
+
+
+def field_energy(
+    data: xr.DataArray,
+    *,
+    form: int | str | None = None,
+    weight=None,
+    domain=None,
+    normalization: float = 1.0,
+    quadrature=None,
+) -> xr.DataArray:
+    r"""The quadratic energy ``alpha * 1/2 int w  omega^T A omega de``, as a function of time.
+
+    ``form`` says what ``data`` holds, and sets the metric factor ``A`` (as struphy's mass
+    matrices do, so that e.g. LinearMHD's ``en_U`` is ``field_energy(u, form=2, weight=n0)``):
+
+    ========================  ===========================================  ==============
+    ``form``                  data                                         ``A``
+    ========================  ===========================================  ==============
+    ``None`` (default)        a function, or Cartesian vector components    ``|sqrt g|``
+    ``0``                     0-form                                        ``|sqrt g|``
+    ``1``                     1-form components                             ``G^-1 |sqrt g|``
+    ``2``                     2-form components                             ``G / |sqrt g|``
+    ``3``                     3-form                                        ``1 / |sqrt g|``
+    ``"v"``                   contravariant vector components               ``G |sqrt g|``
+    ========================  ===========================================  ==============
+
+    Vectors have a ``component`` dimension. Non-finite ``weight`` values (e.g. ``1/p0`` where
+    ``p0`` vanishes on the boundary) are left out. The energy of a filtered field, e.g. from
+    :func:`~struphy_plots.spectral.filter_time`, measures how much of the energy is in that mode.
+    ``quadrature``: as for :func:`volume_integral`. A spline field squared is integrated exactly
+    only with enough points per element: evaluate it at Gauss points for accurate energies.
+    """
+    validate_array(data)
+    if form not in (None, 0, 1, 2, 3, "v"):
+        raise ValueError(f"form must be None, 0, 1, 2, 3 or 'v'; got {form!r}")
+    sqrt_g, metric = _geometry(data, domain)
+    w = np.ones_like(sqrt_g) if weight is None else np.asarray(weight, dtype=float) * np.ones_like(sqrt_g)
+    w = np.where(np.isfinite(w), w, 0.0)
+    vector = "component" in data.dims
+    if vector and data.sizes["component"] != 3:
+        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+    if not vector and form in (1, 2, "v"):
+        raise ValueError(f"form={form!r} needs vector components (a 'component' dimension)")
+    if vector and form in (0, 3):
+        raise ValueError(f"form={form} is a scalar; a vector field needs form None, 1, 2 or 'v'")
+
+    if form in (None, 0):
+        factor = _spatial_array(w * sqrt_g, data)
+        squared = (data**2).sum("component") if vector else data**2
+    elif form == 3:
+        factor = _spatial_array(w / np.where(sqrt_g > 0, sqrt_g, np.inf), data)
+        squared = data**2
+    else:
+        if form == 1:
+            tensor = np.linalg.inv(np.moveaxis(metric, (0, 1), (-2, -1)))
+            tensor = np.moveaxis(tensor, (-2, -1), (0, 1)) * (w * sqrt_g)
+        elif form == 2:
+            tensor = metric * (w / np.where(sqrt_g > 0, sqrt_g, np.inf))
+        else:
+            tensor = metric * (w * sqrt_g)
+        A = xr.DataArray(
+            tensor,
+            dims=("component", "component_2", *SPATIAL_DIMS),
+            coords={d: data[d] for d in SPATIAL_DIMS},
+        )
+        other = data.rename(component="component_2").drop_vars("component_2", errors="ignore")
+        squared = (data.drop_vars("component", errors="ignore") * A * other).sum(("component", "component_2"))
+        factor = 1.0
+    out = normalization * 0.5 * _integrate(squared * factor, quadrature)
+    out.attrs = {**_provenance(data), "label": f"energy of {_label(data)}".strip()}
+    return out

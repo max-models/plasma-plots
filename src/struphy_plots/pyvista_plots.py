@@ -17,7 +17,7 @@ import numpy as np
 import xarray as xr
 
 from .analysis import ORBIT_CLASSES, classify_orbits
-from .arrays import validate_array, value_label
+from .arrays import close_periodic, mapping_jacobian, validate_array, value_label
 
 SPATIAL = ("e1", "e2", "e3")
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
@@ -27,16 +27,12 @@ def _pv():
     try:
         import pyvista
     except ImportError as error:  # pragma: no cover
-        raise ImportError(
-            'PyVista plots need the optional extra: pip install "struphy-plots[pyvista]"'
-        ) from error
+        raise ImportError('PyVista plots need the optional extra: pip install "struphy-plots[pyvista]"') from error
     return pyvista
 
 
 def _label(data):
-    return (
-        data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
-    )
+    return data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
 
 
 def _plotter(plotter):
@@ -52,25 +48,15 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
     validate_array(data, required_dims=extra)
     others = set(data.dims) - {*extra, *SPATIAL}
     if others:
-        raise ValueError(
-            f"select every dimension except {(*extra, *SPATIAL)} first; {sorted(others)} remain"
-        )
+        raise ValueError(f"select every dimension except {(*extra, *SPATIAL)} first; {sorted(others)} remain")
     missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
     if missing:
-        raise ValueError(
-            f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}"
-        )
+        raise ValueError(f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}")
     absent = [dim for dim in SPATIAL if dim not in data.dims]
     if len(absent) > 1:
-        raise ValueError(
-            f"3-D views need at least two of e1, e2, e3; {data.name!r} has dims {data.dims}"
-        )
+        raise ValueError(f"3-D views need at least two of e1, e2, e3; {data.name!r} has dims {data.dims}")
     for dim in absent:
-        data = (
-            data.expand_dims(dim)
-            if dim in data.coords
-            else data.expand_dims({dim: [0.0]})
-        )
+        data = data.expand_dims(dim) if dim in data.coords else data.expand_dims({dim: [0.0]})
     coords = {}
     for name in ("X", "Y", "Z"):
         coordinate = data.coords[name]
@@ -104,9 +90,7 @@ def _camera(plotter, grid):
     if normal is None:
         return
     axis = int(np.abs(normal).argmax())
-    if (
-        abs(normal[axis]) > 0.999
-    ):  # an axis-aligned plane: keep both in-plane axes pointing right/up
+    if abs(normal[axis]) > 0.999:  # an axis-aligned plane: keep both in-plane axes pointing right/up
         (plotter.view_yz, plotter.view_xz, plotter.view_xy)[axis]()
     else:
         up = (0.0, 0.0, 1.0) if abs(normal[2]) < 0.9 else (0.0, 1.0, 0.0)
@@ -115,10 +99,7 @@ def _camera(plotter, grid):
 
 
 def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    return tuple(
-        np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float)
-        for name in ("X", "Y", "Z")
-    )
+    return tuple(np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float) for name in ("X", "Y", "Z"))
 
 
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
@@ -126,18 +107,17 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
 
     A scalar field becomes point data ``name`` (default: the field's label); a vector field with
     a ``component`` dimension of three Cartesian components becomes point vectors ``name``, plus
-    their magnitude as ``"|name|"``. The grid is useful directly for any PyVista filter.
+    their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`struphy_plots.arrays.close_periodic`.
+    The grid is useful directly for any PyVista filter.
     """
     pv = _pv()
     vector = "component" in data.dims
-    data = _spatial(data, extra=("component",) if vector else ())
+    data = close_periodic(_spatial(data, extra=("component",) if vector else ()), SPATIAL)
     grid = pv.StructuredGrid(*_points(data))
     name = name or _label(data)
     if vector:
         if data.sizes["component"] != 3:
-            raise ValueError(
-                f"a vector field needs 3 components; got {data.sizes['component']}"
-            )
+            raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
         vectors = np.stack([np.asarray(c).ravel(order="F") for c in data], axis=-1)
         grid.point_data[name] = vectors
         grid.point_data[f"|{name}|"] = np.linalg.norm(vectors, axis=1)
@@ -158,17 +138,11 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
     """
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
-        raise ValueError(
-            f"a vector field needs 3 components; got {data.sizes['component']}"
-        )
+        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
     short = [dim for dim in SPATIAL if data.sizes[dim] < 2]
     if short:
         raise ValueError(f"pushing forward needs at least two points along {short}")
-    points = _points(data)
-    axes = [np.asarray(data[dim], dtype=float) for dim in SPATIAL]
-    jacobian = np.array(  # jacobian[a, i] = dX_a / de_i
-        [[np.gradient(points[a], axes[i], axis=i) for i in range(3)] for a in range(3)]
-    )
+    jacobian = mapping_jacobian(data)  # jacobian[a, i] = dX_a / de_i
     cartesian = np.einsum("ai...,i...->a...", jacobian, np.asarray(data))
     out = data.copy(data=cartesian)
     out.attrs = {**data.attrs, "label": f"{_label(data)} (Cartesian)"}
@@ -179,9 +153,7 @@ def _vector_grid(data, components, name):
     if components == "contravariant":
         data = push_forward(data)
     elif components != "cartesian":
-        raise ValueError(
-            f'components must be "cartesian" or "contravariant"; got {components!r}'
-        )
+        raise ValueError(f'components must be "cartesian" or "contravariant"; got {components!r}')
     return structured_grid(data, name=name)
 
 
@@ -189,15 +161,12 @@ def _bar(title):
     return {"title": title, "fmt": "%.3g"}
 
 
-def _clim(values, clim):
+def _clim(values, clim, *, symmetric=False, robust=False):
     if clim is not None:
         return tuple(clim)
-    finite = np.asarray(values)[np.isfinite(values)]
-    if not finite.size:
-        raise ValueError(
-            "cannot determine color limits without finite values; pass clim"
-        )
-    return float(finite.min()), float(finite.max())
+    from .plotting import color_limits
+
+    return color_limits(values, symmetric=symmetric, robust=robust)
 
 
 def _face(points, axis, index):
@@ -281,20 +250,22 @@ def pyvista_isosurface(
     clim=None,
     show_domain: bool = True,
     title: str | None = None,
+    symmetric: bool = False,
+    robust: bool = False,
     plotter=None,
 ):
     """Contour surfaces of a selected scalar ``(e1, e2, e3)`` field in physical space.
 
-    ``values`` is the number of evenly spaced levels, or explicit levels. ``show_domain`` draws
+    ``values`` is the number of evenly spaced levels, or explicit levels (between the color
+    limits, which ``symmetric``/``robust`` set as in :func:`~struphy_plots.plotting.color_limits`).
+    ``show_domain`` draws
     the domain's outer surface translucently for context. For a 2-D field (one logical
     direction with a single point) the levels are contour lines over the colored plane.
     """
     grid = structured_grid(data)
     name = grid.active_scalars_name
-    lo, hi = _clim(grid[name], clim)
-    levels = (
-        np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
-    )
+    lo, hi = _clim(grid[name], clim, symmetric=symmetric, robust=robust)
+    levels = np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
     own = plotter is None
     plotter = _plotter(plotter)
     contours = grid.contour(isosurfaces=list(levels), scalars=name)
@@ -323,9 +294,7 @@ def pyvista_isosurface(
                 scalar_bar_args=bar,
                 name="isosurface",
             )
-    return _finish(
-        plotter, _label(data) if title is None else title, grid if own else None
-    )
+    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 
 def _cut_indices(data, cuts):
@@ -348,9 +317,7 @@ def _cut_indices(data, cuts):
     return indices
 
 
-def prepare_slices_3d(
-    data: xr.DataArray, *, cuts: dict | None = None
-) -> list[xr.DataArray]:
+def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[xr.DataArray]:
     """The logical cuts of a scalar ``(e1, e2, e3)`` field that :func:`pyvista_slices` draws.
 
     ``cuts`` maps ``e1``/``e2``/``e3`` to one position or a list: a float is the nearest
@@ -364,11 +331,7 @@ def prepare_slices_3d(
         if 1 in data.shape:
             return [data]
         cuts = {dim: data.sizes[dim] // 2 for dim in SPATIAL}
-    return [
-        data.isel({dim: [index]})
-        for dim, indices in _cut_indices(data, cuts).items()
-        for index in indices
-    ]
+    return [data.isel({dim: [index]}) for dim, indices in _cut_indices(data, cuts).items() for index in indices]
 
 
 def pyvista_slices(
@@ -379,6 +342,8 @@ def pyvista_slices(
     clim=None,
     show_domain: bool = True,
     title: str | None = None,
+    symmetric: bool = False,
+    robust: bool = False,
     plotter=None,
 ):
     """Surfaces of constant logical coordinate through a scalar field, drawn in physical space.
@@ -389,7 +354,7 @@ def pyvista_slices(
     """
     data = _spatial(data)
     pieces = prepare_slices_3d(data, cuts=cuts)
-    lo, hi = _clim(np.asarray(data), clim)
+    lo, hi = _clim(np.asarray(data), clim, symmetric=symmetric, robust=robust)
     own = plotter is None
     plotter = _plotter(plotter)
     grid = structured_grid(data)
@@ -407,9 +372,7 @@ def pyvista_slices(
             scalar_bar_args=_bar(value_label(data)),
             name=f"slice{i}",
         )
-    return _finish(
-        plotter, _label(data) if title is None else title, grid if own else None
-    )
+    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 
 def pyvista_glyphs(
@@ -434,9 +397,7 @@ def pyvista_glyphs(
         raise ValueError("stride must be positive")
     name = _label(data)
     full = _vector_grid(data, components, name)
-    thinned = _vector_grid(
-        data.isel({dim: slice(None, None, stride) for dim in SPATIAL}), components, name
-    )
+    thinned = _vector_grid(data.isel({dim: slice(None, None, stride) for dim in SPATIAL}), components, name)
     magnitude = thinned[f"|{name}|"]
     peak = float(magnitude.max()) if magnitude.size else 0.0
     length = 0.1 * full.length if scale is None else scale
@@ -471,38 +432,44 @@ def pyvista_streamlines(
 ):
     """Field lines of a selected vector field, e.g. magnetic field lines, colored by magnitude.
 
-    Lines are traced in both directions from ``n_points`` seeds in a sphere of ``source_radius``
-    (default: a quarter of the domain size) around ``source_center`` (default: the domain
-    center). For a 2-D field the seeds are ``n_points`` grid points spread over the plane
-    instead, and the lines stay on it (the out-of-plane component is ignored). See
+    Lines are traced in both directions from ``n_points`` seeds: by default grid points drawn
+    at random (reproducibly) across the domain, or, given ``source_center`` and/or
+    ``source_radius``, points in that sphere (radius default: a quarter of the domain size;
+    center default: the bounding-box center, which can lie outside a curved domain). For a 2-D
+    field the lines stay on the plane (the out-of-plane component is ignored). See
     :func:`pyvista_glyphs` for ``components``.
     """
     pv = _pv()
     name = _label(data)
     grid = _vector_grid(data, components, name)
     max_length = 4 * grid.length if max_length is None else max_length
-    if is_flat(grid):
-        # Seeding in a sphere would miss a plane; seed on the grid itself instead.
-        seeds = np.linspace(0, grid.n_points - 1, min(n_points, grid.n_points)).astype(
-            int
-        )
-        lines = grid.streamlines_from_source(
-            pv.PolyData(np.asarray(grid.points)[seeds]),
-            vectors=name,
-            max_length=max_length,
-            integration_direction="both",
-            surface_streamlines=True,
-        )
+    # Field lines depend only on the direction: trace the unit field, which keeps VTK's
+    # adaptive integrator independent of the field's magnitude (Struphy perturbations are often
+    # ~1e-5), with small steps for thin curved cells; lines are colored by the real magnitude.
+    vectors = np.asarray(grid[name])
+    norm = np.linalg.norm(vectors, axis=1, keepdims=True)
+    grid["_direction"] = np.divide(vectors, norm, out=np.zeros_like(vectors), where=norm > 0)
+    tracing = dict(
+        vectors="_direction",
+        max_length=max_length,
+        integration_direction="both",
+        surface_streamlines=is_flat(grid),
+        step_unit="cl",
+        initial_step_length=0.1,
+        max_steps=4000,
+    )
+    if source_center is None and source_radius is None:
+        # Seed at grid points: a sphere around the bounding-box centre can lie outside a
+        # curved domain (e.g. a torus sector), and would miss a 2-D plane entirely.
+        rng = np.random.default_rng(0)
+        seeds = rng.choice(grid.n_points, size=min(n_points, grid.n_points), replace=False)
+        lines = grid.streamlines_from_source(pv.PolyData(np.asarray(grid.points)[np.sort(seeds)]), **tracing)
     else:
         lines = grid.streamlines(
-            vectors=name,
             n_points=n_points,
-            source_radius=(
-                0.25 * grid.length if source_radius is None else source_radius
-            ),
+            source_radius=(0.25 * grid.length if source_radius is None else source_radius),
             source_center=grid.center if source_center is None else source_center,
-            max_length=max_length,
-            integration_direction="both",
+            **tracing,
         )
     own = plotter is None
     plotter = _plotter(plotter)
@@ -546,15 +513,11 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     if color_by == "t":
         colors = np.broadcast_to(np.asarray(subset.t)[:, None], alive.shape)
     elif color_by == "classification":
-        colors = np.broadcast_to(
-            np.asarray(classify_orbits(subset))[None, :], alive.shape
-        )
+        colors = np.broadcast_to(np.asarray(classify_orbits(subset))[None, :], alive.shape)
     elif color_by in subset.data_vars:
         colors = np.asarray(subset[color_by].transpose("t", "marker"))
     else:
-        raise ValueError(
-            f'color_by must be "t", "classification" or a variable of {tuple(subset.data_vars)}'
-        )
+        raise ValueError(f'color_by must be "t", "classification" or a variable of {tuple(subset.data_vars)}')
     points, cells, scalars = [], [], []
     for marker in range(positions.shape[1]):
         keep = np.flatnonzero(alive[:, marker])
@@ -640,9 +603,7 @@ def pyvista_domain(
     2-D run's plane.
     """
     pv = _pv()
-    fine = [
-        np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)
-    ]
+    fine = [np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)]
     x, y, z = (np.asarray(c, dtype=float) for c in domain(*fine, squeeze_out=False))
     grid = pv.StructuredGrid(x, y, z)
     own = plotter is None
@@ -663,6 +624,41 @@ def pyvista_domain(
         wires = pv.PolyData(np.concatenate(segments), lines=np.concatenate(cells))
         plotter.add_mesh(wires, color=color, line_width=1, name="wireframe")
     return _finish(plotter, "Domain" if title is None else title, grid if own else None)
+
+
+def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
+    """Write a field to VTK structured grids (``.vts``) on its physical points, for ParaView.
+
+    With a ``t`` dimension, one file per time is written into the directory ``path``, plus a
+    ``.pvd`` collection that ParaView opens as a time series; without one, ``path`` is a single
+    ``.vts`` file. Vector fields (``component``) become point vectors. Any array works, e.g. a
+    :func:`~struphy_plots.spectral.filter_time` result, so filtered modes can be inspected in
+    ParaView too. Returns the written paths.
+    """
+    from pathlib import Path as _Path
+
+    path = _Path(path)
+    name = name or _label(data)
+    if "t" not in data.dims:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        target = path if path.suffix == ".vts" else path.with_suffix(".vts")
+        structured_grid(data, name=name).save(str(target))
+        return [str(target)]
+    path.mkdir(parents=True, exist_ok=True)
+    stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in name) or "field"
+    written, entries = [], []
+    for index in range(data.sizes["t"]):
+        target = path / f"{stem}_{index:04d}.vts"
+        structured_grid(data.isel(t=index), name=name).save(str(target))
+        written.append(str(target))
+        entries.append(f'    <DataSet timestep="{float(data.t[index])!r}" file="{target.name}"/>')
+    collection = path / f"{stem}.pvd"
+    collection.write_text(
+        '<?xml version="1.0"?>\n<VTKFile type="Collection" version="0.1">\n  <Collection>\n'
+        + "\n".join(entries)
+        + "\n  </Collection>\n</VTKFile>\n"
+    )
+    return [str(collection), *written]
 
 
 RENDERERS = {
@@ -699,7 +695,12 @@ def save_movie(
     validate_array(data, required_dims=(sweep,))
     render = RENDERERS[kind]
     if kind in ("isosurface", "slices"):
-        options["clim"] = _clim(np.asarray(data), clim)
+        options["clim"] = _clim(
+            np.asarray(data),
+            clim,
+            symmetric=options.pop("symmetric", False),
+            robust=options.pop("robust", False),
+        )
     path = Path(path)
     plotter = pv.Plotter(off_screen=True, window_size=list(window_size))
     if path.suffix.lower() == ".gif":

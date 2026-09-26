@@ -39,6 +39,9 @@ where = ["src"]
 # would otherwise recurse into their test suites too -- and fail on their
 # own optional dependencies (e.g. psydac) that struphy-plots has no need of.
 testpaths = ["tests"]
+# Real struphy simulations (compiled kernels, ~1 min): skipped unless requested with
+# `pytest --run-simulations` (see tests/conftest.py); run in the docs workflow.
+markers = ["simulation: runs a real struphy simulation; needs compiled kernels"]
 
 [tool.ruff]
 line-length = 120

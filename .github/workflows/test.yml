@@ -42,10 +42,16 @@ jobs:
         run: pip install ./struphy
 
       - name: Install struphy-plots with dev dependencies
-        run: pip install -e ".[dev,profiling]"
+        run: pip install -e ".[dev,profiling,pyvista]"
+
+      # The PyVista tests build scenes off-screen, which needs a virtual display
+      # and Mesa's software OpenGL. Tests marked `simulation` (real struphy runs,
+      # compiled kernels) are skipped here and run in the docs workflow.
+      - name: Install headless rendering dependencies
+        run: sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
 
       - name: Run tests
-        run: pytest -v
+        run: xvfb-run -a pytest -v
 
       - name: Lint
         run: ruff check src tests scripts

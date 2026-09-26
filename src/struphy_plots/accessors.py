@@ -37,9 +37,7 @@ class _ArrayAccessor:
             elif value == "last":
                 index[dim] = -1
             elif isinstance(value, (bool, str)):
-                raise TypeError(
-                    f'cannot select {dim}={value!r}; use a number, or "first"/"last"'
-                )
+                raise TypeError(f'cannot select {dim}={value!r}; use a number, or "first"/"last"')
             elif isinstance(value, (int, np.integer)):
                 index[dim] = int(value)
             else:
@@ -94,13 +92,9 @@ class ArrayPlots(_ArrayAccessor):
         if fit is not None and fit is not False:
             window = (None, None) if fit is True else tuple(fit)
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
-        return plot_timeseries(
-            [self._array, *others], ax=ax, logy=logy, fit=growth, title=title
-        )
+        return plot_timeseries([self._array, *others], ax=ax, logy=logy, fit=growth, title=title)
 
-    def lineout(
-        self, *, x: str | None = None, ax=None, title: str | None = None, **selection
-    ):
+    def lineout(self, *, x: str | None = None, ax=None, title: str | None = None, **selection):
         """Plot a one-dimensional profile after selecting every other dimension."""
         from .plotting import _select, plot_lineout
 
@@ -132,34 +126,24 @@ class ArrayPlots(_ArrayAccessor):
             ax=ax,
         )
 
-    def volume_slices(
-        self, *, indices: dict[str, int] | None = None, cmap=None, **selection
-    ):
+    def volume_slices(self, *, indices: dict[str, int] | None = None, cmap=None, **selection):
         """Render three orthogonal slices of a selected scalar volume."""
         from .plotting import _select, plot_volume_slices
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return plot_volume_slices(
-            _select(self._array, view), indices=indices, cmap=cmap
-        )
+        return plot_volume_slices(_select(self._array, view), indices=indices, cmap=cmap)
 
-    def volume(
-        self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection
-    ):
+    def volume(self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection):
         """Create a PyVista volume plotter for a selected scalar field."""
         from .plotting import _select, pyvista_volume
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return pyvista_volume(
-            _select(self._array, view), name=name, cmap=cmap, opacity=opacity
-        )
+        return pyvista_volume(_select(self._array, view), name=name, cmap=cmap, opacity=opacity)
 
     def _spatial_selection(self, selection):
         from .plotting import _select
 
-        return _select(
-            self._array, self._view(None, None, "t", "logical", "XY", selection)
-        )
+        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
 
     def isosurface(
         self,
@@ -170,6 +154,8 @@ class ArrayPlots(_ArrayAccessor):
         clim=None,
         show_domain: bool = True,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         plotter=None,
         **selection,
     ):
@@ -188,6 +174,8 @@ class ArrayPlots(_ArrayAccessor):
             show_domain=show_domain,
             title=title,
             plotter=plotter,
+            symmetric=symmetric,
+            robust=robust,
         )
 
     def slices_3d(
@@ -198,6 +186,8 @@ class ArrayPlots(_ArrayAccessor):
         clim=None,
         show_domain: bool = True,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         plotter=None,
         **selection,
     ):
@@ -216,6 +206,8 @@ class ArrayPlots(_ArrayAccessor):
             show_domain=show_domain,
             title=title,
             plotter=plotter,
+            symmetric=symmetric,
+            robust=robust,
         )
 
     def glyphs(
@@ -338,9 +330,7 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import plot_field_with_orbits
 
         view = self._view(x, y, "t", "logical", "XY", selection)
-        return plot_field_with_orbits(
-            self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap
-        )
+        return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
 
     def dispersion(
         self,
@@ -388,9 +378,7 @@ class ArrayPlots(_ArrayAccessor):
     def _time_selection(self, selection):
         from .plotting import _select
 
-        return _select(
-            self._array, self._view(None, None, "t", "logical", "XY", selection)
-        )
+        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
 
     def power_spectrum(
         self,
@@ -479,19 +467,21 @@ class ArrayPlots(_ArrayAccessor):
         top: int = 6,
         fit=None,
         reduce: str = "max",
+        scale=1,
         logy: bool = True,
         ax=None,
         **selection,
     ):
         """Amplitude of the strongest ``(m, n)`` modes of this field over time, each reduced
         over the remaining dimensions (e.g. radius) by ``reduce`` (``"max"`` or ``"mean"``),
-        with optional growth fits (``fit=(t0, t1)`` or ``True``). See
+        with optional growth fits (``fit=(t0, t1)`` or ``True``). ``scale`` multiplies the mode
+        numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a torus. See
         :func:`struphy_plots.spectral_plots.plot_mode_amplitudes`."""
         from .spectral import mode_amplitudes, mode_spectrum
         from .spectral_plots import plot_mode_amplitudes
 
         amplitudes = mode_amplitudes(
-            mode_spectrum(self._time_selection(selection), dims=dims, names=names)
+            mode_spectrum(self._time_selection(selection), dims=dims, names=names, scale=scale)
         )
         others = [d for d in amplitudes.dims if d not in ("t", "mode")]
         if others:
@@ -505,6 +495,7 @@ class ArrayPlots(_ArrayAccessor):
         m_range=None,
         n_range=None,
         reduce: str = "max",
+        scale=1,
         log: bool = True,
         ax=None,
         **selection,
@@ -515,7 +506,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral import mode_spectrum
         from .spectral_plots import plot_mode_map
 
-        modes = abs(mode_spectrum(self._time_selection(selection), dims=dims))
+        modes = abs(mode_spectrum(self._time_selection(selection), dims=dims, scale=scale))
         others = [d for d in modes.dims if d not in ("m", "n")]
         if others:
             modes = getattr(modes, reduce)(others, keep_attrs=True)
@@ -542,9 +533,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral import time_fft
         from .spectral_plots import plot_radial_power
 
-        power = time_fft(
-            self._time_selection(selection), detrend=detrend, window=window
-        ).power
+        power = time_fft(self._time_selection(selection), detrend=detrend, window=window).power
         others = [d for d in power.dims if d not in ("omega", x)]
         power = power.mean(others, keep_attrs=True) if others else power
         return plot_radial_power(
@@ -561,7 +550,7 @@ class ArrayPlots(_ArrayAccessor):
 
     def mode_profiles(
         self,
-        omega: float,
+        omega: float | None = None,
         *,
         x: str = "e1",
         dims=("e2", "e3"),
@@ -569,25 +558,60 @@ class ArrayPlots(_ArrayAccessor):
         xlabel: str | None = None,
         top: int = 4,
         phase: bool = True,
+        scale=1,
         **selection,
     ):
-        """Radial eigenfunction (amplitude and phase) of each ``(m, n)`` harmonic of this field
-        at frequency ``omega``: ``mode_spectrum(mode_structure(field, omega))``. See
-        :func:`struphy_plots.spectral_plots.plot_mode_profiles`."""
-        from .spectral import mode_spectrum, mode_structure
+        """Radial profile of each ``(m, n)`` harmonic of this field.
+
+        With ``omega``, the eigenfunction at that frequency (amplitude and phase):
+        ``mode_spectrum(mode_structure(field, omega))``. Without it, the harmonics' amplitudes
+        at one time, which is then selected by keyword (e.g. ``t="last"``). ``scale`` multiplies
+        the mode numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a torus. See
+        :func:`struphy_plots.spectral_plots.plot_mode_profiles`.
+        """
+        from .spectral import mode_amplitudes, mode_spectrum, mode_structure
         from .spectral_plots import plot_mode_profiles
 
-        structure = mode_spectrum(
-            mode_structure(self._time_selection(selection), omega), dims=dims
-        )
-        return plot_mode_profiles(
-            structure,
+        field = self._time_selection(selection)
+        name = self._array.name or "the field"
+        if omega is None:
+            if "t" in field.dims:
+                raise ValueError("select a time (e.g. t='last'), or pass omega for an eigenfunction")
+            structure = mode_amplitudes(mode_spectrum(field, dims=dims, scale=scale))
+            title = f"Harmonics of {name}" + (f" at t = {float(field.t):.4g}" if "t" in field.coords else "")
+        else:
+            structure = mode_spectrum(mode_structure(field, omega), dims=dims, scale=scale)
+            title = f"Harmonics of {name} at omega = {omega:.4g}"
+        return plot_mode_profiles(structure, x=x, x_of=x_of, xlabel=xlabel, top=top, phase=phase, title=title)
+
+    def profiles(
+        self,
+        *,
+        x: str = "e1",
+        over: str = "t",
+        at=None,
+        x_of=None,
+        xlabel: str | None = None,
+        ax=None,
+        title: str | None = None,
+        **selection,
+    ):
+        """Profiles along ``x`` at several values of ``over`` (default: four times) in one
+        axes, after selecting every other dimension by keyword, e.g. ``e2=0.125, e3=0``.
+        ``x_of`` maps ``x`` to the plotted axis (e.g. the minor radius). See
+        :func:`struphy_plots.plotting.plot_profiles`."""
+        from .plotting import _select, plot_profiles
+
+        view = self._view(None, None, over, "logical", "XY", selection)
+        return plot_profiles(
+            _select(self._array, view),
             x=x,
+            over=over,
+            at=at,
             x_of=x_of,
             xlabel=xlabel,
-            top=top,
-            phase=phase,
-            title=f"Harmonics of {self._array.name or 'the field'} at omega = {omega:.4g}",
+            ax=ax,
+            title=title,
         )
 
     def cross_spectrum(
@@ -605,9 +629,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_cross_spectrum
 
         return plot_cross_spectrum(
-            cross_spectrum(
-                self._array, other, dims=dims, detrend=detrend, window=window
-            ),
+            cross_spectrum(self._array, other, dims=dims, detrend=detrend, window=window),
             omega_max=omega_max,
         )
 
@@ -645,6 +667,8 @@ class ArrayPlots(_ArrayAccessor):
         cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         **selection,
     ) -> "SliceView":
         """Configure a reusable slice view without rendering a figure.
@@ -655,7 +679,9 @@ class ArrayPlots(_ArrayAccessor):
 
         ``shared_clim=True`` fixes color limits over all selected data, including
         frames omitted by a panel layout or export step. False rescales each frame.
-        Explicit ``vmin``/``vmax`` override either limit in both modes. ``cmap``,
+        Explicit ``vmin``/``vmax`` override either limit in both modes. ``symmetric`` centers
+        the limits on zero (for perturbations with a diverging ``cmap``); ``robust`` uses the
+        1st/99th percentiles, so a few outliers do not wash out the rest. ``cmap``,
         ``equal_aspect`` and ``title`` apply to every presentation of this view.
 
         Examples
@@ -677,6 +703,8 @@ class ArrayPlots(_ArrayAccessor):
                 cmap=cmap,
                 equal_aspect=equal_aspect,
                 title=title,
+                symmetric=symmetric,
+                robust=robust,
             ),
         )
 
@@ -694,6 +722,8 @@ class ArrayPlots(_ArrayAccessor):
         cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         ax=None,
         **selection,
     ):
@@ -710,6 +740,8 @@ class ArrayPlots(_ArrayAccessor):
             cmap=cmap,
             equal_aspect=equal_aspect,
             title=title,
+            symmetric=symmetric,
+            robust=robust,
             **selection,
         ).slice(ax=ax)
 
@@ -727,6 +759,8 @@ class ArrayPlots(_ArrayAccessor):
         cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         nrows: int = 3,
         ncols: int = 4,
         **selection,
@@ -744,6 +778,8 @@ class ArrayPlots(_ArrayAccessor):
             cmap=cmap,
             equal_aspect=equal_aspect,
             title=title,
+            symmetric=symmetric,
+            robust=robust,
             **selection,
         ).panels(nrows=nrows, ncols=ncols)
 
@@ -761,6 +797,8 @@ class ArrayPlots(_ArrayAccessor):
         cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         **selection,
     ):
         """Create an interactive slider view; retain the returned viewer."""
@@ -776,6 +814,8 @@ class ArrayPlots(_ArrayAccessor):
             cmap=cmap,
             equal_aspect=equal_aspect,
             title=title,
+            symmetric=symmetric,
+            robust=robust,
             **selection,
         ).viewer()
 
@@ -793,6 +833,8 @@ class ArrayPlots(_ArrayAccessor):
         cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         interval: int = 100,
         step: int = 1,
         **selection,
@@ -810,6 +852,8 @@ class ArrayPlots(_ArrayAccessor):
             cmap=cmap,
             equal_aspect=equal_aspect,
             title=title,
+            symmetric=symmetric,
+            robust=robust,
             **selection,
         ).animation(interval=interval, step=step)
 
@@ -828,6 +872,8 @@ class ArrayPlots(_ArrayAccessor):
         cmap: str | None = None,
         equal_aspect: bool | None = None,
         title: str | None = None,
+        symmetric: bool = False,
+        robust: bool = False,
         step: int = 1,
         prefix: str = "frame",
         dpi: int = 110,
@@ -846,18 +892,16 @@ class ArrayPlots(_ArrayAccessor):
             cmap=cmap,
             equal_aspect=equal_aspect,
             title=title,
+            symmetric=symmetric,
+            robust=robust,
             **selection,
         ).save_frames(directory, step=step, prefix=prefix, dpi=dpi)
 
-    def trajectories(
-        self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None
-    ):
+    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
         """Three-dimensional paths of saved markers; for an orbit product."""
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(
-            self._array, ax=ax, max_markers=max_markers, show_paths=show_paths
-        )
+        return plot_marker_trajectories(self._array, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
 
 class ArrayData(_ArrayAccessor):
@@ -889,13 +933,9 @@ class ArrayData(_ArrayAccessor):
         from .plotting import _select, prepare_vector
 
         view = self._view(None, None, "t", coordinates, "XY", selection)
-        return prepare_vector(
-            _select(self._array, view), x=x, y=y, components=components, stride=stride
-        )
+        return prepare_vector(_select(self._array, view), x=x, y=y, components=components, stride=stride)
 
-    def volume_slices(
-        self, *, indices: dict[str, int] | None = None, **selection
-    ) -> dict[str, xr.DataArray]:
+    def volume_slices(self, *, indices: dict[str, int] | None = None, **selection) -> dict[str, xr.DataArray]:
         """The three orthogonal planes :meth:`ArrayPlots.volume_slices` would plot."""
         from .plotting import _select, prepare_volume_slices
 
@@ -912,6 +952,16 @@ class ArrayData(_ArrayAccessor):
 
         view = self._view(None, None, "t", "logical", "XY", selection)
         return structured_grid(_select(self._array, view), name=name)
+
+    def to_vtk(self, path, *, name: str | None = None, **selection) -> list[str]:
+        """Write this field to VTK structured-grid files for ParaView: one ``.vts`` per time
+        and a ``.pvd`` collection (or a single ``.vts`` without ``t``). Select other dimensions
+        first. See :func:`struphy_plots.pyvista_plots.save_vtk`."""
+        from .plotting import _select
+        from .pyvista_plots import save_vtk
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return save_vtk(_select(self._array, view, keep_sweep=True), path, name=name)
 
     def slices_3d(self, *, cuts: dict | None = None, **selection) -> list[xr.DataArray]:
         """The logical cuts :meth:`ArrayPlots.slices_3d` would draw."""
@@ -968,9 +1018,7 @@ class ArrayData(_ArrayAccessor):
         selected, _grids = _slice_data(self._array, view)
         return selected
 
-    def dispersion(
-        self, *, dim: str | None = None, detrend: bool = True
-    ) -> xr.DataArray:
+    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
         """The space-time power spectrum :meth:`ArrayPlots.dispersion` would plot. Same as
         :meth:`ArrayAnalysis.dispersion`; included here too for parity with every other plot.
         """
@@ -991,9 +1039,7 @@ class ArrayData(_ArrayAccessor):
         """The marker-position subset :meth:`ArrayPlots.trajectories` would plot."""
         from .plotting import prepare_orbits
 
-        return prepare_orbits(
-            self._array, max_markers=max_markers, required=("x", "y", "z")
-        )
+        return prepare_orbits(self._array, max_markers=max_markers, required=("x", "y", "z"))
 
     def timeseries(self, *others) -> list[xr.DataArray]:
         """This time series and any ``others``, validated, as plotted by :meth:`ArrayPlots.timeseries`."""
@@ -1084,9 +1130,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return velocity_moments(self._array, dims=dims)
 
-    def dispersion(
-        self, *, dim: str | None = None, detrend: bool = True
-    ) -> xr.DataArray:
+    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
         """The space-time power spectrum of this ``(t, dim)`` field: a plain FFT, as a function of
         angular frequency and wavenumber -- the data behind a dispersion-relation plot
         (:meth:`ArrayPlots.dispersion`).
@@ -1124,17 +1168,13 @@ class ArrayAnalysis(_ArrayAccessor):
 
     # Spectral diagnostics: see struphy_plots.spectral for the definitions and conventions.
 
-    def fft(
-        self, *, dim: str, detrend: bool = False, window: str | None = None
-    ) -> xr.DataArray:
+    def fft(self, *, dim: str, detrend: bool = False, window: str | None = None) -> xr.DataArray:
         """Two-sided Fourier coefficients along ``dim``; see :func:`struphy_plots.spectral.fft`."""
         from .spectral import fft
 
         return fft(self._array, dim=dim, detrend=detrend, window=window)
 
-    def time_fft(
-        self, *, detrend: bool = False, window: str | None = None
-    ) -> xr.Dataset:
+    def time_fft(self, *, detrend: bool = False, window: str | None = None) -> xr.Dataset:
         """One-sided temporal coefficients and power per bin; see
         :func:`struphy_plots.spectral.time_fft`."""
         from .spectral import time_fft
@@ -1146,88 +1186,62 @@ class ArrayAnalysis(_ArrayAccessor):
         :func:`struphy_plots.spectral.filter_time`."""
         from .spectral import filter_time
 
-        return filter_time(
-            self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins
-        )
+        return filter_time(self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins)
 
-    def band_filter(
-        self, omega_lo: float, omega_hi: float, *, detrend: bool = False
-    ) -> xr.DataArray:
+    def band_filter(self, omega_lo: float, omega_hi: float, *, detrend: bool = False) -> xr.DataArray:
         """Only the frequencies in ``[omega_lo, omega_hi]``; see
         :func:`struphy_plots.spectral.band_filter`."""
         from .spectral import band_filter
 
         return band_filter(self._array, omega_lo, omega_hi, detrend=detrend)
 
-    def spectral_peaks(
-        self, *, n_peaks: int = 3, dims=None, omega_min: float = 1e-8, window=None
-    ) -> xr.Dataset:
+    def spectral_peaks(self, *, n_peaks: int = 3, dims=None, omega_min: float = 1e-8, window=None) -> xr.Dataset:
         """The strongest spectral peaks, with sub-bin frequencies; see
         :func:`struphy_plots.spectral.spectral_peaks`."""
         from .spectral import spectral_peaks
 
-        return spectral_peaks(
-            self._array, n_peaks=n_peaks, dims=dims, omega_min=omega_min, window=window
-        )
+        return spectral_peaks(self._array, n_peaks=n_peaks, dims=dims, omega_min=omega_min, window=window)
 
-    def spectrogram(
-        self, *, length, step=None, detrend: bool = True, window: str | None = "hann"
-    ) -> xr.DataArray:
+    def spectrogram(self, *, length, step=None, detrend: bool = True, window: str | None = "hann") -> xr.DataArray:
         """Power spectra in sliding time windows; see :func:`struphy_plots.spectral.spectrogram`."""
         from .spectral import spectrogram
 
-        return spectrogram(
-            self._array, length=length, step=step, detrend=detrend, window=window
-        )
+        return spectrogram(self._array, length=length, step=step, detrend=detrend, window=window)
 
-    def mode_spectrum(
-        self, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0
-    ) -> xr.DataArray:
+    def mode_spectrum(self, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0) -> xr.DataArray:
         """Complex amplitudes over poloidal/toroidal mode numbers; see
         :func:`struphy_plots.spectral.mode_spectrum`."""
         from .spectral import mode_spectrum
 
         return mode_spectrum(self._array, dims=dims, names=names, periods=periods)
 
-    def mode_amplitudes(
-        self, *, top: int | None = None, real: bool = True
-    ) -> xr.DataArray:
+    def mode_amplitudes(self, *, top: int | None = None, real: bool = True) -> xr.DataArray:
         """Real amplitudes of this mode spectrum along one ``mode`` dimension; see
         :func:`struphy_plots.spectral.mode_amplitudes`."""
         from .spectral import mode_amplitudes
 
         return mode_amplitudes(self._array, top=top, real=real)
 
-    def mode_structure(
-        self, omega: float, *, window: str | None = "hann", detrend: bool = True
-    ) -> xr.DataArray:
+    def mode_structure(self, omega: float, *, window: str | None = "hann", detrend: bool = True) -> xr.DataArray:
         """Complex amplitude at the exact frequency ``omega`` at every point; see
         :func:`struphy_plots.spectral.mode_structure`."""
         from .spectral import mode_structure
 
         return mode_structure(self._array, omega, window=window, detrend=detrend)
 
-    def cross_spectrum(
-        self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None
-    ) -> xr.Dataset:
+    def cross_spectrum(self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None) -> xr.Dataset:
         """Cross-spectrum, phase (of ``other`` relative to this) and coherence; see
         :func:`struphy_plots.spectral.cross_spectrum`."""
         from .spectral import cross_spectrum
 
-        return cross_spectrum(
-            self._array, other, dims=dims, detrend=detrend, window=window
-        )
+        return cross_spectrum(self._array, other, dims=dims, detrend=detrend, window=window)
 
-    def matrix_pencil(
-        self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False
-    ) -> xr.Dataset:
+    def matrix_pencil(self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False) -> xr.Dataset:
         """Frequencies and growth rates beyond the FFT resolution; see
         :func:`struphy_plots.spectral.matrix_pencil`."""
         from .spectral import matrix_pencil
 
-        return matrix_pencil(
-            self._array, n_modes=n_modes, pencil=pencil, detrend=detrend
-        )
+        return matrix_pencil(self._array, n_modes=n_modes, pencil=pencil, detrend=detrend)
 
     def drop_periodic_endpoint(self, dim: str, *, period: float = 1.0) -> xr.DataArray:
         """This array without a duplicated periodic endpoint along ``dim``; see
@@ -1296,15 +1310,11 @@ class DatasetPlots:
 
         return plot_cross_spectrum(self._dataset, omega_max=omega_max)
 
-    def trajectories(
-        self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None
-    ):
+    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
         """Three-dimensional paths of saved markers, for an ``orbits`` product."""
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(
-            self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths
-        )
+        return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
     def scatter(
         self,
@@ -1325,9 +1335,7 @@ class DatasetPlots:
         """
         from .plotting import plot_marker_scatter
 
-        return plot_marker_scatter(
-            self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection
-        )
+        return plot_marker_scatter(self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection)
 
     def orbit_classification(
         self,
@@ -1346,9 +1354,35 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_classification
 
-        return plot_orbit_classification(
-            self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s
+        return plot_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s)
+
+    def poloidal(
+        self,
+        *,
+        color_by: str | None = "classification",
+        max_markers: int = 200,
+        boundary: xr.DataArray | None = None,
+        ax=None,
+    ):
+        """Orbits projected onto the poloidal plane (``R`` against ``z``), colored as passing,
+        trapped or lost. See :func:`struphy_plots.plotting.plot_orbit_poloidal`."""
+        from .plotting import plot_orbit_poloidal
+
+        return plot_orbit_poloidal(
+            self._dataset,
+            color_by=color_by,
+            max_markers=max_markers,
+            boundary=boundary,
+            ax=ax,
         )
+
+    def quantities(self, *, quantities=("v_par", "mu"), markers=6, drift_of=("mu",)):
+        """Saved orbit quantities over time for a few markers (e.g. ``v_par`` bouncing, the drift
+        of the invariant ``mu``). See :func:`struphy_plots.plotting.plot_orbit_quantities`.
+        """
+        from .plotting import plot_orbit_quantities
+
+        return plot_orbit_quantities(self._dataset, quantities=quantities, markers=markers, drift_of=drift_of)
 
     def orbits_3d(
         self,
@@ -1389,13 +1423,9 @@ class DatasetData:
         """The marker-position subset :meth:`DatasetPlots.trajectories` would plot."""
         from .plotting import prepare_orbits
 
-        return prepare_orbits(
-            self._dataset, max_markers=max_markers, required=("x", "y", "z")
-        )
+        return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
 
-    def scatter(
-        self, *, x: str, y: str, color: str | None = None, **selection
-    ) -> xr.Dataset:
+    def scatter(self, *, x: str, y: str, color: str | None = None, **selection) -> xr.Dataset:
         """The selected dataset :meth:`DatasetPlots.scatter` would plot -- ``.to_dataframe()``
         hands it straight to e.g. Plotly Express."""
         from .plotting import resolve_marker_selection
@@ -1454,9 +1484,7 @@ class SliceView:
         self._options = dict(options)
 
     def _view(self, **selection):
-        return ArrayPlots(self._array)._view(
-            **self._coordinates, selection={**self._selection, **selection}
-        )
+        return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
 
     def slice(self, *, ax=None, **selection):
         """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
@@ -1474,9 +1502,7 @@ class SliceView:
         """Draw snapshots spread along the sweep; return a PlotResult."""
         from .plotting import plot_panels
 
-        return plot_panels(
-            self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options
-        )
+        return plot_panels(self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options)
 
     def viewer(self):
         """Create a viewer with sliders for unselected dimensions."""

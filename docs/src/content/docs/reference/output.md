@@ -10,6 +10,11 @@ description: API reference for whole-run plots.
 Overview of recorded scalar time series. `names` restricts to a subset;
 `relative_to` normalizes each series against a reference (e.g. `"initial"`).
 
+### `energies(*, parts=None, total="en_tot", groups=None, logy=False)`
+The energy budget: the `en_*` scalars, the relative drift of `total`, and with
+`groups` (label → scalar names) the energy exchanged between them. Backed by
+`struphy_plots.plotting.plot_energy_budget`.
+
 ### `equilibrium(ax=None)`
 Radial profiles of the run's fluid equilibrium (`out.equil`, `out.domain`):
 `p0`, and `n0`/`T0 = p0/n0` if the equilibrium has a density profile.
@@ -57,5 +62,12 @@ The explicit call graph (which region calls which), without timings. Pass
 `struphy_plots.output_accessors.OutputAnalysis`, accessed as `out.analysis`.
 `fft(product, *, dim, ...)`, `time_fft(product, ...)`,
 `filter_time(product, ...)` and `mode_spectrum(product, ...)` take a product
-name (evaluated with `out.evaluate`) or an array. See the
+name (evaluated with `out.evaluate`) or an array.
+
+`linear_mhd_energies(*, velocity="mhd/velocity", b_field="em_fields/b_field", pressure="mhd/pressure", gamma=5/3)`
+recomputes LinearMHD's `en_U`, `en_B`, `en_thermal`, `en_p` and `en_tot` from
+fields: names are evaluated at the Gauss points in their FEEC representation.
+Arrays must be 2-forms (velocity, magnetic field) or a 3-form (pressure), and
+`None` skips a field. `quadrature_grid()` returns those Gauss points and
+weights per direction. See the
 [spectral reference](/struphy-plots/reference/spectral/).

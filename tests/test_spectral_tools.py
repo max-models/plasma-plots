@@ -230,3 +230,48 @@ def test_output_analysis_matches_the_array_accessor(tmp_path):
     xr.testing.assert_identical(out.analysis.filter_time(field).filtered, field.struphy.analysis.filter_time().filtered)
     by_name = out.analysis.time_fft("em_fields/E")
     assert "omega" in by_name.dims and "t" not in by_name.dims
+
+
+def test_mode_spectrum_rejects_a_field_that_does_not_cover_a_full_period():
+    e2 = np.linspace(0, 0.5, 33)
+    half = xr.DataArray(np.cos(2 * np.pi * 10 * e2), dims="e2", coords={"e2": e2})
+    with pytest.raises(ValueError, match="full period"):
+        sp.mode_spectrum(half, dims="e2", names="m")
+    assert sp.mode_spectrum(half, dims="e2", names="m", periods=0.5 * 33 / 32).sizes["m"] == 33
+
+
+def test_mode_amplitudes_keep_the_nyquist_mode_of_an_even_grid():
+    e2 = np.arange(8) / 8
+    field = xr.DataArray(np.cos(2 * np.pi * 4 * e2) + 0.5, dims="e2", coords={"e2": e2})
+    amplitudes = sp.mode_amplitudes(sp.mode_spectrum(field, dims="e2", names="m"))
+    by_mode = dict(zip(amplitudes.m.values.tolist(), amplitudes.values.tolist()))
+    assert by_mode[-4] == pytest.approx(1.0)
+    assert by_mode[0] == pytest.approx(0.5)
+
+
+def test_matrix_pencil_is_not_fooled_by_an_offset_or_a_trend():
+    t = np.linspace(0, 30, 61)
+    for background in (2.0 + 0 * t, 0.5 * np.exp(0.02 * t)):
+        signal = series(background + np.cos(0.5 * t + 0.2), t)
+        fit = sp.matrix_pencil(signal, n_modes=1)
+        assert fit.omega.item() == pytest.approx(0.5)
+        assert fit.amplitude.item() == pytest.approx(1.0)
+        assert fit.attrs["residual"] < 1e-8
+
+
+def test_power_spectrum_plot_shows_complex_coefficients_as_power():
+    t = np.arange(64.0)
+    coefficients = sp.fft(series(np.cos(2 * np.pi * 4 * t / 64), t), dim="t")
+    result = spp.plot_power_spectrum(coefficients, logy=False)
+    assert result.data["power"].max().item() == pytest.approx(0.25)
+
+
+def test_output_accessors_never_replace_an_existing_attribute(monkeypatch):
+    from struphy.post_processing.output import Output
+
+    from struphy_plots import output_accessors
+
+    sentinel = object()
+    monkeypatch.setattr(Output, "analysis", sentinel, raising=False)
+    output_accessors._register_output_plot_property()
+    assert Output.__dict__["analysis"] is sentinel

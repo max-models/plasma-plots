@@ -173,6 +173,11 @@ grid = phi.struphy.data.grid(t="last")
 grid.contour([0.5]).plot(cmap="RdBu_r")
 ```
 
+For ParaView, `field.struphy.data.to_vtk("frames")` writes one `.vts`
+structured grid per time and a `.pvd` collection that ParaView opens as a time
+series. Any array works, e.g. a filtered mode from
+`filter_time(...).filtered`.
+
 To share a scene as a standalone web page, like the interactive views on this
 page, export it with `plotter.trame.export_html("scene.html")`. This needs
 `pip install trame-pyvista`, and with VTK 9.7 also `trame-vtk` 2.11.15 or

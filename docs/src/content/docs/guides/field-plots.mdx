@@ -20,6 +20,18 @@ remaining 1-D profile.
 
 ![Lineout of a scalar field along one axis](../../../assets/figures/lineout.png)
 
+Several profiles in one axes, e.g. at a few times, against the minor radius:
+
+```python
+phi.struphy.plot.profiles(x="e1", at=[0, 100, 200, 299], x_of=lambda e1: 0.1 + 0.9 * e1, e2=0.0, e3=0.0)
+```
+
+`at` picks the times (integers are positions, floats nearest values; the
+default is four evenly spaced ones), and `over` names another dimension to
+sweep instead of `t`.
+
+![Radial profiles at four times](../../../assets/figures/profiles.png)
+
 ## 2-D: slices, panels, viewers, animations
 
 `plot.view(...)` configures a reusable 2-D slice — pick the two axes to plot
@@ -63,6 +75,22 @@ px.imshow(selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="
 with `anim.save("orbit.gif", writer="pillow")`:
 
 ![An animation swept over time, saved as a GIF](/struphy-plots/figures/animation.gif)
+
+### Color limits for perturbations
+
+Every slice presentation takes `symmetric=True`, which centers the color
+limits on zero, as a diverging colormap such as `"RdBu_r"` for a perturbation
+needs. `robust=True` takes the limits from the 1st and 99th percentiles, so a
+few extreme values do not wash out the rest. The 3-D views take the same two
+options.
+
+```python
+view = u.struphy.plot.view(x="e1", y="e2", coords="physical", plane="RZ", cmap="RdBu_r", symmetric=True, e3=0)
+view.animation()
+```
+
+Physical slices of Struphy's cell-centered fields close the seam of periodic
+directions (e.g. θ = 0) automatically, so a poloidal cross-section has no gap.
 
 ## Vector fields
 

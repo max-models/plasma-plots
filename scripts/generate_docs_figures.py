@@ -698,6 +698,102 @@ save(u_wave.struphy.plot.cross_spectrum(b_wave, dims="e3", omega_max=1.5), "spec
 
 
 # =============================================================================
+# Run-level tools from struphy's TAE_example_Shrut branch: energy budgets,
+# profiles at several times, mode profiles at one time, orbit projections
+# =============================================================================
+from struphy_plots.plotting import plot_energy_budget  # noqa: E402
+
+# An energetic-particle drive: the wave grows while the energetic ions lose the same energy
+t_en = np.linspace(0.0, 60.0, 301)
+wave = 1e-3 * np.exp(0.08 * t_en) / (1 + 1e-3 * (np.exp(0.08 * t_en) - 1) / 0.2)
+wiggle = 0.5 + 0.5 * np.cos(2 * 0.3 * t_en)
+budget = xr.Dataset(
+    {
+        "en_U": ("t", wave * wiggle),
+        "en_B": ("t", wave * (1 - wiggle) * 0.9),
+        "en_p": ("t", wave * (1 - wiggle) * 0.1),
+        "en_fv": ("t", 1.0 - 0.8 * (wave - wave[0])),
+        "en_fB": ("t", 0.5 - 0.2 * (wave - wave[0])),
+    },
+    coords={"t": t_en},
+)
+budget["en_tot"] = sum(budget[name] for name in ("en_U", "en_B", "en_p", "en_fv", "en_fB")) * (1 + 2e-6 * t_en / 60)
+save(
+    plot_energy_budget(budget, groups={"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}),
+    "energy_budget.png",
+)
+
+# Radial profiles of the synthetic TAE at a few times, and its harmonics at the last time
+save(
+    phi_tae.struphy.plot.profiles(x="e1", at=[0, 100, 200, 299], x_of=radius_of, xlabel=r"$r/a$", e2=0.0, e3=0.0),
+    "profiles.png",
+)
+save(
+    phi_tae.struphy.plot.mode_profiles(t="last", scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2),
+    "mode_profiles_snapshot.png",
+)
+
+# Guiding-centre-like orbits in a torus: passing markers circle the axis, trapped ones bounce
+# Initial (v_par, mu) from a Maxwellian; markers inside the cone v_par^2 < 2 mu dB/B bounce
+rng_orb = np.random.default_rng(11)
+n_gc, t_gc = 60, np.linspace(0, 80, 400)[:, None]
+r_gc, th_gc = rng_orb.uniform(0.2, 0.8, n_gc), rng_orb.uniform(0, 2 * np.pi, n_gc)
+v0_gc, mu0_gc = rng_orb.normal(0.0, 1.0, n_gc), rng_orb.exponential(0.5, n_gc)
+trapped_gc = v0_gc**2 < 2 * mu0_gc * 0.6
+bounce_gc = 0.2 * t_gc + th_gc
+v_par_gc = np.where(trapped_gc, v0_gc * np.cos(0.2 * t_gc), v0_gc * (1 - 0.3 * np.sin(0.2 * t_gc) ** 2))
+theta_gc = th_gc + np.where(
+    trapped_gc, 1.2 * np.sin(bounce_gc) - 1.2 * np.sin(th_gc), 0.25 * np.sign(v0_gc) * t_gc
+)
+R_gc = 3.0 + (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.cos(theta_gc)
+phi_gc = 0.1 * t_gc
+x_gc, y_gc = R_gc * np.cos(phi_gc), R_gc * np.sin(phi_gc)
+z_gc = (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.sin(theta_gc)
+mu_gc = np.broadcast_to(mu0_gc, x_gc.shape) * (1 + 1e-7 * np.sin(t_gc))
+for arr in (x_gc, y_gc, z_gc, v_par_gc):
+    arr[300:, 1] = 0.0  # one marker leaves the domain
+mu_gc = mu_gc.copy()
+mu_gc[300:, 1] = 0.0
+orbits_gc = xr.Dataset(
+    {
+        "x": (("t", "marker"), x_gc),
+        "y": (("t", "marker"), y_gc),
+        "z": (("t", "marker"), z_gc),
+        "v_par": (("t", "marker"), v_par_gc, {"label": r"$v_\parallel$"}),
+        "mu": (("t", "marker"), mu_gc, {"label": r"$\mu$"}),
+    },
+    coords={"t": t_gc[:, 0], "marker": np.arange(n_gc)},
+)
+e1_b, e2_b = np.linspace(0, 1, 5), (np.arange(64) + 0.5) / 64
+E1_b, E2_b = np.meshgrid(e1_b, e2_b, indexing="ij")
+boundary_field = field_array(
+    "b", "b", "", np.ones((5, 64, 1)), ("e1", "e2", "e3"), {"e1": e1_b, "e2": e2_b, "e3": [0.0]}
+).assign_coords(
+    X=(("e1", "e2", "e3"), ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None]),
+    Y=(("e1", "e2", "e3"), np.zeros((5, 64, 1))),
+    Z=(("e1", "e2", "e3"), ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None]),
+)
+save(orbits_gc.struphy.plot.orbit_classification(), "orbit_classification.png")
+save(orbits_gc.struphy.plot.poloidal(boundary=boundary_field), "orbits_poloidal.png")
+
+# The shear-Alfven continua of the TAE harmonics, with the frequency measured above
+from struphy_plots.plotting import plot_continuous_spectrum  # noqa: E402
+
+save(
+    plot_continuous_spectrum(
+        alfven_continuum,
+        np.linspace(0.1, 1.0, 300),
+        [(10, n_tae), (11, n_tae)],
+        frequencies={"measured TAE frequency": omega_measured},
+        xlabel=r"$r/a$",
+        title="Shear-Alfvén continua of the m = 10, 11 harmonics",
+    ),
+    "continuous_spectrum.png",
+)
+save(orbits_gc.struphy.plot.quantities(markers=4), "orbits_quantities.png")
+
+
+# =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
 #
 # plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium

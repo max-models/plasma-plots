@@ -60,6 +60,21 @@ over trapped. The class names are in `attrs["flag_meanings"]`.
 
 ## Standalone functions
 
+### `struphy_plots.analysis.volume_integral(data, *, form=0, weight=None, domain=None, quadrature=None)`
+`∫ w f dV` over the logical grid, as a function of the other dimensions.
+`form=0` is a function (integrated with |√g|), `form=3` a density. The
+geometry comes from a Struphy `domain` or from the `X`, `Y`, `Z` coordinates.
+
+### `struphy_plots.analysis.field_energy(data, *, form=None, weight=None, domain=None, normalization=1.0, quadrature=None)`
+`α · ½ ∫ w ωᵀ A ω dη`. `A` follows `form`: `None`/`0` for a function or
+Cartesian components (|√g|), `1`, `2`, `3` for p-forms (`G⁻¹|√g|`, `G/|√g|`,
+`1/|√g|`), `"v"` for contravariant components (`G|√g|`), as in Struphy's mass
+matrices.
+
+### `struphy_plots.analysis.quadrature_weights(coordinate)`
+Midpoint weights for Struphy's cell centers, trapezoidal otherwise, and 1 for a
+single point.
+
 ### `struphy_plots.analysis.convergence_order(sizes, errors)`
 Fits `error = constant * size**order` in log-log space, for a convergence
 study (`sizes` a resolution or step size, `errors` the corresponding error

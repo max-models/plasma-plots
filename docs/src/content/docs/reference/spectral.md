@@ -51,7 +51,9 @@ The inclusive half-power band `(lo, hi)` of bin indices around a peak.
 The strongest local maxima of a power spectrum, from a signal, a `time_fft`
 Dataset or a power array (summed over `dims`). Returns a Dataset along `peak`
 with `omega`, `omega_refined` (parabolic fit to the log power: sub-bin),
-`power`, `omega_lo` and `omega_hi`.
+`power`, `omega_lo` and `omega_hi`. `detrend` may also be a polynomial degree
+removed in `t` first, e.g. `2` for an energy, whose peaks sit at twice the
+wave frequency.
 
 ### `spectrogram(data, *, length, step=None, detrend=True, window="hann")`
 Power in sliding windows over `(t, omega, ...)`, with `t` at each window's
@@ -65,9 +67,11 @@ points and `coherence = |Σ cross| / Σ |cross|` (0 to 1) is added.
 
 ## Modes and eigenfunctions
 
-### `mode_spectrum(data, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0)`
+### `mode_spectrum(data, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0, scale=1)`
 Complex Fourier amplitudes over integer mode numbers along periodic
-directions, with a duplicate endpoint dropped first. Other dimensions are
+directions, with a duplicate endpoint dropped first. Each direction must sample
+a full period. `scale` multiplies the mode numbers, e.g. `(1, 6)` for
+full-torus `n` of a sixth of a torus. Other dimensions are
 kept, e.g. `(t, e1, m, n)`.
 
 ### `mode_amplitudes(modes, *, top=None, real=True)`
@@ -125,7 +129,9 @@ spectrum. Accessor: `plot.radial_power(...)`, which averages the angles.
 
 ### `plot_mode_profiles(structure, *, x="e1", x_of=None, top=4, phase=True)`
 Radial amplitude and phase of each harmonic; `(m, n)` and `(-m, -n)` count as
-one. Accessor: `plot.mode_profiles(omega, ...)`.
+one. Accessor: `plot.mode_profiles(omega, ...)` for the eigenfunction at a
+frequency, or `plot.mode_profiles(t=...)` for the amplitudes at one time; both
+take `scale`.
 
 ### `plot_cross_spectrum(cross, *, omega_max=None)`
 Magnitude, coherence (if present) and phase of a cross-spectrum. Accessor:

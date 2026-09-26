@@ -75,6 +75,34 @@ products (`f(t, e1, v1)` and similar) — see
 [Particles & distributions](/struphy-plots/guides/particles/) for those, with
 figures.
 
+## Volume integrals and field energies
+
+```python
+from struphy_plots.analysis import field_energy, volume_integral
+
+volume_integral(density)                                   # ∫ n dV, over time
+field_energy(u_xyz)                                        # ½ ∫ |u|² dV of Cartesian components
+field_energy(u_2form, form=2, weight=n0, domain=out.domain)   # ½ uᵀ M2n u, as LinearMHD's en_U
+```
+
+Both integrate over the logical grid with the volume element |√g|, as a
+function of every other dimension (e.g. `t`). `form` says what the array holds
+and sets the metric factor, as Struphy's mass matrices do:
+
+- `None` or `0`: a function or Cartesian components
+- `1`, `2`, `3`: p-form components
+- `"v"`: contravariant components
+
+The geometry comes from a Struphy `domain` (exact), or else from the Jacobian
+of the attached `X`, `Y`, `Z` coordinates. That Jacobian is differentiated
+spectrally around periodic directions, so a torus is exact up to round-off.
+
+For quadrature, cell centers get the midpoint rule and other grids the
+trapezoidal rule. A spline field squared integrates exactly only with enough
+points per element, so for exact energies evaluate at the Gauss points of
+`out.analysis.quadrature_grid()` and pass its `weights` as `quadrature=`. See
+[Energies from fields](/struphy-plots/guides/output-plots/#energies-from-fields).
+
 ## Dispersion relations
 
 For time spectra, frequency filtering, mode numbers, eigenfunctions and
