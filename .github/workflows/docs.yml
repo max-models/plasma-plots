@@ -26,11 +26,19 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install struphy-plots
-        run: pip install -e .
+      - name: Install struphy-plots (with PyVista)
+        run: pip install -e ".[pyvista]"
+
+      # A few example figures render an interactive PyVista scene off-screen
+      # (3-D volumes, equilibria), which needs a virtual display and Mesa's
+      # software OpenGL/EGL implementation.
+      - name: Install headless rendering dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
 
       - name: Generate example figures
-        run: make figures
+        run: xvfb-run -a make figures
 
       - uses: actions/setup-node@v4
         with:

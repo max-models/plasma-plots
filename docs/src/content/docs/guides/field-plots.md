@@ -1,25 +1,16 @@
 ---
-title: Plotting
-description: Time series, lineouts, slices, panels, vectors, animations and volumes.
+title: Field plots
+description: Slices, panels, animations, vector fields, and 3-D volumes.
 ---
 
-All plotting methods live on `array.struphy.plot`, where `array` is a labeled
+Everything here is a method of `array.struphy.plot`, where `array` is a labeled
 `xarray.DataArray` produced by Struphy's `Output.evaluate(...)`. Full
 signatures are in the [Plotting reference](/struphy-plots/reference/plot/).
 
-## Time series
+## 1-D: lineouts
 
 ```python
-energy.struphy.plot.timeseries(logy=True, fit="growth_rate")
-```
-
-Overlays an optional exponential growth/damping fit on top of one or more
-scalar time series.
-
-## Lineouts
-
-```python
-field.struphy.plot.lineout(x="e1", t="last", e2=0.5, e3=0.0)
+field.struphy.plot.lineout(x="e1", t="last", e2=0.5)
 ```
 
 Selects every dimension except `x` (via keyword selection) and plots the
@@ -27,7 +18,7 @@ remaining 1-D profile.
 
 ![Lineout of a scalar field along one axis](../../../assets/figures/lineout.png)
 
-## 2-D slices, panels, and animations
+## 2-D: slices, panels, viewers, animations
 
 `plot.view(...)` configures a reusable 2-D slice — pick the two axes to plot
 (`x`, `y`) and which dimension to sweep over (`sweep`, default `"t"`):
@@ -50,6 +41,11 @@ it, taking the same keyword arguments as `view(...)`.
 
 ![A grid of snapshots swept over time](../../../assets/figures/panels.png)
 
+`plot.animation(...)` returns a `matplotlib.animation.FuncAnimation`; save it
+with `anim.save("orbit.gif", writer="pillow")`:
+
+![An animation swept over time, saved as a GIF](/struphy-plots/figures/animation.gif)
+
 ## Vector fields
 
 ```python
@@ -58,31 +54,32 @@ b_field.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=4)
 
 ![A quiver plot of two vector components](../../../assets/figures/vector.png)
 
+## 3-D scalar volumes
+
+Three orthogonal midpoint slices need nothing extra:
+
+```python
+density.struphy.plot.volume_slices()
+```
+
+![Three orthogonal slices through a 3-D scalar field](../../../assets/figures/volume_slices.png)
+
+A full interactive volume render needs the optional PyVista extra
+(`pip install "struphy-plots[pyvista]"`):
+
+```python
+plotter = density.struphy.plot.volume(cmap="viridis", opacity="linear")
+plotter.show()
+```
+
+![A PyVista volume render of a 3-D scalar field](../../../assets/figures/volume.png)
+
 ## Comparing two arrays
 
 ```python
 field.struphy.plot.compare(reference_field, mode="difference")
 ```
 
-![Ratio of a diagnostic between two runs](../../../assets/figures/compare.png)
-
-## 3-D volumes (optional PyVista)
-
-```python
-field.struphy.plot.volume(cmap="viridis", opacity="linear")
-```
-
-Returns a PyVista plotter — call `.show()` on it to render. Requires
-`pip install "struphy-plots[pyvista]"`.
-
-## Marker trajectories
-
-```python
-markers.struphy.plot.trajectories(max_markers=200)
-```
-
-Plots 3-D orbits for kinetic marker output; works directly on the
-`xarray.Dataset` an orbits product now is (one `(t, marker)` variable per
-saved quantity), or on the older `(t, marker, quantity)` `DataArray` form.
-
-![3-D marker trajectories](../../../assets/figures/trajectories.png)
+See [Time series & comparisons](/struphy-plots/guides/timeseries/) for
+`compare()` figures — it's a 1-D lineout under the hood, so it fits either
+page; we keep the write-up there next to `timeseries()`.
