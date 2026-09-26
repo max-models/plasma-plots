@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,6 +32,8 @@ jobs:
       # scripts/generate_docs_figures.py), so the full compiled struphy
       # runtime is required here, not just struphy-plots. It has compiled
       # dependencies (pyccel/mpi4py), hence the system packages below.
+      # struphy comes from the `struphy` submodule (pinned to a known-good
+      # commit), not a fresh clone, so the version used here is reproducible.
       - name: Install struphy system dependencies
         run: |
           sudo apt-get update -y
@@ -37,8 +41,14 @@ jobs:
             liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
             libnetcdf-dev libnetcdff-dev cmake
 
-      - name: Install struphy (postprocessing branch)
-        run: pip install "struphy @ git+https://github.com/struphy-hub/struphy.git@postprocessing"
+      - name: Install struphy (from the struphy submodule)
+        run: pip install ./struphy
+
+      # Simulations need compiled pyccel kernels, not just the pure-Python
+      # package -- the test suite doesn't hit this (it only builds fake
+      # Output fixtures), but running real simulations here does.
+      - name: Compile struphy kernels
+        run: struphy compile -y --language fortran
 
       - name: Install struphy-plots (with PyVista and profiling)
         run: pip install -e ".[pyvista,profiling]"

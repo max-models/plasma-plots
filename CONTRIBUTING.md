@@ -2,16 +2,23 @@
 
 ## Local development
 
+`struphy` lives in this repo as a git submodule (`struphy/`), pinned to a
+known-good commit -- clone/update it, then install from it:
+
 ```bash
-pip install -e ".[dev]"
+git submodule update --init --recursive
+pip install -e ./struphy   # struphy itself; needs a Fortran/C compiler + MPI + netCDF
+pip install -e ".[dev,profiling]"
 pytest
-ruff check src tests
+ruff check src tests scripts
 ```
 
 The test suite exercises `struphy_plots` against real `struphy` output
-objects, so `struphy` (plus `h5py`) must be importable — install it from the
-main repo (`pip install -e /path/to/struphy` or
-`pip install git+https://github.com/struphy-hub/struphy.git@postprocessing`).
+objects (`struphy.post_processing.output.Output` and friends, plus `h5py`),
+built from small fixtures that don't need compiled kernels, so `struphy compile`
+isn't required just to run `pytest`. Generating the docs figures does run
+real simulations, though (see below), so run `struphy compile -y` first if
+you're doing that.
 
 ## Docs
 
@@ -19,12 +26,13 @@ The documentation site (Astro + Starlight) lives in `docs/`. Every figure,
 one animation, and several live interactive Plotly charts
 (`docs/src/assets/figures/*`, `docs/public/plotly/*.json`) come from REAL
 struphy simulations run by `scripts/generate_docs_figures.py` -- not
-synthetic data. That script therefore needs the full compiled `struphy`
-runtime (the same one the test suite needs, see above), plus `struphy-plots`
-itself. Figures aren't checked into git, so generate them before building or
-running the site locally:
+synthetic data. That script therefore needs the full **compiled** `struphy`
+runtime (from the submodule, see above -- `struphy compile -y` if you
+haven't), plus `struphy-plots` itself. Figures aren't checked into git, so
+generate them before building or running the site locally:
 
 ```bash
+struphy compile -y   # if you haven't already
 pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
 make figures       # runs the real simulations, renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
