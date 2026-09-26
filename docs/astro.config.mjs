@@ -10,6 +10,7 @@ export default defineConfig({
 		starlight({
 			title: 'struphy-plots',
 			description: 'Optional plotting and diagnostics layer for Struphy output',
+			customCss: ['./src/styles/custom.css'],
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/struphy-hub/struphy-plots' },
 			],
