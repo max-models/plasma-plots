@@ -34,12 +34,6 @@ OUT = DOCS / "src" / "assets" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
 
-def save(result, filename):
-    path = OUT / filename
-    result.save(path, close=True)
-    print(f"wrote {path}")
-
-
 # =============================================================================
 # A real magnetized slab: struphy.models.LinearMHD, in a uniform, obliquely
 # magnetized plasma (struphy.fields_background.equils.HomogenSlab). Broadband
@@ -73,7 +67,6 @@ for component in range(3):
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=component, seed=123))
 equil = equils.HomogenSlab(B0x=B0x, B0y=B0y, B0z=B0z, beta=beta, n0=n0)
 
-t0 = time.time()
 sim = Simulation(
     model=model,
     env=EnvironmentOptions(out_folders=tempfile.mkdtemp(), sim_folder="mhd_slab_waves"),
@@ -83,10 +76,7 @@ sim = Simulation(
     derham_opts=DerhamOptions(degree=(1, 1, 3)),
     equil=equil,
 )
-sim.run()
-out = sim.output
-print(f"[mhd_slab_waves] ran in {time.time() - t0:.1f}s")
-
+out = sim.run()
 
 def fitted_branch(spectrum, *, n_branches, noise_level, order=10):
     """Fit omega = v * k to each of ``n_branches`` ridges in a (omega, k) power spectrum,
@@ -128,29 +118,28 @@ for branch, exact in exact_speeds.items():
 
 kmax, omega_max = 0.5, 1.3 * exact_speeds["fast magnetosonic"] * 0.5
 
-save(
-    velocity.struphy.plot.dispersion(
-        branches={
-            "shear Alfven (exact)": lambda k: exact_speeds["shear Alfven"] * k,
-            "shear Alfven (measured)": lambda k: measured_alfven * k,
-        },
-        kmax=kmax,
-        omega_max=omega_max,
-    ),
-    "real_dispersion_velocity.png",
-)
-save(
-    pressure.struphy.plot.dispersion(
-        branches={
-            "slow (exact)": lambda k: exact_speeds["slow magnetosonic"] * k,
-            "slow (measured)": lambda k: measured_slow * k,
-            "fast (exact)": lambda k: exact_speeds["fast magnetosonic"] * k,
-            "fast (measured)": lambda k: measured_fast * k,
-        },
-        kmax=kmax,
-        omega_max=omega_max,
-    ),
-    "real_dispersion_pressure.png",
-)
+velocity_path = OUT / "real_dispersion_velocity.png"
+velocity.struphy.plot.dispersion(
+    branches={
+        "shear Alfven (exact)": lambda k: exact_speeds["shear Alfven"] * k,
+        "shear Alfven (measured)": lambda k: measured_alfven * k,
+    },
+    kmax=kmax,
+    omega_max=omega_max,
+).save(velocity_path, close=True)
+print(f"wrote {velocity_path}")
+
+pressure_path = OUT / "real_dispersion_pressure.png"
+pressure.struphy.plot.dispersion(
+    branches={
+        "slow (exact)": lambda k: exact_speeds["slow magnetosonic"] * k,
+        "slow (measured)": lambda k: measured_slow * k,
+        "fast (exact)": lambda k: exact_speeds["fast magnetosonic"] * k,
+        "fast (measured)": lambda k: measured_fast * k,
+    },
+    kmax=kmax,
+    omega_max=omega_max,
+).save(pressure_path, close=True)
+print(f"wrote {pressure_path}")
 
 print("done")
