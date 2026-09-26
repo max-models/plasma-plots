@@ -23,7 +23,6 @@ import matplotlib
 matplotlib.use("Agg")
 
 import numpy as np
-from scipy.signal import argrelextrema
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
@@ -77,27 +76,6 @@ sim = Simulation(
 )
 out = sim.run()
 
-def fitted_branch(spectrum, *, n_branches, noise_level, order=10):
-    """Fit omega = v * k to each of ``n_branches`` ridges in a (omega, k) power spectrum,
-    by finding local maxima along omega at each k and fitting their locus -- adapted from
-    struphy's own test suite (models/tests/verification/test_verif_LinearMHD.py)."""
-    omega_mask, k_mask = spectrum.omega.values >= 0, spectrum.k.values >= 0
-    power = spectrum.values[np.ix_(omega_mask, k_mask)]
-    omega, k = spectrum.omega.values[omega_mask], spectrum.k.values[k_mask]
-
-    k_fit, peaks_fit = [], [[] for _ in range(n_branches)]
-    for i in range(k.size // 8, k.size // 2):
-        column = power[:, i]
-        maxima = argrelextrema(column, np.greater, order=order)[0]
-        peaks = sorted(m for m in maxima if column[m] > noise_level * column.max())
-        if len(peaks) != n_branches:
-            continue
-        k_fit.append(k[i])
-        for branch, m in zip(peaks_fit, peaks):
-            branch.append(omega[m])
-    return [np.polyfit(k_fit, branch, deg=1)[0] for branch in peaks_fit]
-
-
 # Both fields are evaluated at a single (e1, e2) point, physical z as the remaining spatial
 # coordinate (logical e3 swapped for physical Z, so k comes out in physical units, matching
 # the exact speeds above).
@@ -109,8 +87,13 @@ pressure = pressure.assign_coords(e3=("e3", pressure["Z"].values))
 velocity_spectrum = velocity.struphy.analysis.dispersion(dim="e3")
 pressure_spectrum = pressure.struphy.analysis.dispersion(dim="e3")
 
-(measured_alfven,) = fitted_branch(velocity_spectrum, n_branches=1, noise_level=0.5)
-measured_slow, measured_fast = fitted_branch(pressure_spectrum, n_branches=2, noise_level=0.4)
+(alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(n_branches=1, noise_level=0.5)
+slow_branch, fast_branch = pressure_spectrum.struphy.analysis.fit_branches(n_branches=2, noise_level=0.4)
+measured_alfven, measured_slow, measured_fast = (
+    alfven_branch.velocity,
+    slow_branch.velocity,
+    fast_branch.velocity,
+)
 measured_speeds = {"shear Alfven": measured_alfven, "slow magnetosonic": measured_slow, "fast magnetosonic": measured_fast}
 for branch, exact in exact_speeds.items():
     print(f"{branch}: measured {measured_speeds[branch]:.4f}, exact {exact:.4f}")

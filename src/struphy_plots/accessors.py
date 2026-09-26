@@ -862,3 +862,25 @@ class ArrayAnalysis(_ArrayAccessor):
         from .analysis import power_spectrum
 
         return power_spectrum(self._array, dim=dim, detrend=detrend)
+
+    def fit_branches(
+        self,
+        *,
+        n_branches: int,
+        k_range: tuple[float, float] | None = None,
+        noise_level: float = 0.5,
+        order: int = 10,
+    ):
+        """Fit straight dispersion branches (``omega = v * k``) to this ``(omega, k)`` power
+        spectrum, e.g. ``field.struphy.analysis.dispersion().struphy.analysis.fit_branches(n_branches=2)``.
+        See :func:`struphy_plots.analysis.fit_dispersion_branches`.
+        """
+        from .analysis import fit_dispersion_branches
+
+        return fit_dispersion_branches(
+            self._array,
+            n_branches=n_branches,
+            k_range=k_range,
+            noise_level=noise_level,
+            order=order,
+        )
