@@ -40,6 +40,13 @@ detrended 2-D FFT, independent of Struphy. `dim` defaults to the sole
 dimension other than `t`. See `struphy_plots.analysis.power_spectrum` for
 the definition, and `ArrayPlots.dispersion` to plot it directly.
 
+### Spectral diagnostics
+`fft(dim=...)`, `time_fft()`, `filter_time()`, `band_filter(lo, hi)`,
+`spectral_peaks()`, `spectrogram(length=...)`, `mode_spectrum()`,
+`mode_amplitudes()`, `mode_structure(omega)`, `cross_spectrum(other)`,
+`matrix_pencil(n_modes=...)` and `drop_periodic_endpoint(dim)`. See the
+[spectral reference](/struphy-plots/reference/spectral/).
+
 ## `dataset.struphy.analysis` (Dataset accessor)
 
 ### `classify_orbits(*, v_par="v_par")`

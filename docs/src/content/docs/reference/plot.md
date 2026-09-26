@@ -68,6 +68,12 @@ Export one PNG per swept step into `directory`.
 ### `trajectories(*, max_markers=200, show_paths=None, ax=None)`
 3-D marker-trajectory plot for kinetic orbit output.
 
+### Spectral plots
+`power_spectrum`, `filtered`, `spectrogram`, `mode_amplitudes`, `mode_map`,
+`radial_power`, `mode_profiles`, `cross_spectrum` and `pencil_fit`. See the
+[spectral reference](/struphy-plots/reference/spectral/) and the
+[Spectral analysis guide](/struphy-plots/guides/spectral/).
+
 ### PyVista 3-D views
 
 These need `pip install "struphy-plots[pyvista]"` and return a

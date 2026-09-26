@@ -387,6 +387,8 @@ def power_spectrum(
     ``dim`` defaults to the sole dimension other than ``t``; the array must have exactly these
     two dimensions, each on a uniform grid. ``detrend`` removes the time-mean at each point of
     ``dim`` first, which otherwise dominates the spectrum as a spurious zero-frequency line.
+    Built on :func:`struphy_plots.spectral.fft`, so it shares its conventions: coefficients are
+    divided by the sample counts, and the power sums to the mean square of the signal.
     """
     validate_array(data, required_dims=("t",))
     others = [d for d in data.dims if d != "t"]
@@ -404,19 +406,13 @@ def power_spectrum(
         raise ValueError(
             f"select every dimension except 't' and {dim!r} first; got {data.dims}"
         )
-    values = np.asarray(data.transpose("t", dim), dtype=float)
-    if detrend:
-        values = values - values.mean(axis=0, keepdims=True)
-    nt, nx = values.shape
-    dt = float(np.diff(data["t"].values).mean())
-    dx = float(np.diff(data[dim].values).mean())
-    spectrum = np.abs(np.fft.fftshift(np.fft.fft2(values))) ** 2
-    omega = np.fft.fftshift(np.fft.fftfreq(nt, d=dt)) * 2 * np.pi
-    k = np.fft.fftshift(np.fft.fftfreq(nx, d=dx)) * 2 * np.pi
-    return xr.DataArray(
-        spectrum,
-        dims=("omega", "k"),
-        coords={"omega": omega, "k": k},
-        name="power",
-        attrs={"label": f"power spectrum of {_label(data)}".strip(), "units": ""},
+    from .spectral import fft
+
+    signal = data.transpose("t", dim).reset_coords(drop=True)
+    coefficients = fft(fft(signal, dim="t", detrend=detrend), dim=dim)
+    spectrum = (
+        (abs(coefficients) ** 2).rename({f"k_{dim}": "k"}).transpose("omega", "k")
     )
+    spectrum.name = "power"
+    spectrum.attrs = {"label": f"power spectrum of {_label(data)}".strip(), "units": ""}
+    return spectrum

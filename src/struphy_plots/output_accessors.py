@@ -135,6 +135,59 @@ class OutputPlots:
         return self.scalars(*args, **kwargs)
 
 
+class OutputAnalysis:
+    """Spectral diagnostics of a run's products, as ``out.analysis.<kind>(product, ...)``.
+
+    ``product`` is a product name (``"mhd/velocity"``, evaluated with ``out.evaluate``) or an
+    already selected ``xarray.DataArray``. Select a component, slice or time interval before
+    transforming when you do not need the whole field: the selected values are loaded into
+    memory. The same diagnostics, and more, are available on any array as
+    ``array.struphy.analysis.<kind>(...)``; see :mod:`struphy_plots.spectral`.
+    """
+
+    def __init__(self, output: "Output"):
+        self._output = output
+
+    def _array(self, product):
+        return self._output.evaluate(product) if isinstance(product, str) else product
+
+    def fft(
+        self, product, *, dim: str, detrend: bool = False, window: str | None = None
+    ):
+        """Two-sided Fourier coefficients along ``dim``; see :func:`struphy_plots.spectral.fft`."""
+        from .spectral import fft
+
+        return fft(self._array(product), dim=dim, detrend=detrend, window=window)
+
+    def time_fft(self, product, *, detrend: bool = False, window: str | None = None):
+        """One-sided temporal coefficients and per-bin power; see
+        :func:`struphy_plots.spectral.time_fft`."""
+        from .spectral import time_fft
+
+        return time_fft(self._array(product), detrend=detrend, window=window)
+
+    def filter_time(
+        self, product, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0
+    ):
+        """Reconstruct the dominant temporal band; see :func:`struphy_plots.spectral.filter_time`."""
+        from .spectral import filter_time
+
+        return filter_time(
+            self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins
+        )
+
+    def mode_spectrum(
+        self, product, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0
+    ):
+        """Complex amplitudes over poloidal/toroidal mode numbers; see
+        :func:`struphy_plots.spectral.mode_spectrum`."""
+        from .spectral import mode_spectrum
+
+        return mode_spectrum(
+            self._array(product), dims=dims, names=names, periods=periods
+        )
+
+
 def _register_output_plot_property():
     """Wire ``out.plot`` to :class:`OutputPlots`, if struphy is installed.
 
@@ -147,6 +200,8 @@ def _register_output_plot_property():
         return
     if not isinstance(Output.__dict__.get("plot"), property):
         Output.plot = property(OutputPlots)
+    if not isinstance(Output.__dict__.get("analysis"), property):
+        Output.analysis = property(OutputAnalysis)
 
 
 _register_output_plot_property()
