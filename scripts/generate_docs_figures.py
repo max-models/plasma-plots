@@ -42,7 +42,13 @@ PLOTLY_OUT.mkdir(parents=True, exist_ok=True)
 
 
 def field_array(name, label, unit, values, dims, coords):
-    return xr.DataArray(values, dims=dims, coords=coords, name=name, attrs={"label": label, "units": unit})
+    return xr.DataArray(
+        values,
+        dims=dims,
+        coords=coords,
+        name=name,
+        attrs={"label": label, "units": unit},
+    )
 
 
 def save(result, filename):
@@ -95,20 +101,27 @@ vector = field_array(
     "v",
     r"$\mathbf{v}$",
     "a.u.",
-    np.stack([np.broadcast_to(vx, (n_t, n_e1, n_e2)), np.broadcast_to(vy, (n_t, n_e1, n_e2))], axis=1),
+    np.stack(
+        [
+            np.broadcast_to(vx, (n_t, n_e1, n_e2)),
+            np.broadcast_to(vy, (n_t, n_e1, n_e2)),
+        ],
+        axis=1,
+    ),
     ("t", "component", "e1", "e2"),
     {"t": t, "e1": e1, "e2": e2},
 )
-save(vector.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=6, t="last"), "vector.png")
+save(
+    vector.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=6, t="last"),
+    "vector.png",
+)
 
 # A 3-D scalar blob for the orthogonal-slices and volume renders
 n3 = 40
 e1_3, e2_3, e3_3 = (np.linspace(0.0, 1.0, n3) for _ in range(3))
 E1_3, E2_3, E3_3 = np.meshgrid(e1_3, e2_3, e3_3, indexing="ij")
 blob = np.exp(-((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2))
-volume_data = field_array(
-    "n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3}
-)
+volume_data = field_array("n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3})
 save(volume_data.struphy.plot.volume_slices(), "volume_slices.png")
 
 try:
@@ -117,7 +130,9 @@ try:
     pv.OFF_SCREEN = True
 
     physical = volume_data.assign_coords(
-        X=(("e1", "e2", "e3"), E1_3), Y=(("e1", "e2", "e3"), E2_3), Z=(("e1", "e2", "e3"), E3_3)
+        X=(("e1", "e2", "e3"), E1_3),
+        Y=(("e1", "e2", "e3"), E2_3),
+        Z=(("e1", "e2", "e3"), E3_3),
     )
     plotter = physical.struphy.plot.volume(cmap="viridis")
     plotter.camera_position = "iso"
@@ -139,7 +154,10 @@ en_tot = 1.0 + 0.02 * (1.0 - np.exp(-0.5 * tt)) + 2e-3 * np.sin(15 * tt)
 energy = field_array("en_phi", r"$e_\phi$", "J", en_phi, ("t",), {"t": tt})
 total = field_array("en_tot", r"$e_{tot}$", "J", en_tot, ("t",), {"t": tt})
 
-save(energy.struphy.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth"), "timeseries_growth.png")
+save(
+    energy.struphy.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth"),
+    "timeseries_growth.png",
+)
 save(plot_scalars({"en_phi": energy, "en_tot": total}, logy=False), "scalars.png")
 
 
@@ -156,7 +174,11 @@ fig, ax = plt.subplots()
 ax.plot(damped.t, damped, lw=0.8, label="energy")
 ax.plot(envelope.t, envelope, "o", ms=3, color="C1", label="envelope peaks")
 ax.plot(fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}")
-ax.set(xlabel=axis_label(damped, "t"), ylabel=value_label(damped), title="Damping rate from the envelope")
+ax.set(
+    xlabel=axis_label(damped, "t"),
+    ylabel=value_label(damped),
+    title="Damping rate from the envelope",
+)
 ax.legend(fontsize="small")
 save_fig(fig, "damping.png")
 
@@ -174,10 +196,18 @@ decaying_field.attrs = dict(field.attrs)
 norm_t = decaying_field.struphy.analysis.norm()
 save(norm_t.struphy.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png")
 
-save(total.struphy.analysis.drift().struphy.plot.lineout(x="t", title="Drift from the initial value"), "drift.png")
+save(
+    total.struphy.analysis.drift().struphy.plot.lineout(x="t", title="Drift from the initial value"),
+    "drift.png",
+)
 
 en_cons = field_array(
-    "en_tot", r"$e_{tot}$", "J", 1.0 + 2e-4 * tt + 3e-5 * np.sin(30 * tt), ("t",), {"t": tt}
+    "en_tot",
+    r"$e_{tot}$",
+    "J",
+    1.0 + 2e-4 * tt + 3e-5 * np.sin(30 * tt),
+    ("t",),
+    {"t": tt},
 )
 save(
     en_cons.struphy.analysis.relative_error().struphy.plot.lineout(x="t", title="Relative energy conservation error"),
@@ -209,11 +239,18 @@ fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), layout="constrained")
 for ax, name in zip(axes, ("density", "mean_v1", "variance_v1")):
     array = final[name]
     ax.plot(array.e1, array)
-    ax.set(xlabel=axis_label(array, "e1"), ylabel=value_label(array), title=array.attrs.get("label", name))
+    ax.set(
+        xlabel=axis_label(array, "e1"),
+        ylabel=value_label(array),
+        title=array.attrs.get("label", name),
+    )
 save_fig(fig, "velocity_moments.png")
 
 averaged = distribution.struphy.analysis.spatial_average()
-save(averaged.struphy.plot.slice(x="t", y="v1", title="Velocity distribution averaged over space"), "spatial_average.png")
+save(
+    averaged.struphy.plot.slice(x="t", y="v1", title="Velocity distribution averaged over space"),
+    "spatial_average.png",
+)
 
 
 # =============================================================================
@@ -248,7 +285,11 @@ expansion = 2.2
 x_p = expansion * radius0 * np.cos(angle)
 y_p = expansion * radius0 * np.sin(angle)
 cloud = xr.Dataset(
-    {"x": ("marker", x_p), "y": ("marker", y_p), "density": ("marker", np.exp(-(radius0**2) / (2 * 0.15**2)))},
+    {
+        "x": ("marker", x_p),
+        "y": ("marker", y_p),
+        "density": ("marker", np.exp(-(radius0**2) / (2 * 0.15**2))),
+    },
     coords={"marker": np.arange(n_particles)},
     attrs={"label": "Expanding particle cloud"},
 )
@@ -260,7 +301,11 @@ n_bg = 96
 e1_bg, e2_bg = np.linspace(0.0, 1.0, n_bg), np.linspace(0.0, 1.0, n_bg)
 E1_BG, E2_BG = np.meshgrid(e1_bg, e2_bg, indexing="ij")
 well = field_array(
-    "phi", r"$\phi$", "a.u.", np.exp(-((E1_BG - 0.5) ** 2 + (E2_BG - 0.5) ** 2) / (2 * 0.2**2)), ("e1", "e2"),
+    "phi",
+    r"$\phi$",
+    "a.u.",
+    np.exp(-((E1_BG - 0.5) ** 2 + (E2_BG - 0.5) ** 2) / (2 * 0.2**2)),
+    ("e1", "e2"),
     {"e1": e1_bg, "e2": e2_bg},
 )
 n_orbit_steps, n_confined = 60, 6
@@ -273,7 +318,10 @@ confined_orbits = xr.Dataset(
     {"e1": (("t", "marker"), orbit_e1), "e2": (("t", "marker"), orbit_e2)},
     coords={"t": s_orbit, "marker": np.arange(n_confined)},
 )
-save(well.struphy.plot.overlay_orbits(confined_orbits, x="e1", y="e2"), "orbit_overlay.png")
+save(
+    well.struphy.plot.overlay_orbits(confined_orbits, x="e1", y="e2"),
+    "orbit_overlay.png",
+)
 
 
 # =============================================================================
@@ -338,7 +386,11 @@ try:
 
     selected = field.struphy.data.slice(x="e1", y="e2", t="last")
     fig = px.imshow(
-        selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="lower", color_continuous_scale="viridis"
+        selected.transpose("e2", "e1"),
+        x=selected.e1,
+        y=selected.e2,
+        origin="lower",
+        color_continuous_scale="viridis",
     )
     fig.update_layout(xaxis_title="e1", yaxis_title="e2")
     save_plotly(fig, "plotly_slice")
@@ -357,7 +409,11 @@ try:
     vec = vector.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=4, t="last")
     xg, yg = np.meshgrid(vec.e1.values, vec.e2.values, indexing="ij")
     fig = ff.create_quiver(
-        xg.ravel(), yg.ravel(), vec.isel(component=0).values.ravel(), vec.isel(component=1).values.ravel(), scale=0.05
+        xg.ravel(),
+        yg.ravel(),
+        vec.isel(component=0).values.ravel(),
+        vec.isel(component=1).values.ravel(),
+        scale=0.05,
     )
     fig.update_layout(xaxis_title="e1", yaxis_title="e2")
     save_plotly(fig, "plotly_vector")
@@ -367,7 +423,13 @@ try:
     for i, (name, plane) in enumerate(planes.items(), start=1):
         x, y = plane.dims
         fig.add_trace(
-            go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values, colorscale="viridis", showscale=False),
+            go.Heatmap(
+                z=plane.values.T,
+                x=plane[x].values,
+                y=plane[y].values,
+                colorscale="viridis",
+                showscale=False,
+            ),
             row=1,
             col=i,
         )
@@ -377,7 +439,16 @@ try:
     fig = go.Figure()
     for marker in subset.marker.values:
         path = subset.sel(marker=marker)
-        fig.add_trace(go.Scatter3d(x=path.x, y=path.y, z=path.z, mode="lines", line=dict(width=3), showlegend=False))
+        fig.add_trace(
+            go.Scatter3d(
+                x=path.x,
+                y=path.y,
+                z=path.z,
+                mode="lines",
+                line=dict(width=3),
+                showlegend=False,
+            )
+        )
     fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
     save_plotly(fig, "plotly_trajectories", height=520)
 
@@ -408,7 +479,15 @@ try:
     )
     for marker in orbit_subset.marker.values:
         path = orbit_subset.sel(marker=marker)
-        fig.add_trace(go.Scatter(x=path.e1, y=path.e2, mode="lines", line=dict(color="#ffb347"), showlegend=False))
+        fig.add_trace(
+            go.Scatter(
+                x=path.e1,
+                y=path.e2,
+                mode="lines",
+                line=dict(color="#ffb347"),
+                showlegend=False,
+            )
+        )
     fig.update_layout(xaxis_title="e1", yaxis_title="e2")
     save_plotly(fig, "plotly_overlay_orbits")
 
@@ -428,7 +507,13 @@ try:
         )
     )
     fig.add_trace(
-        go.Scatter(x=k_line, y=bohm_gross(k_line), mode="lines", name="Bohm-Gross", line=dict(color="#ffb347", dash="dash"))
+        go.Scatter(
+            x=k_line,
+            y=bohm_gross(k_line),
+            mode="lines",
+            name="Bohm-Gross",
+            line=dict(color="#ffb347", dash="dash"),
+        )
     )
     fig.update_layout(xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12])
     save_plotly(fig, "plotly_dispersion")
@@ -440,8 +525,9 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # Whole-run: equilibrium profiles (optional PyVista)
 # =============================================================================
 try:
-    import pyvista as pv
     import tempfile
+
+    import pyvista as pv
 
     from struphy_plots.plotting import plot_equilibrium_profile, show_equilibrium
 
@@ -490,8 +576,8 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # Whole-run: profiling (optional scope-profiler)
 # =============================================================================
 try:
-    import time as _time
     import tempfile as _tempfile
+    import time as _time
 
     import scope_profiler as _sp
 

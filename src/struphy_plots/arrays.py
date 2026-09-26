@@ -66,7 +66,14 @@ def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_E
     return [name for name in available if name not in exclude]
 
 
-def save_scalars(scalars: xr.Dataset | Mapping, path: str, *, names=None, exclude=SCALARS_EXCLUDE, fmt=None) -> str:
+def save_scalars(
+    scalars: xr.Dataset | Mapping,
+    path: str,
+    *,
+    names=None,
+    exclude=SCALARS_EXCLUDE,
+    fmt=None,
+) -> str:
     selected = scalar_names(scalars, names=names, exclude=exclude)
     arrays = [scalars[name] for name in selected]
     for array in arrays:
@@ -83,7 +90,13 @@ def save_scalars(scalars: xr.Dataset | Mapping, path: str, *, names=None, exclud
     if fmt == "npz":
         np.savez(path, t=time, **{name: values[:, i] for i, name in enumerate(selected)})
     elif fmt == "csv":
-        np.savetxt(path, np.column_stack((time, values)), delimiter=",", header=",".join(("t", *selected)), comments="")
+        np.savetxt(
+            path,
+            np.column_stack((time, values)),
+            delimiter=",",
+            header=",".join(("t", *selected)),
+            comments="",
+        )
     else:
         raise ValueError(f"unknown format {fmt!r}, expected 'csv' or 'npz'")
     return path

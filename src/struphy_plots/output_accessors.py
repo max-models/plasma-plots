@@ -46,7 +46,11 @@ class OutputPlots:
         from .plotting import plot_scalars
 
         return plot_scalars(
-            self._output.scalars, names=names, relative_to=relative_to, logy=logy, run_label=self._output.label
+            self._output.scalars,
+            names=names,
+            relative_to=relative_to,
+            logy=logy,
+            run_label=self._output.label,
         )
 
     def equilibrium(self, ax=None):
@@ -89,19 +93,34 @@ class ProfilePlots:
         """A timeline of every recorded region, one row per rank."""
         from scope_profiler.plotting_scripts import plot_gantt
 
-        return plot_gantt(self._output.profile.results, return_fig=return_fig, verbose=verbose, **kwargs)
+        return plot_gantt(
+            self._output.profile.results,
+            return_fig=return_fig,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def flame(self, *, return_fig: bool = True, verbose: bool = False, **kwargs):
         """A flame chart reconstructing the call stack from region timings."""
         from scope_profiler.plotting_scripts import plot_flame
 
-        return plot_flame(self._output.profile.results, return_fig=return_fig, verbose=verbose, **kwargs)
+        return plot_flame(
+            self._output.profile.results,
+            return_fig=return_fig,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def callgraph(self, *, return_fig: bool = True, verbose: bool = False, **kwargs):
         """The explicit call graph (which region calls which), without timings."""
         from scope_profiler.plotting_scripts import plot_callgraph
 
-        return plot_callgraph(self._output.profile.results, return_fig=return_fig, verbose=verbose, **kwargs)
+        return plot_callgraph(
+            self._output.profile.results,
+            return_fig=return_fig,
+            verbose=verbose,
+            **kwargs,
+        )
 
 
 def _register_output_plot_property():

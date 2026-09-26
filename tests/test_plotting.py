@@ -7,8 +7,10 @@ import xarray as xr
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
-from struphy_plots.plotting import (  # noqa: E402
-    GrowthFit,
+from struphy.post_processing.arrays import data_array  # noqa: E402
+
+from struphy_plots.plotting import (
+    GrowthFit,  # noqa: E402
     InteractiveSliceViewer,
     View,
     animate_slices,
@@ -33,8 +35,6 @@ from struphy_plots.plotting import (  # noqa: E402
     save_frames,
 )
 
-from struphy.post_processing.arrays import data_array  # noqa: E402
-
 pytestmark = pytest.mark.filterwarnings("ignore:Animation was deleted")
 
 
@@ -48,7 +48,11 @@ def phase_space(nt=6):
     return data_array(
         np.arange(nt * 4 * 5).reshape(nt, 4, 5),
         ("t", "e1", "v1"),
-        {"t": np.linspace(0, 1, nt), "e1": np.linspace(0, 1, 4), "v1": np.linspace(-2, 2, 5)},
+        {
+            "t": np.linspace(0, 1, nt),
+            "e1": np.linspace(0, 1, 4),
+            "v1": np.linspace(-2, 2, 5),
+        },
         name="f",
         label="$f$",
         coord_units={"t": "s"},
@@ -85,7 +89,9 @@ def test_lineout_vector_and_orthogonal_volume_slices_render():
     assert len(phase_space().struphy.plot.lineout(x="v1", t=0, e1=0).artists) == 1
 
     vector = data_array(
-        np.ones((2, 3, 4)), ("component", "e1", "e2"), {"component": [0, 1], "e1": range(3), "e2": range(4)}
+        np.ones((2, 3, 4)),
+        ("component", "e1", "e2"),
+        {"component": [0, 1], "e1": range(3), "e2": range(4)},
     )
     assert len(plot_vector(vector, x="e1", y="e2").artists) == 1
     assert len(vector.struphy.plot.vector(x="e1", y="e2").artists) == 1
@@ -112,7 +118,10 @@ def test_growth_rate_does_not_fall_back_outside_requested_window():
 
 def test_growth_rate_of_quadratic_reports_amplitude_rate():
     t = np.linspace(0, 4, 20)
-    result = growth_rate(data_array(np.exp(0.6 * t), ("t",), {"t": t}), GrowthFit(amplitude_from_quadratic=True))
+    result = growth_rate(
+        data_array(np.exp(0.6 * t), ("t",), {"t": t}),
+        GrowthFit(amplitude_from_quadratic=True),
+    )
     assert result.rate == pytest.approx(0.3)
 
 
@@ -132,7 +141,13 @@ def test_logical_and_physical_grids_follow_selected_dimensions():
 
 
 def test_plot_timeseries_renders_once_and_save_does_not_redraw(tmp_path):
-    data = data_array(np.exp(np.arange(4)), ("t",), {"t": range(4)}, label="energy", coord_units={"t": "s"})
+    data = data_array(
+        np.exp(np.arange(4)),
+        ("t",),
+        {"t": range(4)},
+        label="energy",
+        coord_units={"t": "s"},
+    )
     result = plot_timeseries(data, fit=GrowthFit(), run_label="dt=.1")
     lines = len(result.ax.lines)
     result.save(tmp_path / "energy.png")
@@ -149,7 +164,8 @@ def test_plot_slice_accepts_named_value_and_index_selection():
 
 def test_plot_slice_physical_coordinates_are_intrinsic():
     result = plot_slice(
-        physical_field(), view=View(x="e1", y="e2", isel={"t": 0, "e3": 2}, coordinates="physical", plane="XY")
+        physical_field(),
+        view=View(x="e1", y="e2", isel={"t": 0, "e3": 2}, coordinates="physical", plane="XY"),
     )
     assert result.ax.get_xlabel() == "X"
     assert result.ax.get_aspect() == 1.0
@@ -162,7 +178,12 @@ def test_plot_slice_rejects_underspecified_selection():
 
 def test_panels_use_one_recipe_and_keep_full_title():
     result = plot_panels(
-        phase_space(), view=View(x="e1", y="v1"), nrows=1, ncols=2, title="Distribution", run_label="dt=.1"
+        phase_space(),
+        view=View(x="e1", y="v1"),
+        nrows=1,
+        ncols=2,
+        title="Distribution",
+        run_label="dt=.1",
     )
     assert result.fig._suptitle.get_text() == "Distribution — dt=.1"
     assert len(result.artists) == 2
@@ -225,8 +246,9 @@ def test_slice_can_display_the_sweep_dimension():
 
 
 def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeypatch):
-    import struphy_plots  # noqa: F401
     from matplotlib.figure import Figure
+
+    import struphy_plots  # noqa: F401
 
     data = phase_space(nt=3).astype(float)
     data[1] = data[1] * 100  # extrema in a frame omitted by panels and export
@@ -260,8 +282,9 @@ def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeyp
 
 @pytest.mark.parametrize("shared_clim", [True, False])
 def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, shared_clim):
-    import struphy_plots  # noqa: F401
     from matplotlib.figure import Figure
+
+    import struphy_plots  # noqa: F401
 
     data = phase_space(nt=2)
     options = dict(x="e1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm")
@@ -275,7 +298,9 @@ def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, sha
         assert mesh.get_cmap().name == "coolwarm"
     captured = []
     monkeypatch.setattr(
-        Figure, "savefig", lambda fig, *args, **kwargs: captured.append(fig.axes[0].collections[0].get_clim())
+        Figure,
+        "savefig",
+        lambda fig, *args, **kwargs: captured.append(fig.axes[0].collections[0].get_clim()),
     )
     data.struphy.plot.frames(tmp_path, **options)
     assert captured == [(-5, 100), (-5, 100)]
@@ -374,11 +399,21 @@ def test_array_data_mirrors_what_array_plot_would_render():
     assert data.struphy.data.view(x="e1", y="v1").dims == ("t", "e1", "v1")
 
     vector = data_array(
-        np.ones((2, 3, 4)), ("component", "e1", "e2"), {"component": [0, 1], "e1": range(3), "e2": range(4)}
+        np.ones((2, 3, 4)),
+        ("component", "e1", "e2"),
+        {"component": [0, 1], "e1": range(3), "e2": range(4)},
     )
-    assert vector.struphy.data.vector(x="e1", y="e2", stride=2).sizes == {"component": 2, "e1": 2, "e2": 2}
+    assert vector.struphy.data.vector(x="e1", y="e2", stride=2).sizes == {
+        "component": 2,
+        "e1": 2,
+        "e2": 2,
+    }
 
-    assert set(physical_field().isel(t=0).struphy.data.volume_slices()) == {"e1", "e2", "e3"}
+    assert set(physical_field().isel(t=0).struphy.data.volume_slices()) == {
+        "e1",
+        "e2",
+        "e3",
+    }
 
     energy = data_array([1.0, 2.0, 4.0], ("t",), {"t": [0, 1, 2]})
     diff = energy.struphy.data.compare(energy * 2, mode="difference")
@@ -408,7 +443,10 @@ def test_dataset_data_mirrors_what_dataset_plot_would_render():
     scattered = orbits.struphy.data.scatter(x="x", y="y", color="weight", t="last")
     assert scattered.sizes == {"marker": 5}
     assert set(scattered.data_vars) >= {"x", "y", "weight"}
-    assert scattered.to_dataframe().shape == (5, 4)  # x, y, weight, plus the t coordinate column
+    assert scattered.to_dataframe().shape == (
+        5,
+        4,
+    )  # x, y, weight, plus the t coordinate column
 
     with pytest.raises(ValueError, match="not data variables"):
         orbits.struphy.data.scatter(x="missing", y="y")
@@ -421,7 +459,13 @@ def test_dataset_data_mirrors_what_dataset_plot_would_render():
     assert with_z.struphy.data.trajectories(max_markers=3).sizes["marker"] == 3
 
 
-def dispersive_wave(ks=(2.0, 4.0), omega=lambda k: np.sqrt(1.0 + 3.0 * k**2), nt=300, nx=96, length=2 * np.pi):
+def dispersive_wave(
+    ks=(2.0, 4.0),
+    omega=lambda k: np.sqrt(1.0 + 3.0 * k**2),
+    nt=300,
+    nx=96,
+    length=2 * np.pi,
+):
     t = np.linspace(0.0, 60.0, nt)
     x = np.linspace(0.0, length, nx, endpoint=False)
     X, T = np.meshgrid(x, t)
@@ -446,7 +490,11 @@ def test_power_spectrum_recovers_a_known_dispersion_branch():
 
 
 def test_power_spectrum_requires_dim_for_ambiguous_arrays():
-    cube = data_array(np.ones((2, 3, 4)), ("t", "e1", "e2"), {"t": [0, 1], "e1": range(3), "e2": range(4)})
+    cube = data_array(
+        np.ones((2, 3, 4)),
+        ("t", "e1", "e2"),
+        {"t": [0, 1], "e1": range(3), "e2": range(4)},
+    )
     with pytest.raises(ValueError, match="dim is required"):
         power_spectrum(cube)
     assert set(power_spectrum(cube.isel(e2=0), dim="e1").dims) == {"omega", "k"}
@@ -462,4 +510,3 @@ def test_plot_dispersion_overlays_named_branches():
 
     spectrum = field.struphy.data.dispersion()
     assert spectrum.equals(field.struphy.analysis.dispersion())
-
