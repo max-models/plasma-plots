@@ -29,11 +29,13 @@ by `scripts/generate_docs_figures.py` -- the point of those guides is
 
 The one exception is the [A real
 simulation](https://struphy-hub.github.io/struphy-plots/guides/real-example/)
-guide, whose `real_*.png`/`real_plotly_*.json` figures come from actually
-running struphy (`scripts/generate_real_example_figures.py`), to show the
-same functions working end-to-end on genuine output. That script needs the
-full **compiled** `struphy` runtime (from the submodule, see above --
-`struphy compile -y` if you haven't).
+guide, whose `real_*.png` figures (and the full source shown on that page,
+via an Astro `?raw` import) come from actually running struphy
+(`scripts/generate_real_example_figures.py`, a real `LinearMHD` slab-waves
+run), to show the same functions working end-to-end on genuine output. That
+script needs the full **compiled** `struphy` runtime (from the submodule,
+see above -- `struphy compile -y` if you haven't); `scipy` comes along with
+it (struphy's own dependency).
 
 Figures aren't checked into git, so generate them before building or
 running the site locally:
@@ -46,22 +48,17 @@ make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```
 
-`generate_real_example_figures.py` takes a couple of minutes (it's running
-several real simulations, including a kinetic/PIC one) -- this is expected,
-not a bug.
+`generate_real_example_figures.py` takes under a minute.
 
-- Without the `pyvista` extra (or without a working display), each script
-  skips its PyVista-based figures (`volume.png`/`real_volume.png`,
-  `equilibrium_3d.png`/`real_equilibrium_3d.png`) and prints a warning --
-  but the docs pages that embed them will then fail to build, since Astro
-  needs the referenced file to exist. CI runs figure generation under
-  `xvfb-run` with Mesa's software renderer for exactly this reason (see
-  `.github/workflows/docs.yml`); do the same locally if you hit rendering
-  errors.
-- Without the `profiling` extra, `generate_docs_figures.py` skips its three
-  `profile_*.png` figures and `plotly_profile_gantt.json` the same way, and
-  `generate_real_example_figures.py` skips the `real_` equivalents (built
-  from actually profiling the kinetic run, via `sim.run(profiling_activated=True)`).
+- Without the `pyvista` extra (or without a working display), `generate_docs_figures.py`
+  skips its two PyVista-based figures (`volume.png`, `equilibrium_3d.png`) and prints a
+  warning -- but the docs pages that embed them will then fail to build, since Astro needs
+  the referenced file to exist. CI runs figure generation under `xvfb-run` with Mesa's
+  software renderer for exactly this reason (see `.github/workflows/docs.yml`); do the same
+  locally if you hit rendering errors.
+- Without the `profiling` extra, `generate_docs_figures.py` skips its three `profile_*.png`
+  figures and `plotly_profile_gantt.json` the same way (a synthetic `scope-profiler`
+  session, unrelated to the real-example script, which doesn't profile anything).
 - `plotly` exports each interactive figure's JSON, fetched client-side by
   the `<PlotlyChart>` component (`docs/src/components/PlotlyChart.astro`),
   which loads Plotly.js itself from a CDN at view time -- neither is a

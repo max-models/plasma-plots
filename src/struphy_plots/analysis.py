@@ -239,6 +239,96 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
     return out.isel(t=slice(1, None)) if skip_first else out
 
 
+@dataclass(frozen=True)
+class BranchFit:
+    """A dispersion branch fitted as ``omega = velocity * k``."""
+
+    velocity: float
+    k: np.ndarray
+    omega: np.ndarray
+
+
+def _local_maxima(column: np.ndarray, order: int) -> np.ndarray:
+    """Indices where ``column`` exceeds every one of its ``order`` neighbors on both sides.
+
+    Out-of-range neighbors are clipped to the nearest edge sample, so an edge index is never a
+    maximum unless the whole column is flat there (matching ``scipy.signal.argrelextrema``'s
+    default ``mode="clip"``).
+    """
+    n = column.size
+    index = np.arange(n)
+    is_max = np.ones(n, dtype=bool)
+    for shift in range(1, order + 1):
+        is_max &= column > column[np.clip(index - shift, 0, n - 1)]
+        is_max &= column > column[np.clip(index + shift, 0, n - 1)]
+    return np.flatnonzero(is_max)
+
+
+def fit_dispersion_branches(
+    spectrum: xr.DataArray,
+    *,
+    n_branches: int,
+    k_range: tuple[float, float] | None = None,
+    noise_level: float = 0.5,
+    order: int = 10,
+) -> list[BranchFit]:
+    """Fit ``omega = v * k`` to each of ``n_branches`` straight ridges in a (omega, k) power
+    spectrum (as returned by :func:`power_spectrum`), with no theoretical curve to guide the
+    search -- useful when several linear wave branches are excited at once and there is nothing to
+    search around yet. (For a single, possibly non-linear branch with a known theoretical curve to
+    guide the search instead, take the frequency of maximum power in a window of ``spectrum``
+    around that curve at each k, rather than this blind approach.)
+
+    Only non-negative ``omega`` and ``k`` are scanned (a real signal's spectrum is symmetric under
+    ``(k, omega) -> (-k, -omega)``, so every branch already appears on both sides of ``k = 0``). At
+    each remaining k, the local maxima of the spectrum along omega are found (see
+    :func:`_local_maxima`); a k column contributes to the fit only where it has exactly
+    ``n_branches`` maxima above ``noise_level`` times that column's own peak power, taken in
+    increasing-omega order. ``k_range`` restricts which non-negative k's are scanned (default:
+    ``(k.max() / 8, k.max() / 2)``, which in practice skips both the low-k region where branches
+    have not yet separated, and the folded Nyquist edge).
+
+    Returns one :class:`BranchFit` per branch, in increasing-omega order at the low-k end of
+    ``k_range``; ``.velocity`` is the fitted slope, ``.k``/``.omega`` the ridge points used.
+    """
+    if not {"omega", "k"} <= set(spectrum.dims):
+        raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
+    if n_branches < 1:
+        raise ValueError("n_branches must be positive")
+
+    omega_mask, k_mask = spectrum.omega.values >= 0, spectrum.k.values >= 0
+    omega, k = spectrum.omega.values[omega_mask], spectrum.k.values[k_mask]
+    power = np.asarray(spectrum.transpose("omega", "k"))[np.ix_(omega_mask, k_mask)]
+
+    if k_range is None:
+        k_range = (k.max() / 8.0, k.max() / 2.0)
+    lo, hi = k_range
+    scan = np.flatnonzero((k >= lo) & (k <= hi))
+
+    k_fit: list[float] = []
+    peaks_fit: list[list[float]] = [[] for _ in range(n_branches)]
+    for i in scan:
+        column = power[:, i]
+        maxima = _local_maxima(column, order)
+        peaks = sorted(m for m in maxima if column[m] > noise_level * column.max())
+        if len(peaks) != n_branches:
+            continue
+        k_fit.append(k[i])
+        for branch, m in zip(peaks_fit, peaks):
+            branch.append(omega[m])
+
+    if not k_fit:
+        raise ValueError(
+            f"no k in {tuple(k_range)} has exactly {n_branches} peaks above "
+            f"noise_level={noise_level}; try a different k_range, noise_level, or order"
+        )
+    k_fit = np.asarray(k_fit)
+    return [
+        BranchFit(float(np.polyfit(k_fit, np.asarray(branch), deg=1)[0]), k_fit, np.asarray(branch))
+        for branch in peaks_fit
+    ]
+
+
 def power_spectrum(
     data: xr.DataArray, *, dim: str | None = None, detrend: bool = True
 ) -> xr.DataArray:
