@@ -68,6 +68,41 @@ Export one PNG per swept step into `directory`.
 ### `trajectories(*, max_markers=200, show_paths=None, ax=None)`
 3-D marker-trajectory plot for kinetic orbit output.
 
+### PyVista 3-D views
+
+These need `pip install "struphy-plots[pyvista]"` and return a
+`pyvista.Plotter` (call `.show()` or `.screenshot(path)`). They draw the field
+on its physical `X`, `Y`, `Z` points, after selecting every dimension but
+`e1`, `e2`, `e3` (and `component`) by keyword. A 2-D field is one where a
+spatial dimension has a single point or was selected away. See the
+[3-D views guide](/struphy-plots/guides/3d-views/) for figures;
+implementations are in `struphy_plots.pyvista_plots`.
+
+#### `isosurface(*, values=5, cmap="viridis", opacity=1.0, clim=None, show_domain=True, title=None, plotter=None, **selection)`
+Contour surfaces of a scalar field: `values` levels, or a list of levels. For
+a 2-D field, contour lines over the colored plane.
+
+#### `slices_3d(*, cuts=None, cmap="viridis", clim=None, show_domain=True, title=None, plotter=None, **selection)`
+Surfaces of constant logical coordinate, drawn in physical space, e.g.
+`cuts={"e3": [0, 0.25]}` (poloidal cross-sections) or `cuts={"e1": 0.8}` (a
+flux surface). A float is the nearest coordinate, an integer an index,
+`"first"`/`"last"` an end. The default is each midplane, or for a 2-D field
+the whole plane.
+
+#### `glyphs(*, components="cartesian", stride=2, scale=None, cmap="viridis", show_domain=True, title=None, plotter=None, **selection)`
+Arrows of a `(component, e1, e2, e3)` vector field, colored by magnitude.
+`components="contravariant"` pushes logical components forward first.
+
+#### `streamlines(*, components="cartesian", n_points=100, source_radius=None, source_center=None, max_length=None, tube_radius=None, cmap="viridis", show_domain=True, title=None, plotter=None, **selection)`
+Field lines traced both ways from seeds in a sphere. For a 2-D field, seeded
+on the plane and kept on it.
+
+#### `movie(path, *, kind="slices", step=1, framerate=10, clim=None, **options)`
+One view per time step (`kind` is `"isosurface"`, `"slices"`, `"glyphs"` or
+`"streamlines"`) into a `.gif` (needs `imageio`) or video (needs
+`imageio-ffmpeg`), with shared color limits and a fixed camera. `options` go
+to the view.
+
 ## `dataset.struphy.plot` (Dataset accessor)
 
 Accessed as `dataset.struphy.plot` on any `xarray.Dataset` with per-marker
@@ -82,6 +117,22 @@ Scatter two position variables (`x`, `y`), optionally colored by a third
 (e.g. a density, weight, or Lagrangian tracer). Remaining dimensions such as
 `t` are selected by keyword, exactly like `lineout()`.
 
+### `orbit_classification(*, x="v_par", y=None, v_par="v_par", t="first", ax=None, s=8)`
+For a guiding-center orbits product (Particles5D or Particles5Dvperp): scatter
+markers in a phase-space plane, colored as passing, trapped or lost, with each
+class's count and fraction in the legend. The classification follows Struphy's
+criteria (see `classify_orbits()` in the analysis reference). `y` defaults to
+`mu`, or `v_perp` if there is no `mu`; `x="p_phi"` gives the canonical-momentum
+diagram when `p_phi` was saved. `t` selects the time plotted (default: the
+initial positions). `result.data["counts"]` holds the counts, and
+`dataset.struphy.data.orbit_classification(...)` returns the plotted data.
+
+### `orbits_3d(*, color_by="t", max_markers=200, tube_radius=None, cmap=None, domain=None, title=None, plotter=None)`
+PyVista orbit lines (or tubes) from the physical positions `x`, `y`, `z`,
+colored by `"t"`, `"classification"` (a legend of passing, trapped, lost) or
+any `(t, marker)` variable. Samples where a marker is lost are dropped.
+`domain` is a field whose boundary is drawn for context.
+
 ## Standalone functions
 
 `struphy_plots.plotting` also exposes functions that don't hang off a single
@@ -92,3 +143,28 @@ Log-log plot of an error norm against resolution or step size. With
 `order=None` (default), fits and draws the observed order via
 `struphy_plots.analysis.convergence_order`; pass an explicit `order` to draw
 a reference slope instead.
+
+### `plot_continuous_spectrum(spectrum, x, modes, *, frequencies=None, mode_label="(m, n)", xlabel="x", ax=None, title="Continuous spectrum")`
+Continuum frequencies `omega(x)` for each mode, with one color per mode and
+one line style per branch. `spectrum` is called as `spectrum(x, *mode)` and
+returns a mapping of branch name to `omega(x)`, for example Struphy's
+`MhdContinousSpectraShearedSlab` or `MhdContinousSpectraCylinder` (shear
+Alfvén and slow sound continua) with `modes=[(1, -1), (2, -1)]`.
+`frequencies` marks measured frequencies as horizontal lines, to check
+whether a mode sits in a continuum gap or crosses a continuum (where it is
+damped):
+
+```python
+from struphy.dispersion_relations.analytic import MhdContinousSpectraShearedSlab
+from struphy_plots.plotting import plot_continuous_spectrum
+
+plot_continuous_spectrum(
+    MhdContinousSpectraShearedSlab(),
+    np.linspace(0, 1, 200),
+    [(m, -1) for m in range(1, 4)],
+    frequencies={"measured": 0.12},
+)
+```
+
+`prepare_continuous_spectrum(spectrum, x, modes)` returns the evaluated
+curves as a `(mode, branch, x)` `xarray.DataArray`, without plotting them.

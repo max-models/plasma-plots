@@ -23,6 +23,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Getting started', slug: 'guides/getting-started' },
 						{ label: 'Field plots', slug: 'guides/field-plots' },
+						{ label: '3-D views', slug: 'guides/3d-views' },
 						{ label: 'Time series & comparisons', slug: 'guides/timeseries' },
 						{ label: 'Diagnostics', slug: 'guides/analysis' },
 						{ label: 'Particles & distributions', slug: 'guides/particles' },

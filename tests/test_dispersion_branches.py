@@ -5,7 +5,8 @@ import pytest
 import xarray as xr
 
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
-from struphy_plots.analysis import BranchFit, fit_dispersion_branches, power_spectrum
+from struphy_plots.analysis import (BranchFit, fit_dispersion_branches,
+                                    power_spectrum)
 
 
 def multi_branch_field(

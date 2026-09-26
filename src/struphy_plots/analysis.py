@@ -239,6 +239,48 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
     return out.isel(t=slice(1, None)) if skip_first else out
 
 
+ORBIT_CLASSES = {0: "passing", 1: "trapped", -1: "lost"}
+
+
+def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray:
+    """Classify each marker of an orbits product as passing (0), trapped (1) or lost (-1).
+
+    The same criteria as Struphy's ``post_process_orbit_classification``: a marker is trapped if
+    its parallel velocity ``v_par`` ever has the opposite sign to its initial one, and lost if at
+    any saved time every quantity is zero (how Struphy stores a marker that has left the domain).
+    Lost takes precedence over trapped. Returns a ``(marker,)`` array of integer codes; the
+    names are in ``attrs["flag_meanings"]`` and in :data:`ORBIT_CLASSES`.
+    """
+    if v_par not in orbits.data_vars:
+        raise ValueError(
+            f"orbit classification needs the parallel velocity {v_par!r}; this dataset has {tuple(orbits.data_vars)}"
+        )
+    if set(orbits[v_par].dims) != {"t", "marker"}:
+        raise ValueError(
+            f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}"
+        )
+    velocity = orbits[v_par].transpose("t", "marker")
+    trapped = (velocity * velocity.isel(t=0) < 0).any("t")
+    all_zero = velocity == 0
+    for name in orbits.data_vars:
+        if set(orbits[name].dims) == {"t", "marker"}:
+            all_zero = all_zero & (orbits[name] == 0)
+    lost = all_zero.any("t")
+    codes = xr.where(lost, -1, xr.where(trapped, 1, 0)).astype(int)
+    codes.name = "classification"
+    codes.attrs = {
+        **{
+            key: value
+            for key, value in orbits.attrs.items()
+            if key in ("run", "run_name")
+        },
+        "label": "orbit classification",
+        "flag_values": list(ORBIT_CLASSES),
+        "flag_meanings": " ".join(ORBIT_CLASSES.values()),
+    }
+    return codes
+
+
 @dataclass(frozen=True)
 class BranchFit:
     """A dispersion branch fitted as ``omega = velocity * k``."""
@@ -292,7 +334,9 @@ def fit_dispersion_branches(
     ``k_range``; ``.velocity`` is the fitted slope, ``.k``/``.omega`` the ridge points used.
     """
     if not {"omega", "k"} <= set(spectrum.dims):
-        raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
+        raise ValueError(
+            f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}"
+        )
     if n_branches < 1:
         raise ValueError("n_branches must be positive")
 
@@ -324,7 +368,11 @@ def fit_dispersion_branches(
         )
     k_fit = np.asarray(k_fit)
     return [
-        BranchFit(float(np.polyfit(k_fit, np.asarray(branch), deg=1)[0]), k_fit, np.asarray(branch))
+        BranchFit(
+            float(np.polyfit(k_fit, np.asarray(branch), deg=1)[0]),
+            k_fit,
+            np.asarray(branch),
+        )
         for branch in peaks_fit
     ]
 

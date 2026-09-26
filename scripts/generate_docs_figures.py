@@ -32,12 +32,8 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import (
-    PlotResult,
-    plot_convergence,
-    plot_dispersion,
-    plot_scalars,
-)
+from struphy_plots.plotting import (PlotResult, plot_convergence,
+                                    plot_dispersion, plot_scalars)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -584,7 +580,8 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 try:
     import pyvista as pv
 
-    from struphy_plots.plotting import plot_equilibrium_profile, show_equilibrium
+    from struphy_plots.plotting import (plot_equilibrium_profile,
+                                        show_equilibrium)
 
     pv.OFF_SCREEN = True
 
@@ -633,6 +630,152 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(
         f"skipped equilibrium figures (PyVista unavailable or headless rendering failed): {exc}"
     )
+
+
+# =============================================================================
+# 3-D views (optional PyVista): struphy_plots.pyvista_plots
+#
+# A synthetic torus (the same X/Y/Z-coordinate layout every Struphy field product
+# has) with a helical m=3, n=2 mode and a tokamak-like magnetic field; then a 2-D
+# run, i.e. a cylinder cross-section whose e3 direction has a single point.
+# =============================================================================
+try:
+    import pyvista as pv
+
+    from struphy_plots import pyvista_plots as p3
+
+    pv.OFF_SCREEN = True
+
+    def shot(plotter, filename, *, iso=True, zoom=1.0):
+        if iso:
+            plotter.camera_position = "iso"
+            plotter.reset_camera()
+        plotter.camera.zoom(zoom)
+        plotter.screenshot(str(OUT / filename), window_size=[1000, 700])
+        plotter.close()
+        print(f"wrote {OUT / filename}")
+
+    def torus_mapping(e1, e2, e3, squeeze_out=False):
+        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+        r, theta, phi_ = 0.1 + 0.9 * E1, 2 * np.pi * E2, 2 * np.pi * E3
+        return (
+            (3.0 + r * np.cos(theta)) * np.cos(phi_),
+            (3.0 + r * np.cos(theta)) * np.sin(phi_),
+            r * np.sin(theta),
+        )
+
+    t1, t2, t3 = np.linspace(0, 1, 32), np.linspace(0, 1, 64), np.linspace(0, 1, 96)
+    TX, TY, TZ = torus_mapping(t1, t2, t3)
+    torus = {
+        "e1": t1, "e2": t2, "e3": t3,
+        **{n: (("e1", "e2", "e3"), c) for n, c in zip("XYZ", (TX, TY, TZ))},
+    }
+    TR = 0.1 + 0.9 * t1[:, None, None]
+    TTH, TPH = 2 * np.pi * t2[None, :, None], 2 * np.pi * t3[None, None, :]
+    t_mode = np.linspace(0.0, 1.0, 16, endpoint=False)
+    mode = xr.DataArray(
+        np.stack(
+            [np.sin(np.pi * TR) ** 2 * np.cos(3 * TTH - 2 * TPH - 2 * np.pi * ti) + 0 * TX for ti in t_mode]
+        ),
+        dims=("t", "e1", "e2", "e3"),
+        coords={"t": t_mode, **torus},
+        name="phi",
+        attrs={"label": "phi"},
+    )
+    shot(mode.struphy.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0), "3d_isosurface.png", zoom=1.3)
+    shot(
+        mode.struphy.plot.slices_3d(cuts={"e3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0),
+        "3d_slices.png",
+        zoom=1.3,
+    )
+    shot(mode.struphy.plot.slices_3d(cuts={"e1": 0.5}, cmap="RdBu_r", t=0), "3d_flux_surface.png", zoom=1.3)
+
+    TRR = np.hypot(TX, TY)
+    e_phi = np.stack([-TY / TRR, TX / TRR, 0 * TRR])
+    e_theta = np.stack([-np.sin(TTH) * TX / TRR, -np.sin(TTH) * TY / TRR, np.cos(TTH) + 0 * TX])
+    b_field = xr.DataArray(
+        3.0 / TRR * e_phi + 3.0 * TR / ((1.2 + TR**2) * TRR) * e_theta,
+        dims=("component", "e1", "e2", "e3"),
+        coords={"component": [0, 1, 2], **torus},
+        name="b_field",
+        attrs={"label": "B"},
+    )
+    shot(
+        b_field.struphy.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35),
+        "3d_streamlines.png",
+        zoom=1.3,
+    )
+    shot(b_field.isel(e1=[24]).struphy.plot.glyphs(stride=3, scale=0.5), "3d_glyphs.png", zoom=1.3)
+    def solid_torus(e1, e2, e3, squeeze_out=False):
+        """A torus with a polar axis at e1 = 0, as in most tokamak runs."""
+        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+        theta, phi_ = 2 * np.pi * E2, 2 * np.pi * E3
+        return (3.0 + E1 * np.cos(theta)) * np.cos(phi_), (3.0 + E1 * np.cos(theta)) * np.sin(phi_), E1 * np.sin(theta)
+
+    shot(p3.pyvista_domain(solid_torus, n1=6, n2=24, n3=36), "3d_domain.png", zoom=1.3)
+
+    # guiding-center-like orbits: passing markers circle the torus, trapped ones bounce
+    rng3 = np.random.default_rng(3)
+    n_orb, t_orb = 40, np.linspace(0, 40, 240)[:, None]
+    r0, th0, ph0 = rng3.uniform(0.2, 0.8, n_orb), rng3.uniform(0, 2 * np.pi, n_orb), rng3.uniform(0, 2 * np.pi, n_orb)
+    trapped3 = rng3.random(n_orb) < 0.4
+    bounce = 0.25 * t_orb + th0
+    v_par3 = np.where(trapped3, np.cos(bounce), 1.0 + 0 * t_orb)
+    path = np.where(trapped3, 1.2 * np.sin(bounce), 0.35 * t_orb)
+    th_o, ph_o = th0 + 0.5 * path, ph0 + path
+    R_o = 3.0 + r0 * np.cos(th_o)
+    xo3, yo3, zo3 = R_o * np.cos(ph_o), R_o * np.sin(ph_o), r0 * np.sin(th_o)
+    for arr in (xo3, yo3, zo3, v_par3):
+        arr[150:, :2] = 0.0  # two markers leave the domain
+    orbits3 = xr.Dataset(
+        {n: (("t", "marker"), a) for n, a in zip(("x", "y", "z", "v_par"), (xo3, yo3, zo3, v_par3))},
+        coords={"t": t_orb[:, 0], "marker": np.arange(n_orb)},
+    )
+    shot(
+        orbits3.struphy.plot.orbits_3d(color_by="classification", domain=mode.isel(t=0), tube_radius=0.015),
+        "3d_orbits.png",
+        zoom=1.3,
+    )
+
+    # A 2-D run: a cylinder cross-section, e3 has one point, the plane is z = 0
+    c1, c2, c3 = np.linspace(0, 1, 48), np.linspace(0, 1, 96), np.array([0.0])
+    C1, C2, _ = np.meshgrid(c1, c2, c3, indexing="ij")
+    CR, CTH = 0.05 + 0.95 * C1, 2 * np.pi * C2
+    CX, CY = CR * np.cos(CTH), CR * np.sin(CTH)
+    cyl = {
+        "e1": c1, "e2": c2, "e3": c3,
+        **{n: (("e1", "e2", "e3"), c) for n, c in zip("XYZ", (CX, CY, 0 * CX))},
+    }
+    t_2d = np.linspace(0.0, 1.0, 16, endpoint=False)
+    phi_2d = xr.DataArray(
+        np.stack([np.sin(np.pi * CR) * np.cos(3 * CTH - 2 * np.pi * ti) for ti in t_2d]),
+        dims=("t", "e1", "e2", "e3"),
+        coords={"t": t_2d, **cyl},
+        name="phi",
+        attrs={"label": "phi"},
+    )
+    shot(phi_2d.struphy.plot.isosurface(values=7, cmap="RdBu_r", t=0), "2d_isosurface.png", iso=False)
+    flow_2d = xr.DataArray(
+        np.stack([-CY * np.exp(-2 * CR**2), CX * np.exp(-2 * CR**2), 0 * CX])
+        + 0.15 * np.stack([np.cos(3 * CTH), np.sin(3 * CTH), 0 * CX]) * np.sin(np.pi * CR),
+        dims=("component", "e1", "e2", "e3"),
+        coords={"component": [0, 1, 2], **cyl},
+        name="u",
+        attrs={"label": "u"},
+    )
+    shot(flow_2d.struphy.plot.streamlines(n_points=80), "2d_streamlines.png", iso=False)
+
+    # GIFs go to public/ so Astro keeps them animated (see PUBLIC_OUT above)
+    for movie_data, kind, options, filename in (
+        (mode, "slices", {"cuts": {"e3": [0.0, 0.25, 0.5, 0.75]}, "cmap": "RdBu_r"}, "3d_slices.gif"),
+        (phi_2d, "isosurface", {"values": 7, "cmap": "RdBu_r"}, "2d_isosurface.gif"),
+    ):
+        path = movie_data.struphy.plot.movie(
+            PUBLIC_OUT / filename, kind=kind, framerate=8, window_size=(800, 560), **options
+        )
+        print(f"wrote {path}")
+except Exception as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped 3-D view figures (PyVista unavailable or headless rendering failed): {exc}")
 
 
 # =============================================================================

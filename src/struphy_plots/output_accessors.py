@@ -16,69 +16,6 @@ if TYPE_CHECKING:
     from struphy.post_processing.output import Output
 
 
-class OutputPlots:
-    """Plots of a whole run, constructed as ``OutputPlots(out)``.
-
-    They return plotting-library objects with ``.show()``
-    and ``.save(path)``, titled with the run's numerical parameters. Plots of one product are
-    methods of that product, e.g. ``out.kinetic_ions.orbits.struphy.plot.trajectories()``.
-    """
-
-    def __init__(self, output: "Output"):
-        self._output = output
-
-    def __call__(self, *args, **kwargs):
-        """The quick default plot: an overview of every scalar time series."""
-        return self.scalars(*args, **kwargs)
-
-    def scalars(
-        self, names=None, *, relative_to: str | None = None, logy: bool = False
-    ):
-        """Overview of the scalar time series in one axes.
-
-        Parameters
-        ----------
-        names:
-            Scalars to show; all by default.
-        relative_to:
-            Show every scalar divided by this one.
-        logy:
-            Logarithmic value axis.
-        """
-        from .plotting import plot_scalars
-
-        return plot_scalars(
-            self._output.scalars,
-            names=names,
-            relative_to=relative_to,
-            logy=logy,
-            run_label=self._output.label,
-        )
-
-    def equilibrium(self, ax=None):
-        """Radial profiles of this run's fluid equilibrium (``out.equil``, ``out.domain``)."""
-        from .plotting import plot_equilibrium_profile
-
-        return plot_equilibrium_profile(self._output.equil, self._output.domain, ax=ax)
-
-    def equilibrium_3d(self, *, scalars: str = "p0", cmap="viridis"):
-        """Create a PyVista equilibrium view; call ``.show()`` on the returned plotter."""
-        from .plotting import show_equilibrium
-
-        return show_equilibrium(
-            self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
-        )
-
-    @property
-    def profile(self) -> "ProfilePlots":
-        """Plots of this run's timing regions, e.g. ``out.struphy.plot.profile.gantt()``.
-
-        Needs the optional ``scope-profiler`` extra (``pip install "struphy-plots[profiling]"``)
-        and a run recorded with ``sim.run(profiling_activated=True)``.
-        """
-        return ProfilePlots(self._output)
-
-
 class ProfilePlots:
     """Plots of one run's timing regions (``out.profile.results``), as
     ``out.struphy.plot.profile.<kind>(...)``.
@@ -125,6 +62,77 @@ class ProfilePlots:
             verbose=verbose,
             **kwargs,
         )
+
+
+class OutputPlots:
+    """Plots of a whole run, constructed as ``OutputPlots(out)``.
+
+    They return plotting-library objects with ``.show()``
+    and ``.save(path)``, titled with the run's numerical parameters. Plots of one product are
+    methods of that product, e.g. ``out.kinetic_ions.orbits.struphy.plot.trajectories()``.
+    """
+
+    def __init__(self, output: "Output"):
+        self._output = output
+
+    def scalars(
+        self, names=None, *, relative_to: str | None = None, logy: bool = False
+    ):
+        """Overview of the scalar time series in one axes.
+
+        Parameters
+        ----------
+        names:
+            Scalars to show; all by default.
+        relative_to:
+            Show every scalar divided by this one.
+        logy:
+            Logarithmic value axis.
+        """
+        from .plotting import plot_scalars
+
+        return plot_scalars(
+            self._output.scalars,
+            names=names,
+            relative_to=relative_to,
+            logy=logy,
+            run_label=self._output.label,
+        )
+
+    def equilibrium(self, ax=None):
+        """Radial profiles of this run's fluid equilibrium (``out.equil``, ``out.domain``)."""
+        from .plotting import plot_equilibrium_profile
+
+        return plot_equilibrium_profile(self._output.equil, self._output.domain, ax=ax)
+
+    def equilibrium_3d(self, *, scalars: str = "p0", cmap="viridis"):
+        """Create a PyVista equilibrium view; call ``.show()`` on the returned plotter."""
+        from .plotting import show_equilibrium
+
+        return show_equilibrium(
+            self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
+        )
+
+    def domain_3d(
+        self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True
+    ):
+        """A PyVista wireframe of this run's mapping (``out.domain``); call ``.show()`` on it."""
+        from .pyvista_plots import pyvista_domain
+
+        return pyvista_domain(self._output.domain, n1=n1, n2=n2, n3=n3, surface=surface)
+
+    @property
+    def profile(self) -> "ProfilePlots":
+        """Plots of this run's timing regions, e.g. ``out.struphy.plot.profile.gantt()``.
+
+        Needs the optional ``scope-profiler`` extra (``pip install "struphy-plots[profiling]"``)
+        and a run recorded with ``sim.run(profiling_activated=True)``.
+        """
+        return ProfilePlots(self._output)
+
+    def __call__(self, *args, **kwargs):
+        """The quick default plot: an overview of every scalar time series."""
+        return self.scalars(*args, **kwargs)
 
 
 def _register_output_plot_property():
