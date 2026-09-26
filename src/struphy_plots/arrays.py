@@ -32,16 +32,12 @@ DIM_LABELS = {
 SCALARS_EXCLUDE = ("time",)
 
 
-def validate_array(
-    data: xr.DataArray, *, required_dims: Sequence[str] = ()
-) -> xr.DataArray:
+def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> xr.DataArray:
     if not isinstance(data, xr.DataArray):
         raise TypeError(f"expected xarray.DataArray, got {type(data).__name__}")
     missing = tuple(dim for dim in required_dims if dim not in data.dims)
     if missing:
-        raise ValueError(
-            f"missing dimensions {missing}; available dimensions are {data.dims}"
-        )
+        raise ValueError(f"missing dimensions {missing}; available dimensions are {data.dims}")
     return data
 
 
@@ -49,9 +45,7 @@ def axis_label(data: xr.DataArray, dim: str) -> str:
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")
     coord = data.coords.get(dim)
-    label = (
-        "" if coord is None else coord.attrs.get("long_name", "")
-    ) or DIM_LABELS.get(dim, dim)
+    label = ("" if coord is None else coord.attrs.get("long_name", "")) or DIM_LABELS.get(dim, dim)
     unit = "" if coord is None else coord.attrs.get("units", "")
     return f"{label} [{unit}]" if unit else label
 
@@ -62,12 +56,8 @@ def value_label(data: xr.DataArray) -> str:
     return f"{label} [{unit}]" if label else f"[{unit}]"
 
 
-def scalar_names(
-    scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE
-) -> list[str]:
-    available = tuple(
-        scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys()
-    )
+def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE) -> list[str]:
+    available = tuple(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys())
     if names is not None:
         missing = [name for name in names if name not in available]
         if missing:
@@ -89,9 +79,7 @@ def save_scalars(
     for array in arrays:
         validate_array(array, required_dims=("t",))
         if array.dims != ("t",):
-            raise ValueError(
-                f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}"
-            )
+            raise ValueError(f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}")
     if arrays:
         arrays = xr.align(*arrays, join="exact")
         time = np.asarray(arrays[0].coords["t"])
@@ -100,9 +88,7 @@ def save_scalars(
         time, values = np.zeros(0), np.zeros((0, 0))
     fmt = (fmt or os.path.splitext(path)[1].lstrip(".") or "csv").lower()
     if fmt == "npz":
-        np.savez(
-            path, t=time, **{name: values[:, i] for i, name in enumerate(selected)}
-        )
+        np.savez(path, t=time, **{name: values[:, i] for i, name in enumerate(selected)})
     elif fmt == "csv":
         np.savetxt(
             path,

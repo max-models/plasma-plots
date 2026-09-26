@@ -31,9 +31,7 @@ class OutputPlots:
         """The quick default plot: an overview of every scalar time series."""
         return self.scalars(*args, **kwargs)
 
-    def scalars(
-        self, names=None, *, relative_to: str | None = None, logy: bool = False
-    ):
+    def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Overview of the scalar time series in one axes.
 
         Parameters
@@ -65,9 +63,7 @@ class OutputPlots:
         """Create a PyVista equilibrium view; call ``.show()`` on the returned plotter."""
         from .plotting import show_equilibrium
 
-        return show_equilibrium(
-            self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
-        )
+        return show_equilibrium(self._output.equil, self._output.domain, scalars=scalars, cmap=cmap)
 
     def domain_3d(self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True):
         """A PyVista wireframe of this run's mapping (``out.domain``); call ``.show()`` on it."""
