@@ -31,12 +31,14 @@ You don't need to keep a reference to `struphy_plots` around — the import
 alone is enough to enable `.struphy` on any array produced by Struphy's
 `Output` object.
 
-## Two entry points
+## Where to look next
 
-- **`array.struphy.plot`** — plotting methods for a single labeled array (see
-  [Plotting](/struphy-plots/guides/plotting/)).
+- **`array.struphy.plot`** — plotting methods for a single labeled array:
+  [Field plots](/struphy-plots/guides/field-plots/),
+  [Time series & comparisons](/struphy-plots/guides/timeseries/), and
+  [Particles & distributions](/struphy-plots/guides/particles/).
 - **`array.struphy.analysis`** — numerical diagnostics on a single labeled
-  array (see [Analysis](/struphy-plots/guides/analysis/)).
+  array (see [Diagnostics](/struphy-plots/guides/analysis/)).
 - **`struphy_plots.output_accessors.OutputPlots`** — overview plots for a
   whole simulation run (see [Whole-run plots](/struphy-plots/guides/output-plots/)).
 

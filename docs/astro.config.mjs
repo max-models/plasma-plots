@@ -18,8 +18,10 @@ export default defineConfig({
 					label: 'Guides',
 					items: [
 						{ label: 'Getting started', slug: 'guides/getting-started' },
-						{ label: 'Plotting', slug: 'guides/plotting' },
-						{ label: 'Analysis', slug: 'guides/analysis' },
+						{ label: 'Field plots', slug: 'guides/field-plots' },
+						{ label: 'Time series & comparisons', slug: 'guides/timeseries' },
+						{ label: 'Diagnostics', slug: 'guides/analysis' },
+						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 					],
 				},

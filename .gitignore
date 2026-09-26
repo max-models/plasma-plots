@@ -17,6 +17,7 @@ docs/.astro/
 
 # Generated docs figures (built by `make figures` / CI, not checked in)
 docs/src/assets/figures/
+docs/public/figures/
 
 # Editors / OS
 .DS_Store
