@@ -11,7 +11,8 @@ Overview of recorded scalar time series. `names` restricts to a subset;
 `relative_to` normalizes each series against a reference (e.g. `"initial"`).
 
 ### `equilibrium(ax=None)`
-Radial equilibrium profiles read from the run's `geometry.vts`.
+Radial profiles of the run's fluid equilibrium (`out.equil`, `out.domain`):
+`p0`, and `n0`/`T0 = p0/n0` if the equilibrium has a density profile.
 
 ### `equilibrium_3d(*, scalars="p0", cmap="viridis")`
 Interactive 3-D equilibrium view via PyVista. Requires

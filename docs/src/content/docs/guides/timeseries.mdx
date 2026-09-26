@@ -43,7 +43,7 @@ energy.struphy.plot.timeseries(other_run_energy, logy=True)
 Passing further arrays plots them together; if they come from different runs
 (different `attrs["run_name"]`), each line is labeled by its run.
 
-## Comparing two runs directly
+## Comparing two series directly
 
 ```python
 field.struphy.plot.compare(reference_field, mode="difference")
@@ -51,11 +51,13 @@ field.struphy.plot.compare(reference_field, mode="ratio")
 ```
 
 Aligns the two arrays and plots their difference or ratio as a 1-D lineout —
-useful for a convergence study or comparing a run against a reference.
+useful for comparing two runs, or (as below) two different quantities from
+the same run: a real Maxwell run's electric vs. magnetic energy, which
+exchange back and forth as the wave oscillates:
 
-![Difference of a diagnostic between two runs](../../../assets/figures/compare_difference.png)
+![Difference between a real run's electric and magnetic energy](../../../assets/figures/compare_difference.png)
 
-![Ratio of a diagnostic between two runs](../../../assets/figures/compare_ratio.png)
+![Ratio of a real run's electric to magnetic energy](../../../assets/figures/compare_ratio.png)
 
 :::tip[Plot it with Plotly instead]
 `.data.compare(...)` returns the aligned difference/ratio as a plain 1-D

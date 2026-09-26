@@ -24,8 +24,9 @@ out.struphy.plot.equilibrium_3d(scalars="p0", cmap="viridis")
 
   ![Overview of every scalar time series in one run](../../../assets/figures/scalars.png)
 
-- **`equilibrium(ax=None)`** — radial equilibrium profiles read from the
-  run's `geometry.vts`.
+- **`equilibrium(ax=None)`** — radial profiles of the run's fluid
+  equilibrium (`out.equil`, `out.domain`): pressure, and density/temperature
+  if the equilibrium has a density profile too.
 
   ![Radial equilibrium profiles: pressure, density, temperature](../../../assets/figures/equilibrium.png)
 

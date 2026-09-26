@@ -21,8 +21,11 @@ rate, amplitude = energy.struphy.analysis.damping_rate()
 exponential to the signal's **envelope** first (`analysis.envelope()`), which
 is what you want for an oscillating-and-decaying signal such as the field
 energy in Landau damping — fitting the raw oscillation would give nonsense.
+Below, a bump-on-tail instability's electric field probe saturates and then
+partly relaxes (a real, if noisier and burstier, PIC signal); `damping_rate`
+fits the decay of its envelope over that relaxation window:
 
-![Damping rate fitted to the envelope of an oscillating, decaying signal](../../../assets/figures/damping.png)
+![Damping rate fitted to the envelope of a real, saturating-and-relaxing PIC signal](../../../assets/figures/damping.png)
 
 ## Norm
 
@@ -64,9 +67,12 @@ plot_convergence(resolutions, errors)           # or fit the observed order
 `resolutions`/`errors` are usually your own arrays from a resolution or `dt`
 scan), plotted log-log. Give it an explicit `order` to draw a reference
 slope (e.g. `2` for an expected second-order scheme), or leave it to fit and
-report the observed order via `struphy_plots.analysis.convergence_order`:
+report the observed order via `struphy_plots.analysis.convergence_order`.
+Below, a real Maxwell run's initial condition (a single field mode) is
+projected onto increasingly fine grids and compared against its exact
+analytic profile — struphy's FEEC projection converging as expected:
 
-![Two schemes' error decaying with resolution, each with a fitted order](../../../assets/figures/convergence.png)
+![A real FEEC projection error decaying with resolution, with a fitted order](../../../assets/figures/convergence.png)
 
 ## Distribution moments and spatial averaging
 
@@ -87,9 +93,12 @@ time along one spatial direction. `dim` defaults to the sole dimension other
 than `t`; select every other dimension away first (e.g. `component`, `e2`,
 `e3`). `branches` optionally overlays named theoretical curves — a mapping
 of label to a callable `omega(k)`, or an explicit `(k, omega)` pair — to
-compare the measured ridge against theory:
+compare the measured ridge against theory. Below, the real electric field
+from the bump-on-tail run: the measured ridge tracks the Bohm-Gross relation
+closely, though not exactly, since that reference assumes a single
+Maxwellian and this run has two (a background plus a beam):
 
-![A dispersion relation recovered from a space-time FFT, with the Bohm-Gross branch overlaid](../../../assets/figures/dispersion.png)
+![A dispersion relation recovered from a real run's electric field, with the approximate Bohm-Gross branch overlaid](../../../assets/figures/dispersion.png)
 
 A dispersion relation's power spans many orders of magnitude (the ridge
 against an otherwise near-empty plane), so `.plot.dispersion(...)` defaults

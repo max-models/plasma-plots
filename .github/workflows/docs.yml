@@ -26,6 +26,20 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      # Every docs figure comes from a real struphy simulation (see
+      # scripts/generate_docs_figures.py), so the full compiled struphy
+      # runtime is required here, not just struphy-plots. It has compiled
+      # dependencies (pyccel/mpi4py), hence the system packages below.
+      - name: Install struphy system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gfortran gcc g++ \
+            liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
+            libnetcdf-dev libnetcdff-dev cmake
+
+      - name: Install struphy (postprocessing branch)
+        run: pip install "struphy @ git+https://github.com/struphy-hub/struphy.git@postprocessing"
+
       - name: Install struphy-plots (with PyVista and profiling)
         run: pip install -e ".[pyvista,profiling]"
 
@@ -40,7 +54,6 @@ jobs:
       # software OpenGL/EGL implementation.
       - name: Install headless rendering dependencies
         run: |
-          sudo apt-get update -y
           sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
 
       - name: Generate example figures

@@ -95,9 +95,10 @@ Scatters two position-like variables from any per-marker Dataset (not just
 an orbits product — any Dataset with a `marker` dimension), optionally
 colored by a third variable such as a density, weight, or a Lagrangian
 tracer a particle carries. Useful for checking a marker loading scheme, or
-visualizing an SPH particle cloud:
+visualizing an SPH particle cloud. Here it's a snapshot of the same
+bump-on-tail run's markers, position against velocity, colored by weight:
 
-![An expanding particle cloud, colored by a density-like tracer](../../../assets/figures/marker_scatter.png)
+![A snapshot of bump-on-tail markers, colored by their PIC weight](../../../assets/figures/marker_scatter.png)
 
 :::tip[Plot it with Plotly instead]
 `.data.scatter(...)` returns the selected `xarray.Dataset`; `.to_dataframe()`
@@ -123,9 +124,11 @@ Draws this field's 2-D slice with marker paths from an orbits-like Dataset
 overlaid — a Poincare-style diagnostic for checking particle confinement or
 orbit topology against a background field (e.g. `|B|` or a flux function in
 a poloidal cross-section). `orbits` needs position variables named `x` and
-`y` too, matching the field's chosen axes:
+`y` too, matching the field's chosen axes. It doesn't have to be physical
+space, either: here it's the bump-on-tail markers' own trajectories in
+`(e1, v1)` phase space, over the real phase-space density they came from:
 
-![Confined orbits at different radii overlaid on a potential well](../../../assets/figures/orbit_overlay.png)
+![Real marker trajectories over the phase-space density they were binned from](../../../assets/figures/orbit_overlay.png)
 
 :::tip[Plot it with Plotly instead]
 `.data.overlay_orbits(...)` returns a `(field_slice, orbit_subset)` tuple —

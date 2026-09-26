@@ -447,15 +447,27 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     return plotter
 
 
-def show_equilibrium(path_out, *, scalars: str = "p0", cmap="viridis"):
-    """Create a PyVista view of ``geometry.vts`` and its equilibrium scalar field."""
+def show_equilibrium(equil, domain, *, scalars: str = "p0", cmap="viridis", n1=40, n2=48, n3=10, clip=True):
+    """A PyVista cutaway view of a fluid equilibrium's scalar field over its domain.
+
+    ``equil`` is a :class:`~struphy.fields_background.base.FluidEquilibrium` (e.g. from
+    ``out.equil``) and ``domain`` its mapping (``out.domain``); ``scalars`` names one of
+    ``equil``'s profile methods (``"p0"``, ``"n0"``, ...). ``clip`` cuts away half the domain
+    (normal to the physical X axis) to reveal the profile's interior, since the outer surface
+    alone is often close to uniform (e.g. the plasma edge).
+    """
     import pyvista as pv
 
-    grid = pv.read(str(Path(path_out) / "geometry.vts"))
-    if scalars not in grid.point_data:
-        raise KeyError(f"{scalars!r} is not available; choices: {tuple(grid.point_data)}")
+    e1 = np.linspace(0.0, 1.0, n1)
+    e2 = np.linspace(0.0, 1.0, n2)
+    e3 = np.linspace(0.0, 1.0, n3)
+    x, y, z = domain(e1, e2, e3, squeeze_out=False)
+    values = np.asarray(getattr(equil, scalars)(e1, e2, e3), dtype=float)
+    grid = pv.StructuredGrid(np.asarray(x, dtype=float), np.asarray(y, dtype=float), np.asarray(z, dtype=float))
+    grid.point_data[scalars] = values.ravel(order="F")
+    mesh = grid.clip(normal="x", origin=grid.center) if clip else grid
     plotter = pv.Plotter()
-    plotter.add_mesh(grid, scalars=scalars, cmap=cmap, show_edges=False)
+    plotter.add_mesh(mesh, scalars=scalars, cmap=cmap, show_edges=False)
     plotter.show_axes()
     return plotter
 
@@ -1092,21 +1104,25 @@ def plot_field_with_orbits(
     return result
 
 
-def plot_equilibrium_profile(path_out, *, ax=None):
-    """Plot radial equilibrium profiles from ``geometry.vts``."""
-    import pyvista as pv
+def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):
+    """Plot radial profiles of a fluid equilibrium along ``e1`` (at ``e2 = e3 = 0``).
 
-    equilibrium = pv.read(str(Path(path_out) / "geometry.vts"))
-    shape = equilibrium.dimensions
-    grid = np.reshape(equilibrium.points, shape + (3,))
-    radius = np.sqrt(grid[..., 0] ** 2 + grid[..., 1] ** 2)
-    pressure = np.reshape(equilibrium.point_data["p0"], shape)
+    ``equil`` is a :class:`~struphy.fields_background.base.FluidEquilibrium` (e.g. from
+    ``out.equil``) and ``domain`` its mapping (``out.domain``). Plots ``p0``, and ``n0`` and
+    ``T0 = p0 / n0`` if ``equil`` has a density profile too.
+    """
+    e1 = np.linspace(0.0, 1.0, n_points)
+    e2 = e3 = np.zeros(1)
+    x, y, _z = (np.asarray(c).ravel() for c in domain(e1, e2, e3, squeeze_out=False))
+    radius = np.sqrt(x**2 + y**2)
+    pressure = np.asarray(equil.p0(e1, e2, e3), dtype=float).ravel()
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-    ax.plot(radius[0, 0], pressure[0, 0], label=r"$p_0$")
-    if "n0" in equilibrium.point_data:
-        density = np.reshape(equilibrium.point_data["n0"], shape)
-        ax.plot(radius[0, 0], density[0, 0], label=r"$n_0$")
-        ax.plot(radius[0, 0], pressure[0, 0] / density[0, 0], label=r"$T_0$")
+    ax.plot(radius, pressure, label=r"$p_0$")
+    if hasattr(equil, "n0"):
+        density = np.asarray(equil.n0(e1, e2, e3), dtype=float).ravel()
+        ax.plot(radius, density, label=r"$n_0$")
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ax.plot(radius, pressure / density, label=r"$T_0$")
     ax.set(xlabel=r"$R$", title="Radial equilibrium profiles")
     ax.legend()
     return PlotResult(fig, ax, list(ax.lines))

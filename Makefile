@@ -7,11 +7,12 @@ test:
 	pytest
 
 lint:
-	ruff check src tests
+	ruff check src tests scripts
 
-# Renders docs/src/assets/figures/*.png from struphy_plots itself (synthetic
-# data, no struphy runtime needed). Not checked into git -- run this before
-# building the docs site.
+# Runs real struphy simulations and renders docs/src/assets/figures/*.png from
+# their output (needs the full compiled struphy runtime, not just
+# struphy-plots -- see CONTRIBUTING.md). Not checked into git -- run this
+# before building the docs site. Takes a couple of minutes.
 figures:
 	python3 scripts/generate_docs_figures.py
 
