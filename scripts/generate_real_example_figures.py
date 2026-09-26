@@ -73,8 +73,12 @@ def run_simulation() -> Output:
         model=model,
         env=EnvironmentOptions(sim_folder="mhd_slab_waves"),
         time_opts=Time(dt=0.15, Tend=180.0),
-        domain=domains.Cuboid(r3=60.0),
-        grid=grids.TensorProductGrid(num_elements=(1, 1, 64)),
+        # r3 and num_elements are scaled up together (x4) from the original 60.0/64: the FFT's k
+        # spacing is set by the domain length alone (dk = 2*pi/r3), so a longer domain sharpens
+        # the dispersion plot's k-axis, while scaling num_elements along with it keeps the same
+        # element size and thus the same k_max (Nyquist) as before.
+        domain=domains.Cuboid(r3=240.0),
+        grid=grids.TensorProductGrid(num_elements=(1, 1, 256)),
         derham_opts=DerhamOptions(degree=(1, 1, 3)),
         equil=equil,
     )
@@ -107,18 +111,25 @@ def pproc(out: Output):
     kmax, omega_max = 0.5, 1.3 * exact_speeds["fast magnetosonic"] * 0.5
 
     velocity_path = OUT / "real_dispersion_velocity.png"
-    velocity.struphy.plot.dispersion(
+    velocity_result = velocity.struphy.plot.dispersion(
         branches={
             "shear Alfven (exact)": lambda k: exact_speeds["shear Alfven"] * k,
             "shear Alfven (measured)": lambda k: measured_alfven * k,
         },
         kmax=kmax,
         omega_max=omega_max,
-    ).save(velocity_path, close=True)
+    )
+    # The plotted spectrum only ever has omega >= 0; without this, the branch lines' negative-k,
+    # negative-omega tails would pull the y-axis down into an empty strip below omega = 0. k < 0
+    # is real data, but by (k, omega) -> (-k, -omega) symmetry it just mirrors k > 0, so it's
+    # cropped away too rather than showing the same branches twice.
+    velocity_result.ax.set_ylim(bottom=0)
+    velocity_result.ax.set_xlim(left=0)
+    velocity_result.save(velocity_path, close=True)
     print(f"wrote {velocity_path}")
 
     pressure_path = OUT / "real_dispersion_pressure.png"
-    pressure.struphy.plot.dispersion(
+    pressure_result = pressure.struphy.plot.dispersion(
         branches={
             "slow (exact)": lambda k: exact_speeds["slow magnetosonic"] * k,
             "slow (measured)": lambda k: measured_slow * k,
@@ -127,7 +138,10 @@ def pproc(out: Output):
         },
         kmax=kmax,
         omega_max=omega_max,
-    ).save(pressure_path, close=True)
+    )
+    pressure_result.ax.set_ylim(bottom=0)
+    pressure_result.ax.set_xlim(left=0)
+    pressure_result.save(pressure_path, close=True)
     print(f"wrote {pressure_path}")
 
 if __name__ == "__main__":
