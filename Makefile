@@ -9,12 +9,13 @@ test:
 lint:
 	ruff check src tests scripts
 
-# Runs real struphy simulations and renders docs/src/assets/figures/*.png from
-# their output (needs the full compiled struphy runtime, not just
-# struphy-plots -- see CONTRIBUTING.md). Not checked into git -- run this
-# before building the docs site. Takes a couple of minutes.
+# Renders docs/src/assets/figures/*.png (synthetic data, fast) and
+# docs/src/assets/figures/real_*.png (a real struphy simulation, needs the
+# full compiled struphy runtime -- see CONTRIBUTING.md). Not checked into
+# git -- run this before building the docs site.
 figures:
 	python3 scripts/generate_docs_figures.py
+	python3 scripts/generate_real_example_figures.py
 
 docs-install:
 	cd docs && npm ci

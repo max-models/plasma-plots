@@ -16,44 +16,52 @@ ruff check src tests scripts
 The test suite exercises `struphy_plots` against real `struphy` output
 objects (`struphy.post_processing.output.Output` and friends, plus `h5py`),
 built from small fixtures that don't need compiled kernels, so `struphy compile`
-isn't required just to run `pytest`. Generating the docs figures does run
-real simulations, though (see below), so run `struphy compile -y` first if
-you're doing that.
+isn't required just to run `pytest`.
 
 ## Docs
 
-The documentation site (Astro + Starlight) lives in `docs/`. Every figure,
-one animation, and several live interactive Plotly charts
-(`docs/src/assets/figures/*`, `docs/public/plotly/*.json`) come from REAL
-struphy simulations run by `scripts/generate_docs_figures.py` -- not
-synthetic data. That script therefore needs the full **compiled** `struphy`
-runtime (from the submodule, see above -- `struphy compile -y` if you
-haven't), plus `struphy-plots` itself. Figures aren't checked into git, so
-generate them before building or running the site locally:
+The documentation site (Astro + Starlight) lives in `docs/`. Almost every
+figure and interactive Plotly chart (`docs/src/assets/figures/*`,
+`docs/public/plotly/*.json`) is built from small **synthetic** `xarray` data
+by `scripts/generate_docs_figures.py` -- the point of those guides is
+`struphy_plots` itself, not any particular physics, so this needs only
+`struphy-plots` and its optional extras, no struphy install at all.
+
+The one exception is the [A real
+simulation](https://struphy-hub.github.io/struphy-plots/guides/real-example/)
+guide, whose `real_*.png`/`real_plotly_*.json` figures come from actually
+running struphy (`scripts/generate_real_example_figures.py`), to show the
+same functions working end-to-end on genuine output. That script needs the
+full **compiled** `struphy` runtime (from the submodule, see above --
+`struphy compile -y` if you haven't).
+
+Figures aren't checked into git, so generate them before building or
+running the site locally:
 
 ```bash
-struphy compile -y   # if you haven't already
+struphy compile -y   # only needed for generate_real_example_figures.py
 pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
-make figures       # runs the real simulations, renders docs/src/assets/figures/ and docs/public/plotly/
+make figures       # runs both scripts, renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```
 
-Generating the figures takes a couple of minutes (it's running several real
-simulations, including a kinetic/PIC one) -- this is expected, not a bug.
+`generate_real_example_figures.py` takes a couple of minutes (it's running
+several real simulations, including a kinetic/PIC one) -- this is expected,
+not a bug.
 
-- Without the `pyvista` extra (or without a working display), the script
-  skips the two PyVista-based figures (`volume.png`, `equilibrium_3d.png`)
-  and prints a warning -- but the docs pages that embed them will then fail
-  to build, since Astro needs the referenced file to exist. CI runs figure
-  generation under `xvfb-run` with Mesa's software renderer for exactly this
-  reason (see `.github/workflows/docs.yml`); do the same locally if you hit
-  rendering errors.
-- Without the `profiling` extra, the script skips the three
-  `profile_*.png` figures and `plotly_profile_gantt.json` the same way --
-  these come from actually profiling the kinetic run above
-  (`sim.run(profiling_activated=True)`), so the timings are real too, not
-  just the physics.
+- Without the `pyvista` extra (or without a working display), each script
+  skips its PyVista-based figures (`volume.png`/`real_volume.png`,
+  `equilibrium_3d.png`/`real_equilibrium_3d.png`) and prints a warning --
+  but the docs pages that embed them will then fail to build, since Astro
+  needs the referenced file to exist. CI runs figure generation under
+  `xvfb-run` with Mesa's software renderer for exactly this reason (see
+  `.github/workflows/docs.yml`); do the same locally if you hit rendering
+  errors.
+- Without the `profiling` extra, `generate_docs_figures.py` skips its three
+  `profile_*.png` figures and `plotly_profile_gantt.json` the same way, and
+  `generate_real_example_figures.py` skips the `real_` equivalents (built
+  from actually profiling the kinetic run, via `sim.run(profiling_activated=True)`).
 - `plotly` exports each interactive figure's JSON, fetched client-side by
   the `<PlotlyChart>` component (`docs/src/components/PlotlyChart.astro`),
   which loads Plotly.js itself from a CDN at view time -- neither is a
@@ -62,8 +70,8 @@ simulations, including a kinetic/PIC one) -- this is expected, not a bug.
   figures above.
 
 CI regenerates the figures the same way (with the same heavy struphy install
-as the test suite) on every push to `devel`, before deploying to GitHub
-Pages.
+as the test suite, since the real-example page still needs it) on every push
+to `devel`, before deploying to GitHub Pages.
 
 ## Branches and releases
 

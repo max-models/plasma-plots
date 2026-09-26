@@ -25,6 +25,7 @@ export default defineConfig({
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 						{ label: 'Profiling', slug: 'guides/profiling' },
+						{ label: 'A real simulation', slug: 'guides/real-example' },
 					],
 				},
 				{

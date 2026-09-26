@@ -28,12 +28,14 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      # Every docs figure comes from a real struphy simulation (see
-      # scripts/generate_docs_figures.py), so the full compiled struphy
-      # runtime is required here, not just struphy-plots. It has compiled
-      # dependencies (pyccel/mpi4py), hence the system packages below.
-      # struphy comes from the `struphy` submodule (pinned to a known-good
-      # commit), not a fresh clone, so the version used here is reproducible.
+      # Most docs figures use small synthetic data (generate_docs_figures.py) and
+      # don't need struphy at all -- but the "A real simulation" guide's figures
+      # come from an actual struphy run (generate_real_example_figures.py), so
+      # the full compiled struphy runtime is still required for every docs
+      # build. It has compiled dependencies (pyccel/mpi4py), hence the system
+      # packages below. struphy comes from the `struphy` submodule (pinned to a
+      # known-good commit), not a fresh clone, so the version used here is
+      # reproducible.
       - name: Install struphy system dependencies
         run: |
           sudo apt-get update -y
