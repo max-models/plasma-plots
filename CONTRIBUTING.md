@@ -22,19 +22,24 @@ itself -- they aren't checked into git, so generate them before building or
 running the site locally:
 
 ```bash
-pip install -e ".[pyvista]"   # pyvista is needed for the volume/equilibrium_3d figures
+pip install -e ".[pyvista]" plotly kaleido   # see below for why these two extras
 make figures       # renders docs/src/assets/figures/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```
 
-Without the `pyvista` extra (or without a working display), the script skips
-just the two PyVista-based figures (`volume.png`, `equilibrium_3d.png`) and
-prints a warning -- but the docs pages that embed them will then fail to
-build, since Astro needs the referenced file to exist. CI installs
-`.[pyvista]` and runs figure generation under `xvfb-run` with Mesa's software
-renderer for exactly this reason (see `.github/workflows/docs.yml`); do the
-same locally if you hit rendering errors.
+- Without the `pyvista` extra (or without a working display), the script
+  skips the two PyVista-based figures (`volume.png`, `equilibrium_3d.png`)
+  and prints a warning -- but the docs pages that embed them will then fail
+  to build, since Astro needs the referenced file to exist. CI installs
+  `.[pyvista]` and runs figure generation under `xvfb-run` with Mesa's
+  software renderer for exactly this reason (see
+  `.github/workflows/docs.yml`); do the same locally if you hit rendering
+  errors.
+- `plotly`/`kaleido` (static image export) render the `plotly_*.png`
+  figures, which demonstrate `array.struphy.data` by plotting the same data
+  with Plotly instead of matplotlib. Neither is a `struphy-plots`
+  dependency; without them the script skips those figures the same way.
 
 CI regenerates the figures the same way on every push to `devel`, before
 deploying to GitHub Pages.

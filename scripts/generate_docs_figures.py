@@ -287,6 +287,38 @@ save_fig(fig, "convergence.png")
 
 
 # =============================================================================
+# Plotly examples via .struphy.data (needs `pip install plotly kaleido`)
+# =============================================================================
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    selected = field.struphy.data.slice(x="e1", y="e2", t="last")
+    fig = px.imshow(
+        selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="lower", color_continuous_scale="viridis"
+    )
+    fig.update_layout(width=560, height=440, xaxis_title="e1", yaxis_title="e2")
+    fig.write_image(OUT / "plotly_slice.png")
+    print(f"wrote {OUT / 'plotly_slice.png'}")
+
+    frame = cloud.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
+    fig = px.scatter(frame, x="x", y="y", color="density", color_continuous_scale="viridis")
+    fig.update_layout(width=560, height=440)
+    fig.write_image(OUT / "plotly_scatter.png")
+    print(f"wrote {OUT / 'plotly_scatter.png'}")
+
+    series = energy.struphy.data.timeseries(total)
+    fig = go.Figure()
+    for item in series:
+        fig.add_trace(go.Scatter(x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)))
+    fig.update_layout(width=560, height=440, xaxis_title="t", yaxis_title="[J]", legend=dict(x=0.02, y=0.98))
+    fig.write_image(OUT / "plotly_timeseries.png")
+    print(f"wrote {OUT / 'plotly_timeseries.png'}")
+except Exception as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped plotly_*.png (plotly/kaleido unavailable): {exc}")
+
+
+# =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
 # =============================================================================
 try:

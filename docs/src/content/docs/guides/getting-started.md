@@ -58,22 +58,52 @@ Every method on `array.struphy.plot` has a matching method on
 but returns the plain `xarray` object instead of a matplotlib figure — e.g.
 `plot.slice(...)` / `data.slice(...)`, `plot.vector(...)` / `data.vector(...)`,
 `plot.compare(...)` / `data.compare(...)`. The same holds for the `Dataset`
-accessor: `plot.scatter(...)` / `data.scatter(...)`.
+accessor: `plot.scatter(...)` / `data.scatter(...)`. See the
+[`struphy.data` reference](/struphy-plots/reference/data/) for the full list.
 
-This is the escape hatch if you want a different plotting library. For
-example, a 2-D slice as a Plotly heatmap:
+This is the escape hatch if you want a different plotting library — every
+example below plots the exact same data as the matching matplotlib figure
+elsewhere in these docs, rendered with
+[Plotly](https://plotly.com/python/) instead. `struphy-plots` itself never
+depends on Plotly; install it yourself (`pip install plotly`) to follow along.
+
+A 2-D slice as a Plotly heatmap. `.data.slice(x=, y=)` returns the array
+already transposed to `(x, y)`, so `px.imshow` (which reads an array as
+`(row, column)` = `(y, x)`) needs one more transpose back, plus
+`origin="lower"` to put the first `y` value at the bottom, matching
+matplotlib's convention:
 
 ```python
 import plotly.express as px
 
 selected = field.struphy.data.slice(x="e1", y="e2", t="last")
-px.imshow(selected, x=selected.e1, y=selected.e2, labels={"color": selected.name})
+fig = px.imshow(
+    selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2,
+    origin="lower", color_continuous_scale="viridis",
+)
 ```
 
-Or a marker scatter as a Plotly Express scatter plot, straight from a
+![The same field slice, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_slice.png)
+
+A marker scatter as a Plotly Express scatter plot, straight from a
 `pandas.DataFrame`:
 
 ```python
 frame = markers.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
-px.scatter(frame, x="x", y="y", color="density")
+fig = px.scatter(frame, x="x", y="y", color="density", color_continuous_scale="viridis")
 ```
+
+![The same particle cloud, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_scatter.png)
+
+A time series, as a Plotly line chart — `.data.timeseries()` returns exactly
+the validated list `.plot.timeseries()` would have drawn:
+
+```python
+import plotly.graph_objects as go
+
+fig = go.Figure()
+for series in energy.struphy.data.timeseries(other_energy):
+    fig.add_trace(go.Scatter(x=series.t, y=series, mode="lines", name=series.attrs.get("label", series.name)))
+```
+
+![The same two time series, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_timeseries.png)

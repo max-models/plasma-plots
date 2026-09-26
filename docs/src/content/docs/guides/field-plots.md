@@ -41,6 +41,20 @@ it, taking the same keyword arguments as `view(...)`.
 
 ![A grid of snapshots swept over time](../../../assets/figures/panels.png)
 
+:::tip[Plot it with Plotly instead]
+`.data.slice(...)` returns the exact same selected, transposed array
+`.plot.slice(...)` draws — feed it to `px.imshow` for an interactive
+heatmap (see [Getting started](/struphy-plots/guides/getting-started/#getting-the-data-instead-of-a-plot)
+for why the extra `.transpose(...)` is needed):
+
+```python
+import plotly.express as px
+
+selected = field.struphy.data.slice(x="e1", y="e2", t="last")
+px.imshow(selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="lower")
+```
+:::
+
 `plot.animation(...)` returns a `matplotlib.animation.FuncAnimation`; save it
 with `anim.save("orbit.gif", writer="pillow")`:
 
@@ -54,6 +68,25 @@ b_field.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=4)
 
 ![A quiver plot of two vector components](../../../assets/figures/vector.png)
 
+:::tip[Plot it with Plotly instead]
+Plotly has no built-in quiver trace; `plotly.figure_factory.create_quiver`
+takes flat position and component arrays instead of a grid, so flatten
+`.data.vector(...)`'s coordinates and components first:
+
+```python
+import numpy as np
+import plotly.figure_factory as ff
+
+selected = b_field.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=4)
+xg, yg = np.meshgrid(selected.e1, selected.e2, indexing="ij")
+ff.create_quiver(
+    xg.ravel(), yg.ravel(),
+    selected.isel(component=0).values.ravel(), selected.isel(component=1).values.ravel(),
+    scale=0.05,
+)
+```
+:::
+
 ## 3-D scalar volumes
 
 Three orthogonal midpoint slices need nothing extra:
@@ -63,6 +96,23 @@ density.struphy.plot.volume_slices()
 ```
 
 ![Three orthogonal slices through a 3-D scalar field](../../../assets/figures/volume_slices.png)
+
+:::tip[Plot it with Plotly instead]
+`.data.volume_slices()` returns the same three planes as a
+`dict[str, xarray.DataArray]`, keyed by the fixed dimension — drop each
+straight into its own `go.Heatmap`:
+
+```python
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+planes = density.struphy.data.volume_slices()
+fig = make_subplots(rows=1, cols=3, subplot_titles=list(planes))
+for i, (name, plane) in enumerate(planes.items(), start=1):
+    x, y = plane.dims
+    fig.add_trace(go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values), row=1, col=i)
+```
+:::
 
 A full interactive volume render needs the optional PyVista extra
 (`pip install "struphy-plots[pyvista]"`):

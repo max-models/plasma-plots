@@ -15,6 +15,23 @@ the damping-rate variant (fit the envelope of an oscillating signal instead).
 
 ![A time series with an exponential growth-rate fit overlaid](../../../assets/figures/timeseries_growth.png)
 
+:::tip[Plot it with Plotly instead]
+`.data.timeseries(*others)` returns the exact list of series
+`.plot.timeseries(*others)` would draw (the fit itself is a separate step —
+call `.struphy.analysis.growth_rate()` if you want the fitted line too):
+
+```python
+import plotly.graph_objects as go
+
+fig = go.Figure()
+for series in energy.struphy.data.timeseries(other_run_energy):
+    fig.add_trace(go.Scatter(x=series.t, y=series, mode="lines", name=series.attrs.get("label", series.name)))
+fig.update_layout(yaxis_type="log")
+```
+:::
+
+![The same two time series, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_timeseries.png)
+
 ## Several series in one axes
 
 ```python
@@ -37,3 +54,16 @@ useful for a convergence study or comparing a run against a reference.
 ![Difference of a diagnostic between two runs](../../../assets/figures/compare_difference.png)
 
 ![Ratio of a diagnostic between two runs](../../../assets/figures/compare_ratio.png)
+
+:::tip[Plot it with Plotly instead]
+`.data.compare(...)` returns the aligned difference/ratio as a plain 1-D
+array — the same `plot_lineout(...)` builds `.plot.compare(...)`'s figure
+from:
+
+```python
+import plotly.express as px
+
+result = field.struphy.data.compare(reference_field, mode="ratio")
+px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
+```
+:::
