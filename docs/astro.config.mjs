@@ -11,6 +11,9 @@ export default defineConfig({
 			title: 'struphy-plots',
 			description: 'Optional plotting and diagnostics layer for Struphy output',
 			customCss: ['./src/styles/custom.css'],
+			components: {
+				Header: './src/components/Header.astro',
+			},
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/struphy-hub/struphy-plots' },
 			],
