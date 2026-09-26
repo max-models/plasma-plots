@@ -280,6 +280,30 @@ def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=Non
     return PlotResult(fig, ax, [line])
 
 
+def prepare_vector(
+    data: xr.DataArray,
+    *,
+    x: str,
+    y: str,
+    components: tuple[int, int] = (0, 1),
+    component_dim: str = "component",
+    stride: int = 1,
+) -> xr.DataArray:
+    """Select and stride two components of a vector field, without rendering it.
+
+    Used by :func:`plot_vector`; also available directly, e.g. to hand the same
+    strided data to a different plotting library.
+    """
+    validate_array(data, required_dims=(component_dim, x, y))
+    if set(data.dims) != {component_dim, x, y}:
+        raise ValueError(f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}")
+    if stride < 1:
+        raise ValueError("stride must be positive")
+    return data.transpose(component_dim, x, y).isel(
+        {component_dim: list(components), x: slice(None, None, stride), y: slice(None, None, stride)}
+    )
+
+
 def plot_vector(
     data: xr.DataArray,
     *,
@@ -292,14 +316,7 @@ def plot_vector(
     coordinates: Literal["logical", "physical"] = "logical",
 ):
     """Render two components of a selected vector field with Matplotlib quivers."""
-    validate_array(data, required_dims=(component_dim, x, y))
-    if set(data.dims) != {component_dim, x, y}:
-        raise ValueError(f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}")
-    if stride < 1:
-        raise ValueError("stride must be positive")
-    vector = data.transpose(component_dim, x, y).isel(
-        {component_dim: list(components), x: slice(None, None, stride), y: slice(None, None, stride)}
-    )
+    vector = prepare_vector(data, x=x, y=y, components=components, component_dim=component_dim, stride=stride)
     if coordinates == "physical":
         planes = {frozenset(("e1", "e2")): "XY", frozenset(("e1", "e3")): "XZ", frozenset(("e2", "e3")): "YZ"}
         plane = planes.get(frozenset((x, y)))
@@ -315,32 +332,60 @@ def plot_vector(
     return PlotResult(fig, ax, [quiver])
 
 
-def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
-    """Show three orthogonal midpoint slices of a selected scalar volume."""
+def prepare_volume_slices(
+    data: xr.DataArray, *, indices: dict[str, int] | None = None
+) -> dict[str, xr.DataArray]:
+    """Three orthogonal midpoint (or chosen-index) planes through a scalar volume.
+
+    Returns a dict keyed by the dimension held fixed for each plane (``"e3"``, ``"e2"``,
+    ``"e1"``), each a 2-D ``xr.DataArray``. Used by :func:`plot_volume_slices`.
+    """
     validate_array(data, required_dims=("e1", "e2", "e3"))
     if set(data.dims) != {"e1", "e2", "e3"}:
         raise ValueError(f"select every non-spatial dimension before volume_slices(); got {data.dims}")
     indices = {dim: data.sizes[dim] // 2 for dim in data.dims} | (indices or {})
+    planes = {}
+    for normal, x, y in zip(("e3", "e2", "e1"), ("e1", "e1", "e2"), ("e2", "e3", "e3")):
+        plane = data.isel({normal: indices[normal]}).transpose(x, y)
+        plane.attrs["fixed_index"] = indices[normal]
+        planes[normal] = plane
+    return planes
+
+
+def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
+    """Show three orthogonal midpoint slices of a selected scalar volume."""
+    planes = prepare_volume_slices(data, indices=indices)
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.6), layout="constrained")
     artists = []
-    for ax, normal, x, y in zip(axes, ("e3", "e2", "e1"), ("e1", "e1", "e2"), ("e2", "e3", "e3")):
-        plane = data.isel({normal: indices[normal]}).transpose(x, y)
+    for ax, (normal, plane) in zip(axes, planes.items()):
+        x, y = plane.dims
         mesh = ax.pcolormesh(plane[x], plane[y], np.asarray(plane).T, shading="auto", cmap=cmap)
-        ax.set(xlabel=axis_label(plane, x), ylabel=axis_label(plane, y), title=f"{normal} index {indices[normal]}")
+        index = plane.attrs.get("fixed_index")
+        ax.set(xlabel=axis_label(plane, x), ylabel=axis_label(plane, y), title=f"{normal} index {index}")
         fig.colorbar(mesh, ax=ax, label=value_label(data))
         artists.append(mesh)
     fig.suptitle(" — ".join(filter(None, (_label(data), shared_run_label(data)))))
     return PlotResult(fig, axes, artists)
 
 
+def prepare_compare(
+    first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference"
+) -> xr.DataArray:
+    """Align two arrays and compute their difference or ratio, without rendering it.
+
+    Used by :func:`plot_compare`.
+    """
+    first, second = xr.align(first, second, join="inner")
+    result = first - second if mode == "difference" else xr.where(second != 0, first / second, np.nan)
+    result.name = f"{_label(first)} {mode}"
+    return result
+
+
 def plot_compare(
     first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference", ax=None
 ):
     """Plot a one-dimensional aligned difference or ratio of two arrays."""
-    first, second = xr.align(first, second, join="inner")
-    result = first - second if mode == "difference" else xr.where(second != 0, first / second, np.nan)
-    result.name = f"{_label(first)} {mode}"
-    return plot_lineout(result, ax=ax)
+    return plot_lineout(prepare_compare(first, second, mode=mode), ax=ax)
 
 
 def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"):
@@ -771,6 +816,25 @@ def save_all_scalars(
     return paths
 
 
+def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset:
+    """Normalize an orbits product to its Dataset form and keep only the first ``max_markers``.
+
+    ``orbits`` is an ``xarray.Dataset`` with one ``(t, marker)`` variable per saved quantity (as
+    produced by recent Struphy), or, for backward compatibility, a single
+    ``(t, marker, quantity)`` ``xarray.DataArray``. Used by :func:`plot_marker_trajectories` and
+    :func:`plot_field_with_orbits`; also available directly to get the same data without a plot.
+    """
+    if isinstance(orbits, xr.DataArray):
+        orbits = orbits.to_dataset(dim="quantity")
+    missing = [name for name in required if name not in orbits.data_vars]
+    if missing:
+        raise ValueError(f"orbits is missing required quantities: {missing}; it has {tuple(orbits.data_vars)}")
+    if "marker" not in orbits.sizes:
+        raise ValueError("orbits must have a 'marker' dimension")
+    count = min(orbits.sizes["marker"], max_markers)
+    return orbits.isel(marker=slice(0, count))
+
+
 def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=None):
     """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate.
 
@@ -778,15 +842,8 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
     saved quantity (as produced by recent Struphy), or, for backward compatibility, a single
     ``(t, marker, quantity)`` ``xarray.DataArray``.
     """
-    if isinstance(orbits, xr.DataArray):
-        orbits = orbits.to_dataset(dim="quantity")
-    missing = [name for name in ("x", "y", "z") if name not in orbits.data_vars]
-    if missing:
-        raise ValueError(f"orbits is missing position quantities: {missing}")
-    if "marker" not in orbits.sizes:
-        raise ValueError("orbits must have a 'marker' dimension")
-    count = min(orbits.sizes["marker"], max_markers)
-    subset = orbits.isel(marker=slice(0, count))
+    subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z"))
+    count = subset.sizes["marker"]
     positions = np.stack([np.asarray(subset[name]) for name in ("x", "y", "z")], axis=-1)
     fig = plt.figure() if ax is None else ax.figure
     ax = fig.add_subplot(111, projection="3d") if ax is None else ax
@@ -800,7 +857,7 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
     return PlotResult(fig, ax, artists)
 
 
-def _resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset:
+def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset:
     selected = dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
@@ -831,7 +888,7 @@ def plot_marker_scatter(
     missing = [name for name in (x, y) if name not in markers.data_vars]
     if missing:
         raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
-    selected = _resolve_marker_selection(markers, selection)
+    selected = resolve_marker_selection(markers, selection)
     xv, yv = np.asarray(selected[x]), np.asarray(selected[y])
     if xv.ndim != 1:
         raise ValueError(f"select every dimension except 'marker' before scatter(); got shape {xv.shape}")
@@ -852,12 +909,9 @@ def plot_field_with_orbits(field: xr.DataArray, view: View, orbits: xr.Dataset, 
     logical coordinates, to overlay directly on a logical-coordinates slice).
     """
     x, y = view.x, view.y
-    missing = [name for name in (x, y) if name not in orbits.data_vars]
-    if missing:
-        raise ValueError(f"orbits has no {missing} position variable(s); it has {tuple(orbits.data_vars)}")
+    subset = prepare_orbits(orbits, max_markers=max_markers, required=(x, y))
+    count = subset.sizes["marker"]
     result = plot_slice(field, view=view, ax=ax, cmap=cmap)
-    count = min(orbits.sizes.get("marker", 0), max_markers)
-    subset = orbits.isel(marker=slice(0, count))
     xs, ys = np.asarray(subset[x]), np.asarray(subset[y])
     colors = plt.get_cmap("autumn")(np.linspace(0.15, 0.85, max(count, 1)))
     for i in range(count):

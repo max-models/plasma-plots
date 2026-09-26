@@ -36,6 +36,9 @@ OUT.mkdir(parents=True, exist_ok=True)
 # GIFs to a single static frame. Files under public/ are served as-is.
 PUBLIC_OUT = DOCS / "public" / "figures"
 PUBLIC_OUT.mkdir(parents=True, exist_ok=True)
+# Plotly figure JSON, fetched client-side by <PlotlyChart>; also served as-is from public/.
+PLOTLY_OUT = DOCS / "public" / "plotly"
+PLOTLY_OUT.mkdir(parents=True, exist_ok=True)
 
 
 def field_array(name, label, unit, values, dims, coords):
@@ -284,6 +287,103 @@ plot_convergence(sizes, first_order, ax=ax, label="scheme A")
 plot_convergence(sizes, second_order, ax=ax, label="scheme B")
 ax.legend(fontsize="small")
 save_fig(fig, "convergence.png")
+
+
+# =============================================================================
+# Plotly examples via .struphy.data (needs `pip install plotly`): figure JSON
+# for the docs' <PlotlyChart> component (docs/src/components/PlotlyChart.astro),
+# which loads Plotly.js from a CDN and renders it client-side.
+# =============================================================================
+try:
+    import plotly.express as px
+    import plotly.figure_factory as ff
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    def save_plotly(fig, filename, *, width=560, height=440):
+        # Only the JSON is used (fetched client-side by <PlotlyChart>, which sets its own
+        # size); width/height here are just so the figure looks reasonable if opened directly.
+        fig.update_layout(width=width, height=height)
+        fig.write_json(PLOTLY_OUT / f"{filename}.json")
+        print(f"wrote {PLOTLY_OUT / f'{filename}.json'}")
+
+    selected = field.struphy.data.slice(x="e1", y="e2", t="last")
+    fig = px.imshow(
+        selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="lower", color_continuous_scale="viridis"
+    )
+    fig.update_layout(xaxis_title="e1", yaxis_title="e2")
+    save_plotly(fig, "plotly_slice")
+
+    frame = cloud.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
+    fig = px.scatter(frame, x="x", y="y", color="density", color_continuous_scale="viridis")
+    save_plotly(fig, "plotly_scatter")
+
+    series = energy.struphy.data.timeseries(total)
+    fig = go.Figure()
+    for item in series:
+        fig.add_trace(go.Scatter(x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)))
+    fig.update_layout(xaxis_title="t", yaxis_title="[J]", legend=dict(x=0.02, y=0.98))
+    save_plotly(fig, "plotly_timeseries")
+
+    vec = vector.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=4, t="last")
+    xg, yg = np.meshgrid(vec.e1.values, vec.e2.values, indexing="ij")
+    fig = ff.create_quiver(
+        xg.ravel(), yg.ravel(), vec.isel(component=0).values.ravel(), vec.isel(component=1).values.ravel(), scale=0.05
+    )
+    fig.update_layout(xaxis_title="e1", yaxis_title="e2")
+    save_plotly(fig, "plotly_vector")
+
+    planes = volume_data.struphy.data.volume_slices()
+    fig = make_subplots(rows=1, cols=3, subplot_titles=list(planes))
+    for i, (name, plane) in enumerate(planes.items(), start=1):
+        x, y = plane.dims
+        fig.add_trace(
+            go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values, colorscale="viridis", showscale=False),
+            row=1,
+            col=i,
+        )
+    save_plotly(fig, "plotly_volume_slices", width=900, height=340)
+
+    subset = orbits.struphy.data.trajectories(max_markers=24)
+    fig = go.Figure()
+    for marker in subset.marker.values:
+        path = subset.sel(marker=marker)
+        fig.add_trace(go.Scatter3d(x=path.x, y=path.y, z=path.z, mode="lines", line=dict(width=3), showlegend=False))
+    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
+    save_plotly(fig, "plotly_trajectories", height=520)
+
+    phase_space_selected = distribution.struphy.data.slice(x="e1", y="v1", t="last")
+    fig = px.imshow(
+        phase_space_selected.transpose("v1", "e1"),
+        x=phase_space_selected.e1,
+        y=phase_space_selected.v1,
+        origin="lower",
+        color_continuous_scale="viridis",
+    )
+    fig.update_layout(xaxis_title="e1", yaxis_title="v1")
+    save_plotly(fig, "plotly_phase_space")
+
+    result = run_a.struphy.data.compare(run_b, mode="ratio")
+    fig = px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
+    save_plotly(fig, "plotly_compare")
+
+    field_slice, orbit_subset = well.struphy.data.overlay_orbits(confined_orbits, x="e1", y="e2")
+    fig = go.Figure(
+        go.Heatmap(
+            z=field_slice.transpose("e2", "e1").values,
+            x=field_slice.e1.values,
+            y=field_slice.e2.values,
+            colorscale="viridis",
+            showscale=False,
+        )
+    )
+    for marker in orbit_subset.marker.values:
+        path = orbit_subset.sel(marker=marker)
+        fig.add_trace(go.Scatter(x=path.e1, y=path.e2, mode="lines", line=dict(color="#ffb347"), showlegend=False))
+    fig.update_layout(xaxis_title="e1", yaxis_title="e2")
+    save_plotly(fig, "plotly_overlay_orbits")
+except Exception as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped plotly_*.json (plotly unavailable): {exc}")
 
 
 # =============================================================================

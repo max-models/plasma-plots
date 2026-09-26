@@ -29,6 +29,12 @@ jobs:
       - name: Install struphy-plots (with PyVista)
         run: pip install -e ".[pyvista]"
 
+      # The docs embed live interactive Plotly charts (via <PlotlyChart>) to
+      # demonstrate `array.struphy.data`; plotly is not a struphy-plots
+      # dependency, only needed here to export each figure's JSON.
+      - name: Install Plotly (docs examples only)
+        run: pip install plotly
+
       # A few example figures render an interactive PyVista scene off-screen
       # (3-D volumes, equilibria), which needs a virtual display and Mesa's
       # software OpenGL/EGL implementation.

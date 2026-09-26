@@ -36,6 +36,12 @@ class StruphyAccessor:
         """Diagnostics of this array, e.g. ``array.struphy.analysis.growth_rate()``."""
         return ArrayAnalysis(self._array)
 
+    @property
+    def data(self) -> "ArrayData":
+        """The data behind each plot, without rendering it, e.g. for a different plotting
+        library: ``array.struphy.data.slice(x="e1", y="v1", t="last")``."""
+        return ArrayData(self._array)
+
 
 @xr.register_dataset_accessor("struphy")
 class StruphyDatasetAccessor:
@@ -48,6 +54,11 @@ class StruphyDatasetAccessor:
     def plot(self) -> "DatasetPlots":
         """Plots of this dataset, e.g. ``orbits.struphy.plot.trajectories()``."""
         return DatasetPlots(self._dataset)
+
+    @property
+    def data(self) -> "DatasetData":
+        """The data behind each plot, without rendering it: ``orbits.struphy.data.scatter(...)``."""
+        return DatasetData(self._dataset)
 
 
 class DatasetPlots:
@@ -74,18 +85,32 @@ class DatasetPlots:
         return plot_marker_scatter(self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection)
 
 
+class DatasetData:
+    """The data behind each plot in :class:`DatasetPlots`, without rendering it."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    def trajectories(self, *, max_markers: int = 200) -> xr.Dataset:
+        """The marker-position subset :meth:`DatasetPlots.trajectories` would plot."""
+        from .plotting import prepare_orbits
+
+        return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
+
+    def scatter(self, *, x: str, y: str, color: str | None = None, **selection) -> xr.Dataset:
+        """The selected dataset :meth:`DatasetPlots.scatter` would plot -- ``.to_dataframe()``
+        hands it straight to e.g. Plotly Express."""
+        from .plotting import resolve_marker_selection
+
+        missing = [name for name in (x, y) if name not in self._dataset.data_vars]
+        if missing:
+            raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}")
+        return resolve_marker_selection(self._dataset, selection)
+
+
 class _ArrayAccessor:
     def __init__(self, array: xr.DataArray):
         self._array = array
-
-
-class ArrayPlots(_ArrayAccessor):
-    """Plots of one array, as ``array.struphy.plot.<kind>(...)``.
-
-    Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
-    position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
-    coordinate value (``t=0.35``).
-    """
 
     def _view(self, x, y, sweep, coords, plane, selection):
         from .plotting import View
@@ -107,6 +132,15 @@ class ArrayPlots(_ArrayAccessor):
             else:
                 select[dim] = float(value)
         return View(x=x, y=y, sweep=sweep, select=select, isel=index, coordinates=coords, plane=plane)
+
+
+class ArrayPlots(_ArrayAccessor):
+    """Plots of one array, as ``array.struphy.plot.<kind>(...)``.
+
+    Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
+    position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
+    coordinate value (``t=0.35``).
+    """
 
     def timeseries(
         self, *others, logy: bool = True, fit=None, fit_amplitude: bool = False, title: str | None = None, ax=None
@@ -466,6 +500,111 @@ class SliceView:
         return save_frames(
             self._array, directory, view=self._view(), step=step, prefix=prefix, dpi=dpi, **self._options
         )
+
+
+class ArrayData(_ArrayAccessor):
+    """The data behind each plot in :class:`ArrayPlots`, without rendering it.
+
+    Every method here mirrors one on ``array.struphy.plot`` and returns the plain, already
+    selected ``xarray`` object (or a small tuple/dict of them) that method would have drawn —
+    useful to hand to a different plotting library (Plotly, bokeh, ...), or to inspect directly.
+    """
+
+    def lineout(self, *, x: str | None = None, **selection) -> xr.DataArray:
+        """The 1-D profile :meth:`ArrayPlots.lineout` would plot."""
+        from .plotting import _select
+
+        view = self._view(x, None, "t", "logical", "XY", selection)
+        return _select(self._array, view)
+
+    def vector(
+        self,
+        *,
+        x: str,
+        y: str,
+        components: tuple[int, int] = (0, 1),
+        stride: int = 1,
+        coordinates: Coordinates = "logical",
+        **selection,
+    ) -> xr.DataArray:
+        """The selected, strided vector field :meth:`ArrayPlots.vector` would plot."""
+        from .plotting import _select, prepare_vector
+
+        view = self._view(None, None, "t", coordinates, "XY", selection)
+        return prepare_vector(_select(self._array, view), x=x, y=y, components=components, stride=stride)
+
+    def volume_slices(self, *, indices: dict[str, int] | None = None, **selection) -> dict[str, xr.DataArray]:
+        """The three orthogonal planes :meth:`ArrayPlots.volume_slices` would plot."""
+        from .plotting import _select, prepare_volume_slices
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return prepare_volume_slices(_select(self._array, view), indices=indices)
+
+    def compare(self, other: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference") -> xr.DataArray:
+        """The aligned difference or ratio :meth:`ArrayPlots.compare` would plot."""
+        from .plotting import prepare_compare
+
+        return prepare_compare(self._array, other, mode=mode)
+
+    def view(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        **selection,
+    ) -> xr.DataArray:
+        """Every remaining dimension of this array, sweep included -- shared by
+        :meth:`ArrayPlots.panels`, ``.viewer()``, ``.animation()`` and ``.frames()``, which each
+        render one frame of exactly this data at a time.
+        """
+        from .plotting import _select
+
+        view = self._view(x, y, sweep, coords, plane, selection)
+        return _select(self._array, view, keep_sweep=True)
+
+    def slice(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        sweep: str = "t",
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        **selection,
+    ) -> xr.DataArray:
+        """The single 2-D slice :meth:`ArrayPlots.slice` would plot."""
+        from .plotting import _slice_data
+
+        view = self._view(x, y, sweep, coords, plane, selection)
+        selected, _grids = _slice_data(self._array, view)
+        return selected
+
+    def overlay_orbits(
+        self, orbits: xr.Dataset, *, x: str, y: str, max_markers: int = 200, **selection
+    ) -> tuple[xr.DataArray, xr.Dataset]:
+        """The field slice and marker-position subset :meth:`ArrayPlots.overlay_orbits` would plot."""
+        from .plotting import prepare_orbits
+
+        field = self.slice(x=x, y=y, **selection)
+        return field, prepare_orbits(orbits, max_markers=max_markers, required=(x, y))
+
+    def trajectories(self, *, max_markers: int = 200) -> xr.Dataset:
+        """The marker-position subset :meth:`ArrayPlots.trajectories` would plot."""
+        from .plotting import prepare_orbits
+
+        return prepare_orbits(self._array, max_markers=max_markers, required=("x", "y", "z"))
+
+    def timeseries(self, *others) -> list[xr.DataArray]:
+        """This time series and any ``others``, validated, as plotted by :meth:`ArrayPlots.timeseries`."""
+        from .plotting import _items, validate_array
+
+        series = _items(self._array) + list(others)
+        for item in series:
+            validate_array(item, required_dims=("t",))
+        return series
 
 
 class ArrayAnalysis(_ArrayAccessor):

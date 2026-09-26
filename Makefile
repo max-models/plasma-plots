@@ -25,5 +25,5 @@ docs-dev: figures
 	cd docs && npm run dev
 
 clean:
-	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures
+	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures docs/public/plotly
 	find . -name '__pycache__' -not -path './docs/node_modules/*' -exec rm -rf {} +
