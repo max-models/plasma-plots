@@ -93,11 +93,6 @@ def pproc(out: Output):
     velocity_spectrum = velocity.struphy.analysis.dispersion(dim="e3")
     pressure_spectrum = pressure.struphy.analysis.dispersion(dim="e3")
 
-    # Where the branches are cleanly linear and separated: bounded by real numerical dispersion
-    # (the ridges visibly bend past k ~ 2-2.5 for this degree-3 spline discretization), not by a
-    # fraction of the FFT's Nyquist k -- that fraction grows with grid resolution alone (more
-    # elements raises k_max without moving where the physics stops being linear), so it can
-    # silently drift into the bent/noisy region and bias or break the fit.
     fit_k_range = (0.2, 2.0)
     (alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(
         n_branches=1, k_range=fit_k_range, noise_level=0.5
@@ -116,10 +111,7 @@ def pproc(out: Output):
     for branch, exact in exact_speeds.items():
         print(f"{branch}: measured {measured_speeds[branch]:.4f}, exact {exact:.4f}")
 
-    # Show the whole resolved spectrum, as struphy's own gallery script does, rather than an
-    # arbitrary crop -- k_top is the largest k either field's FFT actually resolves. omega_max is
-    # capped at the time grid's own Nyquist frequency (~pi/dt): the fast branch's line at k_top can
-    # run higher than that, but there's no real spectrum data up there to show either way.
+    # Show the whole resolved spectrum
     k_top = min(float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max()))
     omega_nyquist = min(float(velocity_spectrum.omega.max()), float(pressure_spectrum.omega.max()))
     kmax = k_top
@@ -134,11 +126,7 @@ def pproc(out: Output):
         kmax=kmax,
         omega_max=omega_max,
     )
-    # The plotted spectrum only ever has omega in [0, omega_max]; without this, the branch lines'
-    # k > kmax/omega > omega_max (and negative-k, negative-omega) tails would stretch the axes to
-    # fit them, well past where there's any real data to show. k < 0 is real data, but by
-    # (k, omega) -> (-k, -omega) symmetry it just mirrors k > 0, so it's cropped away too rather
-    # than showing the same branches twice.
+
     velocity_result.ax.set_ylim(0, omega_max)
     velocity_result.ax.set_xlim(0, kmax)
     velocity_result.save(velocity_path, close=True)

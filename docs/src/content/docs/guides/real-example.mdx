@@ -6,13 +6,24 @@ description: A real struphy MHD simulation, end to end -- setup, run, and figure
 import { Code } from 'astro:components';
 import script from '../../../../../scripts/generate_real_example_figures.py?raw';
 
+export const scriptLines = script.split('\n');
+// Sliced by marker text, not line numbers: this script gets edited often, so a hardcoded
+// range would silently drift out of sync -- this fails loudly at build time instead.
+export function snippet(startMarker, endMarker, { extra = 0 } = {}) {
+  const start = scriptLines.findIndex((line) => line.includes(startMarker));
+  if (start === -1) throw new Error(`snippet(): start marker not found: ${startMarker}`);
+  const end = scriptLines.findIndex((line, i) => i >= start && line.includes(endMarker));
+  if (end === -1) throw new Error(`snippet(): end marker not found: ${endMarker}`);
+  return scriptLines.slice(start, end + 1 + extra).join('\n');
+}
+
 Every other guide in these docs builds small, synthetic `xarray` data by hand, so the site
 can be built quickly and without a struphy install — the point there is `struphy_plots`
 itself, not any particular physics. This page is the one exception: both figures below come
 from actually running struphy, adapted from
 [struphy's own gallery example](https://struphy-hub.github.io/examples/mhd-slab-waves/), to
-show the same functions working end-to-end on genuine output. The full code is below,
-unedited.
+show the same functions working end-to-end on genuine output. Selected pieces of the script
+appear alongside the explanation below; the full, unedited file is folded at the end.
 
 ## The physics
 
@@ -23,28 +34,84 @@ Alfvén wave, and the slow and fast magnetosonic waves. Their exact ideal-MHD sp
 from the background alone; comparing them against the speeds actually measured from the
 run's own output is the point of the two figures below.
 
+<Code
+  code={snippet('# The background: B0', 'fast magnetosonic', { extra: 1 })}
+  lang="python"
+  title="scripts/generate_real_example_figures.py"
+/>
+
 ## Reproducing it
 
 This needs the full compiled struphy runtime (the `struphy` git submodule in this repo, plus
 `struphy compile -y`) — see
 [CONTRIBUTING.md](https://github.com/struphy-hub/struphy-plots/blob/devel/CONTRIBUTING.md).
-The run itself takes under a minute.
+The run itself takes under a minute. Once it's been run once, pass `--pproc-only` to redo
+just the measurement and plotting below against the existing output, without rerunning the
+simulation.
 
-<Code code={script} lang="python" title="scripts/generate_real_example_figures.py" />
+<Code
+  code={snippet('def run_simulation()', 'return out')}
+  lang="python"
+  title="scripts/generate_real_example_figures.py"
+/>
+
+## Measuring the branches
+
+Both fields are evaluated at a single point in the cross-section, physical z as the
+remaining spatial coordinate, and turned into a space-time power spectrum with
+`.struphy.analysis.dispersion()`. `.struphy.analysis.fit_branches(...)` then fits a straight
+`omega = v * k` ridge to each branch — restricted to `k` between 0.2 and 2.0, since that's
+where these branches are actually linear and cleanly separated: past `k ~ 2-2.5` the ridges
+visibly bend, a real numerical-dispersion effect of this degree-3 spline discretization, not
+a resolution or plotting artifact. That window has to stay a fixed `k` range rather than a
+fraction of the grid's own Nyquist `k`, since a finer grid only pushes the Nyquist limit
+out — it doesn't move where the physics stops being linear. The pressure fit also needs an
+unusually low `noise_level`: the fast branch's power there is only a few percent of the slow
+branch's peak power, so a more typical threshold would miss it entirely.
+
+<Code
+  code={snippet('def pproc(out', 'omega_max = min(exact_speeds')}
+  lang="python"
+  title="scripts/generate_real_example_figures.py"
+/>
 
 ## The shear Alfvén branch
 
 `.struphy.plot.dispersion(...)` on the velocity's own space-time power spectrum, with the
-exact and measured shear-Alfvén speeds overlaid — indistinguishable at this resolution:
+exact and measured shear-Alfvén speeds overlaid. Both axes are cropped to the actually
+resolved, non-negative `(k, omega)` quadrant — the other three quadrants are real data too,
+but by the `(k, omega) -> (-k, -omega)` symmetry of a real signal's spectrum they just mirror
+this one:
+
+<Code
+  code={snippet('velocity_path = OUT', 'wrote {velocity_path}')}
+  lang="python"
+  title="scripts/generate_real_example_figures.py"
+/>
 
 ![The shear-Alfven branch in the velocity's dispersion relation, exact and measured speeds overlaid](../../../assets/figures/real_dispersion_velocity.png)
 
 ## The magnetosonic branches
 
 The same, for the pressure field: both the slow and fast magnetosonic branches appear in one
-spectrum, so both get a `branches` entry. The fast branch's ridge is clean; the slow one is
-noisier — a 64-element grid resolves a handful of `k` values, and the slow branch's smaller
-slope leaves less separation between it and everything else near `k = 0`. That's an honest
-resolution limit, not a plotting bug.
+spectrum, so both get a `branches` entry. Both track their exact speeds closely below
+`k ~ 2`, where the fit was taken from; above that, both ridges bend away from the straight
+`omega = v * k` line as the real numerical dispersion of the discretization takes over —
+an honest feature of the run, not a plotting bug.
+
+<Code
+  code={snippet('pressure_path = OUT', 'wrote {pressure_path}')}
+  lang="python"
+  title="scripts/generate_real_example_figures.py"
+/>
 
 ![The slow and fast magnetosonic branches in the pressure's dispersion relation, exact and measured speeds overlaid](../../../assets/figures/real_dispersion_pressure.png)
+
+## Full script
+
+<details>
+<summary>`scripts/generate_real_example_figures.py`, unedited</summary>
+
+<Code code={script} lang="python" title="scripts/generate_real_example_figures.py" />
+
+</details>
