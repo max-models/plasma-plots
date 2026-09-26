@@ -39,6 +39,11 @@ The single 2-D slice `plot.slice(...)` would draw.
 A `(field_slice, orbit_subset)` tuple: the field slice and marker-position
 subset `plot.overlay_orbits(...)` would draw.
 
+### `dispersion(*, dim=None, detrend=True)`
+The `(omega, k)` power spectrum `plot.dispersion(...)` would draw. Same as
+`array.struphy.analysis.dispersion(...)`; included here too for parity with
+every other plot.
+
 ### `trajectories(*, max_markers=200)`
 The marker-position subset `plot.trajectories(...)` would draw, as an
 `xarray.Dataset`.

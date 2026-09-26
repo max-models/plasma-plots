@@ -26,7 +26,7 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import plot_convergence, plot_scalars
+from struphy_plots.plotting import plot_convergence, plot_dispersion, plot_scalars
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -290,6 +290,35 @@ save_fig(fig, "convergence.png")
 
 
 # =============================================================================
+# Diagnostics: a dispersion relation
+# =============================================================================
+# A few Langmuir-like modes obeying the Bohm-Gross relation omega^2 = 1 + 3k^2,
+# each launched as a standing wave (both +k and -k components), plus noise.
+n_t_disp, n_x_disp, length = 500, 128, 2 * np.pi
+t_disp = np.linspace(0.0, 60.0, n_t_disp)
+x_disp = np.linspace(0.0, length, n_x_disp, endpoint=False)
+X_DISP, T_DISP = np.meshgrid(x_disp, t_disp)
+
+
+def bohm_gross(k):
+    return np.sqrt(1.0 + 3.0 * k**2)
+
+
+rng_disp = np.random.default_rng(3)
+wave = np.zeros_like(X_DISP)
+for k in (2.0, 3.0, 4.0, 5.0):
+    omega_k = bohm_gross(k)
+    wave += np.cos(k * X_DISP - omega_k * T_DISP) + np.cos(k * X_DISP + omega_k * T_DISP)
+wave += 0.05 * rng_disp.standard_normal(wave.shape)
+
+dispersive_field = field_array("phi", r"$\phi$", "a.u.", wave, ("t", "e1"), {"t": t_disp, "e1": x_disp})
+save(
+    dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12),
+    "dispersion.png",
+)
+
+
+# =============================================================================
 # Plotly examples via .struphy.data (needs `pip install plotly`): figure JSON
 # for the docs' <PlotlyChart> component (docs/src/components/PlotlyChart.astro),
 # which loads Plotly.js from a CDN and renders it client-side.
@@ -382,6 +411,27 @@ try:
         fig.add_trace(go.Scatter(x=path.e1, y=path.e2, mode="lines", line=dict(color="#ffb347"), showlegend=False))
     fig.update_layout(xaxis_title="e1", yaxis_title="e2")
     save_plotly(fig, "plotly_overlay_orbits")
+
+    disp_spectrum = dispersive_field.struphy.data.dispersion()
+    disp_values = np.log10(np.asarray(disp_spectrum) + np.finfo(float).tiny)
+    positive = disp_spectrum.omega.values >= 0
+    k_line = np.linspace(0, 7, 60)
+    fig = go.Figure(
+        go.Heatmap(
+            z=disp_values[positive],
+            x=disp_spectrum.k.values,
+            y=disp_spectrum.omega.values[positive],
+            colorscale="viridis",
+            zmin=disp_values.max() - 6,
+            zmax=disp_values.max(),
+            showscale=False,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(x=k_line, y=bohm_gross(k_line), mode="lines", name="Bohm-Gross", line=dict(color="#ffb347", dash="dash"))
+    )
+    fig.update_layout(xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12])
+    save_plotly(fig, "plotly_dispersion")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped plotly_*.json (plotly unavailable): {exc}")
 

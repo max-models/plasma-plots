@@ -22,6 +22,7 @@ from .analysis import (
     convergence_order,
     drift,
     growth_rate,
+    power_spectrum,
     relative_error,
 )
 from .arrays import (
@@ -780,6 +781,65 @@ def plot_convergence(sizes, errors, *, ax=None, order=None, label=None, xlabel="
     ax.set(xlabel=xlabel, ylabel="error", title=title)
     if any(artist.get_label() and not artist.get_label().startswith("_") for artist in artists):
         ax.legend(fontsize="small")
+    return PlotResult(fig, ax, artists)
+
+
+def plot_dispersion(
+    data: xr.DataArray,
+    *,
+    dim: str | None = None,
+    detrend: bool = True,
+    branches: dict | None = None,
+    log: bool = True,
+    dynamic_range: float = 6.0,
+    kmax: float | None = None,
+    omega_max: float | None = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap=None,
+    ax=None,
+    title: str | None = None,
+):
+    """The space-time power spectrum of a ``(t, dim)`` field, as a dispersion-relation plot.
+
+    Shows only non-negative frequencies (a real signal's spectrum is symmetric under
+    ``(k, omega) -> (-k, -omega)``, so every branch already appears on both sides of ``k = 0``).
+    ``branches`` optionally overlays named theoretical curves to compare against, as a mapping of
+    label to either a callable ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays.
+
+    A dispersion relation's power spans many orders of magnitude (the ridge against a mostly-empty
+    plane), so with ``log=True`` (default), color limits default to the top ``dynamic_range``
+    decades below the peak, rather than the full range down to numerical noise -- override with
+    ``vmin``/``vmax`` if the ridge still looks washed out or overly clipped.
+    """
+    spectrum = power_spectrum(data, dim=dim, detrend=detrend)
+    values = np.asarray(spectrum)
+    if log:
+        values = np.log10(values + np.finfo(float).tiny)
+        if vmin is None:
+            vmin = values.max() - dynamic_range
+        if vmax is None:
+            vmax = values.max()
+    k, omega = spectrum.k.values, spectrum.omega.values
+    omega_mask = omega >= 0
+    if omega_max is not None:
+        omega_mask &= omega <= omega_max
+    k_mask = np.abs(k) <= kmax if kmax is not None else np.ones_like(k, dtype=bool)
+
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    mesh = ax.pcolormesh(
+        k[k_mask], omega[omega_mask], values[omega_mask][:, k_mask], shading="auto", cmap=cmap, vmin=vmin, vmax=vmax
+    )
+    fig.colorbar(mesh, ax=ax, label="log10(power)" if log else "power")
+    artists = [mesh]
+    if branches:
+        k_line = k[k_mask]
+        for label, branch in branches.items():
+            k_branch, omega_branch = (k_line, branch(k_line)) if callable(branch) else branch
+            (line,) = ax.plot(k_branch, omega_branch, "--", label=label)
+            artists.append(line)
+        ax.legend(fontsize="small")
+    ax.set(xlabel="k", ylabel=r"$\omega$", title=title if title is not None else f"Dispersion relation of {_label(data)}")
     return PlotResult(fig, ax, artists)
 
 

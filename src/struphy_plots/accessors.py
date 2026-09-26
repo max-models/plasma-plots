@@ -229,6 +229,47 @@ class ArrayPlots(_ArrayAccessor):
         view = self._view(x, y, "t", "logical", "XY", selection)
         return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
 
+    def dispersion(
+        self,
+        *,
+        dim: str | None = None,
+        detrend: bool = True,
+        branches: dict | None = None,
+        log: bool = True,
+        dynamic_range: float = 6.0,
+        kmax: float | None = None,
+        omega_max: float | None = None,
+        vmin: float | None = None,
+        vmax: float | None = None,
+        cmap=None,
+        ax=None,
+        title: str | None = None,
+    ):
+        """The space-time power spectrum of this ``(t, dim)`` field, as a dispersion-relation plot.
+
+        ``branches`` optionally overlays named theoretical curves (a mapping of label to a
+        callable ``omega(k)``, or an explicit ``(k, omega)`` pair), to compare against, e.g.
+        ``{"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)}``. See
+        :meth:`ArrayAnalysis.dispersion` for just the spectrum, without plotting it.
+        """
+        from .plotting import plot_dispersion
+
+        return plot_dispersion(
+            self._array,
+            dim=dim,
+            detrend=detrend,
+            branches=branches,
+            log=log,
+            dynamic_range=dynamic_range,
+            kmax=kmax,
+            omega_max=omega_max,
+            vmin=vmin,
+            vmax=vmax,
+            cmap=cmap,
+            ax=ax,
+            title=title,
+        )
+
     def view(
         self,
         *,
@@ -582,6 +623,13 @@ class ArrayData(_ArrayAccessor):
         selected, _grids = _slice_data(self._array, view)
         return selected
 
+    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+        """The space-time power spectrum :meth:`ArrayPlots.dispersion` would plot. Same as
+        :meth:`ArrayAnalysis.dispersion`; included here too for parity with every other plot."""
+        from .analysis import power_spectrum
+
+        return power_spectrum(self._array, dim=dim, detrend=detrend)
+
     def overlay_orbits(
         self, orbits: xr.Dataset, *, x: str, y: str, max_markers: int = 200, **selection
     ) -> tuple[xr.DataArray, xr.Dataset]:
@@ -670,17 +718,16 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return velocity_moments(self._array, dims=dims)
 
-    def dispersion(self, *, component: int = 0, slice_at: tuple = (None, 0, 0), physical: bool = False, **kwargs):
-        """Space-time power spectrum of this field and fitted dispersion branches.
+    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+        """The space-time power spectrum of this ``(t, dim)`` field: a plain FFT, as a function of
+        angular frequency and wavenumber -- the data behind a dispersion-relation plot
+        (:meth:`ArrayPlots.dispersion`).
 
-        The time coordinate must be normalized, see :meth:`struphy.Output.with_time_units`. See
-        :func:`struphy.post_processing.spectral.compute_dispersion` for ``slice_at`` and fit options.
-        Returns an xarray Dataset with ``power(omega, k)``.
+        ``dim`` defaults to the sole dimension other than ``t``; select every other dimension away
+        first. ``omega`` comes out in the angular-frequency units implied by ``t``'s spacing (e.g.
+        rad/s for physical seconds, or a normalized angular frequency for normalized time). See
+        :func:`struphy_plots.analysis.power_spectrum` for the definition.
         """
-        if self._array.t.attrs.get("units") == "s":
-            raise ValueError(
-                "the spectrum needs normalized time; take the field from out.with_time_units('normalized')"
-            )
-        from struphy.post_processing.spectral import compute_dispersion
+        from .analysis import power_spectrum
 
-        return compute_dispersion(self._array, component=component, slice_at=slice_at, physical=physical, **kwargs)
+        return power_spectrum(self._array, dim=dim, detrend=detrend)

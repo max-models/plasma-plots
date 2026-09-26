@@ -219,3 +219,40 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
     out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
     out.attrs.update(label=f"relative error of {_label(data)}".strip(), units="")
     return out.isel(t=slice(1, None)) if skip_first else out
+
+
+def power_spectrum(data: xr.DataArray, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+    """The 2-D power spectrum of a ``(t, dim)`` signal: a plain space-time FFT, as a function of
+    angular frequency and wavenumber -- the basis of a dispersion-relation plot
+    (:meth:`~struphy_plots.accessors.ArrayPlots.dispersion`), independent of Struphy.
+
+    ``dim`` defaults to the sole dimension other than ``t``; the array must have exactly these
+    two dimensions, each on a uniform grid. ``detrend`` removes the time-mean at each point of
+    ``dim`` first, which otherwise dominates the spectrum as a spurious zero-frequency line.
+    """
+    validate_array(data, required_dims=("t",))
+    others = [d for d in data.dims if d != "t"]
+    if dim is None:
+        if len(others) != 1:
+            raise ValueError(f"dim is required unless data has exactly one dimension besides 't'; got {data.dims}")
+        dim = others[0]
+    elif dim not in data.dims:
+        raise ValueError(f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}")
+    if set(data.dims) != {"t", dim}:
+        raise ValueError(f"select every dimension except 't' and {dim!r} first; got {data.dims}")
+    values = np.asarray(data.transpose("t", dim), dtype=float)
+    if detrend:
+        values = values - values.mean(axis=0, keepdims=True)
+    nt, nx = values.shape
+    dt = float(np.diff(data["t"].values).mean())
+    dx = float(np.diff(data[dim].values).mean())
+    spectrum = np.abs(np.fft.fftshift(np.fft.fft2(values))) ** 2
+    omega = np.fft.fftshift(np.fft.fftfreq(nt, d=dt)) * 2 * np.pi
+    k = np.fft.fftshift(np.fft.fftfreq(nx, d=dx)) * 2 * np.pi
+    return xr.DataArray(
+        spectrum,
+        dims=("omega", "k"),
+        coords={"omega": omega, "k": k},
+        name="power",
+        attrs={"label": f"power spectrum of {_label(data)}".strip(), "units": ""},
+    )

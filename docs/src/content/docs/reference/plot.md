@@ -35,6 +35,16 @@ Dataset overlaid — a Poincare-style diagnostic for checking particle
 confinement or orbit topology against a background field. `orbits` must have
 position variables named `x` and `y` too.
 
+### `dispersion(*, dim=None, detrend=True, branches=None, log=True, dynamic_range=6.0, kmax=None, omega_max=None, vmin=None, vmax=None, cmap=None, ax=None, title=None)`
+The space-time power spectrum of this `(t, dim)` field, as a
+dispersion-relation plot (a plain 2-D FFT, independent of Struphy). `dim`
+defaults to the sole dimension other than `t`. `branches` overlays named
+theoretical curves to compare against — a mapping of label to a callable
+`omega(k)`, or an explicit `(k, omega)` pair. Color limits default to the
+top `dynamic_range` decades below the peak (with `log=True`), since a
+dispersion relation's power spans many orders of magnitude between the
+ridge and the rest of the plane.
+
 ### `view(*, x=None, y=None, sweep="t", coords="logical", plane="XY", vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None, **selection)`
 Configure a reusable 2-D slice view without rendering it. Returns a
 `SliceView` with `.slice()`, `.panels()`, `.viewer()`, `.animation()`, and
