@@ -29,6 +29,12 @@ PyVista volume plot of a scalar field. Returns a plotter; call `.show()`.
 1-D aligned comparison of this array against `other` (`mode`: `"difference"`
 or `"ratio"`).
 
+### `overlay_orbits(orbits, *, x, y, max_markers=200, ax=None, cmap=None, **selection)`
+This field's 2-D slice with marker paths from an orbits-like `orbits`
+Dataset overlaid — a Poincare-style diagnostic for checking particle
+confinement or orbit topology against a background field. `orbits` must have
+position variables named `x` and `y` too.
+
 ### `view(*, x=None, y=None, sweep="t", coords="logical", plane="XY", vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None, **selection)`
 Configure a reusable 2-D slice view without rendering it. Returns a
 `SliceView` with `.slice()`, `.panels()`, `.viewer()`, `.animation()`, and
@@ -51,3 +57,28 @@ Export one PNG per swept step into `directory`.
 
 ### `trajectories(*, max_markers=200, show_paths=None, ax=None)`
 3-D marker-trajectory plot for kinetic orbit output.
+
+## `dataset.struphy.plot` (Dataset accessor)
+
+Accessed as `dataset.struphy.plot` on any `xarray.Dataset` with per-marker
+variables, e.g. an orbits product. Backed by
+`struphy_plots.accessors.DatasetPlots`.
+
+### `trajectories(*, max_markers=200, show_paths=None, ax=None)`
+Same as the `DataArray` accessor's `trajectories()` above.
+
+### `scatter(*, x, y, color=None, ax=None, cmap=None, s=8, **selection)`
+Scatter two position variables (`x`, `y`), optionally colored by a third
+(e.g. a density, weight, or Lagrangian tracer). Remaining dimensions such as
+`t` are selected by keyword, exactly like `lineout()`.
+
+## Standalone functions
+
+`struphy_plots.plotting` also exposes functions that don't hang off a single
+array or dataset:
+
+### `plot_convergence(sizes, errors, *, ax=None, order=None, label=None, xlabel="resolution", title="Convergence")`
+Log-log plot of an error norm against resolution or step size. With
+`order=None` (default), fits and draws the observed order via
+`struphy_plots.analysis.convergence_order`; pass an explicit `order` to draw
+a reference slope instead.

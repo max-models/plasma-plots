@@ -19,6 +19,7 @@ from matplotlib.widgets import Slider
 from .analysis import (
     FitResult,
     GrowthFit,
+    convergence_order,
     drift,
     growth_rate,
     relative_error,
@@ -709,6 +710,34 @@ def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=No
     return PlotResult(fig, ax, list(ax.lines))
 
 
+def plot_convergence(sizes, errors, *, ax=None, order=None, label=None, xlabel="resolution", title="Convergence"):
+    """Log-log plot of an error norm against resolution or step size, e.g. from a convergence study.
+
+    With ``order=None`` (default), fits and draws the observed order via :func:`convergence_order`.
+    Pass an explicit ``order`` (e.g. ``2`` for second-order) to draw a reference slope through the
+    first point instead of fitting one.
+    """
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    (line,) = ax.loglog(sizes, errors, "o-", label=label)
+    artists = [line]
+    if order is None:
+        fit = convergence_order(sizes, errors)
+        if fit is not None:
+            (fitted,) = ax.loglog(
+                fit.sizes, fit.fitted, "--", color=line.get_color(), label=rf"fit: order {fit.order:.2f}"
+            )
+            artists.append(fitted)
+    else:
+        sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(errors, dtype=float)
+        reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
+        (ref_line,) = ax.loglog(sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference")
+        artists.append(ref_line)
+    ax.set(xlabel=xlabel, ylabel="error", title=title)
+    if any(artist.get_label() and not artist.get_label().startswith("_") for artist in artists):
+        ax.legend(fontsize="small")
+    return PlotResult(fig, ax, artists)
+
+
 def save_all_scalars(
     scalars,
     directory,
@@ -769,6 +798,72 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
     artists.append(ax.scatter(*positions[-1].T, s=8))
     ax.set(xlabel="X", ylabel="Y", zlabel="Z", title="Marker trajectories")
     return PlotResult(fig, ax, artists)
+
+
+def _resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset:
+    selected = dataset
+    for dim, value in selection.items():
+        if dim not in selected.sizes:
+            raise TypeError(f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}")
+        if value == "first":
+            selected = selected.isel({dim: 0})
+        elif value == "last":
+            selected = selected.isel({dim: -1})
+        elif isinstance(value, (bool, str)):
+            raise TypeError(f'cannot select {dim}={value!r}; use a number, or "first"/"last"')
+        elif isinstance(value, (int, np.integer)):
+            selected = selected.isel({dim: int(value)})
+        else:
+            selected = selected.sel({dim: float(value)}, method="nearest")
+    return selected
+
+
+def plot_marker_scatter(
+    markers: xr.Dataset, *, x: str, y: str, color: str | None = None, ax=None, cmap=None, s: int = 8, **selection
+):
+    """Scatter marker positions from a Dataset (an orbits product, or any per-marker data).
+
+    ``x``, ``y`` and ``color`` name data variables (e.g. positions ``"x"``/``"y"``, or a
+    Lagrangian tracer/weight/density for ``color``); remaining dimensions such as ``t`` are
+    selected by keyword, exactly like :meth:`ArrayPlots.lineout`. Useful for checking a marker
+    loading scheme, or visualizing an SPH particle cloud colored by density or a tracer.
+    """
+    missing = [name for name in (x, y) if name not in markers.data_vars]
+    if missing:
+        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
+    selected = _resolve_marker_selection(markers, selection)
+    xv, yv = np.asarray(selected[x]), np.asarray(selected[y])
+    if xv.ndim != 1:
+        raise ValueError(f"select every dimension except 'marker' before scatter(); got shape {xv.shape}")
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    colors = np.asarray(selected[color]) if color else None
+    scatter = ax.scatter(xv, yv, c=colors, cmap=cmap or STRUPHY_STYLE["image.cmap"], s=s)
+    if color:
+        fig.colorbar(scatter, ax=ax, label=value_label(selected[color]))
+    ax.set(xlabel=x, ylabel=y, title=markers.attrs.get("label", "") or "Markers", aspect="equal")
+    return PlotResult(fig, ax, [scatter])
+
+
+def plot_field_with_orbits(field: xr.DataArray, view: View, orbits: xr.Dataset, *, max_markers=200, ax=None, cmap=None):
+    """A 2-D field slice with marker orbit paths overlaid: a Poincare-style diagnostic for
+    checking particle confinement or orbit topology against a background field.
+
+    ``orbits`` must have position variables named after ``view.x`` and ``view.y`` (e.g. its
+    logical coordinates, to overlay directly on a logical-coordinates slice).
+    """
+    x, y = view.x, view.y
+    missing = [name for name in (x, y) if name not in orbits.data_vars]
+    if missing:
+        raise ValueError(f"orbits has no {missing} position variable(s); it has {tuple(orbits.data_vars)}")
+    result = plot_slice(field, view=view, ax=ax, cmap=cmap)
+    count = min(orbits.sizes.get("marker", 0), max_markers)
+    subset = orbits.isel(marker=slice(0, count))
+    xs, ys = np.asarray(subset[x]), np.asarray(subset[y])
+    colors = plt.get_cmap("autumn")(np.linspace(0.15, 0.85, max(count, 1)))
+    for i in range(count):
+        (line,) = result.ax.plot(xs[:, i], ys[:, i], lw=0.8, color=colors[i])
+        result.artists.append(line)
+    return result
 
 
 def plot_equilibrium_profile(path_out, *, ax=None):

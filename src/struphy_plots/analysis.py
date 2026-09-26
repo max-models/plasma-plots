@@ -28,6 +28,34 @@ class FitResult:
     fitted: np.ndarray
 
 
+@dataclass(frozen=True)
+class ConvergenceFit:
+    order: float
+    constant: float
+    sizes: np.ndarray
+    fitted: np.ndarray
+
+
+def convergence_order(sizes, errors) -> ConvergenceFit | None:
+    """Fit ``error = constant * size**order`` in log-log space.
+
+    ``sizes`` is typically a resolution (points per cell, coarser to finer) or a step size
+    (``dt``); ``errors`` are the corresponding, necessarily positive, error norms. ``order`` is
+    negative when the error shrinks as ``sizes`` grows (e.g. more points per cell), and positive
+    when it shrinks as ``sizes`` shrinks (e.g. a smaller ``dt``). Returns ``None`` with fewer than
+    two valid (finite, positive) samples.
+    """
+    sizes = np.asarray(sizes, dtype=float)
+    errors = np.asarray(errors, dtype=float)
+    valid = np.isfinite(sizes) & np.isfinite(errors) & (sizes > 0) & (errors > 0)
+    if np.count_nonzero(valid) < 2:
+        return None
+    log_sizes, log_errors = np.log(sizes[valid]), np.log(errors[valid])
+    order, intercept = np.polyfit(log_sizes, log_errors, 1)
+    fitted = np.exp(intercept) * sizes[valid] ** order
+    return ConvergenceFit(float(order), float(np.exp(intercept)), sizes[valid], fitted)
+
+
 def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult | None:
     """Fit ``exp(rate*t + intercept)`` using only finite, positive samples."""
     validate_array(data, required_dims=("t",))
