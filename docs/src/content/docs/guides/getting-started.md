@@ -39,6 +39,10 @@ alone is enough to enable `.struphy` on any array produced by Struphy's
   [Particles & distributions](/struphy-plots/guides/particles/).
 - **`array.struphy.analysis`** — numerical diagnostics on a single labeled
   array (see [Diagnostics](/struphy-plots/guides/analysis/)).
+- **`array.struphy.data`** — the same selection/preparation every plot method
+  does, without rendering it, e.g. to plot with Plotly instead of matplotlib
+  (see [Getting the data instead of a plot](#getting-the-data-instead-of-a-plot)
+  below).
 - **`struphy_plots.output_accessors.OutputPlots`** — overview plots for a
   whole simulation run (see [Whole-run plots](/struphy-plots/guides/output-plots/)).
 
@@ -46,3 +50,30 @@ Lower-level, function-based versions of everything above are also available
 directly from `struphy_plots.plotting` and `struphy_plots.analysis`, if you'd
 rather call a function on a plain `xarray.DataArray` than go through the
 accessor.
+
+## Getting the data instead of a plot
+
+Every method on `array.struphy.plot` has a matching method on
+`array.struphy.data` that does the same selection, striding, or alignment,
+but returns the plain `xarray` object instead of a matplotlib figure — e.g.
+`plot.slice(...)` / `data.slice(...)`, `plot.vector(...)` / `data.vector(...)`,
+`plot.compare(...)` / `data.compare(...)`. The same holds for the `Dataset`
+accessor: `plot.scatter(...)` / `data.scatter(...)`.
+
+This is the escape hatch if you want a different plotting library. For
+example, a 2-D slice as a Plotly heatmap:
+
+```python
+import plotly.express as px
+
+selected = field.struphy.data.slice(x="e1", y="e2", t="last")
+px.imshow(selected, x=selected.e1, y=selected.e2, labels={"color": selected.name})
+```
+
+Or a marker scatter as a Plotly Express scatter plot, straight from a
+`pandas.DataFrame`:
+
+```python
+frame = markers.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
+px.scatter(frame, x="x", y="y", color="density")
+```

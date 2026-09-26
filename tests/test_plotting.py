@@ -361,6 +361,60 @@ def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
     result = field.struphy.plot.overlay_orbits(orbits, x="e1", y="e2")
     assert len(result.artists) == 1 + n_m  # the field mesh, plus one path per marker
 
-    with pytest.raises(ValueError, match="position variable"):
+    with pytest.raises(ValueError, match="missing required quantities"):
         field.struphy.plot.overlay_orbits(orbits.rename({"e1": "px"}), x="e1", y="e2")
+
+
+def test_array_data_mirrors_what_array_plot_would_render():
+    data = phase_space(nt=4)
+    assert data.struphy.data.lineout(x="e1", t=0, v1=0).dims == ("e1",)
+    assert data.struphy.data.slice(x="e1", y="v1", t="last").dims == ("e1", "v1")
+    assert data.struphy.data.view(x="e1", y="v1").dims == ("t", "e1", "v1")
+
+    vector = data_array(
+        np.ones((2, 3, 4)), ("component", "e1", "e2"), {"component": [0, 1], "e1": range(3), "e2": range(4)}
+    )
+    assert vector.struphy.data.vector(x="e1", y="e2", stride=2).sizes == {"component": 2, "e1": 2, "e2": 2}
+
+    assert set(physical_field().isel(t=0).struphy.data.volume_slices()) == {"e1", "e2", "e3"}
+
+    energy = data_array([1.0, 2.0, 4.0], ("t",), {"t": [0, 1, 2]})
+    diff = energy.struphy.data.compare(energy * 2, mode="difference")
+    np.testing.assert_allclose(diff.values, -energy.values)
+
+    assert energy.struphy.data.timeseries() == [energy]
+
+
+def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
+    e1, e2 = np.linspace(0, 1, 5), np.linspace(0, 1, 5)
+    field = data_array(np.ones((5, 5)), ("e1", "e2"), {"e1": e1, "e2": e2}, name="phi")
+    n_t, n_m = 4, 6
+    track = np.linspace(0.2, 0.8, n_t)[:, None] * np.ones((1, n_m))
+    orbits = xr.Dataset(
+        {"e1": (("t", "marker"), track), "e2": (("t", "marker"), track)},
+        coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
+    )
+
+    field_slice, orbit_subset = field.struphy.data.overlay_orbits(orbits, x="e1", y="e2", max_markers=3)
+    assert field_slice.dims == ("e1", "e2")
+    assert orbit_subset.sizes["marker"] == 3
+
+
+def test_dataset_data_mirrors_what_dataset_plot_would_render():
+    orbits = orbits_dataset(n_t=4, n_m=5)
+
+    scattered = orbits.struphy.data.scatter(x="x", y="y", color="weight", t="last")
+    assert scattered.sizes == {"marker": 5}
+    assert set(scattered.data_vars) >= {"x", "y", "weight"}
+    assert scattered.to_dataframe().shape == (5, 4)  # x, y, weight, plus the t coordinate column
+
+    with pytest.raises(ValueError, match="not data variables"):
+        orbits.struphy.data.scatter(x="missing", y="y")
+
+    n_t, n_m = 4, 5
+    with_z = xr.Dataset(
+        {name: (("t", "marker"), np.zeros((n_t, n_m))) for name in ("x", "y", "z")},
+        coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
+    )
+    assert with_z.struphy.data.trajectories(max_markers=3).sizes["marker"] == 3
 
