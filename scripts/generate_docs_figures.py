@@ -32,7 +32,12 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import PlotResult, plot_convergence, plot_dispersion, plot_scalars
+from struphy_plots.plotting import (
+    PlotResult,
+    plot_convergence,
+    plot_dispersion,
+    plot_scalars,
+)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -89,7 +94,9 @@ for i in range(n_t):
     dist2 = (E1 - center1[i]) ** 2 + (E2 - center2[i]) ** 2
     phi[i] = np.exp(-dist2 / (2 * sigma**2)) * np.cos(10.0 * (E1 - center1[i]))
 
-field = field_array("phi", r"$\phi$", "a.u.", phi, ("t", "e1", "e2"), {"t": t, "e1": e1, "e2": e2})
+field = field_array(
+    "phi", r"$\phi$", "a.u.", phi, ("t", "e1", "e2"), {"t": t, "e1": e1, "e2": e2}
+)
 
 save(field.struphy.plot.slice(x="e1", y="e2", t="last"), "slice.png")
 save(field.struphy.plot.panels(x="e1", y="e2", nrows=2, ncols=3), "panels.png")
@@ -126,8 +133,12 @@ save(
 n3 = 40
 e1_3, e2_3, e3_3 = (np.linspace(0.0, 1.0, n3) for _ in range(3))
 E1_3, E2_3, E3_3 = np.meshgrid(e1_3, e2_3, e3_3, indexing="ij")
-blob = np.exp(-((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2))
-volume_data = field_array("n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3})
+blob = np.exp(
+    -((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2)
+)
+volume_data = field_array(
+    "n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3}
+)
 save(volume_data.struphy.plot.volume_slices(), "volume_slices.png")
 
 try:
@@ -146,7 +157,9 @@ try:
     plotter.close()
     print(f"wrote {OUT / 'volume.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped volume.png (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped volume.png (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 
 # =============================================================================
@@ -179,7 +192,9 @@ fit = damped.struphy.analysis.damping_rate(amplitude=True)
 fig, ax = plt.subplots()
 ax.plot(damped.t, damped, lw=0.8, label="energy")
 ax.plot(envelope.t, envelope, "o", ms=3, color="C1", label="envelope peaks")
-ax.plot(fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}")
+ax.plot(
+    fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}"
+)
 ax.set(
     xlabel=axis_label(damped, "t"),
     ylabel=value_label(damped),
@@ -197,13 +212,19 @@ save(run_a.struphy.plot.compare(run_b, mode="ratio"), "compare_ratio.png")
 # =============================================================================
 # Diagnostics: norm, drift, relative error
 # =============================================================================
-decaying_field = field * xr.DataArray(1.0 / (1.0 + 0.4 * t), dims=("t",), coords={"t": t})
+decaying_field = field * xr.DataArray(
+    1.0 / (1.0 + 0.4 * t), dims=("t",), coords={"t": t}
+)
 decaying_field.attrs = dict(field.attrs)
 norm_t = decaying_field.struphy.analysis.norm()
-save(norm_t.struphy.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png")
+save(
+    norm_t.struphy.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png"
+)
 
 save(
-    total.struphy.analysis.drift().struphy.plot.lineout(x="t", title="Drift from the initial value"),
+    total.struphy.analysis.drift().struphy.plot.lineout(
+        x="t", title="Drift from the initial value"
+    ),
     "drift.png",
 )
 
@@ -216,7 +237,9 @@ en_cons = field_array(
     {"t": tt},
 )
 save(
-    en_cons.struphy.analysis.relative_error().struphy.plot.lineout(x="t", title="Relative energy conservation error"),
+    en_cons.struphy.analysis.relative_error().struphy.plot.lineout(
+        x="t", title="Relative energy conservation error"
+    ),
     "relative_error.png",
 )
 
@@ -235,7 +258,9 @@ beam_amplitude = 0.1 + 0.7 * TP / tp[-1]
 beam = beam_amplitude * np.exp(-((V1P - 3.0) ** 2) / (2 * 0.4**2))
 f = (bulk + beam) * (1.0 + 0.15 * np.cos(2 * np.pi * E1P))
 
-distribution = field_array("f", "$f$", "a.u.", f, ("t", "e1", "v1"), {"t": tp, "e1": e1p, "v1": v1p})
+distribution = field_array(
+    "f", "$f$", "a.u.", f, ("t", "e1", "v1"), {"t": tp, "e1": e1p, "v1": v1p}
+)
 
 save(distribution.struphy.plot.slice(x="e1", y="v1", t="last"), "phase_space.png")
 
@@ -254,7 +279,9 @@ save_fig(fig, "velocity_moments.png")
 
 averaged = distribution.struphy.analysis.spatial_average()
 save(
-    averaged.struphy.plot.slice(x="t", y="v1", title="Velocity distribution averaged over space"),
+    averaged.struphy.plot.slice(
+        x="t", y="v1", title="Velocity distribution averaged over space"
+    ),
     "spatial_average.png",
 )
 
@@ -362,12 +389,18 @@ rng_disp = np.random.default_rng(3)
 wave = np.zeros_like(X_DISP)
 for k in (2.0, 3.0, 4.0, 5.0):
     omega_k = bohm_gross(k)
-    wave += np.cos(k * X_DISP - omega_k * T_DISP) + np.cos(k * X_DISP + omega_k * T_DISP)
+    wave += np.cos(k * X_DISP - omega_k * T_DISP) + np.cos(
+        k * X_DISP + omega_k * T_DISP
+    )
 wave += 0.05 * rng_disp.standard_normal(wave.shape)
 
-dispersive_field = field_array("phi", r"$\phi$", "a.u.", wave, ("t", "e1"), {"t": t_disp, "e1": x_disp})
+dispersive_field = field_array(
+    "phi", r"$\phi$", "a.u.", wave, ("t", "e1"), {"t": t_disp, "e1": x_disp}
+)
 save(
-    dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12),
+    dispersive_field.struphy.plot.dispersion(
+        branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12
+    ),
     "dispersion.png",
 )
 
@@ -402,17 +435,25 @@ try:
     save_plotly(fig, "plotly_slice")
 
     frame = cloud.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
-    fig = px.scatter(frame, x="x", y="y", color="density", color_continuous_scale="viridis")
+    fig = px.scatter(
+        frame, x="x", y="y", color="density", color_continuous_scale="viridis"
+    )
     save_plotly(fig, "plotly_scatter")
 
     series = energy.struphy.data.timeseries(total)
     fig = go.Figure()
     for item in series:
-        fig.add_trace(go.Scatter(x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)))
+        fig.add_trace(
+            go.Scatter(
+                x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)
+            )
+        )
     fig.update_layout(xaxis_title="t", yaxis_title="[J]", legend=dict(x=0.02, y=0.98))
     save_plotly(fig, "plotly_timeseries")
 
-    vec = vector.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=4, t="last")
+    vec = vector.struphy.data.vector(
+        x="e1", y="e2", components=(0, 1), stride=4, t="last"
+    )
     xg, yg = np.meshgrid(vec.e1.values, vec.e2.values, indexing="ij")
     fig = ff.create_quiver(
         xg.ravel(),
@@ -473,7 +514,9 @@ try:
     fig = px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
     save_plotly(fig, "plotly_compare")
 
-    field_slice, orbit_subset = well.struphy.data.overlay_orbits(confined_orbits, x="e1", y="e2")
+    field_slice, orbit_subset = well.struphy.data.overlay_orbits(
+        confined_orbits, x="e1", y="e2"
+    )
     fig = go.Figure(
         go.Heatmap(
             z=field_slice.transpose("e2", "e1").values,
@@ -521,7 +564,9 @@ try:
             line=dict(color="#ffb347", dash="dash"),
         )
     )
-    fig.update_layout(xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12])
+    fig.update_layout(
+        xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12]
+    )
     save_plotly(fig, "plotly_dispersion")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped plotly_*.json (plotly unavailable): {exc}")
@@ -585,7 +630,9 @@ try:
     plotter.close()
     print(f"wrote {OUT / 'equilibrium_3d.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped equilibrium figures (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped equilibrium figures (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 
 # =============================================================================
@@ -610,7 +657,9 @@ try:
             self.profile = _FakeProfile(results)
 
     _profiling_tmp = _tempfile.mkdtemp()
-    with _sp.session(verbose=False, file_path=str(Path(_profiling_tmp) / "profiling_data.h5")):
+    with _sp.session(
+        verbose=False, file_path=str(Path(_profiling_tmp) / "profiling_data.h5")
+    ):
         for _ in range(6):
             with _sp.region("prop: faraday"):
                 _time.sleep(0.001)

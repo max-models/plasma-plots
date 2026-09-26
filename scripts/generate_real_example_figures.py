@@ -70,17 +70,28 @@ def run_folder():
 # mid-plane in e3 -- gives genuine (t, e1, e2, e3) structure for every field
 # plot, plus real electric/magnetic/total energy scalars.
 # =============================================================================
-from struphy import DerhamOptions, EnvironmentOptions, Time, domains, grids, perturbations  # noqa: E402
+from struphy import (
+    DerhamOptions,
+    EnvironmentOptions,
+    Time,
+    domains,
+    grids,
+    perturbations,
+)  # noqa: E402
 from struphy.models import Maxwell  # noqa: E402
 from struphy.simulation.sim import Simulation  # noqa: E402
 
 t0 = time.time()
 fields_model = Maxwell()
 fields_model.em_fields.e_field.add_perturbation(
-    perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(0.5,), comp=0, pfuns=("localize",), pfuns_params=(0.15,))
+    perturbations.ModesCosCos(
+        ls=(1,), ms=(1,), amps=(0.5,), comp=0, pfuns=("localize",), pfuns_params=(0.15,)
+    )
 )
 fields_model.em_fields.e_field.add_perturbation(
-    perturbations.ModesCosCos(ls=(2,), ms=(1,), amps=(0.3,), comp=1, pfuns=("localize",), pfuns_params=(0.15,))
+    perturbations.ModesCosCos(
+        ls=(2,), ms=(1,), amps=(0.3,), comp=1, pfuns=("localize",), pfuns_params=(0.15,)
+    )
 )
 fields_sim = Simulation(
     model=fields_model,
@@ -99,7 +110,10 @@ field = vector_field.isel(component=0)
 field.attrs.setdefault("label", r"$E_x$")
 
 save(field.struphy.plot.slice(x="e1", y="e2", e3=0.5, t="last"), "real_slice.png")
-save(field.struphy.plot.panels(x="e1", y="e2", e3=0.5, nrows=2, ncols=3), "real_panels.png")
+save(
+    field.struphy.plot.panels(x="e1", y="e2", e3=0.5, nrows=2, ncols=3),
+    "real_panels.png",
+)
 save(field.struphy.plot.lineout(x="e1", t="last", e2=0.5, e3=0.5), "real_lineout.png")
 
 anim = field.struphy.plot.animation(x="e1", y="e2", e3=0.5, step=2, interval=120)
@@ -108,7 +122,9 @@ anim.save(anim_path, writer="pillow", fps=8)
 print(f"wrote {anim_path}")
 
 save(
-    vector_field.struphy.plot.vector(x="e1", y="e2", components=(0, 1), stride=1, e3=0.5, t="last"),
+    vector_field.struphy.plot.vector(
+        x="e1", y="e2", components=(0, 1), stride=1, e3=0.5, t="last"
+    ),
     "real_vector.png",
 )
 save(field.struphy.plot.volume_slices(t="last"), "real_volume_slices.png")
@@ -123,21 +139,31 @@ try:
     plotter.close()
     print(f"wrote {OUT / 'real_volume.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped volume.png (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped volume.png (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 save(OutputPlots(fields_out).scalars(logy=False), "real_scalars.png")
 
 electric_energy = fields_out.scalars["electric_energy"]
 magnetic_energy = fields_out.scalars["magnetic_energy"]
-save(electric_energy.struphy.plot.compare(magnetic_energy, mode="difference"), "real_compare_difference.png")
-save(electric_energy.struphy.plot.compare(magnetic_energy, mode="ratio"), "real_compare_ratio.png")
+save(
+    electric_energy.struphy.plot.compare(magnetic_energy, mode="difference"),
+    "real_compare_difference.png",
+)
+save(
+    electric_energy.struphy.plot.compare(magnetic_energy, mode="ratio"),
+    "real_compare_ratio.png",
+)
 
 norm_t = field.struphy.analysis.norm()
 save(norm_t.struphy.plot.lineout(x="t", title="Field norm over time"), "real_norm.png")
 
 total_energy = fields_out.scalars["total_energy"]
 save(
-    total_energy.struphy.analysis.drift().struphy.plot.lineout(x="t", title="Drift from the initial value"),
+    total_energy.struphy.analysis.drift().struphy.plot.lineout(
+        x="t", title="Drift from the initial value"
+    ),
     "real_drift.png",
 )
 save(
@@ -158,7 +184,10 @@ equil = ScrewPinch(a=0.45, R0=2.5, beta=0.6)
 equil_domain = domains.HollowCylinder(a1=0.02, a2=0.45, Lz=1.2)
 equil.domain = equil_domain
 
-from struphy_plots.plotting import plot_equilibrium_profile, show_equilibrium  # noqa: E402
+from struphy_plots.plotting import (
+    plot_equilibrium_profile,
+    show_equilibrium,
+)  # noqa: E402
 
 save(plot_equilibrium_profile(equil, equil_domain), "real_equilibrium.png")
 
@@ -173,7 +202,9 @@ try:
     plotter.close()
     print(f"wrote {OUT / 'real_equilibrium_3d.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped equilibrium_3d.png (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped equilibrium_3d.png (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 
 # =============================================================================
@@ -203,18 +234,35 @@ kinetic_model.kinetic_ions.set_markers(
     sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
     saving_params=SavingParameters(
         n_markers=24,
-        binning_plots=(BinningPlot(slice="e1_v1", n_bins=(48, 48), ranges=((0.0, 1.0), (-5.0, 9.0))),),
+        binning_plots=(
+            BinningPlot(
+                slice="e1_v1", n_bins=(48, 48), ranges=((0.0, 1.0), (-5.0, 9.0))
+            ),
+        ),
     ),
     bufsize=0.4,
 )
-kinetic_model.propagators.push_eta.options = kinetic_model.propagators.push_eta.Options()
-kinetic_model.propagators.coupling_va.options = kinetic_model.propagators.coupling_va.Options()
-kinetic_model.initial_poisson.options = kinetic_model.initial_poisson.Options(stab_mat="M0")
+kinetic_model.propagators.push_eta.options = (
+    kinetic_model.propagators.push_eta.Options()
+)
+kinetic_model.propagators.coupling_va.options = (
+    kinetic_model.propagators.coupling_va.Options()
+)
+kinetic_model.initial_poisson.options = kinetic_model.initial_poisson.Options(
+    stab_mat="M0"
+)
 
 beam = maxwellians.Maxwellian3D(n=(0.15, None), u1=(4.0, None), vth1=(0.3, None))
-kinetic_model.kinetic_ions.var.add_background(SumKineticBackground(maxwellians.Maxwellian3D(n=(0.85, None)), beam))
+kinetic_model.kinetic_ions.var.add_background(
+    SumKineticBackground(maxwellians.Maxwellian3D(n=(0.85, None)), beam)
+)
 kinetic_model.kinetic_ions.var.add_initial_condition(
-    SumKineticBackground(maxwellians.Maxwellian3D(n=(1.0, perturbations.ModesCos(ls=(1,), amps=(1e-2,)))), beam)
+    SumKineticBackground(
+        maxwellians.Maxwellian3D(
+            n=(1.0, perturbations.ModesCos(ls=(1,), amps=(1e-2,)))
+        ),
+        beam,
+    )
 )
 
 kinetic_sim = Simulation(
@@ -235,7 +283,12 @@ print(f"[kinetic] ran in {time.time() - t0:.1f}s")
 probe = kinetic_out.evaluate("em_fields/e_field", component=0).isel(e2=0, e3=0, e1=2)
 probe.attrs.setdefault("label", r"$E_x$ probe")
 
-save(probe.struphy.plot.timeseries(fit=(1.0, 8.0), title="Bump-on-tail instability: field growth"), "real_timeseries_growth.png")
+save(
+    probe.struphy.plot.timeseries(
+        fit=(1.0, 8.0), title="Bump-on-tail instability: field growth"
+    ),
+    "real_timeseries_growth.png",
+)
 
 envelope = probe.struphy.analysis.envelope()
 fit = probe.struphy.analysis.damping_rate(window=(9.0, 13.0))
@@ -243,8 +296,14 @@ fig, ax = plt.subplots()
 ax.plot(probe.t, probe, lw=0.8, label="probe field")
 ax.plot(envelope.t, envelope, "o", ms=3, color="C1", label="envelope peaks")
 if fit is not None:
-    ax.plot(fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}")
-ax.set(xlabel=axis_label(probe, "t"), ylabel=value_label(probe), title="Relaxation after saturation")
+    ax.plot(
+        fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}"
+    )
+ax.set(
+    xlabel=axis_label(probe, "t"),
+    ylabel=value_label(probe),
+    title="Relaxation after saturation",
+)
 ax.legend(fontsize="small")
 save_fig(fig, "real_damping.png")
 
@@ -257,24 +316,38 @@ fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), layout="constrained")
 for ax, name in zip(axes, ("density", "mean_v1", "variance_v1")):
     array = final[name]
     ax.plot(array.e1, array)
-    ax.set(xlabel=axis_label(array, "e1"), ylabel=value_label(array), title=array.attrs.get("label", name))
+    ax.set(
+        xlabel=axis_label(array, "e1"),
+        ylabel=value_label(array),
+        title=array.attrs.get("label", name),
+    )
 save_fig(fig, "real_velocity_moments.png")
 
 averaged = distribution.struphy.analysis.spatial_average()
 save(
-    averaged.struphy.plot.slice(x="t", y="v1", title="Velocity distribution averaged over space"),
+    averaged.struphy.plot.slice(
+        x="t", y="v1", title="Velocity distribution averaged over space"
+    ),
     "real_spatial_average.png",
 )
 
 orbits = kinetic_out.evaluate("kinetic_ions/orbits")
-save(orbits.struphy.plot.trajectories(show_paths=True, max_markers=8), "real_trajectories.png")
-save(orbits.struphy.plot.scatter(x="x", y="v1", color="weight", t="last"), "real_marker_scatter.png")
+save(
+    orbits.struphy.plot.trajectories(show_paths=True, max_markers=8),
+    "real_trajectories.png",
+)
+save(
+    orbits.struphy.plot.scatter(x="x", y="v1", color="weight", t="last"),
+    "real_marker_scatter.png",
+)
 
 # The same markers, in the same (e1, v1) phase space as the distribution
 # above: real individual trajectories over the real phase-space density.
 phase_space_orbits = orbits.assign(e1=orbits["x"] / domain_length)
 save(
-    distribution.struphy.plot.overlay_orbits(phase_space_orbits, x="e1", y="v1", max_markers=6, t="last"),
+    distribution.struphy.plot.overlay_orbits(
+        phase_space_orbits, x="e1", y="v1", max_markers=6, t="last"
+    ),
     "real_orbit_overlay.png",
 )
 
@@ -291,7 +364,9 @@ def exact_mode(x, y):
 conv_sizes, conv_errors = [], []
 for nel in (4, 8, 16, 32):
     model = Maxwell()
-    model.em_fields.e_field.add_perturbation(perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(0.5,), comp=0))
+    model.em_fields.e_field.add_perturbation(
+        perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(0.5,), comp=0)
+    )
     sim = Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=run_folder(), sim_folder="conv"),
@@ -302,7 +377,9 @@ for nel in (4, 8, 16, 32):
     )
     sim.run()
     da = sim.output.evaluate("em_fields/e_field", component=0).isel(t=0, e3=0)
-    error = float(np.sqrt(np.mean((da.values - exact_mode(da.X.values, da.Y.values)) ** 2)))
+    error = float(
+        np.sqrt(np.mean((da.values - exact_mode(da.X.values, da.Y.values)) ** 2))
+    )
     conv_sizes.append(nel)
     conv_errors.append(error)
     print(f"[convergence] nel={nel} error={error:.3e}")
@@ -322,12 +399,18 @@ def bohm_gross(k):
     return np.sqrt(1.0 + 3.0 * k**2)
 
 
-dispersive_field = kinetic_out.evaluate("em_fields/e_field", component=0).isel(e2=0, e3=0)
+dispersive_field = kinetic_out.evaluate("em_fields/e_field", component=0).isel(
+    e2=0, e3=0
+)
 # "e1" is the logical coordinate (0..1); swap in the physical position so the FFT's
 # wavenumber comes out in physical units, matching the Bohm-Gross reference curve.
-dispersive_field = dispersive_field.assign_coords(e1=("e1", dispersive_field["X"].values))
+dispersive_field = dispersive_field.assign_coords(
+    e1=("e1", dispersive_field["X"].values)
+)
 save(
-    dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross (approx.)": bohm_gross}, kmax=3, omega_max=8),
+    dispersive_field.struphy.plot.dispersion(
+        branches={"Bohm-Gross (approx.)": bohm_gross}, kmax=3, omega_max=8
+    ),
     "real_dispersion.png",
 )
 
@@ -352,23 +435,39 @@ try:
 
     selected = field.struphy.data.slice(x="e1", y="e2", e3=0.5, t="last")
     fig = px.imshow(
-        selected.transpose("e2", "e1"), x=selected.e1, y=selected.e2, origin="lower", color_continuous_scale="viridis"
+        selected.transpose("e2", "e1"),
+        x=selected.e1,
+        y=selected.e2,
+        origin="lower",
+        color_continuous_scale="viridis",
     )
     fig.update_layout(xaxis_title="e1", yaxis_title="e2")
     save_plotly(fig, "real_plotly_slice")
 
-    frame = orbits.struphy.data.scatter(x="x", y="v1", color="weight", t="last").to_dataframe()
-    fig = px.scatter(frame, x="x", y="v1", color="weight", color_continuous_scale="viridis")
+    frame = orbits.struphy.data.scatter(
+        x="x", y="v1", color="weight", t="last"
+    ).to_dataframe()
+    fig = px.scatter(
+        frame, x="x", y="v1", color="weight", color_continuous_scale="viridis"
+    )
     save_plotly(fig, "real_plotly_scatter")
 
     series = probe.struphy.data.timeseries()
     fig = go.Figure()
     for item in series:
-        fig.add_trace(go.Scatter(x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)))
-    fig.update_layout(xaxis_title="t", yaxis_title=value_label(probe), legend=dict(x=0.02, y=0.98))
+        fig.add_trace(
+            go.Scatter(
+                x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)
+            )
+        )
+    fig.update_layout(
+        xaxis_title="t", yaxis_title=value_label(probe), legend=dict(x=0.02, y=0.98)
+    )
     save_plotly(fig, "real_plotly_timeseries")
 
-    vec = vector_field.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=1, e3=0.5, t="last")
+    vec = vector_field.struphy.data.vector(
+        x="e1", y="e2", components=(0, 1), stride=1, e3=0.5, t="last"
+    )
     xg, yg = np.meshgrid(vec.e1.values, vec.e2.values, indexing="ij")
     fig = ff.create_quiver(
         xg.ravel(),
@@ -385,7 +484,13 @@ try:
     for i, (name, plane) in enumerate(planes.items(), start=1):
         x, y = plane.dims
         fig.add_trace(
-            go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values, colorscale="viridis", showscale=False),
+            go.Heatmap(
+                z=plane.values.T,
+                x=plane[x].values,
+                y=plane[y].values,
+                colorscale="viridis",
+                showscale=False,
+            ),
             row=1,
             col=i,
         )
@@ -395,7 +500,16 @@ try:
     fig = go.Figure()
     for marker in subset.marker.values:
         path = subset.sel(marker=marker)
-        fig.add_trace(go.Scatter3d(x=path.x, y=path.y, z=path.z, mode="lines", line=dict(width=3), showlegend=False))
+        fig.add_trace(
+            go.Scatter3d(
+                x=path.x,
+                y=path.y,
+                z=path.z,
+                mode="lines",
+                line=dict(width=3),
+                showlegend=False,
+            )
+        )
     fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
     save_plotly(fig, "real_plotly_trajectories", height=520)
 
@@ -414,7 +528,9 @@ try:
     fig = px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
     save_plotly(fig, "real_plotly_compare")
 
-    field_slice, orbit_subset = distribution.struphy.data.overlay_orbits(phase_space_orbits, x="e1", y="v1", max_markers=6, t="last")
+    field_slice, orbit_subset = distribution.struphy.data.overlay_orbits(
+        phase_space_orbits, x="e1", y="v1", max_markers=6, t="last"
+    )
     fig = go.Figure(
         go.Heatmap(
             z=field_slice.transpose("v1", "e1").values,
@@ -426,7 +542,15 @@ try:
     )
     for marker in orbit_subset.marker.values:
         path = orbit_subset.sel(marker=marker)
-        fig.add_trace(go.Scatter(x=path.e1, y=path.v1, mode="lines", line=dict(color="#ffb347"), showlegend=False))
+        fig.add_trace(
+            go.Scatter(
+                x=path.e1,
+                y=path.v1,
+                mode="lines",
+                line=dict(color="#ffb347"),
+                showlegend=False,
+            )
+        )
     fig.update_layout(xaxis_title="e1", yaxis_title="v1")
     save_plotly(fig, "real_plotly_overlay_orbits")
 
@@ -446,9 +570,17 @@ try:
         )
     )
     fig.add_trace(
-        go.Scatter(x=k_line, y=bohm_gross(k_line), mode="lines", name="Bohm-Gross (approx.)", line=dict(color="#ffb347", dash="dash"))
+        go.Scatter(
+            x=k_line,
+            y=bohm_gross(k_line),
+            mode="lines",
+            name="Bohm-Gross (approx.)",
+            line=dict(color="#ffb347", dash="dash"),
+        )
     )
-    fig.update_layout(xaxis_title="k", yaxis_title="omega", xaxis_range=[-3, 3], yaxis_range=[0, 8])
+    fig.update_layout(
+        xaxis_title="k", yaxis_title="omega", xaxis_range=[-3, 3], yaxis_range=[0, 8]
+    )
     save_plotly(fig, "real_plotly_dispersion")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped plotly_*.json (plotly unavailable): {exc}")
@@ -459,15 +591,26 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # =============================================================================
 try:
     profile_plots = OutputPlots(kinetic_out).profile
-    save(PlotResult(*profile_plots.gantt(include=["prop:", "kernel:", "solve:"])), "real_profile_gantt.png")
+    save(
+        PlotResult(*profile_plots.gantt(include=["prop:", "kernel:", "solve:"])),
+        "real_profile_gantt.png",
+    )
     region_filter = ["prop:", "kernel:", "solve:"]
-    save(PlotResult(*profile_plots.flame(include=region_filter)), "real_profile_flame.png")
-    save(PlotResult(*profile_plots.callgraph(compact=True, include=region_filter)), "real_profile_callgraph.png")
+    save(
+        PlotResult(*profile_plots.flame(include=region_filter)),
+        "real_profile_flame.png",
+    )
+    save(
+        PlotResult(*profile_plots.callgraph(compact=True, include=region_filter)),
+        "real_profile_callgraph.png",
+    )
 
     try:
         import plotly  # noqa: F401
 
-        fig = profile_plots.gantt(backend="plotly", include=["prop:", "kernel:", "solve:"])
+        fig = profile_plots.gantt(
+            backend="plotly", include=["prop:", "kernel:", "solve:"]
+        )
         fig.write_json(PLOTLY_OUT / "real_plotly_profile_gantt.json")
         print(f"wrote {PLOTLY_OUT / 'real_plotly_profile_gantt.json'}")
     except ImportError:

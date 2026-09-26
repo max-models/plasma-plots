@@ -16,8 +16,23 @@ import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
-from .analysis import FitResult, GrowthFit, convergence_order, drift, growth_rate, power_spectrum, relative_error
-from .arrays import SCALARS_EXCLUDE, axis_label, save_scalars, scalar_names, validate_array, value_label
+from .analysis import (
+    FitResult,
+    GrowthFit,
+    convergence_order,
+    drift,
+    growth_rate,
+    power_spectrum,
+    relative_error,
+)
+from .arrays import (
+    SCALARS_EXCLUDE,
+    axis_label,
+    save_scalars,
+    scalar_names,
+    validate_array,
+    value_label,
+)
 
 logger = logging.getLogger("struphy")
 
@@ -144,7 +159,9 @@ def _select(data: xr.DataArray, view: View, *, keep_sweep=True):
     validate_array(data)
     overlap = set(view.select) & set(view.isel)
     if overlap:
-        raise ValueError(f"dimensions cannot appear in both select and isel: {sorted(overlap)}")
+        raise ValueError(
+            f"dimensions cannot appear in both select and isel: {sorted(overlap)}"
+        )
     selected = data
     if view.select:
         selected = selected.sel(view.select, method="nearest")
@@ -159,11 +176,17 @@ def logical_grids(data: xr.DataArray, *, x=None, y=None):
     """Return 2-D logical coordinate grids and their labels."""
     if x is None or y is None:
         if data.ndim != 2:
-            raise ValueError(f"x and y are required unless data is two-dimensional; got {data.dims}")
+            raise ValueError(
+                f"x and y are required unless data is two-dimensional; got {data.dims}"
+            )
         x, y = data.dims
     if set(data.dims) != {x, y}:
-        raise ValueError(f"selected data must contain exactly {x!r} and {y!r}; got {data.dims}")
-    xgrid, ygrid = np.meshgrid(np.asarray(data.coords[x]), np.asarray(data.coords[y]), indexing="ij")
+        raise ValueError(
+            f"selected data must contain exactly {x!r} and {y!r}; got {data.dims}"
+        )
+    xgrid, ygrid = np.meshgrid(
+        np.asarray(data.coords[x]), np.asarray(data.coords[y]), indexing="ij"
+    )
     return xgrid, ygrid, axis_label(data, x), axis_label(data, y)
 
 
@@ -174,26 +197,36 @@ def physical_grids(data: xr.DataArray, *, plane="XY"):
     xname, yname, xlabel, ylabel = PLANES[plane]
     missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
     if missing:
-        raise ValueError(f"physical coordinates are not attached to {data.name!r}: missing {missing}")
+        raise ValueError(
+            f"physical coordinates are not attached to {data.name!r}: missing {missing}"
+        )
     xcoord = np.sqrt(data.X**2 + data.Y**2) if xname == "R" else data.coords[xname]
     ycoord = data.coords[yname]
     if xcoord.ndim != 2 or ycoord.ndim != 2:
-        raise ValueError("select all but two spatial dimensions before requesting a physical grid")
+        raise ValueError(
+            "select all but two spatial dimensions before requesting a physical grid"
+        )
     return np.asarray(xcoord), np.asarray(ycoord), xlabel, ylabel
 
 
 def _slice_data(data, view):
     selected = _select(data, view)
     if view.sweep in selected.dims and view.sweep not in (view.x, view.y):
-        raise ValueError(f"select one {view.sweep!r} value before drawing a static slice, or display it as x or y")
+        raise ValueError(
+            f"select one {view.sweep!r} value before drawing a static slice, or display it as x or y"
+        )
     if view.x is None or view.y is None:
         if selected.ndim != 2:
-            raise ValueError(f"view.x and view.y are required for remaining dims {selected.dims}")
+            raise ValueError(
+                f"view.x and view.y are required for remaining dims {selected.dims}"
+            )
         x, y = selected.dims
     else:
         x, y = view.x, view.y
     if set(selected.dims) != {x, y}:
-        raise ValueError(f"selection leaves dimensions {selected.dims}; expected only {x!r}, {y!r}")
+        raise ValueError(
+            f"selection leaves dimensions {selected.dims}; expected only {x!r}, {y!r}"
+        )
     selected = selected.transpose(x, y)
     grids = (
         physical_grids(selected, plane=view.plane)
@@ -229,7 +262,11 @@ def plot_timeseries(
                     None,
                     (
                         _label(item),
-                        (f"({item.attrs['run_name']})" if item.attrs.get("run_name") else ""),
+                        (
+                            f"({item.attrs['run_name']})"
+                            if item.attrs.get("run_name")
+                            else ""
+                        ),
                     ),
                 )
             )
@@ -269,10 +306,14 @@ def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=Non
     """Plot a selected one-dimensional profile using one named coordinate."""
     validate_array(data)
     if data.ndim != 1:
-        raise ValueError(f"lineout needs exactly one remaining dimension, got {data.dims}")
+        raise ValueError(
+            f"lineout needs exactly one remaining dimension, got {data.dims}"
+        )
     x = data.dims[0] if x is None else x
     if x != data.dims[0]:
-        raise ValueError(f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}")
+        raise ValueError(
+            f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}"
+        )
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     (line,) = ax.plot(data[x], data)
     ax.set(
@@ -300,7 +341,9 @@ def prepare_vector(
     """
     validate_array(data, required_dims=(component_dim, x, y))
     if set(data.dims) != {component_dim, x, y}:
-        raise ValueError(f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}")
+        raise ValueError(
+            f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}"
+        )
     if stride < 1:
         raise ValueError("stride must be positive")
     return data.transpose(component_dim, x, y).isel(
@@ -340,12 +383,20 @@ def plot_vector(
         }
         plane = planes.get(frozenset((x, y)))
         if plane is None:
-            raise ValueError("physical vector plots require two logical spatial dimensions")
-        xg, yg, xlabel, ylabel = physical_grids(vector.isel({component_dim: 0}), plane=plane)
+            raise ValueError(
+                "physical vector plots require two logical spatial dimensions"
+            )
+        xg, yg, xlabel, ylabel = physical_grids(
+            vector.isel({component_dim: 0}), plane=plane
+        )
     else:
-        xg, yg, xlabel, ylabel = logical_grids(vector.isel({component_dim: 0}), x=x, y=y)
+        xg, yg, xlabel, ylabel = logical_grids(
+            vector.isel({component_dim: 0}), x=x, y=y
+        )
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-    quiver = ax.quiver(xg, yg, vector.isel({component_dim: 0}), vector.isel({component_dim: 1}))
+    quiver = ax.quiver(
+        xg, yg, vector.isel({component_dim: 0}), vector.isel({component_dim: 1})
+    )
     ax.set(
         xlabel=xlabel,
         ylabel=ylabel,
@@ -356,7 +407,9 @@ def plot_vector(
     return PlotResult(fig, ax, [quiver])
 
 
-def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None) -> dict[str, xr.DataArray]:
+def prepare_volume_slices(
+    data: xr.DataArray, *, indices: dict[str, int] | None = None
+) -> dict[str, xr.DataArray]:
     """Three orthogonal midpoint (or chosen-index) planes through a scalar volume.
 
     Returns a dict keyed by the dimension held fixed for each plane (``"e3"``, ``"e2"``,
@@ -364,7 +417,9 @@ def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None 
     """
     validate_array(data, required_dims=("e1", "e2", "e3"))
     if set(data.dims) != {"e1", "e2", "e3"}:
-        raise ValueError(f"select every non-spatial dimension before volume_slices(); got {data.dims}")
+        raise ValueError(
+            f"select every non-spatial dimension before volume_slices(); got {data.dims}"
+        )
     indices = {dim: data.sizes[dim] // 2 for dim in data.dims} | (indices or {})
     planes = {}
     for normal, x, y in zip(("e3", "e2", "e1"), ("e1", "e1", "e2"), ("e2", "e3", "e3")):
@@ -374,14 +429,18 @@ def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None 
     return planes
 
 
-def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
+def plot_volume_slices(
+    data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None
+):
     """Show three orthogonal midpoint slices of a selected scalar volume."""
     planes = prepare_volume_slices(data, indices=indices)
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.6), layout="constrained")
     artists = []
     for ax, (normal, plane) in zip(axes, planes.items()):
         x, y = plane.dims
-        mesh = ax.pcolormesh(plane[x], plane[y], np.asarray(plane).T, shading="auto", cmap=cmap)
+        mesh = ax.pcolormesh(
+            plane[x], plane[y], np.asarray(plane).T, shading="auto", cmap=cmap
+        )
         index = plane.attrs.get("fixed_index")
         ax.set(
             xlabel=axis_label(plane, x),
@@ -405,7 +464,11 @@ def prepare_compare(
     Used by :func:`plot_compare`.
     """
     first, second = xr.align(first, second, join="inner")
-    result = first - second if mode == "difference" else xr.where(second != 0, first / second, np.nan)
+    result = (
+        first - second
+        if mode == "difference"
+        else xr.where(second != 0, first / second, np.nan)
+    )
     result.name = f"{_label(first)} {mode}"
     return result
 
@@ -421,7 +484,9 @@ def plot_compare(
     return plot_lineout(prepare_compare(first, second, mode=mode), ax=ax)
 
 
-def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"):
+def pyvista_volume(
+    data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"
+):
     """Create a PyVista volume view from a selected scalar field with ``X/Y/Z`` coordinates.
 
     The returned plotter is not shown automatically; call ``plotter.show()`` in an
@@ -431,7 +496,9 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
 
     validate_array(data, required_dims=("e1", "e2", "e3"))
     if set(data.dims) != {"e1", "e2", "e3"}:
-        raise ValueError(f"select every non-spatial dimension before pyvista_volume(); got {data.dims}")
+        raise ValueError(
+            f"select every non-spatial dimension before pyvista_volume(); got {data.dims}"
+        )
     if any(coord not in data.coords for coord in ("X", "Y", "Z")):
         raise ValueError("pyvista_volume() requires mapped X, Y, and Z coordinates")
     grid = pv.StructuredGrid(
@@ -447,7 +514,17 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     return plotter
 
 
-def show_equilibrium(equil, domain, *, scalars: str = "p0", cmap="viridis", n1=40, n2=48, n3=10, clip=True):
+def show_equilibrium(
+    equil,
+    domain,
+    *,
+    scalars: str = "p0",
+    cmap="viridis",
+    n1=40,
+    n2=48,
+    n3=10,
+    clip=True,
+):
     """A PyVista cutaway view of a fluid equilibrium's scalar field over its domain.
 
     ``equil`` is a :class:`~struphy.fields_background.base.FluidEquilibrium` (e.g. from
@@ -463,7 +540,11 @@ def show_equilibrium(equil, domain, *, scalars: str = "p0", cmap="viridis", n1=4
     e3 = np.linspace(0.0, 1.0, n3)
     x, y, z = domain(e1, e2, e3, squeeze_out=False)
     values = np.asarray(getattr(equil, scalars)(e1, e2, e3), dtype=float)
-    grid = pv.StructuredGrid(np.asarray(x, dtype=float), np.asarray(y, dtype=float), np.asarray(z, dtype=float))
+    grid = pv.StructuredGrid(
+        np.asarray(x, dtype=float),
+        np.asarray(y, dtype=float),
+        np.asarray(z, dtype=float),
+    )
     grid.point_data[scalars] = values.ravel(order="F")
     mesh = grid.clip(normal="x", origin=grid.center) if clip else grid
     plotter = pv.Plotter()
@@ -498,7 +579,9 @@ class _SliceRenderer:
         self.vmin, self.vmax = vmin, vmax
         self.shared_clim = shared_clim
         self.cmap = cmap or STRUPHY_STYLE["image.cmap"]
-        self.equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
+        self.equal_aspect = (
+            view.coordinates == "physical" if equal_aspect is None else equal_aspect
+        )
         self.title = _label(data) if title is None else title
         self.limits = self._limits(self.data) if shared_clim else None
 
@@ -508,7 +591,9 @@ class _SliceRenderer:
         values = np.asarray(data)
         finite = values[np.isfinite(values)]
         if not finite.size:
-            raise ValueError("cannot determine color limits from data without finite values; provide vmin and vmax")
+            raise ValueError(
+                "cannot determine color limits from data without finite values; provide vmin and vmax"
+            )
         return (
             float(finite.min()) if self.vmin is None else self.vmin,
             float(finite.max()) if self.vmax is None else self.vmax,
@@ -517,7 +602,9 @@ class _SliceRenderer:
     def draw(self, ax, data):
         values, (xg, yg, xlabel, ylabel) = _slice_data(data, self.view)
         lo, hi = self.limits if self.shared_clim else self._limits(values)
-        mesh = ax.pcolormesh(xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap)
+        mesh = ax.pcolormesh(
+            xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap
+        )
         ax.set(
             xlabel=xlabel,
             ylabel=ylabel,
@@ -675,7 +762,9 @@ class InteractiveSliceViewer:
             if len(candidates) < 2:
                 raise ValueError("viewer needs two display dimensions")
             x, y = candidates[:2]
-        renderer.view = View(x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane)
+        renderer.view = View(
+            x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane
+        )
         controls = [dim for dim in base.dims if dim not in {x, y}]
         indices = {dim: 0 for dim in controls}
         with plt.rc_context(STRUPHY_STYLE):
@@ -692,7 +781,10 @@ class InteractiveSliceViewer:
                 mesh = renderer.draw(ax, base.isel(indices))
                 self.result.artists[:] = [mesh]
                 colorbar.update_normal(mesh)
-                values = ", ".join(f"{dim}={float(base[dim][index]):.3e}" for dim, index in indices.items())
+                values = ", ".join(
+                    f"{dim}={float(base[dim][index]):.3e}"
+                    for dim, index in indices.items()
+                )
                 ax.set_title(" at ".join(filter(None, (renderer.title, values))))
                 fig.canvas.draw_idle()
 
@@ -820,7 +912,11 @@ def plot_scalars(
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected:
         raise ValueError("no scalars to plot")
-    run_label = shared_run_label([scalars[name] for name in selected]) if run_label is None else run_label
+    run_label = (
+        shared_run_label([scalars[name] for name in selected])
+        if run_label is None
+        else run_label
+    )
     fig, ax = plt.subplots(layout="constrained")
     for name in selected:
         values = scalars[name] / scalars[relative_to] if relative_to else scalars[name]
@@ -828,7 +924,11 @@ def plot_scalars(
     if logy:
         ax.set_yscale("log")
     units = {scalars[name].attrs.get("units", "") for name in selected}
-    ylabel = f"quantity / {relative_to}" if relative_to else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
+    ylabel = (
+        f"quantity / {relative_to}"
+        if relative_to
+        else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
+    )
     ax.set(xlabel=axis_label(scalars[selected[0]], "t"), ylabel=ylabel, title="Scalars")
     ax.legend(fontsize="small")
     if run_label:
@@ -867,12 +967,19 @@ def plot_convergence(
             )
             artists.append(fitted)
     else:
-        sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(errors, dtype=float)
+        sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(
+            errors, dtype=float
+        )
         reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
-        (ref_line,) = ax.loglog(sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference")
+        (ref_line,) = ax.loglog(
+            sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference"
+        )
         artists.append(ref_line)
     ax.set(xlabel=xlabel, ylabel="error", title=title)
-    if any(artist.get_label() and not artist.get_label().startswith("_") for artist in artists):
+    if any(
+        artist.get_label() and not artist.get_label().startswith("_")
+        for artist in artists
+    ):
         ax.legend(fontsize="small")
     return PlotResult(fig, ax, artists)
 
@@ -934,7 +1041,9 @@ def plot_dispersion(
     if branches:
         k_line = k[k_mask]
         for label, branch in branches.items():
-            k_branch, omega_branch = (k_line, branch(k_line)) if callable(branch) else branch
+            k_branch, omega_branch = (
+                (k_line, branch(k_line)) if callable(branch) else branch
+            )
             (line,) = ax.plot(k_branch, omega_branch, "--", label=label)
             artists.append(line)
         ax.legend(fontsize="small")
@@ -966,13 +1075,19 @@ def save_all_scalars(
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
     if table:
-        paths.append(save_scalars(scalars, str(directory / f"scalars.{table}"), names=selected, fmt=table))
+        paths.append(
+            save_scalars(
+                scalars, str(directory / f"scalars.{table}"), names=selected, fmt=table
+            )
+        )
     overview = plot_scalars(scalars, names=selected, logy=logy, run_label=run_label)
     path = directory / f"scalars.{file_format}"
     overview.save(path, dpi=dpi, close=True)
     paths.append(str(path))
     for name in selected:
-        result = plot_timeseries(scalars[name], logy=logy, title=name, run_label=run_label)
+        result = plot_timeseries(
+            scalars[name], logy=logy, title=name, run_label=run_label
+        )
         path = directory / f"{name}.{file_format}"
         result.save(path, dpi=dpi, close=True)
         paths.append(str(path))
@@ -991,7 +1106,9 @@ def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset
         orbits = orbits.to_dataset(dim="quantity")
     missing = [name for name in required if name not in orbits.data_vars]
     if missing:
-        raise ValueError(f"orbits is missing required quantities: {missing}; it has {tuple(orbits.data_vars)}")
+        raise ValueError(
+            f"orbits is missing required quantities: {missing}; it has {tuple(orbits.data_vars)}"
+        )
     if "marker" not in orbits.sizes:
         raise ValueError("orbits must have a 'marker' dimension")
     count = min(orbits.sizes["marker"], max_markers)
@@ -1007,7 +1124,9 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
     """
     subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z"))
     count = subset.sizes["marker"]
-    positions = np.stack([np.asarray(subset[name]) for name in ("x", "y", "z")], axis=-1)
+    positions = np.stack(
+        [np.asarray(subset[name]) for name in ("x", "y", "z")], axis=-1
+    )
     fig = plt.figure() if ax is None else ax.figure
     ax = fig.add_subplot(111, projection="3d") if ax is None else ax
     show_paths = count <= 200 if show_paths is None else show_paths
@@ -1024,13 +1143,17 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     selected = dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
-            raise TypeError(f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}")
+            raise TypeError(
+                f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}"
+            )
         if value == "first":
             selected = selected.isel({dim: 0})
         elif value == "last":
             selected = selected.isel({dim: -1})
         elif isinstance(value, (bool, str)):
-            raise TypeError(f'cannot select {dim}={value!r}; use a number, or "first"/"last"')
+            raise TypeError(
+                f'cannot select {dim}={value!r}; use a number, or "first"/"last"'
+            )
         elif isinstance(value, (int, np.integer)):
             selected = selected.isel({dim: int(value)})
         else:
@@ -1058,14 +1181,20 @@ def plot_marker_scatter(
     """
     missing = [name for name in (x, y) if name not in markers.data_vars]
     if missing:
-        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
+        raise ValueError(
+            f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}"
+        )
     selected = resolve_marker_selection(markers, selection)
     xv, yv = np.asarray(selected[x]), np.asarray(selected[y])
     if xv.ndim != 1:
-        raise ValueError(f"select every dimension except 'marker' before scatter(); got shape {xv.shape}")
+        raise ValueError(
+            f"select every dimension except 'marker' before scatter(); got shape {xv.shape}"
+        )
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     colors = np.asarray(selected[color]) if color else None
-    scatter = ax.scatter(xv, yv, c=colors, cmap=cmap or STRUPHY_STYLE["image.cmap"], s=s)
+    scatter = ax.scatter(
+        xv, yv, c=colors, cmap=cmap or STRUPHY_STYLE["image.cmap"], s=s
+    )
     if color:
         fig.colorbar(scatter, ax=ax, label=value_label(selected[color]))
     ax.set(
