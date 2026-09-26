@@ -1,0 +1,109 @@
+---
+// Renders an interactive Plotly chart from a pre-exported figure JSON (`fig.write_json(...)`
+// in scripts/generate_docs_figures.py), loading Plotly.js from its own CDN on demand -- it's
+// not an npm dependency of this site. See docs/src/content/docs/guides/*.mdx for usage.
+export interface Props {
+	/** Site-root-relative path to the figure JSON under public/, e.g. "/plotly/foo.json". */
+	src: string;
+	height?: string;
+}
+const { src, height = '440px' } = Astro.props;
+// public/ files are served under the site's base path (e.g. /struphy-plots/plotly/foo.json),
+// which plain string props don't know about -- resolve it here, at build time.
+const resolvedSrc = import.meta.env.BASE_URL.replace(/\/$/, '') + src;
+---
+
+<div class="plotly-chart" data-src={resolvedSrc} style={`height: ${height}`}>
+	<p class="plotly-fallback">Loading interactive chart…</p>
+</div>
+
+<style>
+	.plotly-chart {
+		width: 100%;
+		margin-block: 1.5rem;
+	}
+	.plotly-fallback {
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-sm);
+	}
+</style>
+
+<script>
+	const PLOTLY_CDN = 'https://cdn.plot.ly/plotly-2.35.2.min.js';
+	const GRID_COLOR = 'rgba(128, 128, 128, 0.35)';
+
+	let plotlyReady: Promise<void> | null = null;
+
+	function loadPlotly(): Promise<void> {
+		if ((window as any).Plotly) return Promise.resolve();
+		if (plotlyReady) return plotlyReady;
+		plotlyReady = new Promise((resolve, reject) => {
+			const script = document.createElement('script');
+			script.src = PLOTLY_CDN;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error('failed to load Plotly.js'));
+			document.head.appendChild(script);
+		});
+		return plotlyReady;
+	}
+
+	function themedLayout(layout: Record<string, any>): Record<string, any> {
+		const dark = document.documentElement.dataset.theme !== 'light';
+		const fontColor = dark ? '#eeeadd' : '#10222d';
+		const themed: Record<string, any> = {
+			...layout,
+			// The exported figure may carry its own fixed width/height (from generating a
+			// standalone PNG); drop them so the chart fills its container responsively instead.
+			width: undefined,
+			height: undefined,
+			autosize: true,
+			margin: layout.margin ?? { t: 30, r: 20, b: 40, l: 50 },
+			paper_bgcolor: 'rgba(0, 0, 0, 0)',
+			plot_bgcolor: 'rgba(0, 0, 0, 0)',
+			font: { color: fontColor },
+			legend: { ...layout.legend, font: { color: fontColor } },
+		};
+		for (const key of Object.keys(layout)) {
+			if (key.startsWith('scene')) {
+				const scene = layout[key] ?? {};
+				const axis = (a: Record<string, any> = {}) => ({
+					...a,
+					gridcolor: GRID_COLOR,
+					zerolinecolor: GRID_COLOR,
+					color: fontColor,
+				});
+				themed[key] = { ...scene, xaxis: axis(scene.xaxis), yaxis: axis(scene.yaxis), zaxis: axis(scene.zaxis) };
+			} else if (key.startsWith('xaxis') || key.startsWith('yaxis')) {
+				themed[key] = { ...layout[key], gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR, color: fontColor };
+			}
+		}
+		return themed;
+	}
+
+	async function mount(el: HTMLElement) {
+		if (el.dataset.mounted === 'true') return;
+		el.dataset.mounted = 'true';
+		const src = el.dataset.src!;
+		try {
+			const [, response] = await Promise.all([loadPlotly(), fetch(src)]);
+			const fig = await response.json();
+			el.innerHTML = '';
+			(window as any).Plotly.newPlot(el, fig.data, themedLayout(fig.layout ?? {}), {
+				responsive: true,
+				displaylogo: false,
+			});
+		} catch (err) {
+			el.innerHTML = '<p class="plotly-fallback">Could not load the interactive chart.</p>';
+			console.error(err);
+		}
+	}
+
+	function mountAll() {
+		document
+			.querySelectorAll<HTMLElement>('.plotly-chart:not([data-mounted="true"])')
+			.forEach((el) => void mount(el));
+	}
+
+	mountAll();
+	document.addEventListener('astro:page-load', mountAll);
+</script>

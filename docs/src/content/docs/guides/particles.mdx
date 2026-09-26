@@ -3,6 +3,8 @@ title: Particles & distributions
 description: Phase-space slices, velocity moments, spatial averages, marker trajectories, scatter, and orbit overlays.
 ---
 
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
 ## Phase-space slices
 
 A binned distribution such as `kinetic_ions/e1_v1_density/f` is just another
@@ -25,6 +27,8 @@ selected = distribution.struphy.data.slice(x="e1", y="v1", t="last")
 px.imshow(selected.transpose("v1", "e1"), x=selected.e1, y=selected.v1, origin="lower")
 ```
 :::
+
+<PlotlyChart src="/plotly/plotly_phase_space.json" />
 
 ## Velocity moments
 
@@ -79,6 +83,8 @@ for marker in subset.marker.values:
 ```
 :::
 
+<PlotlyChart src="/plotly/plotly_trajectories.json" height="520px" />
+
 ## Marker scatter and particle clouds
 
 ```python
@@ -105,7 +111,7 @@ px.scatter(frame, x="x", y="y", color="density")
 ```
 :::
 
-![The same particle cloud, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_scatter.png)
+<PlotlyChart src="/plotly/plotly_scatter.json" />
 
 ## Orbits over a background field
 
@@ -135,3 +141,5 @@ for marker in orbit_subset.marker.values:
     fig.add_trace(go.Scatter(x=path.e1, y=path.e2, mode="lines", showlegend=False))
 ```
 :::
+
+<PlotlyChart src="/plotly/plotly_overlay_orbits.json" />

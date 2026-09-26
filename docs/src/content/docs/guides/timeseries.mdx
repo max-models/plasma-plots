@@ -3,6 +3,8 @@ title: Time series & comparisons
 description: Growth-rate fits and comparing scalars between runs.
 ---
 
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
 ## Time series with a growth-rate fit
 
 ```python
@@ -30,7 +32,7 @@ fig.update_layout(yaxis_type="log")
 ```
 :::
 
-![The same two time series, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_timeseries.png)
+<PlotlyChart src="/plotly/plotly_timeseries.json" />
 
 ## Several series in one axes
 
@@ -67,3 +69,5 @@ result = field.struphy.data.compare(reference_field, mode="ratio")
 px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
 ```
 :::
+
+<PlotlyChart src="/plotly/plotly_compare.json" />

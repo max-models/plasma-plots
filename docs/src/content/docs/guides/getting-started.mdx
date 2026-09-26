@@ -3,6 +3,8 @@ title: Getting started
 description: Install struphy-plots and make your first plot.
 ---
 
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
 ## Installation
 
 ```bash
@@ -64,8 +66,10 @@ accessor: `plot.scatter(...)` / `data.scatter(...)`. See the
 This is the escape hatch if you want a different plotting library — every
 example below plots the exact same data as the matching matplotlib figure
 elsewhere in these docs, rendered with
-[Plotly](https://plotly.com/python/) instead. `struphy-plots` itself never
-depends on Plotly; install it yourself (`pip install plotly`) to follow along.
+[Plotly](https://plotly.com/python/) instead, and is a live chart on this
+page: pan, zoom, and hover it like any Plotly figure. `struphy-plots` itself
+never depends on Plotly; install it yourself (`pip install plotly`) to
+follow along.
 
 A 2-D slice as a Plotly heatmap. `.data.slice(x=, y=)` returns the array
 already transposed to `(x, y)`, so `px.imshow` (which reads an array as
@@ -83,7 +87,7 @@ fig = px.imshow(
 )
 ```
 
-![The same field slice, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_slice.png)
+<PlotlyChart src="/plotly/plotly_slice.json" />
 
 A marker scatter as a Plotly Express scatter plot, straight from a
 `pandas.DataFrame`:
@@ -93,7 +97,7 @@ frame = markers.struphy.data.scatter(x="x", y="y", color="density").to_dataframe
 fig = px.scatter(frame, x="x", y="y", color="density", color_continuous_scale="viridis")
 ```
 
-![The same particle cloud, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_scatter.png)
+<PlotlyChart src="/plotly/plotly_scatter.json" />
 
 A time series, as a Plotly line chart — `.data.timeseries()` returns exactly
 the validated list `.plot.timeseries()` would have drawn:
@@ -106,4 +110,4 @@ for series in energy.struphy.data.timeseries(other_energy):
     fig.add_trace(go.Scatter(x=series.t, y=series, mode="lines", name=series.attrs.get("label", series.name)))
 ```
 
-![The same two time series, rendered with Plotly instead of matplotlib](../../../assets/figures/plotly_timeseries.png)
+<PlotlyChart src="/plotly/plotly_timeseries.json" />

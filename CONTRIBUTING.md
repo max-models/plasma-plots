@@ -16,14 +16,15 @@ main repo (`pip install -e /path/to/struphy` or
 ## Docs
 
 The documentation site (Astro + Starlight) lives in `docs/`. It embeds
-example figures and one animation (`docs/src/assets/figures/*`) rendered by
+example figures, one animation, and several live interactive Plotly charts
+(`docs/src/assets/figures/*`, `docs/public/plotly/*.json`) rendered by
 `scripts/generate_docs_figures.py` from synthetic data via `struphy_plots`
 itself -- they aren't checked into git, so generate them before building or
 running the site locally:
 
 ```bash
-pip install -e ".[pyvista]" plotly kaleido   # see below for why these two extras
-make figures       # renders docs/src/assets/figures/
+pip install -e ".[pyvista]" plotly   # see below for why these two extras
+make figures       # renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```
@@ -36,10 +37,12 @@ make docs-build     # figures + npm run build
   software renderer for exactly this reason (see
   `.github/workflows/docs.yml`); do the same locally if you hit rendering
   errors.
-- `plotly`/`kaleido` (static image export) render the `plotly_*.png`
-  figures, which demonstrate `array.struphy.data` by plotting the same data
-  with Plotly instead of matplotlib. Neither is a `struphy-plots`
-  dependency; without them the script skips those figures the same way.
+- `plotly` exports each interactive figure's JSON, fetched client-side by
+  the `<PlotlyChart>` component (`docs/src/components/PlotlyChart.astro`),
+  which loads Plotly.js itself from a CDN at view time -- neither is a
+  `struphy-plots` dependency, and the docs pages that use `<PlotlyChart>`
+  will fail to build without the referenced JSON, the same as the PyVista
+  figures above.
 
 CI regenerates the figures the same way on every push to `devel`, before
 deploying to GitHub Pages.
