@@ -38,7 +38,7 @@ jobs:
         run: pip install "struphy @ git+https://github.com/struphy-hub/struphy.git@postprocessing"
 
       - name: Install struphy-plots with dev dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,profiling]"
 
       - name: Run tests
         run: pytest -v

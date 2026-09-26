@@ -6,11 +6,11 @@ import time
 import numpy as np
 import pytest
 import xarray as xr
-from struphy_plots.analysis import spatial_average, velocity_moments
-
 from struphy.post_processing.arrays import data_array
 from struphy.post_processing.output import Output
 from struphy.post_processing.tests.test_output import write_tree
+
+from struphy_plots.analysis import spatial_average, velocity_moments
 
 F = "kinetic_ions/f"
 
@@ -55,7 +55,13 @@ def test_moments_over_two_velocity_dimensions_are_taken_per_direction():
         {"t": [0.0], "v1": v1, "v2": v2},
     )
     moments = velocity_moments(f)
-    assert set(moments.data_vars) == {"density", "mean_v1", "variance_v1", "mean_v2", "variance_v2"}
+    assert set(moments.data_vars) == {
+        "density",
+        "mean_v1",
+        "variance_v1",
+        "mean_v2",
+        "variance_v2",
+    }
     np.testing.assert_allclose(moments.density, 3.0, rtol=1e-8)
     np.testing.assert_allclose(moments.mean_v1, 1.0, atol=1e-8)
     np.testing.assert_allclose(moments.variance_v1, 0.5, rtol=1e-8)
@@ -107,7 +113,11 @@ def test_moments_reject_missing_velocity_dimensions_and_single_bins():
 
 def test_spatial_average_removes_the_space_dimensions_only():
     values = np.arange(2 * 3 * 4, dtype=float).reshape(2, 3, 4)
-    f = binned(values, ("t", "e1", "v1"), {"t": [0.0, 1.0], "e1": [0.1, 0.5, 0.9], "v1": np.arange(4.0)})
+    f = binned(
+        values,
+        ("t", "e1", "v1"),
+        {"t": [0.0, 1.0], "e1": [0.1, 0.5, 0.9], "v1": np.arange(4.0)},
+    )
     f.attrs["run_name"] = "sim_1"
     mean = spatial_average(f)
     assert mean.dims == ("t", "v1")
@@ -290,7 +300,10 @@ def test_runs_are_compared_side_by_side(tmp_path, capfd):
 
     table = first.profile.compare(second, metric="calls")
     assert set(table.dims) == {"region", "run"}
-    assert list(table.run.values) == [f"{first.label} [a]", f"{second.label} [b]"]  # identical labels are told apart
+    assert list(table.run.values) == [
+        f"{first.label} [a]",
+        f"{second.label} [b]",
+    ]  # identical labels are told apart
     assert table.sel(run=table.run.values[0], region="prop: A").item() == 3
     assert table.sel(run=table.run.values[1], region="prop: A").item() == 2
     assert np.isnan(table.sel(run=table.run.values[1], region="setup: total").item())

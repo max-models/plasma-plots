@@ -23,7 +23,7 @@ itself -- they aren't checked into git, so generate them before building or
 running the site locally:
 
 ```bash
-pip install -e ".[pyvista]" plotly   # see below for why these two extras
+pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
 make figures       # renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
@@ -37,6 +37,8 @@ make docs-build     # figures + npm run build
   software renderer for exactly this reason (see
   `.github/workflows/docs.yml`); do the same locally if you hit rendering
   errors.
+- Without the `profiling` extra, the script skips the three
+  `profile_*.png` figures and `plotly_profile_gantt.json` the same way.
 - `plotly` exports each interactive figure's JSON, fetched client-side by
   the `<PlotlyChart>` component (`docs/src/components/PlotlyChart.astro`),
   which loads Plotly.js itself from a CDN at view time -- neither is a

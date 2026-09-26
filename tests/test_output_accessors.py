@@ -9,14 +9,17 @@ matplotlib.use("Agg")
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
-import struphy_plots  # noqa: F401, E402
 from matplotlib import pyplot as plt  # noqa: E402
+from struphy.post_processing.output import Output  # noqa: E402
+from struphy.post_processing.tests.test_output import (  # noqa: E402
+    write_manifest,
+    write_tree,
+)
+
+import struphy_plots  # noqa: F401, E402
 from struphy_plots.analysis import damping_rate, envelope, growth_rate, norm
 from struphy_plots.output_accessors import OutputPlots
 from struphy_plots.plotting import save_all_scalars
-
-from struphy.post_processing.output import Output  # noqa: E402
-from struphy.post_processing.tests.test_output import write_manifest, write_tree  # noqa: E402
 
 RATE = 2.0
 
@@ -125,7 +128,11 @@ def test_orbits_plot_their_trajectories(run):
 def test_report_is_written_below_post_processing(run):
     paths = save_all_scalars(run.scalars, run.path_pproc / "report", run_label=run.label)
     assert all(path.startswith(str(run.path_pproc / "report")) for path in paths)
-    assert {os.path.basename(path) for path in paths} >= {"scalars.csv", "scalars.png", "en_phi.png"}
+    assert {os.path.basename(path) for path in paths} >= {
+        "scalars.csv",
+        "scalars.png",
+        "en_phi.png",
+    }
 
 
 def test_analysis_by_name(run):
@@ -171,7 +178,12 @@ def test_products_of_one_species_sit_on_the_output(run):
 
 def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
     products = run.kinetic_ions
-    assert tuple(sorted(products.catalog)) == ("e1_v1_density/delta_f", "e1_v1_density/f", "orbits", "view_0/n")
+    assert tuple(sorted(products.catalog)) == (
+        "e1_v1_density/delta_f",
+        "e1_v1_density/f",
+        "orbits",
+        "view_0/n",
+    )
     assert "e1_v1_density/f" in products.catalog
     assert "em_fields/E" not in products.catalog
     assert "e1_v1_density/f" in repr(products)
@@ -237,7 +249,12 @@ def test_norm_reduces_all_but_time(run):
     squared = e_field.struphy.analysis.norm(squared=True)
     assert squared.dims == ("t",)
     np.testing.assert_allclose(squared, (np.asarray(e_field) ** 2).sum(axis=(1, 2, 3, 4)))
-    assert e_field.struphy.analysis.norm(dims=["e1"]).dims == ("t", "component", "e2", "e3")
+    assert e_field.struphy.analysis.norm(dims=["e1"]).dims == (
+        "t",
+        "component",
+        "e2",
+        "e3",
+    )
     assert growth_rate(squared, fit=None) is not None
 
 

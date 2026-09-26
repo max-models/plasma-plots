@@ -16,23 +16,8 @@ import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
-from .analysis import (
-    FitResult,
-    GrowthFit,
-    convergence_order,
-    drift,
-    growth_rate,
-    power_spectrum,
-    relative_error,
-)
-from .arrays import (
-    SCALARS_EXCLUDE,
-    axis_label,
-    save_scalars,
-    scalar_names,
-    validate_array,
-    value_label,
-)
+from .analysis import FitResult, GrowthFit, convergence_order, drift, growth_rate, power_spectrum, relative_error
+from .arrays import SCALARS_EXCLUDE, axis_label, save_scalars, scalar_names, validate_array, value_label
 
 logger = logging.getLogger("struphy")
 
@@ -218,7 +203,15 @@ def _slice_data(data, view):
     return selected, grids
 
 
-def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, title=None, run_label=None):
+def plot_timeseries(
+    data,
+    *,
+    ax=None,
+    logy=True,
+    fit: GrowthFit | None = None,
+    title=None,
+    run_label=None,
+):
     """Plot one or more time series, each on its own time grid; series of different runs are labeled by run."""
     series = _items(data)
     if not series:
@@ -232,7 +225,13 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
 
         def label_of(item):
             return " ".join(
-                filter(None, (_label(item), f"({item.attrs['run_name']})" if item.attrs.get("run_name") else ""))
+                filter(
+                    None,
+                    (
+                        _label(item),
+                        (f"({item.attrs['run_name']})" if item.attrs.get("run_name") else ""),
+                    ),
+                )
             )
 
     run_label = shared_run_label(series) if run_label is None else run_label
@@ -276,7 +275,11 @@ def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=Non
         raise ValueError(f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}")
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     (line,) = ax.plot(data[x], data)
-    ax.set(xlabel=axis_label(data, x), ylabel=value_label(data), title=_label(data) if title is None else title)
+    ax.set(
+        xlabel=axis_label(data, x),
+        ylabel=value_label(data),
+        title=_label(data) if title is None else title,
+    )
     _finish(fig, run_label=shared_run_label(data) if line.axes.figure is fig else "")
     return PlotResult(fig, ax, [line])
 
@@ -301,7 +304,11 @@ def prepare_vector(
     if stride < 1:
         raise ValueError("stride must be positive")
     return data.transpose(component_dim, x, y).isel(
-        {component_dim: list(components), x: slice(None, None, stride), y: slice(None, None, stride)}
+        {
+            component_dim: list(components),
+            x: slice(None, None, stride),
+            y: slice(None, None, stride),
+        }
     )
 
 
@@ -317,9 +324,20 @@ def plot_vector(
     coordinates: Literal["logical", "physical"] = "logical",
 ):
     """Render two components of a selected vector field with Matplotlib quivers."""
-    vector = prepare_vector(data, x=x, y=y, components=components, component_dim=component_dim, stride=stride)
+    vector = prepare_vector(
+        data,
+        x=x,
+        y=y,
+        components=components,
+        component_dim=component_dim,
+        stride=stride,
+    )
     if coordinates == "physical":
-        planes = {frozenset(("e1", "e2")): "XY", frozenset(("e1", "e3")): "XZ", frozenset(("e2", "e3")): "YZ"}
+        planes = {
+            frozenset(("e1", "e2")): "XY",
+            frozenset(("e1", "e3")): "XZ",
+            frozenset(("e2", "e3")): "YZ",
+        }
         plane = planes.get(frozenset((x, y)))
         if plane is None:
             raise ValueError("physical vector plots require two logical spatial dimensions")
@@ -328,14 +346,17 @@ def plot_vector(
         xg, yg, xlabel, ylabel = logical_grids(vector.isel({component_dim: 0}), x=x, y=y)
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     quiver = ax.quiver(xg, yg, vector.isel({component_dim: 0}), vector.isel({component_dim: 1}))
-    ax.set(xlabel=xlabel, ylabel=ylabel, title=_label(data), aspect="equal" if coordinates == "physical" else "auto")
+    ax.set(
+        xlabel=xlabel,
+        ylabel=ylabel,
+        title=_label(data),
+        aspect="equal" if coordinates == "physical" else "auto",
+    )
     _finish(fig, run_label=shared_run_label(data))
     return PlotResult(fig, ax, [quiver])
 
 
-def prepare_volume_slices(
-    data: xr.DataArray, *, indices: dict[str, int] | None = None
-) -> dict[str, xr.DataArray]:
+def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None) -> dict[str, xr.DataArray]:
     """Three orthogonal midpoint (or chosen-index) planes through a scalar volume.
 
     Returns a dict keyed by the dimension held fixed for each plane (``"e3"``, ``"e2"``,
@@ -362,7 +383,11 @@ def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = N
         x, y = plane.dims
         mesh = ax.pcolormesh(plane[x], plane[y], np.asarray(plane).T, shading="auto", cmap=cmap)
         index = plane.attrs.get("fixed_index")
-        ax.set(xlabel=axis_label(plane, x), ylabel=axis_label(plane, y), title=f"{normal} index {index}")
+        ax.set(
+            xlabel=axis_label(plane, x),
+            ylabel=axis_label(plane, y),
+            title=f"{normal} index {index}",
+        )
         fig.colorbar(mesh, ax=ax, label=value_label(data))
         artists.append(mesh)
     fig.suptitle(" — ".join(filter(None, (_label(data), shared_run_label(data)))))
@@ -370,7 +395,10 @@ def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = N
 
 
 def prepare_compare(
-    first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference"
+    first: xr.DataArray,
+    second: xr.DataArray,
+    *,
+    mode: Literal["difference", "ratio"] = "difference",
 ) -> xr.DataArray:
     """Align two arrays and compute their difference or ratio, without rendering it.
 
@@ -383,7 +411,11 @@ def prepare_compare(
 
 
 def plot_compare(
-    first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference", ax=None
+    first: xr.DataArray,
+    second: xr.DataArray,
+    *,
+    mode: Literal["difference", "ratio"] = "difference",
+    ax=None,
 ):
     """Plot a one-dimensional aligned difference or ratio of two arrays."""
     return plot_lineout(prepare_compare(first, second, mode=mode), ax=ax)
@@ -403,7 +435,9 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     if any(coord not in data.coords for coord in ("X", "Y", "Z")):
         raise ValueError("pyvista_volume() requires mapped X, Y, and Z coordinates")
     grid = pv.StructuredGrid(
-        np.asarray(data.X, dtype=float), np.asarray(data.Y, dtype=float), np.asarray(data.Z, dtype=float)
+        np.asarray(data.X, dtype=float),
+        np.asarray(data.Y, dtype=float),
+        np.asarray(data.Z, dtype=float),
     )
     name = name or _label(data) or "value"
     grid.point_data[name] = np.asarray(data).ravel(order="F")
@@ -429,9 +463,26 @@ def show_equilibrium(path_out, *, scalars: str = "p0", cmap="viridis"):
 class _SliceRenderer:
     """Shared selection, color limits and mesh rendering for every slice presentation."""
 
-    def __init__(self, data, view, *, vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None):
+    def __init__(
+        self,
+        data,
+        view,
+        *,
+        vmin=None,
+        vmax=None,
+        shared_clim=True,
+        cmap=None,
+        equal_aspect=None,
+        title=None,
+    ):
         self.data = _select(data, view)
-        self.view = View(x=view.x, y=view.y, sweep=view.sweep, coordinates=view.coordinates, plane=view.plane)
+        self.view = View(
+            x=view.x,
+            y=view.y,
+            sweep=view.sweep,
+            coordinates=view.coordinates,
+            plane=view.plane,
+        )
         self.vmin, self.vmax = vmin, vmax
         self.shared_clim = shared_clim
         self.cmap = cmap or STRUPHY_STYLE["image.cmap"]
@@ -455,7 +506,11 @@ class _SliceRenderer:
         values, (xg, yg, xlabel, ylabel) = _slice_data(data, self.view)
         lo, hi = self.limits if self.shared_clim else self._limits(values)
         mesh = ax.pcolormesh(xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap)
-        ax.set(xlabel=xlabel, ylabel=ylabel, aspect="equal" if self.equal_aspect else "auto")
+        ax.set(
+            xlabel=xlabel,
+            ylabel=ylabel,
+            aspect="equal" if self.equal_aspect else "auto",
+        )
         ax.grid(False)
         return mesh
 
@@ -579,7 +634,12 @@ class InteractiveSliceViewer:
         self.data = validate_array(data)
         self.view = view or View()
         self.options = dict(
-            vmin=vmin, vmax=vmax, shared_clim=shared_clim, cmap=cmap, equal_aspect=equal_aspect, title=title
+            vmin=vmin,
+            vmax=vmax,
+            shared_clim=shared_clim,
+            cmap=cmap,
+            equal_aspect=equal_aspect,
+            title=title,
         )
         self.run_label = shared_run_label(data) if run_label is None else run_label
         self.result = None
@@ -735,7 +795,15 @@ def save_frames(
     return paths
 
 
-def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None, logy=False, run_label=None):
+def plot_scalars(
+    scalars,
+    *,
+    names=None,
+    exclude=SCALARS_EXCLUDE,
+    relative_to=None,
+    logy=False,
+    run_label=None,
+):
     """Plot every scalar time series in one axes."""
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected:
@@ -756,7 +824,16 @@ def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=No
     return PlotResult(fig, ax, list(ax.lines))
 
 
-def plot_convergence(sizes, errors, *, ax=None, order=None, label=None, xlabel="resolution", title="Convergence"):
+def plot_convergence(
+    sizes,
+    errors,
+    *,
+    ax=None,
+    order=None,
+    label=None,
+    xlabel="resolution",
+    title="Convergence",
+):
     """Log-log plot of an error norm against resolution or step size, e.g. from a convergence study.
 
     With ``order=None`` (default), fits and draws the observed order via :func:`convergence_order`.
@@ -770,7 +847,11 @@ def plot_convergence(sizes, errors, *, ax=None, order=None, label=None, xlabel="
         fit = convergence_order(sizes, errors)
         if fit is not None:
             (fitted,) = ax.loglog(
-                fit.sizes, fit.fitted, "--", color=line.get_color(), label=rf"fit: order {fit.order:.2f}"
+                fit.sizes,
+                fit.fitted,
+                "--",
+                color=line.get_color(),
+                label=rf"fit: order {fit.order:.2f}",
             )
             artists.append(fitted)
     else:
@@ -828,7 +909,13 @@ def plot_dispersion(
 
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     mesh = ax.pcolormesh(
-        k[k_mask], omega[omega_mask], values[omega_mask][:, k_mask], shading="auto", cmap=cmap, vmin=vmin, vmax=vmax
+        k[k_mask],
+        omega[omega_mask],
+        values[omega_mask][:, k_mask],
+        shading="auto",
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
     )
     fig.colorbar(mesh, ax=ax, label="log10(power)" if log else "power")
     artists = [mesh]
@@ -839,7 +926,11 @@ def plot_dispersion(
             (line,) = ax.plot(k_branch, omega_branch, "--", label=label)
             artists.append(line)
         ax.legend(fontsize="small")
-    ax.set(xlabel="k", ylabel=r"$\omega$", title=title if title is not None else f"Dispersion relation of {_label(data)}")
+    ax.set(
+        xlabel="k",
+        ylabel=r"$\omega$",
+        title=title if title is not None else f"Dispersion relation of {_label(data)}",
+    )
     return PlotResult(fig, ax, artists)
 
 
@@ -936,7 +1027,15 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
 
 
 def plot_marker_scatter(
-    markers: xr.Dataset, *, x: str, y: str, color: str | None = None, ax=None, cmap=None, s: int = 8, **selection
+    markers: xr.Dataset,
+    *,
+    x: str,
+    y: str,
+    color: str | None = None,
+    ax=None,
+    cmap=None,
+    s: int = 8,
+    **selection,
 ):
     """Scatter marker positions from a Dataset (an orbits product, or any per-marker data).
 
@@ -957,11 +1056,24 @@ def plot_marker_scatter(
     scatter = ax.scatter(xv, yv, c=colors, cmap=cmap or STRUPHY_STYLE["image.cmap"], s=s)
     if color:
         fig.colorbar(scatter, ax=ax, label=value_label(selected[color]))
-    ax.set(xlabel=x, ylabel=y, title=markers.attrs.get("label", "") or "Markers", aspect="equal")
+    ax.set(
+        xlabel=x,
+        ylabel=y,
+        title=markers.attrs.get("label", "") or "Markers",
+        aspect="equal",
+    )
     return PlotResult(fig, ax, [scatter])
 
 
-def plot_field_with_orbits(field: xr.DataArray, view: View, orbits: xr.Dataset, *, max_markers=200, ax=None, cmap=None):
+def plot_field_with_orbits(
+    field: xr.DataArray,
+    view: View,
+    orbits: xr.Dataset,
+    *,
+    max_markers=200,
+    ax=None,
+    cmap=None,
+):
     """A 2-D field slice with marker orbit paths overlaid: a Poincare-style diagnostic for
     checking particle confinement or orbit topology against a background field.
 

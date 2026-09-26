@@ -73,7 +73,17 @@ class DatasetPlots:
 
         return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
-    def scatter(self, *, x: str, y: str, color: str | None = None, ax=None, cmap=None, s: int = 8, **selection):
+    def scatter(
+        self,
+        *,
+        x: str,
+        y: str,
+        color: str | None = None,
+        ax=None,
+        cmap=None,
+        s: int = 8,
+        **selection,
+    ):
         """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
 
         Remaining dimensions such as ``t`` are selected by keyword, exactly like
@@ -104,7 +114,9 @@ class DatasetData:
 
         missing = [name for name in (x, y) if name not in self._dataset.data_vars]
         if missing:
-            raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}")
+            raise ValueError(
+                f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}"
+            )
         return resolve_marker_selection(self._dataset, selection)
 
 
@@ -131,7 +143,15 @@ class _ArrayAccessor:
                 index[dim] = int(value)
             else:
                 select[dim] = float(value)
-        return View(x=x, y=y, sweep=sweep, select=select, isel=index, coordinates=coords, plane=plane)
+        return View(
+            x=x,
+            y=y,
+            sweep=sweep,
+            select=select,
+            isel=index,
+            coordinates=coords,
+            plane=plane,
+        )
 
 
 class ArrayPlots(_ArrayAccessor):
@@ -143,7 +163,13 @@ class ArrayPlots(_ArrayAccessor):
     """
 
     def timeseries(
-        self, *others, logy: bool = True, fit=None, fit_amplitude: bool = False, title: str | None = None, ax=None
+        self,
+        *others,
+        logy: bool = True,
+        fit=None,
+        fit_amplitude: bool = False,
+        title: str | None = None,
+        ax=None,
     ):
         """This time series, and any others given, in one axes.
 
@@ -192,7 +218,13 @@ class ArrayPlots(_ArrayAccessor):
 
         view = self._view(None, None, "t", coordinates, "XY", selection)
         return plot_vector(
-            _select(self._array, view), x=x, y=y, components=components, stride=stride, coordinates=coordinates, ax=ax
+            _select(self._array, view),
+            x=x,
+            y=y,
+            components=components,
+            stride=stride,
+            coordinates=coordinates,
+            ax=ax,
         )
 
     def volume_slices(self, *, indices: dict[str, int] | None = None, cmap=None, **selection):
@@ -209,14 +241,28 @@ class ArrayPlots(_ArrayAccessor):
         view = self._view(None, None, "t", "logical", "XY", selection)
         return pyvista_volume(_select(self._array, view), name=name, cmap=cmap, opacity=opacity)
 
-    def compare(self, other: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference", ax=None):
+    def compare(
+        self,
+        other: xr.DataArray,
+        *,
+        mode: Literal["difference", "ratio"] = "difference",
+        ax=None,
+    ):
         """Plot a one-dimensional aligned difference or ratio against another array."""
         from .plotting import plot_compare
 
         return plot_compare(self._array, other, mode=mode, ax=ax)
 
     def overlay_orbits(
-        self, orbits: xr.Dataset, *, x: str, y: str, max_markers: int = 200, ax=None, cmap=None, **selection
+        self,
+        orbits: xr.Dataset,
+        *,
+        x: str,
+        y: str,
+        max_markers: int = 200,
+        ax=None,
+        cmap=None,
+        **selection,
     ):
         """This field slice with marker orbit paths from ``orbits`` overlaid: a Poincare-style
         diagnostic for checking particle confinement or orbit topology against a background field.
@@ -309,7 +355,14 @@ class ArrayPlots(_ArrayAccessor):
             self._array,
             dict(x=x, y=y, sweep=sweep, coords=coords, plane=plane),
             selection,
-            dict(vmin=vmin, vmax=vmax, shared_clim=shared_clim, cmap=cmap, equal_aspect=equal_aspect, title=title),
+            dict(
+                vmin=vmin,
+                vmax=vmax,
+                shared_clim=shared_clim,
+                cmap=cmap,
+                equal_aspect=equal_aspect,
+                title=title,
+            ),
         )
 
     def slice(
@@ -532,14 +585,26 @@ class SliceView:
         """Create a Matplotlib animation using this view's rendering options."""
         from .plotting import animate_slices
 
-        return animate_slices(self._array, view=self._view(), interval=interval, step=step, **self._options)
+        return animate_slices(
+            self._array,
+            view=self._view(),
+            interval=interval,
+            step=step,
+            **self._options,
+        )
 
     def save_frames(self, directory, *, step=1, prefix="frame", dpi=110):
         """Export PNG frames using this view's rendering options; return paths."""
         from .plotting import save_frames
 
         return save_frames(
-            self._array, directory, view=self._view(), step=step, prefix=prefix, dpi=dpi, **self._options
+            self._array,
+            directory,
+            view=self._view(),
+            step=step,
+            prefix=prefix,
+            dpi=dpi,
+            **self._options,
         )
 
 
@@ -581,7 +646,12 @@ class ArrayData(_ArrayAccessor):
         view = self._view(None, None, "t", "logical", "XY", selection)
         return prepare_volume_slices(_select(self._array, view), indices=indices)
 
-    def compare(self, other: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference") -> xr.DataArray:
+    def compare(
+        self,
+        other: xr.DataArray,
+        *,
+        mode: Literal["difference", "ratio"] = "difference",
+    ) -> xr.DataArray:
         """The aligned difference or ratio :meth:`ArrayPlots.compare` would plot."""
         from .plotting import prepare_compare
 
@@ -625,7 +695,8 @@ class ArrayData(_ArrayAccessor):
 
     def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
         """The space-time power spectrum :meth:`ArrayPlots.dispersion` would plot. Same as
-        :meth:`ArrayAnalysis.dispersion`; included here too for parity with every other plot."""
+        :meth:`ArrayAnalysis.dispersion`; included here too for parity with every other plot.
+        """
         from .analysis import power_spectrum
 
         return power_spectrum(self._array, dim=dim, detrend=detrend)
@@ -658,7 +729,12 @@ class ArrayData(_ArrayAccessor):
 class ArrayAnalysis(_ArrayAccessor):
     """Quantitative diagnostics of one array, as ``array.struphy.analysis.<quantity>(...)``."""
 
-    def growth_rate(self, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
+    def growth_rate(
+        self,
+        *,
+        window: tuple[float | None, float | None] = (None, None),
+        amplitude: bool = False,
+    ):
         """Fit ``exp(rate * t + intercept)`` to this time series within ``window``.
 
         With ``amplitude=True`` the series is quadratic in an amplitude (e.g. an energy) and the
@@ -667,13 +743,24 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import GrowthFit, growth_rate
 
-        return growth_rate(self._array, GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
+        return growth_rate(
+            self._array,
+            GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude),
+        )
 
-    def damping_rate(self, *, window: tuple[float | None, float | None] = (None, None), amplitude: bool = False):
+    def damping_rate(
+        self,
+        *,
+        window: tuple[float | None, float | None] = (None, None),
+        amplitude: bool = False,
+    ):
         """Fit exponential decay to the envelope of this oscillating time series; see ``growth_rate``."""
         from .analysis import GrowthFit, damping_rate
 
-        return damping_rate(self._array, GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude))
+        return damping_rate(
+            self._array,
+            GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude),
+        )
 
     def envelope(self) -> xr.DataArray:
         """Local maxima of this time series."""

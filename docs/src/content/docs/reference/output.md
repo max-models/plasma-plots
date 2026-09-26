@@ -16,3 +16,32 @@ Radial equilibrium profiles read from the run's `geometry.vts`.
 ### `equilibrium_3d(*, scalars="p0", cmap="viridis")`
 Interactive 3-D equilibrium view via PyVista. Requires
 `pip install "struphy-plots[pyvista]"`.
+
+### `profile`
+A `ProfilePlots`, wrapping `out.profile.results` (a
+`scope_profiler.ProfilingResults`, from a run started with
+`sim.run(profiling_activated=True)`). Requires
+`pip install "struphy-plots[profiling]"`. See the
+[Profiling guide](/struphy-plots/guides/profiling/) for figures.
+
+## `ProfilePlots`
+
+`struphy_plots.output_accessors.ProfilePlots`, accessed as
+`output.struphy.plot.profile`. Each method is a thin pass-through to the
+matching [scope-profiler](https://pypi.org/project/scope-profiler/)
+plotting function on `output.profile.results`, forwarding every other
+keyword argument straight through (`ranks`, `include`/`exclude`,
+`backend`, `filepath`, ...) and defaulting `return_fig=True` and
+`verbose=False`. Returns exactly what scope-profiler itself returns: a
+`(fig, axes)` pair for the default matplotlib backend, or a Plotly figure
+with `backend="plotly"`.
+
+### `gantt(**kwargs)`
+A timeline of every recorded region, one row per rank.
+
+### `flame(**kwargs)`
+A flame chart reconstructing the call stack from region timings.
+
+### `callgraph(**kwargs)`
+The explicit call graph (which region calls which), without timings. Pass
+`compact=True` to collapse every invocation of a region into one node.
