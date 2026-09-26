@@ -82,6 +82,16 @@ Scatter two position variables (`x`, `y`), optionally colored by a third
 (e.g. a density, weight, or Lagrangian tracer). Remaining dimensions such as
 `t` are selected by keyword, exactly like `lineout()`.
 
+### `orbit_classification(*, x="v_par", y=None, v_par="v_par", t="first", ax=None, s=8)`
+For a guiding-center orbits product (Particles5D or Particles5Dvperp): scatter
+markers in a phase-space plane, colored as passing, trapped or lost, with each
+class's count and fraction in the legend. The classification follows Struphy's
+criteria (see `classify_orbits()` in the analysis reference). `y` defaults to
+`mu`, or `v_perp` if there is no `mu`; `x="p_phi"` gives the canonical-momentum
+diagram when `p_phi` was saved. `t` selects the time plotted (default: the
+initial positions). `result.data["counts"]` holds the counts, and
+`dataset.struphy.data.orbit_classification(...)` returns the plotted data.
+
 ## Standalone functions
 
 `struphy_plots.plotting` also exposes functions that don't hang off a single
@@ -92,3 +102,28 @@ Log-log plot of an error norm against resolution or step size. With
 `order=None` (default), fits and draws the observed order via
 `struphy_plots.analysis.convergence_order`; pass an explicit `order` to draw
 a reference slope instead.
+
+### `plot_continuous_spectrum(spectrum, x, modes, *, frequencies=None, mode_label="(m, n)", xlabel="x", ax=None, title="Continuous spectrum")`
+Continuum frequencies `omega(x)` for each mode, with one color per mode and
+one line style per branch. `spectrum` is called as `spectrum(x, *mode)` and
+returns a mapping of branch name to `omega(x)`, for example Struphy's
+`MhdContinousSpectraShearedSlab` or `MhdContinousSpectraCylinder` (shear
+Alfvén and slow sound continua) with `modes=[(1, -1), (2, -1)]`.
+`frequencies` marks measured frequencies as horizontal lines, to check
+whether a mode sits in a continuum gap or crosses a continuum (where it is
+damped):
+
+```python
+from struphy.dispersion_relations.analytic import MhdContinousSpectraShearedSlab
+from struphy_plots.plotting import plot_continuous_spectrum
+
+plot_continuous_spectrum(
+    MhdContinousSpectraShearedSlab(),
+    np.linspace(0, 1, 200),
+    [(m, -1) for m in range(1, 4)],
+    frequencies={"measured": 0.12},
+)
+```
+
+`prepare_continuous_spectrum(spectrum, x, modes)` returns the evaluated
+curves as a `(mode, branch, x)` `xarray.DataArray`, without plotting them.

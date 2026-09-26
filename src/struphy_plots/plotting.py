@@ -17,8 +17,10 @@ import xarray as xr
 from matplotlib.widgets import Slider
 
 from .analysis import (
+    ORBIT_CLASSES,
     FitResult,
     GrowthFit,
+    classify_orbits,
     convergence_order,
     drift,
     growth_rate,
@@ -1231,6 +1233,150 @@ def plot_field_with_orbits(
         (line,) = result.ax.plot(xs[:, i], ys[:, i], lw=0.8, color=colors[i])
         result.artists.append(line)
     return result
+
+
+ORBIT_CLASS_COLORS = {"passing": "C0", "trapped": "C1", "lost": "0.55"}
+
+
+def prepare_orbit_classification(
+    orbits, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t="first"
+) -> xr.Dataset:
+    """Each marker's ``x`` and ``y`` at time ``t`` together with its orbit class.
+
+    ``y`` defaults to the magnetic moment ``mu`` (Particles5D), or ``v_perp`` if there is no
+    ``mu`` (Particles5Dvperp). ``t`` is selected like any other dimension: ``"first"`` (default,
+    the initial phase-space position, before any marker is lost), ``"last"``, an integer position,
+    or a float nearest value. Used by :func:`plot_orbit_classification`.
+    """
+    if isinstance(orbits, xr.DataArray):
+        orbits = orbits.to_dataset(dim="quantity")
+    if y is None:
+        y = next((name for name in ("mu", "v_perp") if name in orbits.data_vars), "mu")
+    missing = [name for name in (x, y) if name not in orbits.data_vars]
+    if missing:
+        raise ValueError(
+            f"{missing} are not data variables of this dataset; it has {tuple(orbits.data_vars)}"
+        )
+    classification = classify_orbits(orbits, v_par=v_par)
+    selected = resolve_marker_selection(orbits[[x, y]], {"t": t})
+    return selected.assign(classification=classification)
+
+
+def plot_orbit_classification(
+    orbits,
+    *,
+    x: str = "v_par",
+    y: str | None = None,
+    v_par: str = "v_par",
+    t="first",
+    ax=None,
+    s: int = 8,
+):
+    """Scatter markers in a phase-space plane, colored as passing, trapped or lost.
+
+    The classification is :func:`~struphy_plots.analysis.classify_orbits` (Struphy's criteria:
+    ``v_par`` reversing sign means trapped, a zeroed marker means lost). The default plane, initial
+    ``v_par`` against ``mu``, shows the trapped-passing boundary directly; ``x="p_phi"`` gives the
+    usual canonical-momentum diagram when ``p_phi`` was saved. The legend gives each class's
+    marker count and fraction; ``result.data["counts"]`` holds the counts.
+    """
+    selected = prepare_orbit_classification(orbits, x=x, y=y, v_par=v_par, t=t)
+    x, y = (name for name in selected.data_vars if name != "classification")
+    codes = np.asarray(selected["classification"])
+    total = codes.size
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    artists, counts = [], {}
+    for code, name in ORBIT_CLASSES.items():
+        mask = codes == code
+        counts[name] = int(mask.sum())
+        if not counts[name]:
+            continue
+        artists.append(
+            ax.scatter(
+                np.asarray(selected[x])[mask],
+                np.asarray(selected[y])[mask],
+                s=s,
+                color=ORBIT_CLASS_COLORS[name],
+                label=f"{name} ({counts[name]}, {counts[name] / total:.0%})",
+            )
+        )
+    ax.set(
+        xlabel=value_label(selected[x]),
+        ylabel=value_label(selected[y]),
+        title="Orbit classification",
+    )
+    if artists:
+        ax.legend(fontsize="small")
+    _finish(fig, run_label=shared_run_label(list(selected.data_vars.values())))
+    return PlotResult(fig, ax, artists, data={"counts": counts})
+
+
+def prepare_continuous_spectrum(spectrum, x, modes) -> xr.DataArray:
+    """Evaluate a continuous spectrum ``omega(x)`` for each mode, as a ``(mode, branch, x)`` array.
+
+    ``spectrum`` is called as ``spectrum(x, *mode)`` and must return a mapping of branch name to
+    ``omega(x)`` -- e.g. Struphy's ``MhdContinousSpectraShearedSlab`` or
+    ``MhdContinousSpectraCylinder`` from ``struphy.dispersion_relations.analytic``, whose modes
+    are ``(m, n)`` pairs. ``modes`` is a sequence of such tuples (a bare number is a 1-tuple).
+    Used by :func:`plot_continuous_spectrum`.
+    """
+    x = np.asarray(x, dtype=float)
+    modes = [tuple(np.atleast_1d(mode).tolist()) for mode in modes]
+    if not modes:
+        raise ValueError("at least one mode is required")
+    evaluated = [spectrum(x, *mode) for mode in modes]
+    branches = list(evaluated[0])
+    values = np.array(
+        [[np.broadcast_to(np.asarray(e[b], dtype=float), x.shape) for b in branches] for e in evaluated]
+    )
+    labels = [", ".join(str(number) for number in mode) for mode in modes]
+    return xr.DataArray(
+        values,
+        dims=("mode", "branch", "x"),
+        coords={"mode": labels, "branch": branches, "x": x},
+        name="omega",
+        attrs={"label": "continuous spectrum"},
+    )
+
+
+def plot_continuous_spectrum(
+    spectrum,
+    x,
+    modes,
+    *,
+    frequencies: dict[str, float] | None = None,
+    mode_label: str = "(m, n)",
+    xlabel: str = "x",
+    ax=None,
+    title: str = "Continuous spectrum",
+):
+    """Continuum frequencies ``omega(x)`` of each mode, one color per mode and one line style per
+    branch (e.g. shear Alfvén solid, slow sound dashed).
+
+    See :func:`prepare_continuous_spectrum` for ``spectrum``, ``x`` and ``modes``.
+    ``frequencies`` optionally marks measured frequencies as horizontal lines (a mapping of label
+    to omega, e.g. a peak read off :func:`plot_dispersion`), to see whether a mode lies in a
+    continuum gap or crosses a continuum, where it is damped.
+    """
+    data = prepare_continuous_spectrum(spectrum, x, modes)
+    styles = ["-", "--", ":", "-."]
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    artists = []
+    for i, mode in enumerate(data.mode.values):
+        for j, branch in enumerate(data.branch.values):
+            (line,) = ax.plot(
+                data.x,
+                data.sel(mode=mode, branch=branch),
+                styles[j % len(styles)],
+                color=f"C{i % 10}",
+                label=f"{branch.replace('_', ' ')}, {mode_label} = ({mode})",
+            )
+            artists.append(line)
+    for label, omega in (frequencies or {}).items():
+        artists.append(ax.axhline(omega, color="k", lw=0.9, ls=(0, (1, 2)), label=label))
+    ax.set(xlabel=xlabel, ylabel=r"$\omega$", title=title)
+    ax.legend(fontsize="small")
+    return PlotResult(fig, ax, artists, data={"spectrum": data})
 
 
 def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):

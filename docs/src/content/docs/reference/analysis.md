@@ -40,6 +40,17 @@ detrended 2-D FFT, independent of Struphy. `dim` defaults to the sole
 dimension other than `t`. See `struphy_plots.analysis.power_spectrum` for
 the definition, and `ArrayPlots.dispersion` to plot it directly.
 
+## `dataset.struphy.analysis` (Dataset accessor)
+
+### `classify_orbits(*, v_par="v_par")`
+For a guiding-center orbits product: each marker's class as a `(marker,)`
+array of integer codes, passing (0), trapped (1) or lost (-1). These are
+the same criteria as Struphy's `post_process_orbit_classification`. A
+marker is trapped if `v_par` ever has the opposite sign to its initial
+value. It is lost if every saved quantity is zero at some time, which is
+how Struphy stores a marker that has left the domain. Lost takes precedence
+over trapped. The class names are in `attrs["flag_meanings"]`.
+
 ## Standalone functions
 
 ### `struphy_plots.analysis.convergence_order(sizes, errors)`

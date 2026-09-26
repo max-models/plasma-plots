@@ -60,6 +60,27 @@ class StruphyDatasetAccessor:
         """The data behind each plot, without rendering it: ``orbits.struphy.data.scatter(...)``."""
         return DatasetData(self._dataset)
 
+    @property
+    def analysis(self) -> "DatasetAnalysis":
+        """Diagnostics of this dataset, e.g. ``orbits.struphy.analysis.classify_orbits()``."""
+        return DatasetAnalysis(self._dataset)
+
+
+class DatasetAnalysis:
+    """Quantitative diagnostics of one dataset, as ``dataset.struphy.analysis.<quantity>(...)``."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    def classify_orbits(self, *, v_par: str = "v_par") -> xr.DataArray:
+        """Passing (0), trapped (1) or lost (-1) per marker of this guiding-center orbits product.
+
+        See :func:`struphy_plots.analysis.classify_orbits` for the criteria.
+        """
+        from .analysis import classify_orbits
+
+        return classify_orbits(self._dataset, v_par=v_par)
+
 
 class DatasetPlots:
     """Plots of one dataset, as ``dataset.struphy.plot.<kind>(...)``."""
@@ -100,6 +121,27 @@ class DatasetPlots:
             self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, **selection
         )
 
+    def orbit_classification(
+        self,
+        *,
+        x: str = "v_par",
+        y: str | None = None,
+        v_par: str = "v_par",
+        t="first",
+        ax=None,
+        s: int = 8,
+    ):
+        """Markers in a phase-space plane (default: initial ``v_par`` against ``mu``), colored as
+        passing, trapped or lost; for a guiding-center orbits product.
+
+        See :func:`struphy_plots.plotting.plot_orbit_classification`.
+        """
+        from .plotting import plot_orbit_classification
+
+        return plot_orbit_classification(
+            self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s
+        )
+
 
 class DatasetData:
     """The data behind each plot in :class:`DatasetPlots`, without rendering it."""
@@ -128,6 +170,15 @@ class DatasetData:
                 f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}"
             )
         return resolve_marker_selection(self._dataset, selection)
+
+    def orbit_classification(
+        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t="first"
+    ) -> xr.Dataset:
+        """The per-marker ``x``, ``y`` and ``classification`` :meth:`DatasetPlots.orbit_classification`
+        would plot."""
+        from .plotting import prepare_orbit_classification
+
+        return prepare_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t)
 
 
 class _ArrayAccessor:
