@@ -93,8 +93,20 @@ def pproc(out: Output):
     velocity_spectrum = velocity.struphy.analysis.dispersion(dim="e3")
     pressure_spectrum = pressure.struphy.analysis.dispersion(dim="e3")
 
-    (alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(n_branches=1, noise_level=0.5)
-    slow_branch, fast_branch = pressure_spectrum.struphy.analysis.fit_branches(n_branches=2, noise_level=0.1)
+    # Where the branches are cleanly linear and separated: bounded by real numerical dispersion
+    # (the ridges visibly bend past k ~ 2-2.5 for this degree-3 spline discretization), not by a
+    # fraction of the FFT's Nyquist k -- that fraction grows with grid resolution alone (more
+    # elements raises k_max without moving where the physics stops being linear), so it can
+    # silently drift into the bent/noisy region and bias or break the fit.
+    fit_k_range = (0.2, 2.0)
+    (alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(
+        n_branches=1, k_range=fit_k_range, noise_level=0.5
+    )
+    # The fast branch's power is only a few percent of the slow branch's peak power in this
+    # window, so noise_level has to be low enough to still count it as a genuine peak.
+    slow_branch, fast_branch = pressure_spectrum.struphy.analysis.fit_branches(
+        n_branches=2, k_range=fit_k_range, noise_level=0.02
+    )
     measured_alfven, measured_slow, measured_fast = (
         alfven_branch.velocity,
         slow_branch.velocity,
@@ -105,9 +117,13 @@ def pproc(out: Output):
         print(f"{branch}: measured {measured_speeds[branch]:.4f}, exact {exact:.4f}")
 
     # Show the whole resolved spectrum, as struphy's own gallery script does, rather than an
-    # arbitrary crop -- k_top is the largest k either field's FFT actually resolves.
+    # arbitrary crop -- k_top is the largest k either field's FFT actually resolves. omega_max is
+    # capped at the time grid's own Nyquist frequency (~pi/dt): the fast branch's line at k_top can
+    # run higher than that, but there's no real spectrum data up there to show either way.
     k_top = min(float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max()))
-    kmax, omega_max = k_top, exact_speeds["fast magnetosonic"] * k_top
+    omega_nyquist = min(float(velocity_spectrum.omega.max()), float(pressure_spectrum.omega.max()))
+    kmax = k_top
+    omega_max = min(exact_speeds["fast magnetosonic"] * k_top, omega_nyquist)
 
     velocity_path = OUT / "real_dispersion_velocity.png"
     velocity_result = velocity.struphy.plot.dispersion(
@@ -118,12 +134,13 @@ def pproc(out: Output):
         kmax=kmax,
         omega_max=omega_max,
     )
-    # The plotted spectrum only ever has omega >= 0; without this, the branch lines' negative-k,
-    # negative-omega tails would pull the y-axis down into an empty strip below omega = 0. k < 0
-    # is real data, but by (k, omega) -> (-k, -omega) symmetry it just mirrors k > 0, so it's
-    # cropped away too rather than showing the same branches twice.
-    velocity_result.ax.set_ylim(bottom=0)
-    velocity_result.ax.set_xlim(left=0)
+    # The plotted spectrum only ever has omega in [0, omega_max]; without this, the branch lines'
+    # k > kmax/omega > omega_max (and negative-k, negative-omega) tails would stretch the axes to
+    # fit them, well past where there's any real data to show. k < 0 is real data, but by
+    # (k, omega) -> (-k, -omega) symmetry it just mirrors k > 0, so it's cropped away too rather
+    # than showing the same branches twice.
+    velocity_result.ax.set_ylim(0, omega_max)
+    velocity_result.ax.set_xlim(0, kmax)
     velocity_result.save(velocity_path, close=True)
     print(f"wrote {velocity_path}")
 
@@ -138,8 +155,8 @@ def pproc(out: Output):
         kmax=kmax,
         omega_max=omega_max,
     )
-    pressure_result.ax.set_ylim(bottom=0)
-    pressure_result.ax.set_xlim(left=0)
+    pressure_result.ax.set_ylim(0, omega_max)
+    pressure_result.ax.set_xlim(0, kmax)
     pressure_result.save(pressure_path, close=True)
     print(f"wrote {pressure_path}")
 
