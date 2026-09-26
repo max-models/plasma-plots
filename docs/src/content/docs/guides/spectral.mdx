@@ -137,6 +137,34 @@ continuum curve, here the m = 10 branch at r = 0.8:
 
 ![Power over frequency and radius, with the shear-Alfvén continua](../../../assets/figures/spectral_radial_power.png)
 
+## Continuous spectra
+
+`plot_continuous_spectrum` draws the continua on their own, one color per mode
+and one line style per branch. `spectrum` is any function `omega(x, *mode)`
+returning a mapping of branch names to frequencies, or one of Struphy's
+analytic continua, which give the shear-Alfvén and slow-sound branches of a
+sheared slab or a cylinder. `frequencies` marks measured frequencies, to see
+whether a mode sits in a gap or crosses a continuum, where it is damped:
+
+```python
+from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
+from struphy_plots.plotting import plot_continuous_spectrum
+
+plot_continuous_spectrum(
+    MhdContinousSpectraCylinder(), np.linspace(0.05, 1, 300), [(10, 6), (11, 6)],
+    frequencies={"measured TAE frequency": omega}, xlabel="r",
+)
+```
+
+Here, with the uncoupled continua of the synthetic TAE, the measured frequency
+passes through the crossing of the m = 10 and 11 branches, where toroidal
+coupling opens the gap:
+
+![Shear-Alfvén continua of the m = 10, 11 harmonics with the measured TAE frequency](../../../assets/figures/continuous_spectrum.png)
+
+`prepare_continuous_spectrum` returns the curves as a `(mode, branch, x)`
+array without plotting them.
+
 ## Eigenfunctions
 
 `mode_structure(omega)` gives the complex amplitude of the oscillation at one

@@ -85,6 +85,27 @@ for marker in subset.marker.values:
 
 <PlotlyChart src="/plotly/plotly_trajectories.json" height="520px" />
 
+## Orbit classification
+
+```python
+codes = orbits.struphy.analysis.classify_orbits()        # per marker: 0 passing, 1 trapped, -1 lost
+orbits.struphy.plot.orbit_classification()               # initial v_par against mu, colored by class
+orbits.struphy.plot.orbit_classification(x="p_phi")      # the canonical-momentum diagram
+```
+
+For guiding-center orbits (Particles5D or Particles5Dvperp), `classify_orbits`
+uses Struphy's criteria. A marker is trapped if its parallel velocity `v_par`
+ever reverses sign. It is lost if all its saved quantities are zero at some
+time, which is how Struphy stores a marker that has left the domain.
+
+The plot scatters each marker's initial phase-space position. Its default
+plane, `v_par` against `mu` (or `v_perp`), shows the trapped cone directly:
+markers with a small |`v_par`| for their `mu` bounce. The legend gives each
+class's count and fraction. `x="p_phi"` gives the canonical-momentum view when
+`p_phi` was saved (Struphy fills it only with `save_constants_of_motion`).
+
+![Initial v_par against mu, colored as passing, trapped or lost](../../../assets/figures/orbit_classification.png)
+
 ## Orbits in the poloidal plane
 
 ```python
@@ -93,7 +114,7 @@ orbits.struphy.plot.quantities(markers=4)         # v_par and the drift of mu ov
 ```
 
 `poloidal()` projects each orbit onto the poloidal plane, colored as passing,
-trapped or lost (see [orbit classification](/struphy-plots/reference/plot/)).
+trapped or lost (see [orbit classification](#orbit-classification)).
 Passing orbits circle the magnetic axis and trapped ones trace bananas.
 Samples after a marker leaves the domain are dropped. `boundary` is any field
 whose outer surface is drawn as the domain boundary.

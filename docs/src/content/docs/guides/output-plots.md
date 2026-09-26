@@ -24,6 +24,10 @@ out.struphy.plot.equilibrium_3d(scalars="p0", cmap="viridis")
 
   ![Overview of every scalar time series in one run](../../../assets/figures/scalars.png)
 
+  To write every scalar to disk at once, use
+  `struphy_plots.plotting.save_all_scalars(out.scalars, "plots/scalars")`. It
+  writes a CSV table, this overview, and one figure per scalar.
+
 - **`energies(parts=None, total="en_tot", groups=None)`** — the run's energy
   budget: its `en_*` scalars, the relative drift of the total (which should
   stay flat), and with `groups` the energy exchanged between them. For a run

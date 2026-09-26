@@ -734,18 +734,22 @@ save(
 )
 
 # Guiding-centre-like orbits in a torus: passing markers circle the axis, trapped ones bounce
+# Initial (v_par, mu) from a Maxwellian; markers inside the cone v_par^2 < 2 mu dB/B bounce
 rng_orb = np.random.default_rng(11)
-n_gc, t_gc = 30, np.linspace(0, 80, 400)[:, None]
+n_gc, t_gc = 60, np.linspace(0, 80, 400)[:, None]
 r_gc, th_gc = rng_orb.uniform(0.2, 0.8, n_gc), rng_orb.uniform(0, 2 * np.pi, n_gc)
-trapped_gc = np.arange(n_gc) % 3 == 0
+v0_gc, mu0_gc = rng_orb.normal(0.0, 1.0, n_gc), rng_orb.exponential(0.5, n_gc)
+trapped_gc = v0_gc**2 < 2 * mu0_gc * 0.6
 bounce_gc = 0.2 * t_gc + th_gc
-v_par_gc = np.where(trapped_gc, np.cos(bounce_gc), 1.0 + 0 * t_gc)
-theta_gc = th_gc + np.where(trapped_gc, 1.2 * np.sin(bounce_gc) - 1.2 * np.sin(th_gc), 0.25 * t_gc)
+v_par_gc = np.where(trapped_gc, v0_gc * np.cos(0.2 * t_gc), v0_gc * (1 - 0.3 * np.sin(0.2 * t_gc) ** 2))
+theta_gc = th_gc + np.where(
+    trapped_gc, 1.2 * np.sin(bounce_gc) - 1.2 * np.sin(th_gc), 0.25 * np.sign(v0_gc) * t_gc
+)
 R_gc = 3.0 + (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.cos(theta_gc)
 phi_gc = 0.1 * t_gc
 x_gc, y_gc = R_gc * np.cos(phi_gc), R_gc * np.sin(phi_gc)
 z_gc = (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.sin(theta_gc)
-mu_gc = np.broadcast_to(rng_orb.uniform(0.1, 1.0, n_gc), x_gc.shape) * (1 + 1e-7 * np.sin(t_gc))
+mu_gc = np.broadcast_to(mu0_gc, x_gc.shape) * (1 + 1e-7 * np.sin(t_gc))
 for arr in (x_gc, y_gc, z_gc, v_par_gc):
     arr[300:, 1] = 0.0  # one marker leaves the domain
 mu_gc = mu_gc.copy()
@@ -769,7 +773,23 @@ boundary_field = field_array(
     Y=(("e1", "e2", "e3"), np.zeros((5, 64, 1))),
     Z=(("e1", "e2", "e3"), ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None]),
 )
+save(orbits_gc.struphy.plot.orbit_classification(), "orbit_classification.png")
 save(orbits_gc.struphy.plot.poloidal(boundary=boundary_field), "orbits_poloidal.png")
+
+# The shear-Alfven continua of the TAE harmonics, with the frequency measured above
+from struphy_plots.plotting import plot_continuous_spectrum  # noqa: E402
+
+save(
+    plot_continuous_spectrum(
+        alfven_continuum,
+        np.linspace(0.1, 1.0, 300),
+        [(10, n_tae), (11, n_tae)],
+        frequencies={"measured TAE frequency": omega_measured},
+        xlabel=r"$r/a$",
+        title="Shear-Alfvén continua of the m = 10, 11 harmonics",
+    ),
+    "continuous_spectrum.png",
+)
 save(orbits_gc.struphy.plot.quantities(markers=4), "orbits_quantities.png")
 
 
