@@ -57,6 +57,11 @@ This field as a `pyvista.StructuredGrid` on its physical `X`, `Y`, `Z`
 points: the data behind every 3-D view, ready for any PyVista filter. Vector
 fields also get their magnitude as `"|name|"`.
 
+### `to_vtk(path, *, name=None, **selection)`
+Writes the field to VTK structured grids for ParaView: one `.vts` per time
+plus a `.pvd` collection in the directory `path`, or a single `.vts` without
+`t`. Backed by `struphy_plots.pyvista_plots.save_vtk`.
+
 ### `slices_3d(*, cuts=None, **selection)`
 The list of logical cuts `plot.slices_3d(...)` would draw, each an
 `xarray.DataArray` that keeps its size-one cut dimension.

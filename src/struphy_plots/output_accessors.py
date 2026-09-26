@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from . import accessors  # noqa: F401  (registers array.struphy)
 
 if TYPE_CHECKING:
@@ -99,6 +101,17 @@ class OutputPlots:
             run_label=self._output.label,
         )
 
+    def energies(self, *, parts=None, total: str | None = "en_tot", groups: dict | None = None, logy: bool = False):
+        """The run's energy budget: its ``en_*`` scalars, the relative drift of ``total``, and,
+        with ``groups`` (e.g. ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv",
+        "en_fB"]}``), the energy exchanged between them. See
+        :func:`struphy_plots.plotting.plot_energy_budget`."""
+        from .plotting import plot_energy_budget
+
+        return plot_energy_budget(
+            self._output.scalars, parts=parts, total=total, groups=groups, logy=logy, run_label=self._output.label
+        )
+
     def equilibrium(self, ax=None):
         """Radial profiles of this run's fluid equilibrium (``out.equil``, ``out.domain``)."""
         from .plotting import plot_equilibrium_profile
@@ -176,6 +189,40 @@ class OutputAnalysis:
             self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins
         )
 
+    def linear_mhd_energies(
+        self,
+        *,
+        velocity="mhd/velocity",
+        b_field="em_fields/b_field",
+        pressure="mhd/pressure",
+        gamma: float = 5 / 3,
+    ):
+        """LinearMHD's energy scalars computed from fields: ``en_U``, ``en_B``, ``en_thermal``,
+        ``en_p`` and ``en_tot = en_U + en_B + en_thermal``, as a Dataset of time series.
+
+        Same definitions as the scalars saved during the run (``en_U = 1/2 u^T M2n u``, ...),
+        with the run's ``domain`` and equilibrium (``n0``, ``p0``), but evaluated by quadrature
+        on the post-processing grid, so they also work for fields that were never simulated:
+        pass a filtered array (e.g. ``filter_time(...).filtered``) to get the energy in one mode.
+        Each argument is a raw field name (evaluated at the Gauss points of
+        :meth:`quadrature_grid`, in its FEEC space's own representation), an array in that
+        representation (on the Gauss grid its weights are exact; elsewhere see
+        :func:`~struphy_plots.analysis.quadrature_weights`), or ``None`` to skip it: 2-form
+        components for ``velocity`` and ``b_field`` (``out.evaluate("mhd/velocity",
+        representation="2")``), a 3-form for ``pressure`` (``representation="3"``). The default
+        post-processing products are in other representations (``"norm"``, ``"0"``) and would
+        give wrong energies. Points where ``p0`` vanishes are left out of ``en_thermal``.
+        """
+        return _linear_mhd_energies(self._output, velocity, b_field, pressure, gamma)
+
+    def quadrature_grid(self):
+        """``(etas, weights)``: Gauss-Legendre points (spline degree + 1 per element) and their
+        weights for each of ``e1``, ``e2``, ``e3`` -- the grid on which spline fields squared
+        integrate exactly. Evaluate a field there (``out.evaluate(name, eta1=etas["e1"], ...,
+        representation="2")``), filter it, and ``linear_mhd_energies`` or ``field_energy(...,
+        quadrature=weights)`` give its energy as the run's own scalars would."""
+        return _quadrature_grid(self._output)
+
     def mode_spectrum(
         self, product, *, dims=("e2", "e3"), names=("m", "n"), periods=1.0
     ):
@@ -186,6 +233,87 @@ class OutputAnalysis:
         return mode_spectrum(
             self._array(product), dims=dims, names=names, periods=periods
         )
+
+
+def _quadrature_grid(output):
+    """Gauss-Legendre points (degree + 1 per element) and weights of each logical direction."""
+    elements = tuple(output.grid.num_elements)
+    degrees = tuple(output.derham_opts.degree)
+    etas, weights = {}, {}
+    for dim, n_elements, degree in zip(("e1", "e2", "e3"), elements, degrees):
+        x, w = np.polynomial.legendre.leggauss(int(degree) + 1)
+        starts = np.arange(n_elements)[:, None] / n_elements
+        etas[dim] = (starts + (x[None] + 1) / (2 * n_elements)).ravel()
+        weights[dim] = np.tile(w / (2 * n_elements), n_elements)
+    return etas, weights
+
+
+def _matching_quadrature(field, etas, weights):
+    """The Gauss weights if ``field`` sits on the Gauss grid, else ``None`` (default rules)."""
+    for dim in ("e1", "e2", "e3"):
+        if dim not in field.dims or field.sizes[dim] != etas[dim].size:
+            return None
+        if not np.allclose(np.asarray(field[dim], dtype=float), etas[dim]):
+            return None
+    return weights
+
+
+def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
+    import xarray as xr
+
+    from .analysis import field_energy, volume_integral
+
+    etas_q, weights_q = _quadrature_grid(output)
+
+    def array(product, representation):
+        # a raw FEEC field in its own space's representation, at the Gauss points of every
+        # element (the default products are in "norm" / "0" representations, on one point per
+        # cell, which neither the mass matrices nor an exact quadrature use)
+        if isinstance(product, str):
+            return output.evaluate(
+                product, eta1=etas_q["e1"], eta2=etas_q["e2"], eta3=etas_q["e3"], representation=representation
+            )
+        return product
+
+    def etas(field):
+        return [np.asarray(field[d], dtype=float) for d in ("e1", "e2", "e3")]
+
+    domain, equil = output.domain, output.equil
+    if not hasattr(equil, "_domain"):
+        equil.domain = domain  # the equilibrium profiles are pulled back to this run's mapping
+    fields = {
+        name: array(value, representation)
+        for name, value, representation in (("u", velocity, "2"), ("b", b_field, "2"), ("p", pressure, "3"))
+        if value is not None
+    }
+    energies = {}
+    if "u" in fields:
+        n0 = np.asarray(equil.n0(*etas(fields["u"])), dtype=float)
+        energies["en_U"] = field_energy(
+            fields["u"], form=2, weight=n0, domain=domain, quadrature=_matching_quadrature(fields["u"], etas_q, weights_q)
+        )
+    if "b" in fields:
+        energies["en_B"] = field_energy(
+            fields["b"], form=2, domain=domain, quadrature=_matching_quadrature(fields["b"], etas_q, weights_q)
+        )
+    if "p" in fields:
+        p0 = np.asarray(equil.p0(*etas(fields["p"])), dtype=float)
+        with np.errstate(divide="ignore"):
+            inverse = np.where(p0 > 1e-12 * p0.max(), 1.0 / p0, np.nan)
+        energies["en_thermal"] = field_energy(
+            fields["p"], form=3, weight=inverse, domain=domain, normalization=1.0 / gamma,
+            quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
+        )
+        energies["en_p"] = volume_integral(
+            fields["p"], form=3, domain=domain, quadrature=_matching_quadrature(fields["p"], etas_q, weights_q)
+        ) / (gamma - 1)
+    if not energies:
+        raise ValueError("pass at least one of velocity, b_field and pressure")
+    quadratic = [energies[k] for k in ("en_U", "en_B", "en_thermal") if k in energies]
+    energies["en_tot"] = sum(quadratic[1:], quadratic[0])
+    for name, values in energies.items():
+        values.attrs = {**values.attrs, "label": name}
+    return xr.Dataset(energies, attrs={"label": "LinearMHD energies from fields"})
 
 
 def _register_output_plot_property():

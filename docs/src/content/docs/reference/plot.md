@@ -16,6 +16,11 @@ exponential growth/damping fit overlay.
 Select every dimension via `**selection` except `x`, and plot the remaining
 1-D profile.
 
+### `profiles(*, x="e1", over="t", at=None, x_of=None, xlabel=None, ax=None, title=None, **selection)`
+Several profiles along `x` in one axes, one per value of `over` (default: four
+evenly spaced times). `at` takes positions (int) or values (float), and `x_of`
+maps `x` to the plotted axis. Backed by `struphy_plots.plotting.plot_profiles`.
+
 ### `vector(*, x, y, components=(0, 1), stride=1, coordinates="logical", ax=None, **selection)`
 Quiver plot of two vector components over the `x`/`y` plane.
 
@@ -45,7 +50,7 @@ top `dynamic_range` decades below the peak (with `log=True`), since a
 dispersion relation's power spans many orders of magnitude between the
 ridge and the rest of the plane.
 
-### `view(*, x=None, y=None, sweep="t", coords="logical", plane="XY", vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None, **selection)`
+### `view(*, x=None, y=None, sweep="t", coords="logical", plane="XY", vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None, symmetric=False, robust=False, **selection)`
 Configure a reusable 2-D slice view without rendering it. Returns a
 `SliceView` with `.slice()`, `.panels()`, `.viewer()`, `.animation()`, and
 `.save_frames()`.
@@ -67,6 +72,12 @@ Export one PNG per swept step into `directory`.
 
 ### `trajectories(*, max_markers=200, show_paths=None, ax=None)`
 3-D marker-trajectory plot for kinetic orbit output.
+
+All slice presentations (`view`, `slice`, `panels`, `viewer`, `animation`,
+`frames`) and the 3-D `isosurface` and `slices_3d` take `symmetric=True`
+(color limits centered on zero) and `robust=True` (limits from the 1st and
+99th percentiles); see `struphy_plots.plotting.color_limits`. Physical slices
+close the periodic seam of cell-centered grids.
 
 ### Spectral plots
 `power_spectrum`, `filtered`, `spectrogram`, `mode_amplitudes`, `mode_map`,
@@ -132,6 +143,18 @@ criteria (see `classify_orbits()` in the analysis reference). `y` defaults to
 diagram when `p_phi` was saved. `t` selects the time plotted (default: the
 initial positions). `result.data["counts"]` holds the counts, and
 `dataset.struphy.data.orbit_classification(...)` returns the plotted data.
+
+### `poloidal(*, color_by="classification", max_markers=200, boundary=None, ax=None)`
+Orbits projected onto the poloidal plane, `R = sqrt(x² + y²)` against `z`,
+colored as passing, trapped or lost (or one color per marker with
+`color_by=None`). Lost samples are dropped. `boundary` is a field whose outer
+surface is drawn. Backed by `struphy_plots.plotting.plot_orbit_poloidal`.
+
+### `quantities(*, quantities=("v_par", "mu"), markers=6, drift_of=("mu",))`
+Saved orbit quantities over time, one panel each, for a number of markers
+(spread over the orbit classes) or a list of them. Quantities in `drift_of`
+are shown as their change since `t = 0`. Backed by
+`struphy_plots.plotting.plot_orbit_quantities`.
 
 ### `orbits_3d(*, color_by="t", max_markers=200, tube_radius=None, cmap=None, domain=None, title=None, plotter=None)`
 PyVista orbit lines (or tubes) from the physical positions `x`, `y`, `z`,

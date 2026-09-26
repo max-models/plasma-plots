@@ -416,3 +416,158 @@ def power_spectrum(
     spectrum.name = "power"
     spectrum.attrs = {"label": f"power spectrum of {_label(data)}".strip(), "units": ""}
     return spectrum
+
+
+# ---------------------------------------------------------------------------------------------
+# Volume integrals and field energies (after struphy's TAE_example_Shrut field_energies.py)
+# ---------------------------------------------------------------------------------------------
+
+
+def quadrature_weights(coordinate) -> np.ndarray:
+    """Quadrature weights for samples of a logical coordinate in ``[0, 1]``.
+
+    Struphy's cell centers (uniform, half a cell from each end) get the midpoint rule, which
+    integrates over the whole unit interval; any other grid gets the trapezoidal rule over the
+    sampled range. A single point (a 2-D run's flat direction) has weight 1.
+    """
+    x = np.asarray(coordinate, dtype=float)
+    if x.size == 1:
+        return np.ones(1)
+    h = np.diff(x)
+    if np.allclose(h, h[0]) and np.isclose(x[0], h[0] / 2) and np.isclose(x[-1], 1 - h[0] / 2):
+        return np.full(x.size, h[0])
+    weights = np.empty(x.size)
+    weights[1:-1] = (x[2:] - x[:-2]) / 2
+    weights[0], weights[-1] = h[0] / 2, h[-1] / 2
+    return weights
+
+
+def _geometry(data: xr.DataArray, domain=None):
+    """``|sqrt g|`` and the metric ``G`` (3, 3, n1, n2, n3) on the logical grid of ``data``: from a
+    struphy ``domain`` (exact), or from the Jacobian of the attached X, Y, Z coordinates."""
+    missing = [d for d in SPATIAL_DIMS if d not in data.dims]
+    if missing:
+        raise ValueError(f"integrals need the logical dimensions e1, e2, e3; {missing} are missing")
+    if domain is not None:
+        etas = [np.asarray(data[d], dtype=float) for d in SPATIAL_DIMS]
+        sqrt_g = np.abs(np.asarray(domain.jacobian_det(*etas), dtype=float))
+        metric = np.asarray(domain.metric(*etas), dtype=float)
+        return sqrt_g.reshape([data.sizes[d] for d in SPATIAL_DIMS]), metric
+    from .arrays import mapping_jacobian
+
+    jacobian = mapping_jacobian(data)
+    sqrt_g = np.abs(np.linalg.det(np.moveaxis(jacobian, (0, 1), (-2, -1))))
+    metric = np.einsum("ai...,aj...->ij...", jacobian, jacobian)
+    return sqrt_g, metric
+
+
+def _integrate(integrand: xr.DataArray, quadrature=None) -> xr.DataArray:
+    weights = 1.0
+    for dim in SPATIAL_DIMS:
+        given = (quadrature or {}).get(dim)
+        values = quadrature_weights(integrand[dim]) if given is None else np.asarray(given, dtype=float)
+        if values.size != integrand.sizes[dim]:
+            raise ValueError(f"{values.size} quadrature weights for {integrand.sizes[dim]} points along {dim!r}")
+        weights = weights * xr.DataArray(values, dims=(dim,))
+    return (integrand * weights).sum(list(SPATIAL_DIMS))
+
+
+def _spatial_array(values, data):
+    return xr.DataArray(np.asarray(values, dtype=float), dims=SPATIAL_DIMS, coords={d: data[d] for d in SPATIAL_DIMS})
+
+
+def volume_integral(
+    data: xr.DataArray, *, form: int = 0, weight=None, domain=None, quadrature=None
+) -> xr.DataArray:
+    """``int w f dV`` over the logical grid, as a function of every other dimension (e.g. ``t``).
+
+    ``form=0`` (default) is a function, integrated with the volume element ``|sqrt g| de``;
+    ``form=3`` is a density (a 3-form, e.g. Struphy's L2 fields), integrated as ``int f de``.
+    ``weight`` is an optional ``(e1, e2, e3)`` array. The geometry comes from a struphy
+    ``domain`` (``out.domain``, exact) or, without one, from the X, Y, Z coordinates.
+    ``quadrature`` maps ``e1``/``e2``/``e3`` to explicit weights (e.g. Gauss weights, see
+    ``out.analysis.quadrature_grid()``); by default see :func:`quadrature_weights`.
+    """
+    if form not in (0, 3):
+        raise ValueError("volume_integral takes form=0 (a function) or form=3 (a density)")
+    validate_array(data)
+    integrand = data
+    if form == 0:
+        sqrt_g, _ = _geometry(data, domain)
+        integrand = integrand * _spatial_array(sqrt_g, data)
+    if weight is not None:
+        integrand = integrand * np.asarray(weight, dtype=float)
+    out = _integrate(integrand, quadrature)
+    out.attrs = {**_provenance(data), "label": f"integral of {_label(data)}".strip()}
+    return out
+
+
+def field_energy(
+    data: xr.DataArray,
+    *,
+    form: int | str | None = None,
+    weight=None,
+    domain=None,
+    normalization: float = 1.0,
+    quadrature=None,
+) -> xr.DataArray:
+    r"""The quadratic energy ``alpha * 1/2 int w  omega^T A omega de``, as a function of time.
+
+    ``form`` says what ``data`` holds, and sets the metric factor ``A`` (as struphy's mass
+    matrices do, so that e.g. LinearMHD's ``en_U`` is ``field_energy(u, form=2, weight=n0)``):
+
+    ========================  ===========================================  ==============
+    ``form``                  data                                         ``A``
+    ========================  ===========================================  ==============
+    ``None`` (default)        a function, or Cartesian vector components    ``|sqrt g|``
+    ``0``                     0-form                                        ``|sqrt g|``
+    ``1``                     1-form components                             ``G^-1 |sqrt g|``
+    ``2``                     2-form components                             ``G / |sqrt g|``
+    ``3``                     3-form                                        ``1 / |sqrt g|``
+    ``"v"``                   contravariant vector components               ``G |sqrt g|``
+    ========================  ===========================================  ==============
+
+    Vectors have a ``component`` dimension. Non-finite ``weight`` values (e.g. ``1/p0`` where
+    ``p0`` vanishes on the boundary) are left out. The energy of a filtered field, e.g. from
+    :func:`~struphy_plots.spectral.filter_time`, measures how much of the energy is in that mode.
+    ``quadrature``: as for :func:`volume_integral`. A spline field squared is integrated exactly
+    only with enough points per element: evaluate it at Gauss points for accurate energies.
+    """
+    validate_array(data)
+    if form not in (None, 0, 1, 2, 3, "v"):
+        raise ValueError(f"form must be None, 0, 1, 2, 3 or 'v'; got {form!r}")
+    sqrt_g, metric = _geometry(data, domain)
+    w = np.ones_like(sqrt_g) if weight is None else np.asarray(weight, dtype=float) * np.ones_like(sqrt_g)
+    w = np.where(np.isfinite(w), w, 0.0)
+    vector = "component" in data.dims
+    if vector and data.sizes["component"] != 3:
+        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+    if not vector and form in (1, 2, "v"):
+        raise ValueError(f"form={form!r} needs vector components (a 'component' dimension)")
+    if vector and form in (0, 3):
+        raise ValueError(f"form={form} is a scalar; a vector field needs form None, 1, 2 or 'v'")
+
+    if form in (None, 0):
+        factor = _spatial_array(w * sqrt_g, data)
+        squared = (data**2).sum("component") if vector else data**2
+    elif form == 3:
+        factor = _spatial_array(w / np.where(sqrt_g > 0, sqrt_g, np.inf), data)
+        squared = data**2
+    else:
+        if form == 1:
+            tensor = np.linalg.inv(np.moveaxis(metric, (0, 1), (-2, -1)))
+            tensor = np.moveaxis(tensor, (-2, -1), (0, 1)) * (w * sqrt_g)
+        elif form == 2:
+            tensor = metric * (w / np.where(sqrt_g > 0, sqrt_g, np.inf))
+        else:
+            tensor = metric * (w * sqrt_g)
+        A = xr.DataArray(
+            tensor, dims=("component", "component_2", *SPATIAL_DIMS),
+            coords={d: data[d] for d in SPATIAL_DIMS},
+        )
+        other = data.rename(component="component_2").drop_vars("component_2", errors="ignore")
+        squared = (data.drop_vars("component", errors="ignore") * A * other).sum(("component", "component_2"))
+        factor = 1.0
+    out = normalization * 0.5 * _integrate(squared * factor, quadrature)
+    out.attrs = {**_provenance(data), "label": f"energy of {_label(data)}".strip()}
+    return out

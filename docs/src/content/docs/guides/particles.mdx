@@ -85,6 +85,29 @@ for marker in subset.marker.values:
 
 <PlotlyChart src="/plotly/plotly_trajectories.json" height="520px" />
 
+## Orbits in the poloidal plane
+
+```python
+orbits.struphy.plot.poloidal(boundary=field)     # R = sqrt(x² + y²) against z
+orbits.struphy.plot.quantities(markers=4)         # v_par and the drift of mu over time
+```
+
+`poloidal()` projects each orbit onto the poloidal plane, colored as passing,
+trapped or lost (see [orbit classification](/struphy-plots/reference/plot/)).
+Passing orbits circle the magnetic axis and trapped ones trace bananas.
+Samples after a marker leaves the domain are dropped. `boundary` is any field
+whose outer surface is drawn as the domain boundary.
+
+![Guiding-center orbits in the poloidal plane](../../../assets/figures/orbits_poloidal.png)
+
+`quantities()` shows saved quantities over time for a few markers, spread over
+the classes. By default these are `v_par`, whose sign reversals are the bounces
+of trapped markers, and the change of the magnetic moment `mu` since `t = 0`.
+`mu` is an invariant of guiding-center motion, so its drift measures the
+pusher's accuracy.
+
+![v_par and the drift of mu for a few markers](../../../assets/figures/orbits_quantities.png)
+
 ## Marker scatter and particle clouds
 
 ```python

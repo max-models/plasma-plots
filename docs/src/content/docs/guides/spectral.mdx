@@ -158,6 +158,19 @@ phase across radius:
 
 ![Radial amplitude and phase of the m = 10 and 11 harmonics](../../../assets/figures/spectral_mode_profiles.png)
 
+Without a frequency, `mode_profiles` shows the harmonics' amplitudes at one
+time. `scale` multiplies the mode numbers, so `scale=(1, 6)` labels a sixth of
+a torus (`tor_period=6`) with full-torus toroidal mode numbers:
+
+```python
+phi.struphy.plot.mode_profiles(t="last", scale=(1, 6), x_of=lambda e1: 0.1 + 0.9 * e1, top=2)
+```
+
+![Radial amplitude of each harmonic at the last time, with full-torus n](../../../assets/figures/mode_profiles_snapshot.png)
+
+The energy in a filtered mode comes from
+[energies from fields](/struphy-plots/guides/output-plots/#energies-from-fields).
+
 The filtered mode, drawn in its torus sector with the
 [3-D views](/struphy-plots/guides/3d-views/):
 
@@ -186,6 +199,12 @@ few modes as the signal needs, since extra modes fit noise. For a real signal,
 `n_modes` counts oscillations, each a conjugate pair.
 
 ![Matrix-pencil fit and the fitted mode in the complex-frequency plane](../../../assets/figures/spectral_pencil.png)
+
+An energy is quadratic in the field, so it oscillates at twice the wave
+frequency, around a trend when the wave grows or decays. `spectral_peaks`
+takes a polynomial degree as `detrend` for that case:
+`en_U.struphy.analysis.spectral_peaks(detrend=2, window="hann")` puts the peak
+at 2ω.
 
 ## Changing frequencies: spectrograms
 

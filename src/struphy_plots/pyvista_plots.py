@@ -17,7 +17,7 @@ import numpy as np
 import xarray as xr
 
 from .analysis import ORBIT_CLASSES, classify_orbits
-from .arrays import validate_array, value_label
+from .arrays import close_periodic, mapping_jacobian, validate_array, value_label
 
 SPATIAL = ("e1", "e2", "e3")
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
@@ -121,69 +121,17 @@ def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     )
 
 
-def _periodicity(points: np.ndarray, axis: int) -> str | None:
-    """How a direction of a ``(n1, n2, n3, 3)`` point array wraps around, if it does:
-    ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of the
-    seam, as on cell centers), or ``None`` (not periodic, e.g. a radius or a torus sector)."""
-    n = points.shape[axis]
-    if n < 3:
-        return None
-    take = lambda i: np.take(points, i, axis=axis)  # noqa: E731
-    seam = np.linalg.norm(take(-1) - take(0), axis=-1)
-    step = np.linalg.norm(take(-1) - take(-2), axis=-1)
-    scale = np.median(step)
-    if scale <= 0:
-        return None
-    if np.all(seam < 1e-9 * scale):
-        return "closed"
-    if np.all(seam <= 1.5 * np.maximum(step, 1e-12 * scale)):
-        return "open"
-    return None
-
-
-def _derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None) -> np.ndarray:
-    """d values / d coordinate: central differences that wrap around a periodic direction on a
-    uniform grid, else numpy's second-order differences (one-sided at the ends)."""
-    spacing = np.diff(coordinate)
-    uniform = len(spacing) > 0 and np.allclose(spacing, spacing[0])
-    if kind is None or not uniform:
-        return np.gradient(values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1)
-    unique = np.take(values, range(values.shape[axis] - 1), axis=axis) if kind == "closed" else values
-    central = (np.roll(unique, -1, axis=axis) - np.roll(unique, 1, axis=axis)) / (2 * spacing[0])
-    if kind == "closed":
-        central = np.concatenate([central, np.take(central, [0], axis=axis)], axis=axis)
-    return central
-
-
-def close_periodic(data: xr.DataArray) -> xr.DataArray:
-    """``data`` with the first slice repeated at the end of every direction that wraps around.
-
-    Struphy evaluates fields at cell centers, which leave out the seam of a periodic direction
-    (e.g. the poloidal angle), so a surface drawn through the points has a gap there. A
-    direction counts as periodic when its last slice lies about one grid step from its first
-    one in physical space; a radial direction, or the ends of a torus sector, do not.
-    """
-    points = np.stack(_points(data), axis=-1)
-    for axis, dim in enumerate(SPATIAL):
-        if _periodicity(points, axis) == "open":
-            first = data.isel({dim: [0]})
-            end = float(data[dim][-1]) + float(data[dim][1] - data[dim][0])
-            data = xr.concat([data, first.assign_coords({dim: [end]})], dim=dim, coords="minimal", compat="override")
-            points = np.stack(_points(data), axis=-1)
-    return data
-
-
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
     """A ``pyvista.StructuredGrid`` of a selected ``(e1, e2, e3)`` field on its physical points.
 
     A scalar field becomes point data ``name`` (default: the field's label); a vector field with
     a ``component`` dimension of three Cartesian components becomes point vectors ``name``, plus
-    their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`close_periodic`.
+    their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`struphy_plots.arrays.close_periodic`.
     The grid is useful directly for any PyVista filter.
     """
     pv = _pv()
     vector = "component" in data.dims
-    data = close_periodic(_spatial(data, extra=("component",) if vector else ()))
+    data = close_periodic(_spatial(data, extra=("component",) if vector else ()), SPATIAL)
     grid = pv.StructuredGrid(*_points(data))
     name = name or _label(data)
     if vector:
@@ -217,12 +165,7 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
     short = [dim for dim in SPATIAL if data.sizes[dim] < 2]
     if short:
         raise ValueError(f"pushing forward needs at least two points along {short}")
-    points = _points(data)
-    axes = [np.asarray(data[dim], dtype=float) for dim in SPATIAL]
-    kinds = [_periodicity(np.stack(points, axis=-1), axis) for axis in range(3)]
-    jacobian = np.array(  # jacobian[a, i] = dX_a / de_i
-        [[_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)] for a in range(3)]
-    )
+    jacobian = mapping_jacobian(data)  # jacobian[a, i] = dX_a / de_i
     cartesian = np.einsum("ai...,i...->a...", jacobian, np.asarray(data))
     out = data.copy(data=cartesian)
     out.attrs = {**data.attrs, "label": f"{_label(data)} (Cartesian)"}
@@ -243,15 +186,12 @@ def _bar(title):
     return {"title": title, "fmt": "%.3g"}
 
 
-def _clim(values, clim):
+def _clim(values, clim, *, symmetric=False, robust=False):
     if clim is not None:
         return tuple(clim)
-    finite = np.asarray(values)[np.isfinite(values)]
-    if not finite.size:
-        raise ValueError(
-            "cannot determine color limits without finite values; pass clim"
-        )
-    return float(finite.min()), float(finite.max())
+    from .plotting import color_limits
+
+    return color_limits(values, symmetric=symmetric, robust=robust)
 
 
 def _face(points, axis, index):
@@ -335,17 +275,21 @@ def pyvista_isosurface(
     clim=None,
     show_domain: bool = True,
     title: str | None = None,
+    symmetric: bool = False,
+    robust: bool = False,
     plotter=None,
 ):
     """Contour surfaces of a selected scalar ``(e1, e2, e3)`` field in physical space.
 
-    ``values`` is the number of evenly spaced levels, or explicit levels. ``show_domain`` draws
+    ``values`` is the number of evenly spaced levels, or explicit levels (between the color
+    limits, which ``symmetric``/``robust`` set as in :func:`~struphy_plots.plotting.color_limits`).
+    ``show_domain`` draws
     the domain's outer surface translucently for context. For a 2-D field (one logical
     direction with a single point) the levels are contour lines over the colored plane.
     """
     grid = structured_grid(data)
     name = grid.active_scalars_name
-    lo, hi = _clim(grid[name], clim)
+    lo, hi = _clim(grid[name], clim, symmetric=symmetric, robust=robust)
     levels = (
         np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
     )
@@ -433,6 +377,8 @@ def pyvista_slices(
     clim=None,
     show_domain: bool = True,
     title: str | None = None,
+    symmetric: bool = False,
+    robust: bool = False,
     plotter=None,
 ):
     """Surfaces of constant logical coordinate through a scalar field, drawn in physical space.
@@ -443,7 +389,7 @@ def pyvista_slices(
     """
     data = _spatial(data)
     pieces = prepare_slices_3d(data, cuts=cuts)
-    lo, hi = _clim(np.asarray(data), clim)
+    lo, hi = _clim(np.asarray(data), clim, symmetric=symmetric, robust=robust)
     own = plotter is None
     plotter = _plotter(plotter)
     grid = structured_grid(data)
@@ -723,6 +669,41 @@ def pyvista_domain(
     return _finish(plotter, "Domain" if title is None else title, grid if own else None)
 
 
+def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
+    """Write a field to VTK structured grids (``.vts``) on its physical points, for ParaView.
+
+    With a ``t`` dimension, one file per time is written into the directory ``path``, plus a
+    ``.pvd`` collection that ParaView opens as a time series; without one, ``path`` is a single
+    ``.vts`` file. Vector fields (``component``) become point vectors. Any array works, e.g. a
+    :func:`~struphy_plots.spectral.filter_time` result, so filtered modes can be inspected in
+    ParaView too. Returns the written paths.
+    """
+    from pathlib import Path as _Path
+
+    path = _Path(path)
+    name = name or _label(data)
+    if "t" not in data.dims:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        target = path if path.suffix == ".vts" else path.with_suffix(".vts")
+        structured_grid(data, name=name).save(str(target))
+        return [str(target)]
+    path.mkdir(parents=True, exist_ok=True)
+    stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in name) or "field"
+    written, entries = [], []
+    for index in range(data.sizes["t"]):
+        target = path / f"{stem}_{index:04d}.vts"
+        structured_grid(data.isel(t=index), name=name).save(str(target))
+        written.append(str(target))
+        entries.append(f'    <DataSet timestep="{float(data.t[index])!r}" file="{target.name}"/>')
+    collection = path / f"{stem}.pvd"
+    collection.write_text(
+        '<?xml version="1.0"?>\n<VTKFile type="Collection" version="0.1">\n  <Collection>\n'
+        + "\n".join(entries)
+        + "\n  </Collection>\n</VTKFile>\n"
+    )
+    return [str(collection), *written]
+
+
 RENDERERS = {
     "isosurface": pyvista_isosurface,
     "slices": pyvista_slices,
@@ -757,7 +738,9 @@ def save_movie(
     validate_array(data, required_dims=(sweep,))
     render = RENDERERS[kind]
     if kind in ("isosurface", "slices"):
-        options["clim"] = _clim(np.asarray(data), clim)
+        options["clim"] = _clim(
+            np.asarray(data), clim, symmetric=options.pop("symmetric", False), robust=options.pop("robust", False)
+        )
     path = Path(path)
     plotter = pv.Plotter(off_screen=True, window_size=list(window_size))
     if path.suffix.lower() == ".gif":

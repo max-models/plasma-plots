@@ -400,8 +400,26 @@ def band_filter(
     return filtered
 
 
+def _polynomial_detrend(data: xr.DataArray, degree: int) -> xr.DataArray:
+    """``data`` minus a least-squares polynomial of ``degree`` in ``t``, at every point."""
+    t = np.asarray(data.t, dtype=float)
+    scaled = (t - t.mean()) / max(np.ptp(t), np.finfo(float).tiny)
+    axis = data.get_axis_num("t")
+    values = np.moveaxis(np.asarray(data, dtype=float), axis, 0)
+    flat = values.reshape(len(t), -1)
+    coefficients = np.polynomial.polynomial.polyfit(scaled, flat, degree)
+    trend = np.polynomial.polynomial.polyval(scaled, coefficients).T.reshape(values.shape)
+    return data.copy(data=np.moveaxis(values - trend, 0, axis))
+
+
 def _power_1d(data, *, dims=None, detrend=True, window=None) -> xr.DataArray:
-    """A one-dimensional power spectrum from a signal, a ``time_fft`` Dataset or a power array."""
+    """A one-dimensional power spectrum from a signal, a ``time_fft`` Dataset or a power array.
+
+    ``detrend`` is a boolean (remove the mean) or, for a signal, a polynomial degree removed in
+    ``t`` first (e.g. ``2`` for an energy that grows or decays while it oscillates)."""
+    if not isinstance(detrend, (bool, np.bool_)) and not isinstance(data, xr.Dataset) and "omega" not in data.dims:
+        data = _polynomial_detrend(data, int(detrend))
+        detrend = False
     if isinstance(data, xr.Dataset):
         power = data["power"]
     elif "omega" in data.dims:
@@ -437,6 +455,10 @@ def spectral_peaks(
     * ``omega``: the peak bin, ``omega_refined``: a parabolic fit to the log power of the
       peak and its neighbors, which locates an off-bin frequency to a fraction of a bin;
     * ``power``, and the half-power band ``omega_lo``/``omega_hi`` (see :func:`fwhm_window`).
+
+    ``detrend`` may also be a polynomial degree removed in ``t`` first: an energy such as
+    LinearMHD's ``en_U`` oscillates at twice the wave frequency around a slow trend, so its
+    peaks with ``detrend=2`` sit at ``2 * omega``.
 
     Only maxima above ``rel_height`` times the largest one and at ``omega >= omega_min`` count.
     """
@@ -556,6 +578,7 @@ def mode_spectrum(
     dims=("e2", "e3"),
     names=("m", "n"),
     periods=1.0,
+    scale=1,
 ) -> xr.DataArray:
     """Complex Fourier amplitudes over integer mode numbers along periodic directions.
 
@@ -566,15 +589,18 @@ def mode_spectrum(
     amplitude ``A`` has ``A/2`` at ``(m, n)`` and at ``(-m, -n)``; see :func:`mode_amplitudes`.
     A sector of the torus (``tor_period`` in Struphy) counts ``n`` per sector; multiply by the
     number of sectors for the full-torus mode number. ``periods`` is each direction's period
-    in its coordinate (one number for all, or one per dimension).
+    in its coordinate (one number for all, or one per dimension). ``scale`` multiplies the mode
+    numbers (one number, or one per dimension), e.g. ``scale=(1, 6)`` labels a sixth of a torus
+    (Struphy's ``tor_period=6``) with full-torus toroidal mode numbers.
     """
     dims = [dims] if isinstance(dims, str) else list(dims)
     names = [names] if isinstance(names, str) else list(names)
     periods = [periods] * len(dims) if np.isscalar(periods) else list(periods)
-    if not len(dims) == len(names) == len(periods):
-        raise ValueError("dims, names and periods must have the same length")
+    scales = [scale] * len(dims) if np.isscalar(scale) else list(scale)
+    if not len(dims) == len(names) == len(periods) == len(scales):
+        raise ValueError("dims, names, periods and scale must have the same length")
     out = data
-    for dim, name, period in zip(dims, names, periods):
+    for dim, name, period, factor in zip(dims, names, periods, scales):
         out = drop_periodic_endpoint(out, dim, period=period)
         coordinate = np.asarray(out[dim], dtype=float)
         covered = len(coordinate) * (coordinate[1] - coordinate[0]) if len(coordinate) > 1 else 0.0
@@ -587,7 +613,7 @@ def mode_spectrum(
         numbers = np.rint(np.asarray(out[f"k_{dim}"]) * period / (2 * np.pi)).astype(
             int
         )
-        out = out.rename({f"k_{dim}": name}).assign_coords({name: numbers})
+        out = out.rename({f"k_{dim}": name}).assign_coords({name: numbers * int(factor)})
         out[name].attrs = {"long_name": f"mode number along {dim}"}
     out.name = "modes"
     out.attrs = {

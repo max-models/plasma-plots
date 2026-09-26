@@ -405,9 +405,10 @@ def plot_mode_profiles(
     """Radial eigenfunction of each harmonic: ``|amplitude|`` (and phase) against ``x``.
 
     Phases are drawn only where a harmonic has at least 5% of its peak amplitude.
-    ``structure`` is complex over ``(x, m, n)`` or ``(x, mode)``: typically
+    ``structure`` is complex over ``(x, m, n)``: typically
     ``mode_spectrum(mode_structure(field, omega))``, the complex amplitude of each poloidal
-    harmonic at one frequency. ``top`` keeps the strongest harmonics; ``(m, n)`` and
+    harmonic at one frequency; or real over ``(x, mode)``, e.g. ``mode_amplitudes`` of one
+    snapshot's mode spectrum, which has no phase panel. ``top`` keeps the strongest harmonics; ``(m, n)`` and
     ``(-m, -n)`` count as one. The phase panel shows whether the harmonics oscillate together, as
     the coupled harmonics of a global eigenmode do.
     """
@@ -432,9 +433,11 @@ def plot_mode_profiles(
         candidates = np.array(list(best.values()))
         labels = {i: key for key, i in best.items()}
     else:
+        # a labeled ``mode`` dimension, e.g. from mode_amplitudes ("(10, -1)"): use its labels
         candidates = np.arange(len(numbers))
-        labels = {i: tuple(v) for i, v in enumerate(numbers)}
+        labels = {i: (str(stacked["mode"].values[i]),) for i in candidates}
     order = candidates[np.argsort(strength[candidates])[::-1][:top]]
+    phase = phase and np.iscomplexobj(stacked.values)  # real amplitudes carry no phase
     xs, default_label = _x_values(stacked, x, x_of)
     with plt.rc_context(STRUPHY_STYLE):
         fig, axes = plt.subplots(
@@ -450,7 +453,8 @@ def plot_mode_profiles(
     for i in order:
         profile = stacked.isel(mode=int(i)).transpose(x)
         values = ", ".join(str(v) for v in labels[int(i)])
-        label = f"({', '.join(names)}) = ({values})" if names else values
+        mode_names = structure.attrs.get("mode_names", ["m", "n"])
+        label = f"({', '.join(names)}) = ({values})" if names else f"({', '.join(mode_names)}) = {values}"
         (line,) = axes[0].plot(xs, abs(profile), label=label)
         artists.append(line)
         if phase:

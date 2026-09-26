@@ -95,7 +95,8 @@ def test_push_forward_matches_struphys_cartesian_product(torus_run):
     ).isel(t=0)
     pushed = p3.push_forward(contravariant)
     reference = cartesian.transpose(*pushed.dims)
-    assert float(abs(pushed - reference).max() / abs(reference).max()) < 5e-3
+    # spectral derivatives around the periodic angles make this exact up to round-off
+    assert float(abs(pushed - reference).max() / abs(reference).max()) < 1e-10
 
 
 def test_cell_centred_fields_close_the_periodic_seam(torus_run):
@@ -137,6 +138,33 @@ def test_orbit_classification_on_real_guiding_center_orbits(orbit_run):
     assert float(pitch.where(trapped).median()) < float(pitch.where(~trapped).median())
     assert orbits.struphy.plot.orbit_classification().data["counts"]["trapped"] == int(trapped.sum())
     orbits.struphy.plot.orbits_3d(color_by="classification").close()
+    poloidal = orbits.struphy.plot.poloidal()
+    assert {"passing", "trapped"} <= {line.get_label() for line in poloidal.ax.lines}
+    quantities = orbits.struphy.plot.quantities(markers=4)
+    # mu is an invariant of guiding-centre motion: its drift stays small
+    assert max(abs(line.get_ydata()).max() for line in quantities.ax[1].lines) < 1e-6
+
+
+def test_linear_mhd_energies_from_fields_match_the_saved_scalars(torus_run):
+    energies = torus_run.analysis.linear_mhd_energies()
+    for name in ("en_U", "en_B", "en_thermal", "en_tot"):
+        saved = torus_run.scalars[name].interp(t=energies.t)
+        assert float(abs(energies[name] - saved).max() / abs(saved).max()) < 1e-10, name
+    # the energy of the filtered dominant mode is a part of the total
+    etas, _ = torus_run.analysis.quadrature_grid()
+    velocity = torus_run.evaluate("mhd/velocity", eta1=etas["e1"], eta2=etas["e2"], eta3=etas["e3"], representation="2")
+    filtered = velocity.struphy.analysis.filter_time(pad_bins=1).filtered
+    mode = torus_run.analysis.linear_mhd_energies(velocity=filtered, b_field=None, pressure=None)
+    assert 0 < float(mode.en_U.max()) <= 1.5 * float(energies.en_U.max())
+
+
+def test_physical_slices_and_vtk_export_on_real_output(torus_run, tmp_path):
+    velocity = torus_run.evaluate("mhd/velocity").isel(component=0)
+    result = velocity.struphy.plot.slice(x="e1", y="e2", coords="physical", plane="RZ", t=-1, e3=0, symmetric=True)
+    mesh = result.artists[0]
+    assert mesh.get_coordinates().shape[1] == velocity.sizes["e2"] + 2  # seam closed: 33 points, 34 cell edges
+    paths = velocity.struphy.data.to_vtk(tmp_path / "velocity")
+    assert paths[0].endswith(".pvd") and len(paths) == velocity.sizes["t"] + 1
 
 
 def test_linear_mhd_two_alfven_modes(tmp_path):
