@@ -1,0 +1,87 @@
+---
+title: A real simulation
+description: Every plot on this page comes from an actual struphy run, not synthetic data.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+Every other guide in these docs builds small, synthetic `xarray` data by hand, so the site
+can be built quickly and without a struphy install — the point there is `struphy_plots`
+itself, not any particular physics. This page is the one exception: every figure below comes
+from actually running struphy (see `scripts/generate_real_example_figures.py`), to show the
+same functions working end-to-end on genuine output.
+
+Reproducing it locally needs the full compiled struphy runtime (the `struphy` git submodule
+in this repo, plus `struphy compile -y`) — see
+[CONTRIBUTING.md](https://github.com/struphy-hub/struphy-plots/blob/devel/CONTRIBUTING.md).
+
+## A Maxwell (vacuum electromagnetic) run
+
+Two independent cosine modes seeded on different electric-field components, localized around
+the mid-plane — genuine `(t, e1, e2, e3)` structure, from `fields_out.evaluate("em_fields/e_field")`:
+
+![A single 2-D slice of a real Maxwell run's electric field](../../../assets/figures/real_slice.png)
+
+![The same field swept over time](../../../assets/figures/real_panels.png)
+
+![A quiver plot of the electric field's two seeded components](../../../assets/figures/real_vector.png)
+
+The run's own recorded scalars — electric, magnetic, and total energy — via `OutputPlots.scalars()`,
+and the electric/magnetic energy exchange as the wave oscillates:
+
+![Every scalar time series from a real Maxwell run](../../../assets/figures/real_scalars.png)
+
+![Electric vs. magnetic energy from a real Maxwell run](../../../assets/figures/real_compare_difference.png)
+
+## A ScrewPinch equilibrium
+
+`struphy.fields_background.equils.ScrewPinch`, with no simulation needed — just its analytic
+pressure/density profiles evaluated over its domain (`out.equil`, `out.domain`):
+
+![Radial profiles of a real ScrewPinch equilibrium](../../../assets/figures/real_equilibrium.png)
+
+## A bump-on-tail kinetic (PIC) instability
+
+`VlasovAmpereOneSpecies`, electrostatic Vlasov-Ampere: a beam riding on a background
+Maxwellian, genuinely unstable — the seeded mode really grows, saturates, and partly relaxes:
+
+![Real field growth during a bump-on-tail instability, with a fitted growth rate](../../../assets/figures/real_timeseries_growth.png)
+
+![The same probe's relaxation after saturation, with a fitted damping rate](../../../assets/figures/real_damping.png)
+
+The distribution function itself, binned from the real markers:
+
+![A real bump-on-tail distribution in (e1, v1) phase space](../../../assets/figures/real_phase_space.png)
+
+![The same markers' own trajectories, over the phase-space density they were binned from](../../../assets/figures/real_orbit_overlay.png)
+
+<PlotlyChart src="/plotly/real_plotly_phase_space.json" />
+
+## A real convergence study
+
+The L2 projection error of a Maxwell mode's initial condition against its exact analytic
+profile, at increasing resolution (`Tend=0`, no time-stepping) — struphy's FEEC projection
+converging at the expected order:
+
+![A real FEEC projection error decaying with resolution, with a fitted order](../../../assets/figures/real_convergence.png)
+
+## A real dispersion relation
+
+A space-time FFT of the kinetic run's own electric field, compared against the
+(approximate, single-Maxwellian) Bohm-Gross branch — the bump-on-tail background isn't a
+pure Maxwellian, so this is a reference curve, not an exact fit:
+
+![A dispersion relation recovered from a real run's electric field](../../../assets/figures/real_dispersion.png)
+
+## Real profiling
+
+The kinetic run above, started with `sim.run(profiling_activated=True)`, profiled for real —
+see [Profiling](/struphy-plots/guides/profiling/) for what each chart means:
+
+![A Gantt chart from a real profiled run](../../../assets/figures/real_profile_gantt.png)
+
+<PlotlyChart src="/plotly/real_plotly_profile_gantt.json" />
+
+![A flame chart from a real profiled run](../../../assets/figures/real_profile_flame.png)
+
+![A call graph from a real profiled run](../../../assets/figures/real_profile_callgraph.png)

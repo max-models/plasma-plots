@@ -1,13 +1,19 @@
-"""Generate every example figure embedded in the docs (docs/src/assets/figures/).
+"""Generate every general-purpose example figure embedded in the docs
+(docs/src/assets/figures/).
 
 Builds small, purely synthetic labeled xarray data and renders it with struphy_plots,
-so the docs show real output of the actual plotting/analysis code rather than mockups.
-Most figures need only struphy_plots + numpy/xarray/matplotlib; a few (marked below)
-need the optional ``pyvista`` extra (``pip install -e ".[pyvista]"``) and a working
-off-screen rendering setup (see ``.github/workflows/docs.yml``).
+so the docs show real output of the actual plotting/analysis code rather than mockups,
+without needing a struphy install at all. Most figures need only struphy_plots +
+numpy/xarray/matplotlib; a few (marked below) need the optional ``pyvista`` extra
+(``pip install -e ".[pyvista]"``) and a working off-screen rendering setup (see
+``.github/workflows/docs.yml``).
+
+The one exception is the "A real simulation" guide, whose figures (``real_*.png``,
+``real_plotly_*.json``) come from an actual struphy run -- see
+``generate_real_example_figures.py``.
 
 Run from the repo root: python scripts/generate_docs_figures.py
-(or: make figures)
+(or: make figures, which runs this and generate_real_example_figures.py)
 """
 
 from __future__ import annotations
@@ -26,7 +32,12 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
 from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import PlotResult, plot_convergence, plot_dispersion, plot_scalars
+from struphy_plots.plotting import (
+    PlotResult,
+    plot_convergence,
+    plot_dispersion,
+    plot_scalars,
+)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -83,7 +94,9 @@ for i in range(n_t):
     dist2 = (E1 - center1[i]) ** 2 + (E2 - center2[i]) ** 2
     phi[i] = np.exp(-dist2 / (2 * sigma**2)) * np.cos(10.0 * (E1 - center1[i]))
 
-field = field_array("phi", r"$\phi$", "a.u.", phi, ("t", "e1", "e2"), {"t": t, "e1": e1, "e2": e2})
+field = field_array(
+    "phi", r"$\phi$", "a.u.", phi, ("t", "e1", "e2"), {"t": t, "e1": e1, "e2": e2}
+)
 
 save(field.struphy.plot.slice(x="e1", y="e2", t="last"), "slice.png")
 save(field.struphy.plot.panels(x="e1", y="e2", nrows=2, ncols=3), "panels.png")
@@ -120,8 +133,12 @@ save(
 n3 = 40
 e1_3, e2_3, e3_3 = (np.linspace(0.0, 1.0, n3) for _ in range(3))
 E1_3, E2_3, E3_3 = np.meshgrid(e1_3, e2_3, e3_3, indexing="ij")
-blob = np.exp(-((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2))
-volume_data = field_array("n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3})
+blob = np.exp(
+    -((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2)
+)
+volume_data = field_array(
+    "n", "$n$", "a.u.", blob, ("e1", "e2", "e3"), {"e1": e1_3, "e2": e2_3, "e3": e3_3}
+)
 save(volume_data.struphy.plot.volume_slices(), "volume_slices.png")
 
 try:
@@ -140,7 +157,9 @@ try:
     plotter.close()
     print(f"wrote {OUT / 'volume.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped volume.png (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped volume.png (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 
 # =============================================================================
@@ -173,7 +192,9 @@ fit = damped.struphy.analysis.damping_rate(amplitude=True)
 fig, ax = plt.subplots()
 ax.plot(damped.t, damped, lw=0.8, label="energy")
 ax.plot(envelope.t, envelope, "o", ms=3, color="C1", label="envelope peaks")
-ax.plot(fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}")
+ax.plot(
+    fit.time, fit.fitted, "--", color="C2", label=rf"fit: $\gamma$ = {fit.rate:.3f}"
+)
 ax.set(
     xlabel=axis_label(damped, "t"),
     ylabel=value_label(damped),
@@ -191,13 +212,19 @@ save(run_a.struphy.plot.compare(run_b, mode="ratio"), "compare_ratio.png")
 # =============================================================================
 # Diagnostics: norm, drift, relative error
 # =============================================================================
-decaying_field = field * xr.DataArray(1.0 / (1.0 + 0.4 * t), dims=("t",), coords={"t": t})
+decaying_field = field * xr.DataArray(
+    1.0 / (1.0 + 0.4 * t), dims=("t",), coords={"t": t}
+)
 decaying_field.attrs = dict(field.attrs)
 norm_t = decaying_field.struphy.analysis.norm()
-save(norm_t.struphy.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png")
+save(
+    norm_t.struphy.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png"
+)
 
 save(
-    total.struphy.analysis.drift().struphy.plot.lineout(x="t", title="Drift from the initial value"),
+    total.struphy.analysis.drift().struphy.plot.lineout(
+        x="t", title="Drift from the initial value"
+    ),
     "drift.png",
 )
 
@@ -210,7 +237,9 @@ en_cons = field_array(
     {"t": tt},
 )
 save(
-    en_cons.struphy.analysis.relative_error().struphy.plot.lineout(x="t", title="Relative energy conservation error"),
+    en_cons.struphy.analysis.relative_error().struphy.plot.lineout(
+        x="t", title="Relative energy conservation error"
+    ),
     "relative_error.png",
 )
 
@@ -229,7 +258,9 @@ beam_amplitude = 0.1 + 0.7 * TP / tp[-1]
 beam = beam_amplitude * np.exp(-((V1P - 3.0) ** 2) / (2 * 0.4**2))
 f = (bulk + beam) * (1.0 + 0.15 * np.cos(2 * np.pi * E1P))
 
-distribution = field_array("f", "$f$", "a.u.", f, ("t", "e1", "v1"), {"t": tp, "e1": e1p, "v1": v1p})
+distribution = field_array(
+    "f", "$f$", "a.u.", f, ("t", "e1", "v1"), {"t": tp, "e1": e1p, "v1": v1p}
+)
 
 save(distribution.struphy.plot.slice(x="e1", y="v1", t="last"), "phase_space.png")
 
@@ -248,7 +279,9 @@ save_fig(fig, "velocity_moments.png")
 
 averaged = distribution.struphy.analysis.spatial_average()
 save(
-    averaged.struphy.plot.slice(x="t", y="v1", title="Velocity distribution averaged over space"),
+    averaged.struphy.plot.slice(
+        x="t", y="v1", title="Velocity distribution averaged over space"
+    ),
     "spatial_average.png",
 )
 
@@ -356,12 +389,18 @@ rng_disp = np.random.default_rng(3)
 wave = np.zeros_like(X_DISP)
 for k in (2.0, 3.0, 4.0, 5.0):
     omega_k = bohm_gross(k)
-    wave += np.cos(k * X_DISP - omega_k * T_DISP) + np.cos(k * X_DISP + omega_k * T_DISP)
+    wave += np.cos(k * X_DISP - omega_k * T_DISP) + np.cos(
+        k * X_DISP + omega_k * T_DISP
+    )
 wave += 0.05 * rng_disp.standard_normal(wave.shape)
 
-dispersive_field = field_array("phi", r"$\phi$", "a.u.", wave, ("t", "e1"), {"t": t_disp, "e1": x_disp})
+dispersive_field = field_array(
+    "phi", r"$\phi$", "a.u.", wave, ("t", "e1"), {"t": t_disp, "e1": x_disp}
+)
 save(
-    dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12),
+    dispersive_field.struphy.plot.dispersion(
+        branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12
+    ),
     "dispersion.png",
 )
 
@@ -396,17 +435,25 @@ try:
     save_plotly(fig, "plotly_slice")
 
     frame = cloud.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
-    fig = px.scatter(frame, x="x", y="y", color="density", color_continuous_scale="viridis")
+    fig = px.scatter(
+        frame, x="x", y="y", color="density", color_continuous_scale="viridis"
+    )
     save_plotly(fig, "plotly_scatter")
 
     series = energy.struphy.data.timeseries(total)
     fig = go.Figure()
     for item in series:
-        fig.add_trace(go.Scatter(x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)))
+        fig.add_trace(
+            go.Scatter(
+                x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)
+            )
+        )
     fig.update_layout(xaxis_title="t", yaxis_title="[J]", legend=dict(x=0.02, y=0.98))
     save_plotly(fig, "plotly_timeseries")
 
-    vec = vector.struphy.data.vector(x="e1", y="e2", components=(0, 1), stride=4, t="last")
+    vec = vector.struphy.data.vector(
+        x="e1", y="e2", components=(0, 1), stride=4, t="last"
+    )
     xg, yg = np.meshgrid(vec.e1.values, vec.e2.values, indexing="ij")
     fig = ff.create_quiver(
         xg.ravel(),
@@ -467,7 +514,9 @@ try:
     fig = px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
     save_plotly(fig, "plotly_compare")
 
-    field_slice, orbit_subset = well.struphy.data.overlay_orbits(confined_orbits, x="e1", y="e2")
+    field_slice, orbit_subset = well.struphy.data.overlay_orbits(
+        confined_orbits, x="e1", y="e2"
+    )
     fig = go.Figure(
         go.Heatmap(
             z=field_slice.transpose("e2", "e1").values,
@@ -515,7 +564,9 @@ try:
             line=dict(color="#ffb347", dash="dash"),
         )
     )
-    fig.update_layout(xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12])
+    fig.update_layout(
+        xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12]
+    )
     save_plotly(fig, "plotly_dispersion")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped plotly_*.json (plotly unavailable): {exc}")
@@ -523,53 +574,65 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 
 # =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
+#
+# plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium
+# (``.p0(e1, e2, e3)``, optionally ``.n0(...)``) and domain mapping
+# (``domain(e1, e2, e3, squeeze_out=False) -> (X, Y, Z)``) -- normally
+# ``out.equil``/``out.domain`` from a real run. These small duck-typed
+# stand-ins keep this figure synthetic without a struphy install.
 # =============================================================================
 try:
-    import tempfile
-
     import pyvista as pv
 
     from struphy_plots.plotting import plot_equilibrium_profile, show_equilibrium
 
     pv.OFF_SCREEN = True
 
-    # Radial profile: a trivial (1, 1, nr) grid, so plot_equilibrium_profile's
-    # [0, 0] indexing walks purely along the radial direction.
-    nr = 60
-    r = np.linspace(0.02, 1.0, nr)
-    X = r.reshape(1, 1, nr)
-    Y, Z = np.zeros_like(X), np.zeros_like(X)
-    grid = pv.StructuredGrid(X, Y, Z)
-    p0 = (1 - r**2) ** 1.5 + 0.05
-    n0 = (1 - r**2) + 0.1
-    grid.point_data["p0"] = p0.ravel(order="F")
-    grid.point_data["n0"] = n0.ravel(order="F")
-    tmp_profile = tempfile.mkdtemp()
-    grid.save(Path(tmp_profile) / "geometry.vts")
-    save(plot_equilibrium_profile(tmp_profile), "equilibrium.png")
+    class RadialEquil:
+        """A pressure/density profile decreasing from the core outward."""
 
-    # A toroidal boundary shell, shaded by a poloidally varying pressure, for
-    # the interactive 3-D equilibrium view.
-    nth, nphi = 48, 64
-    theta = np.linspace(0, 2 * np.pi, nth)
-    phi_ = np.linspace(0, 2 * np.pi, nphi)
-    TH, PHI = np.meshgrid(theta, phi_, indexing="ij")
-    r_minor, R0 = 0.35, 1.0
-    Xs = ((R0 + r_minor * np.cos(TH)) * np.cos(PHI))[None, :, :]
-    Ys = ((R0 + r_minor * np.cos(TH)) * np.sin(PHI))[None, :, :]
-    Zs = (r_minor * np.sin(TH))[None, :, :]
-    shell = pv.StructuredGrid(Xs, Ys, Zs)
-    shell.point_data["p0"] = (1.0 + 0.6 * np.cos(2 * TH))[None, :, :].ravel(order="F")
-    tmp_3d = tempfile.mkdtemp()
-    shell.save(Path(tmp_3d) / "geometry.vts")
-    plotter = show_equilibrium(tmp_3d, scalars="p0")
+        def p0(self, e1, e2, e3):
+            r = np.meshgrid(e1, e2, e3, indexing="ij")[0]
+            return (1 - r**2) ** 1.5 + 0.05
+
+        def n0(self, e1, e2, e3):
+            r = np.meshgrid(e1, e2, e3, indexing="ij")[0]
+            return (1 - r**2) + 0.1
+
+    def radial_domain(e1, e2, e3, squeeze_out=True):
+        """A trivial straight radial line: e1 *is* the physical radius."""
+        r = np.meshgrid(e1, e2, e3, indexing="ij")[0]
+        return r, np.zeros_like(r), np.zeros_like(r)
+
+    save(plot_equilibrium_profile(RadialEquil(), radial_domain), "equilibrium.png")
+
+    class ShellEquil:
+        """A poloidally-varying pressure on a toroidal boundary shell."""
+
+        def p0(self, e1, e2, e3):
+            theta = 2 * np.pi * np.meshgrid(e1, e2, e3, indexing="ij")[1]
+            return 1.0 + 0.6 * np.cos(2 * theta)
+
+    def shell_domain(e1, e2, e3, squeeze_out=True):
+        """A toroidal shell, thickened slightly along e1 to avoid a degenerate grid."""
+        E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+        r_minor, R0 = 0.35 * (0.85 + 0.15 * E1), 1.0
+        theta, phi_ = 2 * np.pi * E2, 2 * np.pi * E3
+        x = (R0 + r_minor * np.cos(theta)) * np.cos(phi_)
+        y = (R0 + r_minor * np.cos(theta)) * np.sin(phi_)
+        z = r_minor * np.sin(theta)
+        return x, y, z
+
+    plotter = show_equilibrium(ShellEquil(), shell_domain, scalars="p0")
     plotter.camera_position = "iso"
     plotter.camera.zoom(1.3)
     plotter.screenshot(str(OUT / "equilibrium_3d.png"))
     plotter.close()
     print(f"wrote {OUT / 'equilibrium_3d.png'}")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped equilibrium figures (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped equilibrium figures (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 
 # =============================================================================
@@ -594,7 +657,9 @@ try:
             self.profile = _FakeProfile(results)
 
     _profiling_tmp = _tempfile.mkdtemp()
-    with _sp.session(verbose=False, file_path=str(Path(_profiling_tmp) / "profiling_data.h5")):
+    with _sp.session(
+        verbose=False, file_path=str(Path(_profiling_tmp) / "profiling_data.h5")
+    ):
         for _ in range(6):
             with _sp.region("prop: faraday"):
                 _time.sleep(0.001)

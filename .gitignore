@@ -24,3 +24,6 @@ docs/public/plotly/
 .DS_Store
 .vscode/
 .idea/
+
+sim_1/
+struphy.*

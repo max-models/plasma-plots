@@ -31,7 +31,9 @@ class OutputPlots:
         """The quick default plot: an overview of every scalar time series."""
         return self.scalars(*args, **kwargs)
 
-    def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
+    def scalars(
+        self, names=None, *, relative_to: str | None = None, logy: bool = False
+    ):
         """Overview of the scalar time series in one axes.
 
         Parameters
@@ -54,16 +56,18 @@ class OutputPlots:
         )
 
     def equilibrium(self, ax=None):
-        """Radial equilibrium profiles, from the geometry written at the start of the run."""
+        """Radial profiles of this run's fluid equilibrium (``out.equil``, ``out.domain``)."""
         from .plotting import plot_equilibrium_profile
 
-        return plot_equilibrium_profile(self._output.path_out, ax=ax)
+        return plot_equilibrium_profile(self._output.equil, self._output.domain, ax=ax)
 
     def equilibrium_3d(self, *, scalars: str = "p0", cmap="viridis"):
         """Create a PyVista equilibrium view; call ``.show()`` on the returned plotter."""
         from .plotting import show_equilibrium
 
-        return show_equilibrium(self._output.path_out, scalars=scalars, cmap=cmap)
+        return show_equilibrium(
+            self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
+        )
 
     @property
     def profile(self) -> "ProfilePlots":
