@@ -96,7 +96,14 @@ class ArrayPlots(_ArrayAccessor):
         if fit is not None and fit is not False:
             window = (None, None) if fit is True else tuple(fit)
             growth = GrowthFit(window=window, amplitude_from_quadratic=fit_amplitude)
-        return plot_timeseries([self._array, *others], ax=ax, logy=logy, fit=growth, title=title, reference=reference)
+        return plot_timeseries(
+            [self._array, *others],
+            ax=ax,
+            logy=logy,
+            fit=growth,
+            title=title,
+            reference=reference,
+        )
 
     def lineout(
         self,
@@ -111,12 +118,19 @@ class ArrayPlots(_ArrayAccessor):
     ):
         """Plot a one-dimensional profile after selecting every other dimension. ``reference``
         overlays exact profiles (a function of the plotted ``x``, or of ``x`` and ``t``), ``x_of``
-        maps ``x`` to the plotted axis; see :func:`struphy_plots.plotting.plot_lineout`."""
+        maps ``x`` to the plotted axis; see :func:`struphy_plots.plotting.plot_lineout`.
+        """
         from .plotting import _select, plot_lineout
 
         view = self._view(None, None, "t", "logical", "XY", selection)
         return plot_lineout(
-            _select(self._array, view), x=x, ax=ax, title=title, reference=reference, x_of=x_of, xlabel=xlabel
+            _select(self._array, view),
+            x=x,
+            ax=ax,
+            title=title,
+            reference=reference,
+            x_of=x_of,
+            xlabel=xlabel,
         )
 
     def line_animation(
@@ -140,19 +154,43 @@ class ArrayPlots(_ArrayAccessor):
 
         view = self._view(None, None, sweep, "logical", "XY", selection)
         return animate_lines(
-            _select(self._array, view), x=x, sweep=sweep, reference=reference, x_of=x_of, xlabel=xlabel,
-            ylim=ylim, step=step, interval=interval, title=title,
+            _select(self._array, view),
+            x=x,
+            sweep=sweep,
+            reference=reference,
+            x_of=x_of,
+            xlabel=xlabel,
+            ylim=ylim,
+            step=step,
+            interval=interval,
+            title=title,
         )
 
-    def against_theory(self, theory=None, *, show_error: bool = True, xlabel=None, ylabel=None, title=None,
-                       logx: bool = False, logy: bool = False):
+    def against_theory(
+        self,
+        theory=None,
+        *,
+        show_error: bool = True,
+        xlabel=None,
+        ylabel=None,
+        title=None,
+        logx: bool = False,
+        logy: bool = False,
+    ):
         """These measured values (1-D, over a parameter) as points against a ``theory``
         function, with their relative error. See
         :func:`struphy_plots.plotting.plot_measured_vs_theory`."""
         from .plotting import plot_measured_vs_theory
 
         return plot_measured_vs_theory(
-            self._array, theory, show_error=show_error, xlabel=xlabel, ylabel=ylabel, title=title, logx=logx, logy=logy
+            self._array,
+            theory,
+            show_error=show_error,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            title=title,
+            logx=logx,
+            logy=logy,
         )
 
     def vector(
@@ -663,7 +701,8 @@ class ArrayPlots(_ArrayAccessor):
         """Profiles along ``x`` at several values of ``over`` (default: four times) in one
         axes, after selecting every other dimension by keyword, e.g. ``eta2=0.125, eta3=0``.
         ``x_of`` maps ``x`` to the plotted axis (e.g. the minor radius); ``reference`` overlays
-        the exact profiles (``lambda x, t: ...``). See :func:`struphy_plots.plotting.plot_profiles`."""
+        the exact profiles (``lambda x, t: ...``). See :func:`struphy_plots.plotting.plot_profiles`.
+        """
         from .plotting import _select, plot_profiles
 
         view = self._view(None, None, over, "logical", "XY", selection)
@@ -1311,13 +1350,26 @@ class ArrayAnalysis(_ArrayAccessor):
         return band_filter(self._array, omega_lo, omega_hi, detrend=detrend)
 
     def spectral_peaks(
-        self, *, n_peaks: int = 3, dims=None, omega_min: float = 1e-8, detrend=True, window=None
+        self,
+        *,
+        n_peaks: int = 3,
+        dims=None,
+        omega_min: float = 1e-8,
+        detrend=True,
+        window=None,
     ) -> xr.Dataset:
         """The strongest spectral peaks, with sub-bin frequencies; see
         :func:`struphy_plots.spectral.spectral_peaks`."""
         from .spectral import spectral_peaks
 
-        return spectral_peaks(self._array, n_peaks=n_peaks, dims=dims, omega_min=omega_min, detrend=detrend, window=window)
+        return spectral_peaks(
+            self._array,
+            n_peaks=n_peaks,
+            dims=dims,
+            omega_min=omega_min,
+            detrend=detrend,
+            window=window,
+        )
 
     def spectrogram(self, *, length, step=None, detrend: bool = True, window: str | None = "hann") -> xr.DataArray:
         """Power spectra in sliding time windows; see :func:`struphy_plots.spectral.spectrogram`."""
@@ -1367,21 +1419,53 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return gradient(self._array, domain=domain)
 
-    def error(self, exact, *, norm: str = "rms", relative: bool = False, dims=None, weighted: bool = False,
-              domain=None, args=None) -> xr.DataArray:
+    def error(
+        self,
+        exact,
+        *,
+        norm: str = "rms",
+        relative: bool = False,
+        dims=None,
+        weighted: bool = False,
+        domain=None,
+        args=None,
+    ) -> xr.DataArray:
         """The error against an exact solution (an array or a function of the coordinates); see
         :func:`struphy_plots.analysis.error`."""
         from .analysis import error
 
-        return error(self._array, exact, norm=norm, relative=relative, dims=dims, weighted=weighted, domain=domain, args=args)
+        return error(
+            self._array,
+            exact,
+            norm=norm,
+            relative=relative,
+            dims=dims,
+            weighted=weighted,
+            domain=domain,
+            args=args,
+        )
 
-    def project_mode(self, *, dim: str, number: float, kind: str = "sin", period: float = 1.0,
-                     bin_correction: bool = False) -> xr.DataArray:
+    def project_mode(
+        self,
+        *,
+        dim: str,
+        number: float,
+        kind: str = "sin",
+        period: float = 1.0,
+        bin_correction: bool = False,
+    ) -> xr.DataArray:
         """The amplitude of one Fourier mode along ``dim``; see
         :func:`struphy_plots.analysis.project_mode`."""
         from .analysis import project_mode
 
-        return project_mode(self._array, dim=dim, number=number, kind=kind, period=period, bin_correction=bin_correction)
+        return project_mode(
+            self._array,
+            dim=dim,
+            number=number,
+            kind=kind,
+            period=period,
+            bin_correction=bin_correction,
+        )
 
     def divergence(self, *, components: str = "cartesian", domain=None) -> xr.DataArray:
         """The divergence of this vector field; see :func:`struphy_plots.analysis.divergence`."""
@@ -1542,8 +1626,17 @@ class DatasetPlots:
         from .plotting import plot_marker_scatter
 
         return plot_marker_scatter(
-            self._dataset, x=x, y=y, color=color, ax=ax, cmap=cmap, s=s, color_at=color_at,
-            background=background, background_options=background_options, **selection
+            self._dataset,
+            x=x,
+            y=y,
+            color=color,
+            ax=ax,
+            cmap=cmap,
+            s=s,
+            color_at=color_at,
+            background=background,
+            background_options=background_options,
+            **selection,
         )
 
     def orbit_classification(
@@ -1585,8 +1678,17 @@ class DatasetPlots:
         from .plotting import animate_markers
 
         return animate_markers(
-            self._dataset, x=x, y=y, color=color, color_at=color_at, background=background,
-            background_options=background_options, step=step, interval=interval, s=s, cmap=cmap,
+            self._dataset,
+            x=x,
+            y=y,
+            color=color,
+            color_at=color_at,
+            background=background,
+            background_options=background_options,
+            step=step,
+            interval=interval,
+            s=s,
+            cmap=cmap,
         )
 
     def paths(
@@ -1607,8 +1709,15 @@ class DatasetPlots:
         from .plotting import plot_marker_paths
 
         return plot_marker_paths(
-            self._dataset, x=x, y=y, markers=markers, near=near, background=background,
-            background_options=background_options, t=t, ax=ax,
+            self._dataset,
+            x=x,
+            y=y,
+            markers=markers,
+            near=near,
+            background=background,
+            background_options=background_options,
+            t=t,
+            ax=ax,
         )
 
     def poloidal(
@@ -1779,7 +1888,11 @@ class SliceView:
 
         if alongside:
             return animate_fields(
-                [self._array, *alongside], view=self._view(), interval=interval, step=step, **self._options
+                [self._array, *alongside],
+                view=self._view(),
+                interval=interval,
+                step=step,
+                **self._options,
             )
         return animate_slices(
             self._array,

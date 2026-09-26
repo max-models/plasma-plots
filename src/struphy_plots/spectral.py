@@ -532,7 +532,11 @@ def mode_spectrum(
 
 
 def mode_amplitudes(
-    modes: xr.DataArray, *, top: int | None = None, real: bool = True, relative: bool = False
+    modes: xr.DataArray,
+    *,
+    top: int | None = None,
+    real: bool = True,
+    relative: bool = False,
 ) -> xr.DataArray:
     """Mode amplitudes from :func:`mode_spectrum`, stacked along one labeled ``mode`` dimension.
 

@@ -566,13 +566,17 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
     if not varying:
         raise ValueError("gradient needs at least one logical direction with more than one point")
     if domain is not None:
-        points = np.stack([np.asarray(c, dtype=float) for c in domain(*etas, squeeze_out=False)], axis=-1)
+        points = np.stack(
+            [np.asarray(c, dtype=float) for c in domain(*etas, squeeze_out=False)],
+            axis=-1,
+        )
         jacobian = np.asarray(domain.jacobian(*etas), dtype=float)
     else:
         if any(name not in field.coords for name in ("X", "Y", "Z")):
             raise ValueError("gradient needs the X, Y, Z coordinates, or a struphy domain")
         points = np.stack(
-            [np.asarray(field.coords[name].transpose(*SPATIAL_DIMS), dtype=float) for name in ("X", "Y", "Z")], axis=-1
+            [np.asarray(field.coords[name].transpose(*SPATIAL_DIMS), dtype=float) for name in ("X", "Y", "Z")],
+            axis=-1,
         )
         if len(varying) == 3:
             jacobian = mapping_jacobian(field)
@@ -584,9 +588,7 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
                     jacobian[a, i] = logical_derivative(points[..., a], etas[i], i, kind)
     values = np.asarray(field, dtype=float)
     offset = values.ndim - 3
-    derivatives = [
-        logical_derivative(values, etas[i], offset + i, periodicity(points, i)) for i in varying
-    ]
+    derivatives = [logical_derivative(values, etas[i], offset + i, periodicity(points, i)) for i in varying]
     columns = np.moveaxis(jacobian[:, varying], (0, 1), (-2, -1))  # (n1, n2, n3, 3, k)
     transform = np.swapaxes(np.linalg.pinv(columns), -1, -2)  # pinv(J)^T: (n1, n2, n3, 3, k)
     stacked = np.stack(derivatives, axis=-1)  # (..., n1, n2, n3, k)
@@ -600,7 +602,6 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
     )
     out.attrs = {**_provenance(data), "label": f"gradient of {_label(data)}".strip()}
     return out
-
 
 
 # ---------------------------------------------------------------------------------------------
@@ -618,7 +619,11 @@ def evaluate_on(data: xr.DataArray, function, args=None) -> xr.DataArray:
     the points of a field, or ``exact(eta1, t)`` on a 1-D profile.
     """
     if args is None:
-        space = ["X", "Y", "Z"] if all(c in data.coords for c in ("X", "Y", "Z")) else [d for d in SPATIAL_DIMS if d in data.dims]
+        space = (
+            ["X", "Y", "Z"]
+            if all(c in data.coords for c in ("X", "Y", "Z"))
+            else [d for d in SPATIAL_DIMS if d in data.dims]
+        )
         args = [*space, *(["t"] if "t" in data.coords else [])]
     missing = [name for name in args if name not in data.coords]
     if missing:
@@ -659,7 +664,9 @@ def error(
         reference = exact.broadcast_like(data)
     else:  # a plain array (or number) on the grid of data
         exact = np.asarray(exact)
-        reference = data.copy(data=np.broadcast_to(exact, data.shape)) if exact.ndim else xr.full_like(data, float(exact))
+        reference = (
+            data.copy(data=np.broadcast_to(exact, data.shape)) if exact.ndim else xr.full_like(data, float(exact))
+        )
     difference = data - reference
     if norm == "pointwise":
         out = difference / abs(reference).max() if relative else difference
@@ -689,7 +696,10 @@ def error(
     out = measure(difference)
     if relative:
         out = out / measure(reference)
-    out.attrs = {**_provenance(data), "label": f"{'relative ' if relative else ''}{norm} error of {_label(data)}".strip()}
+    out.attrs = {
+        **_provenance(data),
+        "label": f"{'relative ' if relative else ''}{norm} error of {_label(data)}".strip(),
+    }
     return out
 
 
@@ -721,12 +731,19 @@ def project_mode(
     if x.size < 2 or not np.allclose(np.diff(x), h) or not np.isclose(x.size * h, period, rtol=1e-6):
         raise ValueError(f"{dim!r} must sample one full period ({period}) uniformly")
     phase = 2 * np.pi * number * trimmed[dim] / period
-    basis = {"sin": np.sin(phase), "cos": np.cos(phase), "complex": np.exp(-1j * phase)}[kind]
+    basis = {
+        "sin": np.sin(phase),
+        "cos": np.cos(phase),
+        "complex": np.exp(-1j * phase),
+    }[kind]
     amplitude = 2 * (trimmed * basis).mean(dim)
     if bin_correction:
         amplitude = amplitude / np.sinc(number * h / period)
     amplitude.name = f"{kind}_{number:g}"
-    amplitude.attrs = {**_provenance(data), "label": f"{kind} amplitude of mode {number:g} along {dim}"}
+    amplitude.attrs = {
+        **_provenance(data),
+        "label": f"{kind} amplitude of mode {number:g} along {dim}",
+    }
     return amplitude
 
 
@@ -759,7 +776,10 @@ def divergence(vector: xr.DataArray, *, components: str = "cartesian", domain=No
     jac = _jacobian_of_components(cartesian, domain)
     out = sum(jac.isel(row=a, component=a, drop=True) for a in range(3))
     out.name = f"div_{vector.name}" if vector.name else "divergence"
-    out.attrs = {**_provenance(vector), "label": f"divergence of {_label(vector)}".strip()}
+    out.attrs = {
+        **_provenance(vector),
+        "label": f"divergence of {_label(vector)}".strip(),
+    }
     return out
 
 
@@ -793,7 +813,10 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
     zero mean, as a function of every other dimension.
     """
     cartesian = _cartesian_vector(vector, "cartesian").isel(component=[0, 1])
-    field = cartesian.squeeze([d for d in SPATIAL_DIMS if d in cartesian.dims and cartesian.sizes[d] == 1], drop=False)
+    field = cartesian.squeeze(
+        [d for d in SPATIAL_DIMS if d in cartesian.dims and cartesian.sizes[d] == 1],
+        drop=False,
+    )
     grid = [d for d in SPATIAL_DIMS if d in field.dims and field.sizes[d] > 1]
     if len(grid) != 2 or not all(c in field.coords for c in ("X", "Y")):
         raise ValueError("flux_function needs a 2-D field on two logical directions with X, Y coordinates")
@@ -814,7 +837,10 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
         steps = np.diff(coordinate)
         shape = [1] * values.ndim
         shape[axis] = steps.size
-        pairs = 0.5 * (np.take(values, range(1, values.shape[axis]), axis=axis) + np.take(values, range(values.shape[axis] - 1), axis=axis))
+        pairs = 0.5 * (
+            np.take(values, range(1, values.shape[axis]), axis=axis)
+            + np.take(values, range(values.shape[axis] - 1), axis=axis)
+        )
         integral = np.cumsum(pairs * steps.reshape(shape), axis=axis)
         return np.concatenate([np.zeros_like(np.take(values, [0], axis=axis)), integral], axis=axis)
 
@@ -827,7 +853,10 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
     out = bx.copy(data=values)
     out = out.transpose(*[d for d in vector.dims if d != "component" and d in out.dims])
     out.name = "flux_function"
-    out.attrs = {**_provenance(vector), "label": f"flux function of {_label(vector)}".strip()}
+    out.attrs = {
+        **_provenance(vector),
+        "label": f"flux function of {_label(vector)}".strip(),
+    }
     return out
 
 
@@ -845,10 +874,25 @@ def cylindrical_components(vector: xr.DataArray) -> xr.DataArray:
     cartesian = _cartesian_vector(vector, "cartesian")
     _, phi, _ = _angles(cartesian)
     vx, vy, vz = (cartesian.isel(component=i, drop=True) for i in range(3))
-    out = xr.concat(
-        [vx * np.cos(phi) + vy * np.sin(phi), -vx * np.sin(phi) + vy * np.cos(phi), vz], dim="component"
-    ).assign_coords(component=["R", "phi", "Z"]).transpose(*vector.dims)
-    out.name, out.attrs = vector.name, {**vector.attrs, "label": f"{_label(vector)} (R, phi, Z)"}
+    out = (
+        xr.concat(
+            [
+                vx * np.cos(phi) + vy * np.sin(phi),
+                -vx * np.sin(phi) + vy * np.cos(phi),
+                vz,
+            ],
+            dim="component",
+        )
+        .assign_coords(component=["R", "phi", "Z"])
+        .transpose(*vector.dims)
+    )
+    out.name, out.attrs = (
+        vector.name,
+        {
+            **vector.attrs,
+            "label": f"{_label(vector)} (R, phi, Z)",
+        },
+    )
     return out
 
 
@@ -865,10 +909,25 @@ def toroidal_components(vector: xr.DataArray, *, R0: float, Z0: float = 0.0) -> 
     vx, vy, vz = (cartesian.isel(component=i, drop=True) for i in range(3))
     v_R = vx * np.cos(phi) + vy * np.sin(phi)
     v_phi = -vx * np.sin(phi) + vy * np.cos(phi)
-    out = xr.concat(
-        [v_R * np.cos(theta) + vz * np.sin(theta), -v_R * np.sin(theta) + vz * np.cos(theta), v_phi], dim="component"
-    ).assign_coords(component=["radial", "poloidal", "toroidal"]).transpose(*vector.dims)
-    out.name, out.attrs = vector.name, {**vector.attrs, "label": f"{_label(vector)} (radial, poloidal, toroidal)"}
+    out = (
+        xr.concat(
+            [
+                v_R * np.cos(theta) + vz * np.sin(theta),
+                -v_R * np.sin(theta) + vz * np.cos(theta),
+                v_phi,
+            ],
+            dim="component",
+        )
+        .assign_coords(component=["radial", "poloidal", "toroidal"])
+        .transpose(*vector.dims)
+    )
+    out.name, out.attrs = (
+        vector.name,
+        {
+            **vector.attrs,
+            "label": f"{_label(vector)} (radial, poloidal, toroidal)",
+        },
+    )
     return out
 
 
@@ -876,7 +935,10 @@ def polar_coordinates(data: xr.DataArray, *, center=(0.0, 0.0)) -> xr.DataArray:
     """``data`` with coordinates ``r`` and ``theta`` (radians, in ``(-pi, pi]``) of its points
     in the ``X``-``Y`` plane about ``center``, e.g. for profiles against the radius."""
     X, Y = data.coords["X"], data.coords["Y"]
-    return data.assign_coords(r=np.hypot(X - center[0], Y - center[1]), theta=np.arctan2(Y - center[1], X - center[0]))
+    return data.assign_coords(
+        r=np.hypot(X - center[0], Y - center[1]),
+        theta=np.arctan2(Y - center[1], X - center[0]),
+    )
 
 
 def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
@@ -898,19 +960,29 @@ def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
     if all(n in orbits for n in ("v1", "v2", "v3")):
         out["speed"] = np.sqrt(orbits.v1**2 + orbits.v2**2 + orbits.v3**2)
     if absB is not None and all(n in orbits for n in ("v_par", "mu", "x", "y", "z")):
-        B = xr.DataArray(np.asarray(absB(np.asarray(orbits.x), np.asarray(orbits.y), np.asarray(orbits.z)), dtype=float),
-                         dims=orbits.x.dims, coords=orbits.x.coords)
+        B = xr.DataArray(
+            np.asarray(
+                absB(np.asarray(orbits.x), np.asarray(orbits.y), np.asarray(orbits.z)),
+                dtype=float,
+            ),
+            dims=orbits.x.dims,
+            coords=orbits.x.coords,
+        )
         energy = 0.5 * orbits.v_par**2 + orbits.mu * B
         out["energy"] = energy
         out["pitch"] = orbits.v_par / np.sqrt(2 * energy)
     if not out:
         raise ValueError("no invariant can be computed from these orbits (need v1..v3, or v_par, mu and absB)")
-    return xr.Dataset({name: values.where(alive) for name, values in out.items()}, attrs=_provenance(orbits))
+    return xr.Dataset(
+        {name: values.where(alive) for name, values in out.items()},
+        attrs=_provenance(orbits),
+    )
 
 
 def bounce_period(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray:
     """The bounce period of each trapped marker: twice the mean time between reversals of its
-    parallel velocity (NaN for markers with fewer than two reversals, e.g. passing ones)."""
+    parallel velocity (NaN for markers with fewer than two reversals, e.g. passing ones).
+    """
     velocity = orbits[v_par].transpose("t", "marker")
     t = np.asarray(orbits.t, dtype=float)
     periods = []
@@ -921,6 +993,11 @@ def bounce_period(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray:
         # linear interpolation of the crossing times
         crossings = t[flips] - v[flips] * (t[flips + 1] - t[flips]) / (v[flips + 1] - v[flips])
         periods.append(2 * np.mean(np.diff(crossings)) if crossings.size >= 2 else np.nan)
-    out = xr.DataArray(np.asarray(periods), dims="marker", coords={"marker": orbits.marker}, name="bounce_period")
+    out = xr.DataArray(
+        np.asarray(periods),
+        dims="marker",
+        coords={"marker": orbits.marker},
+        name="bounce_period",
+    )
     out.attrs = {**_provenance(orbits), "label": "bounce period"}
     return out
