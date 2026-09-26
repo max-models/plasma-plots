@@ -47,14 +47,68 @@ jobs:
             liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
             libnetcdf-dev libnetcdff-dev cmake
 
+      # Editable, so that `struphy compile` writes its kernels into the checkout
+      # (struphy/src/struphy), where they can be cached between runs.
       - name: Install struphy (from the struphy submodule)
-        run: pip install ./struphy
+        run: pip install -e ./struphy
 
       # Simulations need compiled pyccel kernels, not just the pure-Python
       # package -- the test suite doesn't hit this (it only builds fake
-      # Output fixtures), but running real simulations here does.
+      # Output fixtures), but running real simulations here does. Compiling
+      # takes most of this job's time, so the compiled kernels are cached:
+      # struphy's (next to its sources, plus state.yml, which records the
+      # language and compiler) and those psydac-accelerate builds inside the
+      # installed feectools package. The key covers everything the binaries
+      # depend on: the runner image (system compilers and libraries), the Python
+      # version, the kernel sources and build recipe, and struphy's dependency
+      # pins (e.g. feectools).
+      - name: Locate compiled-kernel paths
+        id: kernel-paths
+        run: |
+          echo "feectools=$(python -c 'import os, feectools; print(os.path.dirname(feectools.__file__))')" >> "$GITHUB_OUTPUT"
+          echo "python=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore compiled struphy kernels
+        id: kernel-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            struphy/src/struphy/**/*.so
+            struphy/src/struphy/**/__pyccel__
+            struphy/src/struphy/state.yml
+            struphy/src/struphy/kernels.txt
+            ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
+            ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
+          key: struphy-kernels-fortran-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-py${{ steps.kernel-paths.outputs.python }}-${{ hashFiles('struphy/src/struphy/**/*kernels*.py', 'struphy/src/struphy/compile_struphy.mk', 'struphy/pyproject.toml') }}
+
+      # Compile on a cache miss, or if the restored kernels are incomplete.
       - name: Compile struphy kernels
-        run: struphy compile -y --language fortran
+        id: compile
+        run: |
+          if [ "${{ steps.kernel-cache.outputs.cache-hit }}" = "true" ] \
+             && struphy compile --status | grep -q "^0 of [0-9]* Struphy kernels are not compiled"; then
+            echo "Using cached struphy kernels:"
+            struphy compile --status
+            echo "compiled=false" >> "$GITHUB_OUTPUT"
+          else
+            struphy compile -y --language fortran
+            echo "compiled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Saved right after compiling, so a failure later in the job does not
+      # lose them.
+      - name: Save compiled struphy kernels
+        if: steps.compile.outputs.compiled == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            struphy/src/struphy/**/*.so
+            struphy/src/struphy/**/__pyccel__
+            struphy/src/struphy/state.yml
+            struphy/src/struphy/kernels.txt
+            ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
+            ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
+          key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
 
       - name: Install struphy-plots (with PyVista, profiling and test tools)
         run: pip install -e ".[pyvista,profiling,dev]"
