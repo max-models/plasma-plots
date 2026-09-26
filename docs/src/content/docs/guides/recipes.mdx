@@ -23,8 +23,15 @@ arrival = float(front.t[int((front >= 0.95).argmax())])
 
 ## Error against an analytic solution
 
-With the exact velocity `v1_exact, v2_exact` evaluated at the marker
-positions (e.g. of a Beltrami flow), the relative RMS error over time:
+For a field, use [`error()`](/struphy-plots/guides/analysis/#errors-against-exact-solutions),
+with the exact solution as a function of `x, y, z, t`:
+
+```python
+u.struphy.analysis.error(lambda x, y, z, t: np.sin(x - t), relative=True).struphy.plot.timeseries()
+```
+
+For markers, with the exact velocity `v1_exact, v2_exact` evaluated at the
+marker positions (e.g. of a Beltrami flow), the relative RMS error over time:
 
 ```python
 error = np.sqrt(((orbits.v1 - v1_exact) ** 2 + (orbits.v2 - v2_exact) ** 2).mean("marker"))
@@ -34,7 +41,64 @@ error.struphy.plot.timeseries()
 
 For a conserved quantity per marker, e.g. the Hamiltonian `H`, the largest
 relative drift is `abs(H - H.isel(t=0)).max("marker") / abs(H.isel(t=0))`.
+For the speed of full orbits and the energy of guiding centers, use
+[`orbit_invariants()`](/struphy-plots/guides/particles/#invariants-and-bounce-periods).
 For a scalar time series, use `.struphy.analysis.relative_error()`.
+
+## Frequency or period of a signal
+
+Several examples count zero crossings or read the distance between maxima. A
+spectral peak is more accurate, and it does not need a clean signal:
+
+```python
+peaks = probe.struphy.analysis.spectral_peaks(n_peaks=1)   # refined below the bin spacing
+period = 2 * np.pi / float(peaks.omega_refined[0])
+
+fit = probe.struphy.analysis.matrix_pencil(n_modes=1)  # frequency and growth rate from a short record
+```
+
+See [power spectra](/struphy-plots/guides/spectral/#power-spectra) and
+[frequency and growth from a short record](/struphy-plots/guides/spectral/#frequency-and-growth-from-a-short-record).
+
+## From `power_spectrum_2d` to the dispersion plot
+
+Older scripts call Struphy's `power_spectrum_2d` on arrays loaded by hand, with
+the grid spacings and the branches passed separately. On a labeled field, the
+same diagram is one call, and the spectrum itself another:
+
+```python
+e1 = out.evaluate("e_field", eta2=0.0, eta3=0.0).sel(component=0)
+e1.struphy.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
+spectrum = e1.struphy.analysis.dispersion(dim="eta1")          # (omega, k) power
+traced = spectrum.struphy.analysis.trace_branch(lambda k: np.sqrt(1 + 3 * k**2))
+```
+
+`k` and `omega` come from the coordinates, in the units of `eta1` (or of `X` for
+`dim="X"` on a slab). See [tracing a branch](/struphy-plots/guides/analysis/#tracing-a-branch).
+
+## Periodic wrap-around
+
+Markers in a periodic box are stored inside it, so their paths jump across the
+domain. Unwrap them for distances and mean-square displacements:
+
+```python
+L = 2 * np.pi
+x_unwrapped = orbits.x.copy(data=np.unwrap(orbits.x, period=L, axis=orbits.x.get_axis_num("t")))
+msd = ((x_unwrapped - x_unwrapped.isel(t=0)) ** 2).mean("marker")
+```
+
+## Tracking a peak
+
+The position of a wave packet's or pulse's maximum over time, and its speed:
+
+```python
+envelope = abs(phi)                                             # or a filtered envelope
+peak = envelope.idxmax("eta1")                                  # per t
+speed = float(np.polyfit(peak.t, peak, 1)[0])
+```
+
+To check it against theory, draw the expected line on a
+[space-time map](/struphy-plots/guides/field-plots/#overlays).
 
 ## E×B energy of zonal flows and drift waves
 

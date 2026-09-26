@@ -129,6 +129,46 @@ pusher's accuracy.
 
 ![v_par and the drift of mu for a few markers](../../../assets/figures/orbits_quantities.png)
 
+`orbit_grid()` draws one small poloidal panel per marker, with shared axes, so
+individual orbits (bananas, passing, lost) can be compared side by side.
+`markers` is a number, spread over the classes, or a list of indices:
+
+```python
+orbits.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=field)
+orbits.struphy.plot.orbit_grid(markers=[3, 17, 42])
+```
+
+![One poloidal panel per marker, titled with its class](../../../assets/figures/orbit_grid.png)
+
+## Invariants and bounce periods
+
+`orbit_invariants()` computes the invariants that the saved quantities allow,
+over `(t, marker)`:
+
+- the `speed` from `v1`, `v2`, `v3`
+- for guiding centers, the `energy` `½ v_par² + μ |B|` and the `pitch`
+  `v_par / sqrt(2 × energy)`, given `absB`: a function of `x, y, z`, such as a
+  wrapper around the equilibrium's `absB0` mapped to Cartesian points
+
+Samples after a marker leaves the domain are NaN. The drift of the invariants
+measures the pusher's accuracy:
+
+```python
+invariants = orbits.struphy.analysis.orbit_invariants(absB=absB_xyz)
+drift = abs(invariants.energy / invariants.energy.isel(t=0) - 1).max("marker")
+drift.struphy.plot.timeseries()
+```
+
+`bounce_period()` gives each trapped marker's bounce period: twice the mean
+time between sign changes of `v_par`, interpolated between samples. It is NaN
+for passing markers and for markers with fewer than two reversals:
+
+```python
+periods = orbits.struphy.analysis.bounce_period()
+codes = orbits.struphy.analysis.classify_orbits()
+periods.where(codes == 1).plot.hist()
+```
+
 ## Marker scatter and particle clouds
 
 ```python

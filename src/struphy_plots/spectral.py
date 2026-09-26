@@ -780,3 +780,69 @@ def pencil_reconstruction(fit: xr.Dataset, t) -> xr.DataArray:
         name="fit",
         attrs={"label": "matrix-pencil fit"},
     )
+
+
+def trace_branch(
+    spectrum: xr.DataArray,
+    theory,
+    *,
+    window: float = 0.2,
+    k_range: tuple[float, float] | None = None,
+    threshold: float = 1e-3,
+) -> xr.Dataset:
+    """The measured frequency of a dispersion branch near a theory curve, at every ``k``.
+
+    ``spectrum`` is an ``(omega, k)`` power spectrum (``array.struphy.analysis.dispersion()``),
+    ``theory`` a function ``omega(k)``. At each non-negative ``k`` (in ``k_range``) the power of
+    waves travelling either way (at ``+k`` and ``-k``) is searched for its maximum within
+    ``omega_theory * (1 +- window)`` at positive ``omega``, and
+    the peak refined below the bin spacing with a parabola through its log power. Unlike
+    :func:`~struphy_plots.analysis.fit_dispersion_branches`, the branch may be curved (e.g. a
+    whistler or Bohm-Gross branch). Returns a Dataset over ``k`` with ``omega``,
+    ``omega_theory`` and ``relative_error``. A ``k`` is NaN where the window holds no local
+    maximum (only the flank of a peak outside it), or where that maximum is weaker than
+    ``threshold`` times the strongest one found (no wave at that ``k``).
+    """
+    if not {"omega", "k"} <= set(spectrum.dims):
+        raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
+    power = spectrum.transpose("omega", "k")
+    omega = np.asarray(power.omega, dtype=float)
+    k = np.asarray(power.k, dtype=float)
+    keep = k >= 0 if k_range is None else (k >= max(k_range[0], 0)) & (k <= k_range[1])
+    ks = k[keep]
+    full = np.asarray(power, dtype=float)
+    # waves in either direction: with numpy's sign convention a wave exp(i(kx - omega t)) sits at
+    # (k, -omega), i.e. mirrored at (-k, +omega); add the power at -k to the power at +k
+    mirror = np.array([np.argmin(np.abs(k + kv)) for kv in ks])
+    values = full[:, keep] + np.where(np.isclose(k[mirror], -ks)[None, :] & (ks > 0)[None, :], full[:, mirror], 0.0)
+    step = omega[1] - omega[0]
+    expected = np.asarray(theory(ks), dtype=float) * np.ones_like(ks)
+    measured, strength = np.full(ks.size, np.nan), np.zeros(ks.size)
+    for j, target in enumerate(expected):
+        inside = np.flatnonzero((omega > 0) & (omega >= target * (1 - window)) & (omega <= target * (1 + window)))
+        if not inside.size or not np.isfinite(target) or target <= 0:
+            continue
+        i = inside[np.argmax(values[inside, j])]
+        column = values[:, j]
+        if (i > 0 and column[i - 1] > column[i]) or (i < omega.size - 1 and column[i + 1] > column[i]):
+            continue  # the flank of a peak outside the window
+        strength[j] = column[i]
+        if 0 < i < omega.size - 1 and np.all(column[i - 1 : i + 2] > 0):
+            a, b, c = np.log(column[i - 1 : i + 2])
+            denominator = a - 2 * b + c
+            shift = 0.5 * (a - c) / denominator if denominator < 0 else 0.0
+            measured[j] = omega[i] + np.clip(shift, -0.5, 0.5) * step
+        else:
+            measured[j] = omega[i]
+    measured[strength < threshold * strength.max(initial=0.0)] = np.nan
+    with np.errstate(invalid="ignore", divide="ignore"):
+        relative = (measured - expected) / expected
+    return xr.Dataset(
+        {
+            "omega": ("k", measured, {"label": "measured omega"}),
+            "omega_theory": ("k", expected, {"label": "theory omega"}),
+            "relative_error": ("k", relative, {"label": "relative error"}),
+        },
+        coords={"k": ks},
+        attrs={"window": window, "frequency_resolution": float(step)},
+    )

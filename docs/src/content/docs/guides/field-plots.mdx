@@ -32,6 +32,39 @@ sweep instead of `t`.
 
 ![Radial profiles at four times](../../../assets/figures/profiles.png)
 
+### Exact solutions
+
+`lineout` and `profiles` take a `reference`: the exact or expected profile,
+drawn dashed in the same color as its profile. It can be a function of the
+plotted `x` and of `t` (the profile's time), an `(x, y)` pair, or a dict of
+labels to these. For a diffusing temperature against the heat kernel:
+
+```python
+def exact(x, t, D=0.01, width=0.05):
+    s2 = width**2 + 2 * D * t
+    return width / np.sqrt(s2) * np.exp(-((x - 0.5) ** 2) / (2 * s2))
+
+T.struphy.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
+T.struphy.plot.lineout(x="eta1", t="last", reference=exact, x_of=lambda eta1: L * eta1)
+```
+
+Here the run's diffusion coefficient is 10 % too large, so its profiles fall
+below the exact ones:
+
+![Temperature profiles and the exact solution at four times](../../../assets/figures/profiles_exact.png)
+
+`line_animation` animates a 1-D profile over time with the exact profile of
+each frame. The value axis stays fixed over the whole animation:
+
+```python
+anim = T.struphy.plot.line_animation(reference={"exact": exact}, step=2)
+anim.save("heat.gif", writer="pillow")
+```
+
+![A profile animated with the exact solution](/struphy-plots/figures/line_animation.gif)
+
+For the error itself, see [errors against exact solutions](/struphy-plots/guides/analysis/#errors-against-exact-solutions).
+
 ## 2-D: slices, panels, viewers, animations
 
 `plot.view(...)` configures a reusable 2-D slice — pick the two axes to plot
@@ -107,6 +140,49 @@ n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])   
 ```
 
 ![Charge density of a ring with the interface n = 0.2 as a contour line](../../../assets/figures/contour_interface.png)
+
+### Overlays
+
+`overlays` draws more on top of any slice presentation, as a dict:
+
+| Key | Draws |
+| --- | --- |
+| `contours_of` | contour lines of a second field, e.g. the flux function over the current; with `contour_levels` and `contour_color` |
+| `boundary=True` | the outline of the grid, e.g. the wall of a mapped domain; with `boundary_color` |
+| `grid_lines=n` | every n-th grid line, to show the mesh or the mapping |
+| `lines` | labels to `(x, y)` pairs or functions `y(x)`, e.g. characteristics on a space-time map |
+| `points` | labels to `(x, y)`, e.g. O- and X-points |
+
+Lines and points are white by default, for dark colormaps; set `line_color` and
+`point_color` otherwise. In an animation, a `contours_of` field with a `t`
+dimension follows the frames.
+
+Magnetic islands: `|B|` with the flux surfaces from
+[`flux_function()`](/struphy-plots/guides/analysis/#vector-calculus), and the
+O- and X-points:
+
+```python
+flux = B.struphy.analysis.flux_function()
+absB.struphy.plot.slice(
+    coords="physical", plane="XY", eta3=0, cmap="magma",
+    overlays={"contours_of": flux, "contour_levels": 14, "contour_color": "w", "boundary": True,
+              "points": {"O-point": (np.pi, np.pi), "X-points": ([0, 2 * np.pi], [np.pi, np.pi])}},
+)
+```
+
+![|B| with flux surfaces, an O-point and X-points](../../../assets/figures/overlay_flux.png)
+
+A wave packet on a space-time map (`x="eta1", y="t"`), with the line
+`x = x0 + v_g t` it should follow:
+
+```python
+phi.struphy.plot.slice(
+    x="eta1", y="t", cmap="RdBu_r", symmetric=True,
+    overlays={"lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4}, "line_color": "k"},
+)
+```
+
+![A wave packet on a space-time map with its group-velocity line](../../../assets/figures/overlay_spacetime.png)
 
 ### Several fields side by side
 

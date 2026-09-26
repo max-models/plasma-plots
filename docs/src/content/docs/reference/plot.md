@@ -8,18 +8,33 @@ Accessed as `array.struphy.plot` on any labeled `xarray.DataArray`. Backed by
 `struphy_plots.plotting` and can be called directly on a plain
 `xarray.DataArray` if you prefer not to use the accessor.
 
-### `timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None)`
+### `timeseries(*others, logy=True, fit=None, fit_amplitude=False, reference=None, title=None, ax=None)`
 Plot this time series, optionally alongside `others`, with an optional
-exponential growth/damping fit overlay.
+exponential growth/damping fit overlay. `reference` draws exact or expected
+curves, dashed: a function of `t`, an array, a `(t, values)` pair, or a dict of
+labels to these (a label starting with `_` stays out of the legend).
 
-### `lineout(*, x=None, ax=None, title=None, **selection)`
+### `lineout(*, x=None, reference=None, x_of=None, xlabel=None, ax=None, title=None, **selection)`
 Select every dimension via `**selection` except `x`, and plot the remaining
-1-D profile.
+1-D profile. `x_of` maps `x` to the plotted axis. `reference` is an exact
+profile: a function of the plotted `x` (or of `x` and `t`), an `(x, y)` pair, or
+a dict of labels to these.
 
-### `profiles(*, x="eta1", over="t", at=None, x_of=None, xlabel=None, ax=None, title=None, **selection)`
+### `profiles(*, x="eta1", over="t", at=None, x_of=None, xlabel=None, reference=None, ax=None, title=None, **selection)`
 Several profiles along `x` in one axes, one per value of `over` (default: four
 evenly spaced times). `at` takes positions (int) or values (float), and `x_of`
-maps `x` to the plotted axis. Backed by `struphy_plots.plotting.plot_profiles`.
+maps `x` to the plotted axis. `reference(x, t)` draws each profile's exact
+counterpart, dashed in the same color. Backed by `struphy_plots.plotting.plot_profiles`.
+
+### `line_animation(*, x=None, sweep="t", reference=None, x_of=None, xlabel=None, ylim=None, step=1, interval=100, title=None, **selection)`
+A 1-D profile animated over `sweep`, with the exact profile of each frame
+(`reference(x, t)`) and a fixed value axis. Returns a `FuncAnimation`. Backed by
+`struphy_plots.plotting.animate_lines`.
+
+### `against_theory(theory=None, *, show_error=True, xlabel=None, ylabel=None, title=None, logx=False, logy=False)`
+This 1-D array of measured values (e.g. `trace_branch(...).omega` over `k`)
+against a theory function or a dict of them, with the relative error in a
+second panel. Backed by `struphy_plots.plotting.plot_measured_vs_theory`.
 
 ### `vector(*, x, y, components=(0, 1), stride=1, coordinates="logical", ax=None, **selection)`
 Quiver plot of two vector components over the `x`/`y` plane.
@@ -40,12 +55,14 @@ Dataset overlaid — a Poincare-style diagnostic for checking particle
 confinement or orbit topology against a background field. `orbits` must have
 position variables named `x` and `y` too.
 
-### `dispersion(*, dim=None, detrend=True, branches=None, log=True, dynamic_range=6.0, kmax=None, omega_max=None, vmin=None, vmax=None, cmap=None, ax=None, title=None)`
+### `dispersion(*, dim=None, detrend=True, branches=None, frequencies=None, points=None, log=True, dynamic_range=6.0, kmax=None, omega_max=None, vmin=None, vmax=None, cmap=None, ax=None, title=None)`
 The space-time power spectrum of this `(t, dim)` field, as a
 dispersion-relation plot (a plain 2-D FFT, independent of Struphy). `dim`
 defaults to the sole dimension other than `t`. `branches` overlays named
 theoretical curves to compare against — a mapping of label to a callable
-`omega(k)`, or an explicit `(k, omega)` pair. Color limits default to the
+`omega(k)`, or an explicit `(k, omega)` pair. `frequencies` draws horizontal
+lines (label to frequency), and `points` marks measured `(k, omega)` values
+(label to a `trace_branch` Dataset, a DataArray over `k`, or a pair). Color limits default to the
 top `dynamic_range` decades below the peak (with `log=True`), since a
 dispersion relation's power spans many orders of magnitude between the
 ridge and the rest of the plane.
@@ -82,6 +99,13 @@ on top) and `fill=False` (only the lines, colored by `cmap`). `animation`
 takes `alongside=[...]`, further arrays animated side by side in sync, each
 with its own color limits (`struphy_plots.plotting.animate_fields`). Physical slices
 close the periodic seam of cell-centered grids.
+
+`overlays` (a dict) draws more on top of every slice presentation:
+`contours_of` (contour lines of a second field, with `contour_levels` and
+`contour_color`), `boundary=True` (the grid's outline, with `boundary_color`),
+`grid_lines=n` (every n-th grid line), `lines` (label to `(x, y)` or a
+function `y(x)`, in `line_color`) and `points` (label to `(x, y)`, in
+`point_color`). See [overlays](/struphy-plots/guides/field-plots/#overlays).
 
 ### Spectral plots
 `power_spectrum`, `filtered`, `spectrogram`, `mode_amplitudes`, `mode_map`,
@@ -172,6 +196,11 @@ Saved orbit quantities over time, one panel each, for a number of markers
 (spread over the orbit classes) or a list of them. Quantities in `drift_of`
 are shown as their change since `t = 0`. Backed by
 `struphy_plots.plotting.plot_orbit_quantities`.
+
+### `orbit_grid(*, markers=8, ncols=4, boundary=None)`
+One small poloidal panel per marker, sharing axes, titled and colored by orbit
+class. `markers` is a number (spread over the classes) or a list of indices.
+Backed by `struphy_plots.plotting.plot_orbit_grid`.
 
 ### `orbits_3d(*, color_by="t", max_markers=200, tube_radius=None, cmap=None, domain=None, title=None, plotter=None)`
 PyVista orbit lines (or tubes) from the physical positions `x`, `y`, `z`,

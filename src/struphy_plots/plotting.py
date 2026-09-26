@@ -216,6 +216,43 @@ def _slice_data(data, view):
     return selected, grids
 
 
+REFERENCE_STYLES = ("--", ":", "-.", (0, (5, 1, 1, 1)))
+
+
+def _references(reference, default="exact"):
+    """``(label, spec)`` pairs from a reference, or a mapping of label to references."""
+    if reference is None:
+        return []
+    if isinstance(reference, dict):
+        return list(reference.items())
+    return [(default, reference)]
+
+
+def _takes_time(function) -> bool:
+    import inspect
+
+    try:
+        parameters = inspect.signature(function).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    positional = [p for p in parameters if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) and p.default is p.empty]
+    return len(positional) >= 2 or any(p.kind == p.VAR_POSITIONAL for p in parameters)
+
+
+def _reference_curve(spec, x_fine, t=None):
+    """``(x, y)`` of one reference: a function of ``x`` (or of ``x`` and ``t``, when it takes two
+    arguments and a time is known), a 1-D array over its own coordinate, or an ``(x, y)`` pair."""
+    if callable(spec):
+        values = spec(x_fine, t) if t is not None and _takes_time(spec) else spec(x_fine)
+        return x_fine, np.asarray(values, dtype=float) * np.ones_like(x_fine)
+    if isinstance(spec, xr.DataArray):
+        if spec.ndim != 1:
+            raise ValueError(f"a reference array must be one-dimensional; got {spec.dims}")
+        return np.asarray(spec[spec.dims[0]]), np.asarray(spec)
+    x, y = spec
+    return np.asarray(x), np.asarray(y)
+
+
 def plot_timeseries(
     data,
     *,
@@ -224,8 +261,14 @@ def plot_timeseries(
     fit: GrowthFit | None = None,
     title=None,
     run_label=None,
+    reference=None,
 ):
-    """Plot one or more time series, each on its own time grid; series of different runs are labeled by run."""
+    """Plot one or more time series, each on its own time grid; series of different runs are labeled by run.
+
+    ``reference`` overlays exact or expected curves (dashed, black): a function of ``t``, a
+    ``(t,)`` array, a ``(t, values)`` pair, or a mapping of labels to these, e.g.
+    ``{"exact": lambda t: A * np.exp(-gamma * t)}`` or an envelope ``{"+e^(-γt)": ..., "−e^(-γt)": ...}``.
+    """
     series = _items(data)
     if not series:
         raise ValueError("at least one time series is required")
@@ -267,34 +310,61 @@ def plot_timeseries(
                 )
                 ax.axvspan(result.time[0], result.time[-1], alpha=0.12, color="grey")
                 artists.append(fitted)
+        references = _references(reference)
+        if references:
+            span = np.concatenate([np.asarray(item.t, dtype=float) for item in series])
+            t_fine = np.linspace(span.min(), span.max(), 500)
+            for i, (label, spec) in enumerate(references):
+                xs, ys = _reference_curve(spec, t_fine)
+                artists += ax.plot(xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label)
         if logy:
             ax.set_yscale("log")
         ax.set_xlabel(axis_label(series[0], "t"))
         ax.set_ylabel(value_label(series[0]))
         ax.set_title(title if title is not None else _label(series[0]))
-        if any(label_of(item) for item in series) or fit is not None:
+        if any(label_of(item) for item in series) or fit is not None or references:
             ax.legend()
         _finish(fig, run_label=run_label if own_figure else "", tight=own_figure)
     return PlotResult(fig, ax, artists, fits)
 
 
-def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=None):
-    """Plot a selected one-dimensional profile using one named coordinate."""
+def plot_lineout(
+    data: xr.DataArray, *, x: str | None = None, ax=None, title=None, reference=None, x_of=None, xlabel=None
+):
+    """Plot a selected one-dimensional profile using one named coordinate.
+
+    ``x_of`` maps the coordinate to the plotted axis (e.g. ``lambda eta1: L * eta1``).
+    ``reference`` overlays exact or expected profiles (dashed, black): a function of the
+    plotted ``x`` (or of ``x`` and ``t``, taking the profile's time), an array, an ``(x, y)``
+    pair, or a mapping of labels to these.
+    """
     validate_array(data)
     if data.ndim != 1:
         raise ValueError(f"lineout needs exactly one remaining dimension, got {data.dims}")
     x = data.dims[0] if x is None else x
     if x != data.dims[0]:
         raise ValueError(f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}")
+    coordinate = np.asarray(data[x], dtype=float)
+    plotted = np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-    (line,) = ax.plot(data[x], data)
+    (line,) = ax.plot(plotted, data, label=_label(data) if reference is not None else None)
+    artists = [line]
+    references = _references(reference)
+    if references:
+        fine = np.linspace(coordinate.min(), coordinate.max(), 400)
+        fine = np.asarray(x_of(fine), dtype=float) if x_of is not None else fine
+        when = float(data.t) if "t" in data.coords and data.t.ndim == 0 else None
+        for i, (label, spec) in enumerate(references):
+            xs, ys = _reference_curve(spec, fine, when)
+            artists += ax.plot(xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label)
+        ax.legend(fontsize="small")
     ax.set(
-        xlabel=axis_label(data, x),
+        xlabel=xlabel or (axis_label(data, x) if x_of is None else "x"),
         ylabel=value_label(data),
         title=_label(data) if title is None else title,
     )
     _finish(fig, run_label=shared_run_label(data) if line.axes.figure is fig else "")
-    return PlotResult(fig, ax, [line])
+    return PlotResult(fig, ax, artists)
 
 
 def prepare_vector(
@@ -517,6 +587,33 @@ def color_limits(data, *, symmetric: bool = False, robust: bool = False) -> tupl
     return float(lo), float(hi)
 
 
+OVERLAY_KEYS = {
+    "contours_of", "contour_levels", "contour_color", "boundary", "boundary_color", "grid_lines",
+    "lines", "line_color", "points", "point_color",
+}
+
+
+def _grid_edges(xg, yg):
+    """The four edges of a 2-D coordinate grid, leaving out collapsed edges and pairs of opposite
+    edges that coincide (a closed periodic seam)."""
+    edges = {"first_row": (xg[0], yg[0]), "last_row": (xg[-1], yg[-1]), "first_col": (xg[:, 0], yg[:, 0]),
+             "last_col": (xg[:, -1], yg[:, -1])}
+    scale = max(float(np.nanmax(xg) - np.nanmin(xg)), float(np.nanmax(yg) - np.nanmin(yg)), 1e-300)
+
+    def same(a, b):
+        return np.allclose(a[0], b[0], atol=1e-9 * scale) and np.allclose(a[1], b[1], atol=1e-9 * scale)
+
+    keep = []
+    for first, last in (("first_row", "last_row"), ("first_col", "last_col")):
+        if same(edges[first], edges[last]):
+            continue
+        for name in (first, last):
+            x, y = edges[name]
+            if max(np.ptp(x), np.ptp(y)) > 1e-9 * scale:
+                keep.append((x, y))
+    return keep
+
+
 class _SliceRenderer:
     """Shared selection, color limits and mesh rendering for every slice presentation."""
 
@@ -544,11 +641,16 @@ class _SliceRenderer:
         robust=False,
         levels=None,
         fill=True,
+        overlays=None,
     ):
         self.data = _select(data, view)
         self.symmetric, self.robust = symmetric, robust
         self.levels, self.fill = levels, fill
-        self._lines = {}  # contour lines drawn per axes, removed on the next draw there
+        unknown = set(overlays or {}) - OVERLAY_KEYS
+        if unknown:
+            raise ValueError(f"unknown overlays {sorted(unknown)}; expected some of {sorted(OVERLAY_KEYS)}")
+        self.overlays = dict(overlays or {})
+        self._lines = {}  # artists drawn on top per axes, removed on the next draw there
         self.view = View(
             x=view.x,
             y=view.y,
@@ -569,9 +671,9 @@ class _SliceRenderer:
         mesh = ax.pcolormesh(
             xg, yg, values, shading="auto", vmin=lo, vmax=hi, cmap=self.cmap, alpha=None if self.fill else 0.0
         )
-        previous = self._lines.pop(id(ax), None)
-        if previous is not None:
-            previous.remove()
+        for artist in self._lines.pop(id(ax), []):
+            artist.remove()
+        extras = self._lines.setdefault(id(ax), [])
         if self.levels is not None:
             levels = (
                 np.linspace(lo, hi, int(self.levels) + 2)[1:-1]
@@ -581,7 +683,8 @@ class _SliceRenderer:
             finite = np.asarray(values, dtype=float)
             if np.isfinite(finite).any() and np.nanmin(finite) < max(levels) and np.nanmax(finite) > min(levels):
                 style = dict(colors="k", linewidths=0.8) if self.fill else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
-                self._lines[id(ax)] = ax.contour(xg, yg, np.asarray(values), levels=levels, **style)
+                extras.append(ax.contour(xg, yg, np.asarray(values), levels=levels, **style))
+        extras += self._draw_overlays(ax, data, xg, yg)
         ax.set(
             xlabel=xlabel,
             ylabel=ylabel,
@@ -589,6 +692,44 @@ class _SliceRenderer:
         )
         ax.grid(False)
         return mesh
+
+    def _draw_overlays(self, ax, data, xg, yg):
+        """Contour lines of a second field, the grid's boundary and lines, fixed lines and points."""
+        overlays, artists = self.overlays, []
+        other = overlays.get("contours_of")
+        if other is not None:
+            sweep = self.view.sweep
+            if sweep in other.dims and sweep in data.coords and data[sweep].ndim == 0:
+                other = other.sel({sweep: float(data[sweep])}, method="nearest")
+            other = _select(other, View(select={k: float(v) for k, v in data.coords.items()
+                                                if v.ndim == 0 and k in other.dims and k != sweep}))
+            values, (ox, oy, _, _) = _slice_data(other, self.view)
+            levels = overlays.get("contour_levels", 10)
+            artists.append(ax.contour(ox, oy, np.asarray(values), levels=levels, negative_linestyles="solid",
+                                      colors=overlays.get("contour_color", "k"), linewidths=0.9))
+        if overlays.get("boundary"):
+            for edge in _grid_edges(xg, yg):
+                artists += ax.plot(*edge, color=overlays.get("boundary_color", "k"), lw=1.3)
+        stride = overlays.get("grid_lines")
+        if stride:
+            for i in range(0, xg.shape[0], stride):
+                artists += ax.plot(xg[i], yg[i], color="0.5", lw=0.4, alpha=0.6)
+            for j in range(0, xg.shape[1], stride):
+                artists += ax.plot(xg[:, j], yg[:, j], color="0.5", lw=0.4, alpha=0.6)
+        limits = ax.get_xlim(), ax.get_ylim()
+        for i, (label, line) in enumerate((overlays.get("lines") or {}).items()):
+            if callable(line):
+                xs = np.linspace(np.nanmin(xg), np.nanmax(xg), 200)
+                line = (xs, line(xs))
+            artists += ax.plot(*line, color=overlays.get("line_color", "w"), lw=1.4, ls=("--", ":", "-.")[i % 3], label=label)
+        for label, point in (overlays.get("points") or {}).items():
+            artists.append(ax.scatter(*point, marker="x", s=60, color=overlays.get("point_color", "w"),
+                                      linewidths=2, zorder=5, label=label))
+        ax.set_xlim(*limits[0])  # lines past the data do not widen the axes
+        ax.set_ylim(*limits[1])
+        if overlays.get("lines") or overlays.get("points"):
+            ax.legend(fontsize="small")
+        return artists
 
     def frame_title(self, index):
         return f"{self.title} at {self.view.sweep} = {float(self.data[self.view.sweep][index]):.3e}"
@@ -618,6 +759,7 @@ def plot_slice(
     robust=False,
     levels=None,
     fill=True,
+    overlays=None,
 ):
     """Render one selected two-dimensional slice."""
     renderer = _SliceRenderer(
@@ -632,6 +774,7 @@ def plot_slice(
         robust=robust,
         levels=levels,
         fill=fill,
+        overlays=overlays,
         shared_clim=shared_clim,
     )
     run_label = shared_run_label(data) if run_label is None else run_label
@@ -662,6 +805,7 @@ def plot_panels(
     robust=False,
     levels=None,
     fill=True,
+    overlays=None,
 ):
     """Plot snapshots with common color limits over the entire selected sweep by default."""
     renderer = _SliceRenderer(
@@ -677,6 +821,7 @@ def plot_panels(
         robust=robust,
         levels=levels,
         fill=fill,
+        overlays=overlays,
     )
     renderer.indices(1)
     if nrows < 1 or ncols < 1:
@@ -726,6 +871,7 @@ class InteractiveSliceViewer:
         robust=False,
         levels=None,
         fill=True,
+        overlays=None,
     ):
         self.data = validate_array(data)
         self.view = view or View()
@@ -740,6 +886,7 @@ class InteractiveSliceViewer:
             robust=robust,
             levels=levels,
             fill=fill,
+            overlays=overlays,
         )
         self.run_label = shared_run_label(data) if run_label is None else run_label
         self.result = None
@@ -814,6 +961,7 @@ def animate_slices(
     robust=False,
     levels=None,
     fill=True,
+    overlays=None,
 ):
     """Animate slices with fixed color limits over the selected sweep by default."""
     from matplotlib.animation import FuncAnimation
@@ -831,6 +979,7 @@ def animate_slices(
         robust=robust,
         levels=levels,
         fill=fill,
+        overlays=overlays,
     )
     frames = renderer.indices(step)
     sweep = renderer.view.sweep
@@ -929,6 +1078,7 @@ def save_frames(
     robust=False,
     levels=None,
     fill=True,
+    overlays=None,
 ):
     """Export the configured sweep as PNGs, sharing color limits by default."""
     renderer = _SliceRenderer(
@@ -944,6 +1094,7 @@ def save_frames(
         robust=robust,
         levels=levels,
         fill=fill,
+        overlays=overlays,
     )
     frames = renderer.indices(step)
     directory = Path(directory)
@@ -1054,6 +1205,8 @@ def plot_dispersion(
     cmap=None,
     ax=None,
     title: str | None = None,
+    frequencies: dict | None = None,
+    points: dict | None = None,
 ):
     """The space-time power spectrum of a ``(t, dim)`` field, as a dispersion-relation plot.
 
@@ -1061,6 +1214,9 @@ def plot_dispersion(
     ``(k, omega) -> (-k, -omega)``, so every branch already appears on both sides of ``k = 0``).
     ``branches`` optionally overlays named theoretical curves to compare against, as a mapping of
     label to either a callable ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays.
+    ``frequencies`` draws labeled horizontal lines (e.g. cutoffs or resonances), and ``points``
+    marks measured points: a mapping of label to a ``(k, omega)`` pair or a
+    :func:`~struphy_plots.spectral.trace_branch` result.
 
     A dispersion relation's power spans many orders of magnitude (the ridge against a mostly-empty
     plane), so with ``log=True`` (default), color limits default to the top ``dynamic_range``
@@ -1099,6 +1255,12 @@ def plot_dispersion(
             k_branch, omega_branch = (k_line, branch(k_line)) if callable(branch) else branch
             (line,) = ax.plot(k_branch, omega_branch, "--", label=label)
             artists.append(line)
+    for i, (label, omega_value) in enumerate((frequencies or {}).items()):
+        artists.append(ax.axhline(omega_value, color="w", lw=1, ls=(0, (1, 2 + i)), label=label))
+    for label, point in (points or {}).items():
+        k_points, omega_points = (point.k, point.omega) if isinstance(point, xr.Dataset) else point
+        artists.append(ax.plot(k_points, omega_points, "o", ms=4, mfc="none", mew=1.2, label=label)[0])
+    if branches or frequencies or points:
         ax.legend(fontsize="small")
     ax.set(
         xlabel="k",
@@ -1724,6 +1886,7 @@ def plot_profiles(
     xlabel: str | None = None,
     ax=None,
     title: str | None = None,
+    reference=None,
 ):
     """Several one-dimensional profiles along ``x`` in one axes, one per value of ``over``.
 
@@ -1748,12 +1911,14 @@ def plot_profiles(
             else data.sel({over: position}, method="nearest")
         )
         value = float(profile[over])
-        artists += ax.plot(
-            xs,
-            np.asarray(profile.transpose(x)),
-            color=plt.get_cmap("viridis")(i / max(len(np.atleast_1d(at)) - 1, 1)),
-            label=f"{over} = {value:.3g}",
-        )
+        color = plt.get_cmap("viridis")(i / max(len(np.atleast_1d(at)) - 1, 1))
+        artists += ax.plot(xs, np.asarray(profile.transpose(x)), color=color, label=f"{over} = {value:.3g}")
+        coordinate = np.asarray(data[x], dtype=float)
+        fine = np.linspace(coordinate.min(), coordinate.max(), 400)
+        fine = np.asarray(x_of(fine), dtype=float) if x_of is not None else fine
+        for k, (label, spec) in enumerate(_references(reference)):
+            rx, ry = _reference_curve(spec, fine, value)
+            artists += ax.plot(rx, ry, color=color, lw=1.1, ls=REFERENCE_STYLES[k % 4], label=label if i == 0 else None)
     ax.set(
         xlabel=xlabel or (axis_label(data, x) if x_of is None else "r"),
         ylabel=value_label(data),
@@ -1887,3 +2052,201 @@ def plot_orbit_quantities(
     axes[-1].set(xlabel=axis_label(subset, "t"))
     fig.suptitle("Orbit quantities", fontsize="medium")
     return PlotResult(fig, axes, artists)
+
+
+def animate_lines(
+    data: xr.DataArray,
+    *,
+    x: str | None = None,
+    sweep: str = "t",
+    reference=None,
+    x_of=None,
+    xlabel: str | None = None,
+    ylim=None,
+    step: int = 1,
+    interval: int = 100,
+    title: str | None = None,
+):
+    """Animate a one-dimensional profile over ``sweep`` (default ``t``), optionally with the
+    exact profile of each frame.
+
+    ``data`` has the dimensions ``x`` and ``sweep`` (select the rest first). ``reference`` is a
+    function of the plotted ``x`` and of the sweep value (``lambda x, t: ...``), an ``(x, y)``
+    pair, or a mapping of labels to these, drawn dashed. The value axis is fixed over the
+    whole animation (``ylim``, or the range of the data and references). ``x_of`` maps ``x`` to
+    the plotted axis. Retain the returned animation.
+    """
+    from matplotlib.animation import FuncAnimation
+
+    validate_array(data, required_dims=(sweep,))
+    others = [d for d in data.dims if d != sweep]
+    if len(others) != 1:
+        raise ValueError(f"select every dimension except {sweep!r} and one more; {data.dims} remain")
+    x = others[0] if x is None else x
+    if not isinstance(step, (int, np.integer)) or step < 1:
+        raise ValueError("step must be a positive integer")
+    data = data.transpose(sweep, x)
+    coordinate = np.asarray(data[x], dtype=float)
+    plotted = np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
+    fine = np.linspace(coordinate.min(), coordinate.max(), 400)
+    fine = np.asarray(x_of(fine), dtype=float) if x_of is not None else fine
+    sweeps = np.asarray(data[sweep], dtype=float)
+    references = _references(reference)
+    frames = range(0, data.sizes[sweep], step)
+    if ylim is None:
+        values = [np.asarray(data, dtype=float)]
+        for index in frames:
+            values += [_reference_curve(spec, fine, sweeps[index])[1] for _, spec in references]
+        stacked = np.concatenate([np.ravel(v) for v in values])
+        lo, hi = np.nanmin(stacked), np.nanmax(stacked)
+        pad = 0.05 * (hi - lo if hi > lo else 1.0)
+        ylim = (lo - pad, hi + pad)
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, ax = plt.subplots()
+        (line,) = ax.plot(plotted, data.isel({sweep: 0}), lw=2, label=_label(data) if references else None)
+        curves = [ax.plot(fine, np.full_like(fine, np.nan), color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label)[0]
+                  for i, (label, _) in enumerate(references)]
+        ax.set(xlim=(plotted.min(), plotted.max()), ylim=ylim, xlabel=xlabel or (axis_label(data, x) if x_of is None else "x"),
+               ylabel=value_label(data))
+        if references:
+            ax.legend(fontsize="small", loc="upper right")
+        _finish(fig, run_label=shared_run_label(data))
+    name = _label(data) if title is None else title
+
+    def update(index):
+        line.set_ydata(np.asarray(data.isel({sweep: index})))
+        for curve, (_, spec) in zip(curves, references):
+            curve.set_data(*_reference_curve(spec, fine, sweeps[index]))
+        ax.set_title(f"{name} at {sweep} = {sweeps[index]:.3e}")
+        return (line, *curves)
+
+    update(0)
+    animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _detach_figure(fig)
+    return animation
+
+
+def plot_measured_vs_theory(
+    measured,
+    theory=None,
+    *,
+    show_error: bool = True,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    title: str | None = None,
+    logx: bool = False,
+    logy: bool = False,
+):
+    """Measured values against a theory curve over a parameter, with their relative error.
+
+    ``measured`` is a 1-D array over the parameter (e.g. ``trace_branch(...).omega`` over
+    ``k``, growth rates over mode numbers), an ``(x, y)`` pair, or a mapping of labels to these
+    (e.g. several runs or methods). ``theory`` is a function of the parameter, an ``(x, y)``
+    pair, or a mapping of labels to these, drawn as lines over the measured range. With
+    ``show_error`` a second panel shows ``(measured - theory) / theory`` against the first
+    theory function, for every measured series.
+    """
+    series = []
+    for label, item in _references(measured, default=None):
+        if isinstance(item, xr.DataArray):
+            if item.ndim != 1:
+                raise ValueError(f"measured values must be one-dimensional; got {item.dims}")
+            series.append((label or _label(item) or "measured", np.asarray(item[item.dims[0]], dtype=float),
+                           np.asarray(item, dtype=float), item))
+        else:
+            xs, ys = item
+            series.append((label or "measured", np.asarray(xs, dtype=float), np.asarray(ys, dtype=float), None))
+    if not series:
+        raise ValueError("no measured values")
+    theories = _references(theory, default="theory")
+    panels = 2 if show_error and theories and callable(theories[0][1]) else 1
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, axes = plt.subplots(panels, 1, sharex=True, figsize=(7, 4.2 + 2.2 * (panels - 1)), squeeze=False,
+                                 layout="constrained", gridspec_kw={"height_ratios": [3, 1.4][:panels]})
+    axes = axes[:, 0]
+    artists = []
+    span = np.concatenate([xs for _, xs, _, _ in series])
+    fine = np.linspace(np.nanmin(span), np.nanmax(span), 400)
+    if logx and np.nanmin(span) > 0:
+        fine = np.geomspace(np.nanmin(span), np.nanmax(span), 400)
+    for i, (label, spec) in enumerate(theories):
+        tx, ty = _reference_curve(spec, fine)
+        style = "-" if i == 0 else REFERENCE_STYLES[(i - 1) % 4]
+        artists += axes[0].plot(tx, ty, color="k", lw=1.3, ls=style, label=label)
+    markers = "osD^v<>"
+    for i, (label, xs, ys, _) in enumerate(series):
+        artists += axes[0].plot(xs, ys, markers[i % len(markers)], ms=6, mfc="none", mew=1.5, color=f"C{i}", label=label)
+    if panels == 2:
+        function = theories[0][1]
+        for i, (label, xs, ys, _) in enumerate(series):
+            expected = np.asarray(function(xs), dtype=float)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                artists += axes[1].plot(xs, (ys - expected) / expected, markers[i % len(markers)], ms=5, color=f"C{i}")
+        axes[1].axhline(0, color="k", lw=0.8)
+        axes[1].set(ylabel="relative error")
+    first = series[0][3]
+    axes[0].set(ylabel=ylabel or (value_label(first) if first is not None else ""), title=title or "Measured against theory")
+    axes[-1].set(xlabel=xlabel or (axis_label(first, first.dims[0]) if first is not None else ""))
+    if logx:
+        axes[-1].set_xscale("log")
+    if logy:
+        axes[0].set_yscale("log")
+    axes[0].legend(fontsize="small")
+    return PlotResult(fig, axes if panels == 2 else axes[0], artists)
+
+
+def plot_orbit_grid(
+    orbits,
+    *,
+    markers=8,
+    ncols: int = 4,
+    boundary: xr.DataArray | None = None,
+    color_by: str | None = "classification",
+):
+    """One small poloidal panel (``R`` against ``z``) per marker, sharing axes, colored by orbit
+    class: for looking at individual orbits (bananas, passing, lost) side by side.
+
+    ``markers`` is a number (spread over the classes when ``v_par`` is saved) or a list of
+    marker indices; ``boundary`` is a field whose outer surface is drawn in every panel.
+    """
+    subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=("x", "y", "z")).transpose("t", "marker", ...)
+    codes = np.asarray(classify_orbits(subset)) if (color_by == "classification" and "v_par" in subset) else None
+    if isinstance(markers, (int, np.integer)):
+        if codes is not None:
+            by_class = [np.flatnonzero(codes == code).tolist() for code in ORBIT_CLASSES]
+            chosen = []
+            while len(chosen) < min(markers, subset.sizes["marker"]):
+                for group in by_class:
+                    if group and len(chosen) < markers:
+                        chosen.append(group.pop(0))
+            markers = sorted(chosen)
+        else:
+            markers = list(range(min(markers, subset.sizes["marker"])))
+    alive = _alive(subset)
+    R = np.hypot(np.asarray(subset.x), np.asarray(subset.y))
+    Z = np.asarray(subset.z)
+    rows = int(np.ceil(len(markers) / ncols))
+    with plt.rc_context(STRUPHY_STYLE):
+        fig, axes = plt.subplots(rows, ncols, figsize=(2.6 * ncols, 2.6 * rows), sharex=True, sharey=True,
+                                 squeeze=False, layout="constrained")
+    artists = []
+    edge = None
+    if boundary is not None:
+        field = boundary.isel({d: 0 for d in boundary.dims if d not in ("eta1", "eta2", "eta3")})
+        edge = close_periodic(field.isel(eta1=-1, eta3=0), ("eta2",)) if "eta3" in field.dims else field.isel(eta1=-1)
+    for ax, marker in zip(axes.ravel(), markers):
+        keep = alive[:, marker]
+        name = ORBIT_CLASSES[int(codes[marker])] if codes is not None else None
+        color = ORBIT_CLASS_COLORS[name] if name else "C0"
+        artists += ax.plot(R[keep, marker], Z[keep, marker], color=color, lw=1)
+        if edge is not None:
+            artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=0.8)
+        ax.set_title(f"marker {marker}" + (f" ({name})" if name else ""), fontsize="small")
+        ax.set_aspect("equal")
+    for ax in axes.ravel()[len(markers):]:
+        ax.set_visible(False)
+    for ax in axes[-1]:
+        ax.set_xlabel("R")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("z")
+    return PlotResult(fig, axes, artists, data={"markers": list(markers)})

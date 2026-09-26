@@ -51,6 +51,63 @@ conserved:
 
 ![Relative energy-conservation error growing over a run](../../../assets/figures/relative_error.png)
 
+## Errors against exact solutions
+
+`error()` compares a field with an exact solution, given as an array or as a
+function of its coordinates. By default a function receives the physical `X`,
+`Y`, `Z` (or the logical dimensions if none are attached), then `t`. Name
+others with `args=`. The result is a function of the remaining dimensions,
+usually `t`:
+
+```python
+exact = lambda x, t: heat_kernel(x, t)                  # a 1-D profile over eta1 and t
+T.struphy.analysis.error(exact, relative=True)          # relative RMS error over time
+T.struphy.analysis.error(exact, norm="max")             # largest pointwise error
+T.struphy.analysis.error(exact, norm="pointwise")       # the difference itself, for a slice plot
+
+u.struphy.analysis.error(lambda x, y, z, t: np.sin(x - t), norm="l2", weighted=True)   # ∫|u - u_exact|² dV
+```
+
+`norm` is `"rms"` (default), `"max"`, `"l1"`, `"l2"` or `"pointwise"`, taken
+over `dims` (default: every dimension but `t`). Without weighting, the norms
+average over the grid points. On a mapped domain, such as a torus with a hollow
+core, this puts more weight on the inner points. `weighted=True` instead
+integrates over the physical volume with |√g| (taken from `domain=` or the
+`X`, `Y`, `Z` coordinates), which gives the proper L2 error. `relative=True`
+divides by the same norm of the exact solution.
+
+```python
+errors = [run.evaluate("T").struphy.analysis.error(exact).isel(t=-1) for run in runs]
+plot_convergence(resolutions, errors)
+```
+
+The relative error of the diffusing profiles in the
+[field-plot guide](/struphy-plots/guides/field-plots/#exact-solutions), whose
+diffusion coefficient is 10 % too large:
+
+![Relative RMS and max errors against the exact solution, over time](../../../assets/figures/error_in_time.png)
+
+`struphy_plots.analysis.evaluate_on(field, function)` gives the exact solution
+on the field's points itself, e.g. for a reference in a slice plot.
+
+## Mode amplitudes by projection
+
+`project_mode()` projects a field on one Fourier mode along a periodic
+direction: `2 ⟨f sin(2π n η / period)⟩` for `kind="sin"`, the same with a cosine
+for `kind="cos"`, and a complex amplitude (magnitude and phase) for
+`kind="complex"`. It is the amplitude of a single known mode, as many examples
+compute by hand, without a full FFT:
+
+```python
+amplitude = e1.struphy.analysis.project_mode(dim="eta1", number=1)               # sine amplitude over t
+phase = np.angle(rho.struphy.analysis.project_mode(dim="eta2", number=3, kind="complex"))
+```
+
+The grid has to cover one full period. For a binned distribution function, each
+bin averages the mode over its width, which lowers the amplitude by
+`sinc(n h / period)`. `bin_correction=True` undoes this. For several modes at
+once, use the [mode spectrum](/struphy-plots/guides/spectral/#mode-numbers).
+
 ## Convergence studies
 
 ```python
@@ -89,6 +146,58 @@ logical derivatives are spectral around periodic angles, so on a torus the
 gradient is exact up to round-off. For a 2-D run it gives the gradient within
 the plane. The [recipes](/struphy-plots/guides/recipes/#ex-b-energy-of-zonal-flows-and-drift-waves)
 use it for the E×B energy of drift waves and zonal flows.
+
+## Vector calculus
+
+`divergence()` and `curl()` work like `gradient()`, on each Cartesian component
+(or on contravariant ones with `components="contravariant"`, pushed forward
+first). They are spectral around periodic angles, so they are exact up to
+round-off on a torus:
+
+```python
+B = out.evaluate("b_field_xyz")
+div_B = B.struphy.analysis.divergence()             # should stay at round-off
+J = B.struphy.analysis.curl()                       # the current, in Cartesian components
+vorticity = u.struphy.analysis.curl().sel(component=2)
+div_B.struphy.analysis.norm().struphy.plot.timeseries()
+```
+
+`flux_function()` integrates an in-plane, divergence-free field
+(`B_x = ∂A/∂y`, `B_y = −∂A/∂x`) on a Cartesian slab or box to its flux function
+`A` (or the stream function of a flow), with zero mean. Its contour lines are the
+field lines, for example drawn over another field with
+[`contours_of`](/struphy-plots/guides/field-plots/#overlays):
+
+```python
+A = B.struphy.analysis.flux_function()
+J.sel(component=2).struphy.plot.slice(coords="physical", plane="XY", eta3=0, overlays={"contours_of": A})
+```
+
+## Local components
+
+For waves in a cylinder or torus, the Cartesian components are hard to read.
+`cylindrical_components()` rotates them to `(R, phi, Z)` about the `Z` axis.
+`toroidal_components(R0=...)` rotates them to `(radial, poloidal, toroidal)`
+about a circular axis at major radius `R0` (and height `Z0`). Both need the
+`X`, `Y`, `Z` coordinates:
+
+```python
+u = out.evaluate("velocity_xyz")
+local = u.struphy.analysis.toroidal_components(R0=3.0)
+local.sel(component="poloidal").struphy.plot.slice(coords="physical", plane="RZ", eta3=0, cmap="RdBu_r", symmetric=True)
+
+E = -phi.struphy.analysis.gradient()
+E_R = E.struphy.analysis.cylindrical_components().sel(component="R")
+```
+
+`polar_coordinates()` attaches the radius `r` and angle `theta` about a center
+in the `X`-`Y` plane as coordinates, e.g. for profiles against the physical
+radius:
+
+```python
+n_polar = n.struphy.analysis.polar_coordinates(center=(0.0, 0.0)).isel(t=-1, eta3=0)
+radial_profile = n_polar.groupby_bins("r", 24).mean(...)     # average over rings of equal radius
+```
 
 ## Volume integrals and field energies
 
@@ -163,3 +272,29 @@ fig = go.Figure(go.Heatmap(
 :::
 
 <PlotlyChart src="/plotly/plotly_dispersion.json" />
+
+### Tracing a branch
+
+`trace_branch()` follows a branch through the `(omega, k)` spectrum. It needs
+a theory guess `omega(k)`, and for each `k` it takes the strongest frequency
+within a relative `window` of that guess. Waves moving in either direction
+count, because the power at `−k` is added. The result is a Dataset over `k`
+with the measured `omega`, `omega_theory` and their `relative_error`:
+
+```python
+spectrum = phi.struphy.analysis.dispersion()
+traced = spectrum.struphy.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5)).dropna("k")
+phi.struphy.plot.dispersion(
+    branches={"Bohm-Gross": bohm_gross}, frequencies={"plasma frequency": 1.0}, points={"traced": traced},
+)
+```
+
+`frequencies` draws horizontal lines at fixed frequencies (e.g. a cutoff or
+the plasma frequency). `points` marks measured `(k, omega)` values, as a
+Dataset or DataArray from `trace_branch` or as a pair of arrays.
+
+![The Bohm-Gross branch, traced, with the plasma frequency](../../../assets/figures/dispersion_traced.png)
+
+To compare the traced frequencies with the theory, and see their errors, use
+[`against_theory`](/struphy-plots/guides/timeseries/#measured-against-theory):
+`traced.omega.struphy.plot.against_theory(bohm_gross)`.

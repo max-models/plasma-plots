@@ -968,6 +968,128 @@ save_fig(fig, "zonal_energy.png")
 
 
 # =============================================================================
+# Comparing with theory (from the survey of all struphy-hub examples): exact
+# curves over time series and profiles, errors, mode projections, traced
+# dispersion branches, overlays on slices, orbit grids
+# =============================================================================
+from struphy_plots.plotting import plot_measured_vs_theory  # noqa: E402
+
+# A damped standing Langmuir wave, as in the Landau-damping examples; project_mode picks its
+# amplitude out of the field, and the exact envelope goes over it
+gamma_ld, omega_ld, k_ld = 0.15, 1.4, 1
+x_ld = (np.arange(64) + 0.5) / 64
+t_ld = np.linspace(0.0, 25.0, 251)
+rng_ld = np.random.default_rng(11)
+e_ld = field_array(
+    "e1", "$E_x$", "a.u.",
+    0.1 * np.exp(-gamma_ld * t_ld)[:, None] * np.cos(omega_ld * t_ld)[:, None] * np.sin(2 * np.pi * k_ld * x_ld)[None]
+    + 2e-3 * rng_ld.standard_normal((251, 64)),
+    ("t", "eta1"), {"t": t_ld, "eta1": x_ld},
+)
+amplitude_ld = e_ld.struphy.analysis.project_mode(dim="eta1", number=k_ld)
+amplitude_ld.attrs.update(label=r"$\hat E_{k=1}$")
+save(
+    amplitude_ld.struphy.plot.timeseries(
+        logy=False,
+        reference={"$\\pm 0.1\\,e^{-\\gamma t}$": lambda t: 0.1 * np.exp(-gamma_ld * t),
+                   "_lower": lambda t: -0.1 * np.exp(-gamma_ld * t)},
+        title="Mode k = 1 of the field against the exact envelope",
+    ),
+    "reference_timeseries.png",
+)
+
+# A diffusing Gaussian whose numerical diffusion coefficient is 10 % too large
+D_exact, D_run = 0.01, 0.011
+x_hd = np.linspace(0.0, 1.0, 101)
+t_hd = np.linspace(0.0, 2.0, 41)
+
+
+def heat_kernel(x, t, D=D_exact, width=0.05):
+    s2 = width**2 + 2 * D * t
+    return width / np.sqrt(s2) * np.exp(-((x - 0.5) ** 2) / (2 * s2))
+
+
+heat = field_array("T", "$T$", "a.u.", heat_kernel(x_hd[None], t_hd[:, None], D_run), ("t", "eta1"), {"t": t_hd, "eta1": x_hd})
+save(
+    heat.struphy.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": heat_kernel},
+                               title="Temperature profiles and the exact solution"),
+    "profiles_exact.png",
+)
+animation_hd = heat.struphy.plot.line_animation(reference={"exact": heat_kernel}, step=2)
+animation_hd.save(PUBLIC_OUT / "line_animation.gif", writer="pillow", fps=8)
+print(f"wrote {PUBLIC_OUT / 'line_animation.gif'}")
+errors_hd = xr.Dataset({
+    "rms": heat.struphy.analysis.error(heat_kernel, relative=True),
+    "max": heat.struphy.analysis.error(heat_kernel, norm="max", relative=True),
+})
+fig, ax = plt.subplots(figsize=(7, 3.6), layout="constrained")
+for name, series in errors_hd.items():
+    ax.plot(t_hd, series, label=f"relative {name} error")
+ax.set(xlabel="$t$", ylabel="error", title="Error against the exact solution")
+ax.legend()
+save_fig(fig, "error_in_time.png")
+
+# The Bohm-Gross branch, traced in the dispersion diagram and compared with the theory
+spectrum_bg = struphy_plots.analysis.power_spectrum(dispersive_field)
+traced_bg = spectrum_bg.struphy.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5)).dropna("k")
+save(
+    dispersive_field.struphy.plot.dispersion(
+        branches={"Bohm-Gross": bohm_gross}, frequencies={"plasma frequency": 1.0},
+        points={"traced": traced_bg}, kmax=7, omega_max=12,
+    ),
+    "dispersion_traced.png",
+)
+save(
+    plot_measured_vs_theory(traced_bg.omega, {"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1.0 + 0 * k},
+                            xlabel="$k$", ylabel=r"$\omega$", title="Traced frequencies against theory"),
+    "measured_vs_theory.png",
+)
+
+# Magnetic islands: |B| with the flux function's contours, its O- and X-points and the grid
+n_is = 96
+b_is, XI, YI = unit_square(np.zeros((n_is, n_is)), n_is, n_is, scale=(2 * np.pi, 2 * np.pi))
+flux_exact = -np.cos(YI) - 0.3 * np.cos(XI)
+b_is = xr.DataArray(
+    np.stack([np.sin(YI), -0.3 * np.sin(XI), 0 * XI])[..., None],  # B = (dA/dy, -dA/dx, 0)
+    dims=("component", "eta1", "eta2", "eta3"),
+    coords={"component": [0, 1, 2], **b_is.coords}, name="B", attrs={"label": "B"},
+)
+flux_is = b_is.struphy.analysis.flux_function()
+strength = np.sqrt((b_is**2).sum("component")).rename("absB")
+strength.attrs.update(label="$|B|$")
+save(
+    strength.struphy.plot.slice(
+        coords="physical", plane="XY", eta3=0, cmap="magma",
+        overlays={"contours_of": flux_is, "contour_levels": 14, "contour_color": "w", "boundary": True,
+                  "points": {"O-point": (np.pi, np.pi), "X-points": ([0.05, 2 * np.pi - 0.05], [np.pi, np.pi])}},
+        title="|B| with flux surfaces from flux_function()",
+    ),
+    "overlay_flux.png",
+)
+
+# A wave packet on a space-time map, with the line it should follow
+x_wp = (np.arange(128) + 0.5) / 128
+t_wp = np.linspace(0.0, 1.5, 61)
+packet = field_array(
+    "phi", r"$\phi$", "a.u.",
+    np.exp(-((x_wp[None] - 0.2 - 0.4 * t_wp[:, None]) ** 2) / 0.003)
+    * np.cos(60 * (x_wp[None] - 0.5 * t_wp[:, None])),
+    ("t", "eta1"), {"t": t_wp, "eta1": x_wp},
+)
+save(
+    packet.struphy.plot.slice(
+        x="eta1", y="t", cmap="RdBu_r", symmetric=True,
+        overlays={"lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4}, "line_color": "k"},
+        title="Wave packet moving at the group velocity",
+    ),
+    "overlay_spacetime.png",
+)
+
+# Individual guiding-center orbits side by side, with their invariants and bounce periods
+save(orbits_gc.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_field), "orbit_grid.png")
+
+
+# =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
 #
 # plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium

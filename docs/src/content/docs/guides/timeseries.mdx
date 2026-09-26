@@ -43,6 +43,47 @@ energy.struphy.plot.timeseries(other_run_energy, logy=True)
 Passing further arrays plots them together; if they come from different runs
 (different `attrs["run_name"]`), each line is labeled by its run.
 
+## Exact and expected curves
+
+`reference` draws exact or expected curves over the series, dashed and black:
+a function of `t`, an array on the same times, a `(t, values)` pair, or a dict
+of labels to these. A label starting with `_` stays out of the legend. For a
+damped Langmuir wave, whose k = 1 amplitude comes from
+[`project_mode`](/struphy-plots/guides/analysis/#mode-amplitudes-by-projection),
+against the exact envelope:
+
+```python
+amplitude = e1.struphy.analysis.project_mode(dim="eta1", number=1)
+amplitude.struphy.plot.timeseries(
+    logy=False,
+    reference={"±0.1 e^(-γt)": lambda t: 0.1 * np.exp(-gamma * t),
+               "_lower": lambda t: -0.1 * np.exp(-gamma * t)},
+)
+```
+
+![The k = 1 amplitude of a damped wave inside its exact envelope](../../../assets/figures/reference_timeseries.png)
+
+## Measured against theory
+
+`against_theory` plots measured values over a parameter against a theory
+curve, with their relative error in a second panel. The measured values can be
+a 1-D array over the parameter, such as the frequencies from
+[`trace_branch`](/struphy-plots/guides/analysis/#tracing-a-branch) over `k` or
+growth rates over mode numbers. They can also be an `(x, y)` pair, or a dict of
+several runs or methods. The theory can be one function or a dict of several:
+
+```python
+traced = spectrum.struphy.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))
+traced.omega.struphy.plot.against_theory({"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1 + 0 * k})
+
+from struphy_plots.plotting import plot_measured_vs_theory
+plot_measured_vs_theory({"run A": rates_a, "run B": (m, rates_b)}, theory, logx=True, show_error=False)
+```
+
+The error panel compares every measured series with the first theory function.
+
+![Traced frequencies against the Bohm-Gross relation, with relative errors](../../../assets/figures/measured_vs_theory.png)
+
 ## Comparing two runs directly
 
 ```python
