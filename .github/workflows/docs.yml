@@ -1,8 +1,12 @@
-name: Deploy docs
+name: Docs
 
 on:
   push:
     branches: [devel]
+  # Pull requests build the site (and run the real-simulation tests) as a check;
+  # only pushes to devel deploy it.
+  pull_request:
+    branches: [main, devel]
   workflow_dispatch:
 
 permissions:
@@ -11,8 +15,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('docs-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -52,8 +56,8 @@ jobs:
       - name: Compile struphy kernels
         run: struphy compile -y --language fortran
 
-      - name: Install struphy-plots (with PyVista and profiling)
-        run: pip install -e ".[pyvista,profiling]"
+      - name: Install struphy-plots (with PyVista, profiling and test tools)
+        run: pip install -e ".[pyvista,profiling,dev]"
 
       # The 3-D views guide embeds interactive scenes exported with
       # plotter.trame.export_html(). trame-vtk >= 2.11.15 is needed for VTK 9.7 and
@@ -75,6 +79,12 @@ jobs:
         run: |
           sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
 
+      # The plotting layer on real struphy output: small torus, guiding-center and
+      # slab runs (tests/test_real_simulations.py, ~1 min). They need the compiled
+      # kernels, so they run here rather than in the test workflow.
+      - name: Run real-simulation tests
+        run: xvfb-run -a pytest -v --run-simulations tests/test_real_simulations.py
+
       - name: Generate example figures
         run: xvfb-run -a make figures
 
@@ -92,12 +102,14 @@ jobs:
         run: npm run build
 
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/dist
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

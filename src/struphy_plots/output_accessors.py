@@ -198,10 +198,10 @@ def _register_output_plot_property():
         from struphy.post_processing.output import Output
     except ImportError:
         return
-    if not isinstance(Output.__dict__.get("plot"), property):
-        Output.plot = property(OutputPlots)
-    if not isinstance(Output.__dict__.get("analysis"), property):
-        Output.analysis = property(OutputAnalysis)
+    # never replace an attribute struphy defines itself (e.g. a future Output.analysis method)
+    for name, accessor in (("plot", OutputPlots), ("analysis", OutputAnalysis)):
+        if name not in Output.__dict__:
+            setattr(Output, name, property(accessor))
 
 
 _register_output_plot_property()

@@ -576,6 +576,13 @@ def mode_spectrum(
     out = data
     for dim, name, period in zip(dims, names, periods):
         out = drop_periodic_endpoint(out, dim, period=period)
+        coordinate = np.asarray(out[dim], dtype=float)
+        covered = len(coordinate) * (coordinate[1] - coordinate[0]) if len(coordinate) > 1 else 0.0
+        if not np.isclose(covered, period, rtol=1e-6):
+            raise ValueError(
+                f"{dim!r} must sample one full period ({period}) uniformly to give integer mode "
+                f"numbers; its {len(coordinate)} points cover {covered:.6g}"
+            )
         out = fft(out, dim=dim)
         numbers = np.rint(np.asarray(out[f"k_{dim}"]) * period / (2 * np.pi)).astype(
             int
@@ -599,7 +606,8 @@ def mode_amplitudes(
 
     With ``real=True`` (a real field), each ``(m, n)`` is combined with its conjugate
     ``(-m, -n)``: only the half with the first nonzero mode number positive is kept, and its
-    amplitude doubled, so a field ``A*cos(...)`` gives ``A``. ``top`` keeps the modes with the
+    amplitude doubled, so a field ``A*cos(...)`` gives ``A``. A mode without a twin on the grid
+    (the Nyquist mode of an even grid) is kept as it is. ``top`` keeps the modes with the
     largest peak amplitude over every other dimension. Coordinates on ``mode`` give each mode's
     numbers and a label such as ``"(10, -1)"``.
     """
@@ -612,8 +620,12 @@ def mode_amplitudes(
     numbers = np.array([stacked.indexes["mode"].get_level_values(n) for n in names]).T
     if real:
         first = np.array([next((v for v in row if v != 0), 0) for row in numbers])
-        keep = first >= 0
-        factor = np.where(first > 0, 2.0, 1.0)
+        present = {tuple(row) for row in numbers}
+        paired = np.array([tuple(-row) in present and first_ != 0 for row, first_ in zip(numbers, first)])
+        # keep one of each conjugate pair, doubled; a mode without a twin on the grid (zero, or
+        # the Nyquist mode of an even grid) already carries its full amplitude
+        keep = (first > 0) | ~paired
+        factor = np.where(paired & (first > 0), 2.0, 1.0)
         stacked = stacked.isel(mode=np.flatnonzero(keep)) * xr.DataArray(
             factor[keep], dims="mode"
         )
@@ -744,8 +756,9 @@ def matrix_pencil(
     can still give the frequency, together with the growth (``gamma > 0``) or damping rate.
 
     ``data`` is a ``(t,)`` series. For a real signal, ``n_modes`` counts real oscillations
-    (each a conjugate pair); non-oscillating components count as one. Returns a Dataset along
-    ``mode``, strongest first: ``omega`` (>= 0 for real input), ``gamma``, the real
+    (each a conjugate pair), and one extra real exponential is fitted to absorb an offset or
+    slow trend; oscillations are returned first, then a non-oscillating component if there are
+    fewer than ``n_modes`` oscillations. Returns a Dataset along ``mode``, strongest first: ``omega`` (>= 0 for real input), ``gamma``, the real
     ``amplitude`` (``2|a|`` for a conjugate pair) and ``phase`` at ``t0``, with the relative
     rms ``residual`` of the reconstruction in ``attrs``. ``pencil`` (default ``N // 2``) trades
     noise robustness against resolution; the fit needs well over ``2 * n_modes`` samples.
@@ -758,7 +771,8 @@ def matrix_pencil(
     if detrend:
         values = values - values.mean()
     n = len(values)
-    order = 2 * n_modes if is_real else n_modes
+    # for a real signal, one extra real exponential absorbs an offset or a slow trend
+    order = 2 * n_modes + 1 if is_real else n_modes
     pencil = n // 2 if pencil is None else int(pencil)
     if not order <= pencil <= n - order or n < 2 * order + 1:
         raise ValueError(
@@ -791,7 +805,10 @@ def matrix_pencil(
             x[selected] for x in (omega, gamma, amplitude, phase)
         )
         omega = np.abs(omega)
-    ranking = np.argsort(amplitude)[::-1][:n_modes]
+        # oscillations first (strongest first), then non-oscillating components
+        ranking = np.lexsort((-amplitude, omega <= tolerance))[:n_modes]
+    else:
+        ranking = np.argsort(amplitude)[::-1][:n_modes]
     units = data.t.attrs.get("units", "")
     rate_units = f"1 / {units}" if units else ""
     out = xr.Dataset(

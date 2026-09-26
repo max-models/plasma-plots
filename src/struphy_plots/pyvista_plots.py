@@ -121,16 +121,69 @@ def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     )
 
 
+def _periodicity(points: np.ndarray, axis: int) -> str | None:
+    """How a direction of a ``(n1, n2, n3, 3)`` point array wraps around, if it does:
+    ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of the
+    seam, as on cell centers), or ``None`` (not periodic, e.g. a radius or a torus sector)."""
+    n = points.shape[axis]
+    if n < 3:
+        return None
+    take = lambda i: np.take(points, i, axis=axis)  # noqa: E731
+    seam = np.linalg.norm(take(-1) - take(0), axis=-1)
+    step = np.linalg.norm(take(-1) - take(-2), axis=-1)
+    scale = np.median(step)
+    if scale <= 0:
+        return None
+    if np.all(seam < 1e-9 * scale):
+        return "closed"
+    if np.all(seam <= 1.5 * np.maximum(step, 1e-12 * scale)):
+        return "open"
+    return None
+
+
+def _derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None) -> np.ndarray:
+    """d values / d coordinate: central differences that wrap around a periodic direction on a
+    uniform grid, else numpy's second-order differences (one-sided at the ends)."""
+    spacing = np.diff(coordinate)
+    uniform = len(spacing) > 0 and np.allclose(spacing, spacing[0])
+    if kind is None or not uniform:
+        return np.gradient(values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1)
+    unique = np.take(values, range(values.shape[axis] - 1), axis=axis) if kind == "closed" else values
+    central = (np.roll(unique, -1, axis=axis) - np.roll(unique, 1, axis=axis)) / (2 * spacing[0])
+    if kind == "closed":
+        central = np.concatenate([central, np.take(central, [0], axis=axis)], axis=axis)
+    return central
+
+
+def close_periodic(data: xr.DataArray) -> xr.DataArray:
+    """``data`` with the first slice repeated at the end of every direction that wraps around.
+
+    Struphy evaluates fields at cell centers, which leave out the seam of a periodic direction
+    (e.g. the poloidal angle), so a surface drawn through the points has a gap there. A
+    direction counts as periodic when its last slice lies about one grid step from its first
+    one in physical space; a radial direction, or the ends of a torus sector, do not.
+    """
+    points = np.stack(_points(data), axis=-1)
+    for axis, dim in enumerate(SPATIAL):
+        if _periodicity(points, axis) == "open":
+            first = data.isel({dim: [0]})
+            end = float(data[dim][-1]) + float(data[dim][1] - data[dim][0])
+            data = xr.concat([data, first.assign_coords({dim: [end]})], dim=dim, coords="minimal", compat="override")
+            points = np.stack(_points(data), axis=-1)
+    return data
+
+
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
     """A ``pyvista.StructuredGrid`` of a selected ``(e1, e2, e3)`` field on its physical points.
 
     A scalar field becomes point data ``name`` (default: the field's label); a vector field with
     a ``component`` dimension of three Cartesian components becomes point vectors ``name``, plus
-    their magnitude as ``"|name|"``. The grid is useful directly for any PyVista filter.
+    their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`close_periodic`.
+    The grid is useful directly for any PyVista filter.
     """
     pv = _pv()
     vector = "component" in data.dims
-    data = _spatial(data, extra=("component",) if vector else ())
+    data = close_periodic(_spatial(data, extra=("component",) if vector else ()))
     grid = pv.StructuredGrid(*_points(data))
     name = name or _label(data)
     if vector:
@@ -166,8 +219,9 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
         raise ValueError(f"pushing forward needs at least two points along {short}")
     points = _points(data)
     axes = [np.asarray(data[dim], dtype=float) for dim in SPATIAL]
+    kinds = [_periodicity(np.stack(points, axis=-1), axis) for axis in range(3)]
     jacobian = np.array(  # jacobian[a, i] = dX_a / de_i
-        [[np.gradient(points[a], axes[i], axis=i) for i in range(3)] for a in range(3)]
+        [[_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)] for a in range(3)]
     )
     cartesian = np.einsum("ai...,i...->a...", jacobian, np.asarray(data))
     out = data.copy(data=cartesian)
@@ -471,38 +525,42 @@ def pyvista_streamlines(
 ):
     """Field lines of a selected vector field, e.g. magnetic field lines, colored by magnitude.
 
-    Lines are traced in both directions from ``n_points`` seeds in a sphere of ``source_radius``
-    (default: a quarter of the domain size) around ``source_center`` (default: the domain
-    center). For a 2-D field the seeds are ``n_points`` grid points spread over the plane
-    instead, and the lines stay on it (the out-of-plane component is ignored). See
+    Lines are traced in both directions from ``n_points`` seeds: by default grid points drawn
+    at random (reproducibly) across the domain, or, given ``source_center`` and/or
+    ``source_radius``, points in that sphere (radius default: a quarter of the domain size;
+    center default: the bounding-box center, which can lie outside a curved domain). For a 2-D
+    field the lines stay on the plane (the out-of-plane component is ignored). See
     :func:`pyvista_glyphs` for ``components``.
     """
     pv = _pv()
     name = _label(data)
     grid = _vector_grid(data, components, name)
     max_length = 4 * grid.length if max_length is None else max_length
-    if is_flat(grid):
-        # Seeding in a sphere would miss a plane; seed on the grid itself instead.
-        seeds = np.linspace(0, grid.n_points - 1, min(n_points, grid.n_points)).astype(
-            int
-        )
+    # Field lines depend only on the direction: trace the unit field, which keeps VTK's
+    # adaptive integrator independent of the field's magnitude (Struphy perturbations are often
+    # ~1e-5), with small steps for thin curved cells; lines are colored by the real magnitude.
+    vectors = np.asarray(grid[name])
+    norm = np.linalg.norm(vectors, axis=1, keepdims=True)
+    grid["_direction"] = np.divide(vectors, norm, out=np.zeros_like(vectors), where=norm > 0)
+    tracing = dict(
+        vectors="_direction", max_length=max_length, integration_direction="both",
+        surface_streamlines=is_flat(grid), step_unit="cl", initial_step_length=0.1,
+        max_steps=4000,
+    )
+    if source_center is None and source_radius is None:
+        # Seed at grid points: a sphere around the bounding-box centre can lie outside a
+        # curved domain (e.g. a torus sector), and would miss a 2-D plane entirely.
+        rng = np.random.default_rng(0)
+        seeds = rng.choice(grid.n_points, size=min(n_points, grid.n_points), replace=False)
         lines = grid.streamlines_from_source(
-            pv.PolyData(np.asarray(grid.points)[seeds]),
-            vectors=name,
-            max_length=max_length,
-            integration_direction="both",
-            surface_streamlines=True,
+            pv.PolyData(np.asarray(grid.points)[np.sort(seeds)]), **tracing
         )
     else:
         lines = grid.streamlines(
-            vectors=name,
             n_points=n_points,
-            source_radius=(
-                0.25 * grid.length if source_radius is None else source_radius
-            ),
+            source_radius=0.25 * grid.length if source_radius is None else source_radius,
             source_center=grid.center if source_center is None else source_center,
-            max_length=max_length,
-            integration_direction="both",
+            **tracing,
         )
     own = plotter is None
     plotter = _plotter(plotter)

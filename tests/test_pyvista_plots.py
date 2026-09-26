@@ -79,13 +79,22 @@ def test_a_selected_away_spatial_dimension_comes_back_flat():
 def test_push_forward_recovers_cartesian_components():
     coords = torus_coords(n1=20, n2=40, n3=48)
     X, Y, Z = (coords[n][1] for n in "XYZ")
+    E1, E2, E3 = np.meshgrid(coords["e1"], coords["e2"], coords["e3"], indexing="ij")
+    r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, 2 * np.pi * E3
+    R = 3.0 + r * np.cos(theta)
+    # the analytic Jacobian dX_a/de_i of torus_coords' mapping
+    jac = np.array([
+        [0.8 * np.cos(theta) * np.cos(phi), -2 * np.pi * r * np.sin(theta) * np.cos(phi), -2 * np.pi * R * np.sin(phi)],
+        [0.8 * np.cos(theta) * np.sin(phi), -2 * np.pi * r * np.sin(theta) * np.sin(phi), 2 * np.pi * R * np.cos(phi)],
+        [0.8 * np.sin(theta), 2 * np.pi * r * np.cos(theta), 0 * E1],
+    ])
     cartesian = np.stack([-Y, X, 0 * X])  # a toroidal field
-    axes = [coords[d] for d in ("e1", "e2", "e3")]
-    jac = np.array([[np.gradient(c, axes[i], axis=i) for i in range(3)] for c in (X, Y, Z)])
     inverse = np.linalg.inv(np.moveaxis(jac, (0, 1), (-2, -1)))
     contravariant = np.einsum("...ia,a...->i...", inverse, cartesian)
     field = vortex(coords).copy(data=contravariant)
-    np.testing.assert_allclose(p3.push_forward(field).values, cartesian, atol=1e-10)
+    pushed = p3.push_forward(field).values
+    # second-order finite differences, including at the edges
+    assert np.abs(pushed - cartesian).max() / np.abs(cartesian).max() < 5e-3
     with pytest.raises(ValueError, match="two points"):
         p3.push_forward(vortex(plane_coords()))
 

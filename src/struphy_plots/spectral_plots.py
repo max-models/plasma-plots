@@ -74,7 +74,8 @@ def plot_power_spectrum(
     if isinstance(data, xr.Dataset):
         power = data["power"]
     elif "omega" in data.dims:
-        power = data
+        # complex coefficients (e.g. a two-sided fft) are shown as their power
+        power = abs(data) ** 2 if np.iscomplexobj(data.values) else data
     else:
         power = spectral.time_fft(data, detrend=detrend, window=window).power
     others = [d for d in power.dims if d not in ("omega", "component")]
