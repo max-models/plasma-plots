@@ -37,6 +37,32 @@ class StruphyAccessor:
         return ArrayAnalysis(self._array)
 
 
+@xr.register_dataset_accessor("struphy")
+class StruphyDatasetAccessor:
+    """Struphy diagnostics of one dataset, e.g. an ``orbits`` product: ``dataset.struphy.plot``."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    @property
+    def plot(self) -> "DatasetPlots":
+        """Plots of this dataset, e.g. ``orbits.struphy.plot.trajectories()``."""
+        return DatasetPlots(self._dataset)
+
+
+class DatasetPlots:
+    """Plots of one dataset, as ``dataset.struphy.plot.<kind>(...)``."""
+
+    def __init__(self, dataset: xr.Dataset):
+        self._dataset = dataset
+
+    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
+        """Three-dimensional paths of saved markers, for an ``orbits`` product."""
+        from .plotting import plot_marker_trajectories
+
+        return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
+
+
 class _ArrayAccessor:
     def __init__(self, array: xr.DataArray):
         self._array = array
@@ -487,10 +513,10 @@ class ArrayAnalysis(_ArrayAccessor):
         :func:`struphy.post_processing.spectral.compute_dispersion` for ``slice_at`` and fit options.
         Returns an xarray Dataset with ``power(omega, k)``.
         """
-        from struphy.post_processing.spectral import compute_dispersion
-
         if self._array.t.attrs.get("units") == "s":
             raise ValueError(
                 "the spectrum needs normalized time; take the field from out.with_time_units('normalized')"
             )
+        from struphy.post_processing.spectral import compute_dispersion
+
         return compute_dispersion(self._array, component=component, slice_at=slice_at, physical=physical, **kwargs)

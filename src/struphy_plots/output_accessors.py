@@ -27,6 +27,10 @@ class OutputPlots:
     def __init__(self, output: "Output"):
         self._output = output
 
+    def __call__(self, *args, **kwargs):
+        """The quick default plot: an overview of every scalar time series."""
+        return self.scalars(*args, **kwargs)
+
     def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
         """Overview of the scalar time series in one axes.
 
@@ -56,3 +60,20 @@ class OutputPlots:
         from .plotting import show_equilibrium
 
         return show_equilibrium(self._output.path_out, scalars=scalars, cmap=cmap)
+
+
+def _register_output_plot_property():
+    """Wire ``out.plot`` to :class:`OutputPlots`, if struphy is installed.
+
+    Guarded so importing ``struphy_plots`` stays optional: the array-level accessor works on any
+    labeled ``xarray`` object without struphy installed at all.
+    """
+    try:
+        from struphy.post_processing.output import Output
+    except ImportError:
+        return
+    if not isinstance(Output.__dict__.get("plot"), property):
+        Output.plot = property(OutputPlots)
+
+
+_register_output_plot_property()
