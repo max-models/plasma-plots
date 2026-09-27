@@ -3162,9 +3162,84 @@ class ArrayAnalysis(_ArrayAccessor):
         return drop_periodic_endpoint(self._array, dim, period=period)
 
 
+class ArrayPlotly(_ArrayAccessor):
+    """Interactive Plotly figures of one array, as ``array.struphy.plotly.<kind>(...)``.
+
+    Each method returns a ``plotly.graph_objects.Figure``; call ``.show()`` on it. They need
+    Plotly (``pip install "struphy-plots[plotly]"``).
+    """
+
+    def space_time(
+        self,
+        *,
+        space: str | None = None,
+        title: str | None = None,
+        colorbar_title: str | None = None,
+        colorscale: str = "RdBu",
+    ):
+        """Draw this ``(t, space)`` field as a space-time map: space along x, time up.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            The heatmap.
+
+        See Also
+        --------
+        struphy_plots.plotly_plots.space_time : The function behind this method.
+
+        Examples
+        --------
+        >>> e_x.struphy.plotly.space_time(title="E_x(z, t)").show()
+        """
+        from .plotly_plots import space_time
+
+        return space_time(self._array, space=space, title=title, colorbar_title=colorbar_title, colorscale=colorscale)
+
+    def dispersion(
+        self,
+        *,
+        branches=None,
+        fits=(),
+        dynamic_range: float = 15.0,
+        kmax: float | None = None,
+        omega_max: float | None = None,
+        title: str | None = None,
+        colorscale: str = "Plasma",
+    ):
+        """Draw this ``(omega, k)`` power spectrum as a dispersion relation, for ``omega, k >= 0``.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            The heatmap with its overlays.
+
+        See Also
+        --------
+        struphy_plots.plotly_plots.dispersion : The function behind this method.
+
+        Examples
+        --------
+        >>> spectrum = power_spectrum(e_x, dim="z")
+        >>> spectrum.struphy.plotly.dispersion(branches={"light wave": lambda k: k}).show()
+        """
+        from .plotly_plots import dispersion
+
+        return dispersion(
+            self._array,
+            branches=branches,
+            fits=fits,
+            dynamic_range=dynamic_range,
+            kmax=kmax,
+            omega_max=omega_max,
+            title=title,
+            colorscale=colorscale,
+        )
+
+
 @xr.register_dataarray_accessor("struphy")
 class StruphyAccessor:
-    """Struphy diagnostics of one array: ``array.struphy.plot``, ``.analysis`` and ``.data``.
+    """Struphy diagnostics of one array: ``array.struphy.plot``, ``.plotly``, ``.analysis`` and ``.data``.
 
     Registered on every ``xarray.DataArray`` when ``struphy_plots`` is imported.
 
@@ -3181,6 +3256,11 @@ class StruphyAccessor:
     def plot(self) -> "ArrayPlots":
         """Plots of this array, e.g. ``array.struphy.plot.slice(x="eta1", y="v1", t=-1)``."""
         return ArrayPlots(self._array)
+
+    @property
+    def plotly(self) -> "ArrayPlotly":
+        """Interactive Plotly figures of this array, e.g. ``array.struphy.plotly.space_time()``."""
+        return ArrayPlotly(self._array)
 
     @property
     def analysis(self) -> "ArrayAnalysis":
@@ -4093,6 +4173,7 @@ def _complete_docstrings():
         ArrayPlots,
         ArrayAnalysis,
         ArrayData,
+        ArrayPlotly,
         SliceView,
         DatasetPlots,
         DatasetAnalysis,
