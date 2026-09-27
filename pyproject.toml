@@ -22,6 +22,9 @@ classifiers = [
 [project.optional-dependencies]
 pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]
+# the output helpers of the struphy-hub example gallery (struphy_plots.gallery): Plotly figures,
+# their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
+gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]
 dev = ["pytest", "ruff", "h5py", "griffe"]
 
 [project.urls]
