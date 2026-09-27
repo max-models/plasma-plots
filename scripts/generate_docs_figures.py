@@ -404,6 +404,26 @@ save(
     "dispersion.png",
 )
 
+# Broadband light waves, omega = |k|, both ways along z: a straight branch, fitted without theory
+rng_light = np.random.default_rng(0)
+t_light, z_light = np.arange(400) * 0.05, np.linspace(0.0, 20.0, 128, endpoint=False)
+T_light, Z_light = np.meshgrid(t_light, z_light, indexing="ij")
+light_values = np.zeros_like(T_light)
+for n_light in range(1, 40):
+    k_light = 2 * np.pi * n_light / 20
+    for sign in (1, -1):
+        light_values += rng_light.normal() * np.cos(k_light * Z_light + sign * k_light * T_light
+                                                    + rng_light.uniform(0, 2 * np.pi))
+e_x = xr.DataArray(light_values, dims=("t", "z"), coords={"t": t_light, "z": z_light}, name="E_x",
+                   attrs={"label": "$E_x$"})
+light_spectrum = e_x.struphy.analysis.dispersion(dim="z")
+light_fits = light_spectrum.struphy.analysis.fit_branches(n_branches=1)
+save(
+    light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
+                                           dynamic_range=12, omega_max=25),
+    "dispersion_fits.png",
+)
+
 
 # =============================================================================
 # A Plotly figure built by hand from .struphy.data (the Selecting data guide; needs
@@ -1437,6 +1457,8 @@ try:
                 "plotly_overlay_orbits")
     save_plotly(dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12,
                                                          backend="plotly"), "plotly_dispersion")
+    save_plotly(light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
+                                                       dynamic_range=12, omega_max=25, backend="plotly"), "plotly_dispersion_fits")
     # the Plotly guide
     save_plotly(ring.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"),
                 "plotly_ring_slice")

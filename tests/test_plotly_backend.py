@@ -296,3 +296,41 @@ def test_frames_store_what_changes_and_the_figure_what_they_share():
     markers = orbits().struphy.plot.animation(x="eta1", y="eta2", step=10, backend="plotly").fig
     positions = [np.asarray(frame.data[0].x) for frame in markers.frames]
     assert len(positions) == 3 and not np.allclose(positions[0], positions[1])
+
+
+def light_waves():
+    """Broadband light waves, omega = |k|, in both directions along z."""
+    rng = np.random.default_rng(0)
+    t = np.arange(400) * 0.05
+    z = np.linspace(0.0, 20.0, 128, endpoint=False)
+    T, Z = np.meshgrid(t, z, indexing="ij")
+    values = np.zeros_like(T)
+    for n in range(1, 40):
+        k = 2 * np.pi * n / 20
+        for sign in (1, -1):
+            values += rng.normal() * np.cos(k * Z + sign * k * T + rng.uniform(0, 2 * np.pi))
+    return xr.DataArray(values, dims=("t", "z"), coords={"t": t, "z": z}, name="E_x")
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
+def test_a_spectrum_plots_its_positive_quadrant_with_branches_and_fits(backend):
+    spectrum = light_waves().struphy.analysis.dispersion(dim="z")
+    fits = spectrum.struphy.analysis.fit_branches(n_branches=1)
+    assert abs(fits[0].velocity - 1) < 0.02
+    result = spectrum.struphy.plot.dispersion(kmin=0, branches={"light": lambda k: k}, fits=fits,
+                                              dynamic_range=12, backend=backend)
+    direct = light_waves().struphy.plot.dispersion(dim="z", kmin=0, dynamic_range=12, backend=backend)
+    if backend == "matplotlib":
+        mesh, light, fit = result.artists
+        assert np.min(mesh.get_coordinates()[..., 0]) >= -np.diff(spectrum.k.values)[0]  # k >= 0 cells only
+        np.testing.assert_allclose(mesh.get_array(), direct.artists[0].get_array())  # a spectrum, or its field
+        assert fit.get_label().startswith("fit, v = ") and fit.get_linestyle() == ":"
+        return
+    heatmap, light, fit = result.fig.data
+    np.testing.assert_allclose(np.asarray(heatmap.z), np.asarray(direct.fig.data[0].z))
+    centers = 0.5 * (np.asarray(heatmap.x)[1:] + np.asarray(heatmap.x)[:-1])
+    assert centers.min() >= 0 and np.asarray(heatmap.y).min() >= -np.diff(spectrum.omega.values)[0]
+    axis = result.fig.layout[heatmap.coloraxis]
+    assert axis.cmax - axis.cmin == pytest.approx(12)
+    np.testing.assert_allclose(light.y, light.x)
+    assert fit.name.startswith("fit, v = ")

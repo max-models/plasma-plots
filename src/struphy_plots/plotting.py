@@ -2412,6 +2412,7 @@ def plot_dispersion(
     branches: dict | None = None,
     log: bool = True,
     dynamic_range: float = 6.0,
+    kmin: float | None = None,
     kmax: float | None = None,
     omega_max: float | None = None,
     vmin: float | None = None,
@@ -2421,10 +2422,12 @@ def plot_dispersion(
     title: str | None = None,
     frequencies: dict | None = None,
     points: dict | None = None,
+    fits=(),
 ):
     """The space-time power spectrum of a ``(t, dim)`` field, as a dispersion-relation plot.
 
-    Shows only non-negative frequencies (a real signal's spectrum is symmetric under
+    The spectrum may also be given directly, e.g. from :func:`~struphy_plots.analysis.power_spectrum`
+    (then ``dim`` and ``detrend`` are not used). Shows only non-negative frequencies (a real signal's spectrum is symmetric under
     ``(k, ω) → (-k, -ω)``, so every branch already appears on both sides of ``k = 0``).
 
     A dispersion relation's power spans many orders of magnitude (the ridge against a mostly-empty
@@ -2435,7 +2438,8 @@ def plot_dispersion(
     Parameters
     ----------
     data : xarray.DataArray
-        The field, with the dimensions ``t`` and ``dim`` (select the rest first).
+        The field, with the dimensions ``t`` and ``dim`` (select the rest first), or its power
+        spectrum, with the dimensions ``omega`` and ``k``.
     dim : str, optional
         The spatial dimension to transform. Default: the one besides ``t`` (see
         :func:`struphy_plots.analysis.power_spectrum`).
@@ -2454,6 +2458,8 @@ def plot_dispersion(
     dynamic_range : float, optional
         With ``log``, the number of decades below the peak that the default color limits cover.
         Default: ``6.0``.
+    kmin : float, optional
+        Show only ``k >= kmin``, e.g. ``0`` for the positive quadrant. Default: all ``k``.
     kmax : float, optional
         Show only ``|k| <= kmax``. Default: all ``k``.
     omega_max : float, optional
@@ -2475,6 +2481,9 @@ def plot_dispersion(
         Measured points to mark: a dict of labels to a ``(k, omega)`` pair or a
         :func:`~struphy_plots.spectral.trace_branch` result (an ``xarray.Dataset`` with ``k`` and
         ``omega``).
+    fits : sequence of BranchFit, optional
+        Fitted straight branches from :func:`~struphy_plots.analysis.fit_dispersion_branches`,
+        drawn dotted as ``omega = velocity * k`` over the shown ``k >= 0``. Default: none.
 
     Returns
     -------
@@ -2484,13 +2493,15 @@ def plot_dispersion(
     See Also
     --------
     struphy_plots.analysis.power_spectrum : The spectrum, without plotting.
+    struphy_plots.analysis.fit_dispersion_branches : Straight branches fitted to it, for ``fits``.
     plot_continuous_spectrum : Continuum frequencies to compare a measured frequency with.
 
     Examples
     --------
     >>> plot_dispersion(e_field.isel(eta2=0, eta3=0), branches={"Langmuir": lambda k: np.sqrt(1 + 3 * k**2)})
     """
-    spectrum = power_spectrum(data, dim=dim, detrend=detrend)
+    given = {"omega", "k"} <= set(data.dims)
+    spectrum = data.transpose("omega", "k") if given else power_spectrum(data, dim=dim, detrend=detrend)
     values = np.asarray(spectrum)
     if log:
         values = np.log10(values + np.finfo(float).tiny)
@@ -2503,6 +2514,8 @@ def plot_dispersion(
     if omega_max is not None:
         omega_mask &= omega <= omega_max
     k_mask = np.abs(k) <= kmax if kmax is not None else np.ones_like(k, dtype=bool)
+    if kmin is not None:
+        k_mask &= k >= kmin
 
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     mesh = ax.pcolormesh(
@@ -2523,18 +2536,23 @@ def plot_dispersion(
             artists.append(line)
         ax.set_xlim(*limits[0])  # theory curves beyond the spectrum do not widen the axes
         ax.set_ylim(*limits[1])
+    if len(fits):
+        limits = ax.get_xlim(), ax.get_ylim()
+        shown = k[k_mask]
+        k_line = np.linspace(max(float(shown.min()), 0.0), float(shown.max()), 200)
+        for fit in fits:
+            artists += ax.plot(k_line, fit.velocity * k_line, ":", lw=2, label=f"fit, v = {fit.velocity:.4g}")
+        ax.set_xlim(*limits[0])
+        ax.set_ylim(*limits[1])
     for i, (label, omega_value) in enumerate((frequencies or {}).items()):
         artists.append(ax.axhline(omega_value, color="w", lw=1, ls=(0, (1, 2 + i)), label=label))
     for label, point in (points or {}).items():
         k_points, omega_points = (point.k, point.omega) if isinstance(point, xr.Dataset) else point
         artists.append(ax.plot(k_points, omega_points, "o", ms=4, mfc="none", mew=1.2, label=label)[0])
-    if branches is not None or frequencies or points:
+    if branches is not None or frequencies or points or len(fits):
         ax.legend(fontsize="small")
-    ax.set(
-        xlabel="k",
-        ylabel=r"$\omega$",
-        title=title if title is not None else f"Dispersion relation of {_label(data)}",
-    )
+    default_title = (_label(data) or "Dispersion relation") if given else f"Dispersion relation of {_label(data)}"
+    ax.set(xlabel="k", ylabel=r"$\omega$", title=title if title is not None else default_title)
     return PlotResult(fig, ax, artists)
 
 

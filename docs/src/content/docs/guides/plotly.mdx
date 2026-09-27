@@ -43,6 +43,11 @@ result.save("energy.png")      # through kaleido; also .svg, .pdf
 result.save("energy.json")     # the figure JSON, e.g. for a website
 ```
 
+Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
+that saves its figures runs unchanged on several ranks. A space-time map of a `(t, z)` field is
+a slice with time as one of its axes:
+`e_x.struphy.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
+
 <PlotlyChart src="/plotly/plotly_timeseries.json" />
 
 ## For every plot at once

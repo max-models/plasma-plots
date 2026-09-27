@@ -304,3 +304,34 @@ Dataset or DataArray from `trace_branch` or as a pair of arrays.
 To compare the traced frequencies with the theory, and see their errors, use
 [`against_theory`](/struphy-plots/guides/timeseries/#measured-against-theory):
 `traced.omega.struphy.plot.against_theory(bohm_gross)`.
+
+### Fitting straight branches
+
+Without a theory to guide the search, `fit_branches()` fits `omega = v k` to
+each of several straight ridges, e.g. light waves or sound waves excited at once.
+`.plot.dispersion` takes the spectrum itself as well as the field, draws the fits
+dotted with `fits=`, and `kmin=0` keeps the positive quadrant, where the fits
+were made:
+
+```python
+spectrum = e_x.struphy.analysis.dispersion(dim="z")
+fits = spectrum.struphy.analysis.fit_branches(n_branches=1)
+fits[0].velocity                       # ≈ 1, the speed of light
+spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=fits, dynamic_range=12, omega_max=25)
+```
+
+![Broadband light waves, with the theoretical and the fitted branch](../../../assets/figures/dispersion_fits.png)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+
+```python
+spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=fits, dynamic_range=12, omega_max=25, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_dispersion_fits.json" />
+
+</details>
