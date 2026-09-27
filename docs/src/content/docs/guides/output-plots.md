@@ -3,19 +3,19 @@ title: Whole-run plots
 description: Scalar overviews and equilibrium plots for an entire Struphy run.
 ---
 
-:::note[Examples need `import struphy_plots`]
-Every example on this page assumes `import struphy_plots` has run once in
-the session; it registers the `.struphy` accessors (see
-[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::note[Where the accessors come from]
+The examples on this page use output of a Struphy `Output`, which loads
+struphy-plots and its `.struphy` accessors. For other xarray data, run
+`import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
 :::
 
 `OutputPlots`, from `struphy_plots.output_accessors`, works on a Struphy
 `Output` object rather than a single array, and gives you overview plots for
-a whole run. Importing `struphy_plots` also wires it up as `out.plot`, so
+a whole run. Struphy's `Output` has it as `out.plot`, so
 `out.plot()` is a quick default (the scalar overview).
 
 ```python
-import struphy_plots  # registers out.plot, out.analysis and .struphy
 from struphy.post_processing.output import Output
 
 out = Output("path/to/run")

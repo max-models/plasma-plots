@@ -7,9 +7,9 @@ struphy-plots adds accessors to the objects Struphy returns; you rarely call a f
   from ``out.evaluate("em_fields/phi")``.
 * ``dataset.struphy.plot``, ``.analysis`` and ``.data`` on marker Datasets such as orbits.
 
-Recent Struphy versions load struphy-plots when an ``Output`` is created. Otherwise (and for plain
-xarray data) ``import struphy_plots`` first; without it, ``.struphy`` raises
-``AttributeError: 'DataArray' object has no attribute 'struphy'``. Importing it again is harmless.
+Creating a Struphy ``Output`` loads struphy-plots, so its output needs no import. For xarray data
+from elsewhere, ``import struphy_plots`` first; without it, ``.struphy`` raises
+``AttributeError: 'DataArray' object has no attribute 'struphy'``.
 
 Printing an accessor lists its methods (``print(phi.struphy.plot)``), and ``help()`` on a method
 shows every parameter (``help(phi.struphy.plot.slice)``). ``python -m struphy_plots`` prints this

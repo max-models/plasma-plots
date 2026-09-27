@@ -215,7 +215,7 @@ def menu(accessor) -> str:
         example = name + example[example.index("."):]  # the array's own name, e.g. b_field.struphy.plot
     first = next((n for n, _ in rows if n != "()"), None)
     if not page:  # array.struphy / dataset.struphy: the sub-accessors
-        lines.append(f"{example}.plot, .analysis and .data list their methods; help(struphy_plots) gives an overview.")
+        lines.append(f"{example}.plot, .analysis and .data list their methods; python -m struphy_plots prints an overview.")
     elif first:
         lines.append(f"help({example}.{first}) shows the parameters; reference: {REFERENCE}/{page}/")
     return "\n".join(lines)
