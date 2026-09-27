@@ -124,34 +124,6 @@ def test_hall_mhd_parallel_limits():
     np.testing.assert_allclose(w["whistler"] - w["ion cyclotron"], kk**2 * va * d)
 
 
-@pytest.mark.parametrize("theta", [0.0, 0.4, 1.1, np.pi / 2])
-def test_hall_mhd_waves_against_linear_system(theta):
-    k, va, cs, d = 2.3, 1.0, 0.7, 0.5
-    expected = _ideal_mhd_frequencies(k, theta, va, cs, d)
-    w = waves.hall_mhd_waves(k, theta, va, cs, d)
-    got = np.array([w[name].real for name in ("slow", "intermediate", "fast")])
-    got = got[got > 1e-9]
-    np.testing.assert_allclose(got, expected, rtol=1e-8)
-
-
-def test_hall_mhd_waves_limits():
-    k, theta = np.linspace(0.1, 5, 20), 0.7
-    ideal = waves.mhd_waves(k, theta, 1.0, 0.6)
-    hall = waves.hall_mhd_waves(k, theta, 1.0, 0.6, ion_inertial_length=0.0)
-    for name, ideal_name in (("slow", "slow"), ("intermediate", "shear Alfvén"), ("fast", "fast")):
-        np.testing.assert_allclose(hall[name], ideal[ideal_name], rtol=1e-9)
-    parallel = waves.hall_mhd_waves(k, 0.0, 1.0, 0.6, 0.5)
-    expected = waves.hall_mhd_parallel(k, 1.0, 0.5)
-    sound = 0.6 * k
-    got = np.sort(np.stack([parallel[n].real for n in parallel]), axis=0)
-    want = np.sort(np.stack([expected["whistler"].real, expected["ion cyclotron"].real, sound]), axis=0)
-    np.testing.assert_allclose(got, want, rtol=1e-8)
-
-
-# ----------------------------------------------------------------------------------------------
-# cold plasma
-
-
 def _determinant(n2, theta, s):
     """Stix's determinant, and a scale of its terms to measure it against."""
     matrix = _dispersion_matrix(n2, theta, s)
@@ -459,7 +431,7 @@ def test_alfven_and_slow_continua():
     np.testing.assert_allclose(waves.parallel_wavenumber(r, 3, -2, q, R0), (-2 + 3 / q) / R0)
 
 
-def test_tae_gap():
+def test_tae_frequency_and_the_crossing_of_continua():
     m, n, R0, va = 1, -1, 3.0, 1.0
     r = np.linspace(0.01, 1, 20001)
 
@@ -468,35 +440,10 @@ def test_tae_gap():
 
     center = waves.tae_frequency(1.5, R0, va)
     assert center == pytest.approx(va / (2 * 1.5 * R0))
-    # no coupling: the two cylindrical continua
-    uncoupled = waves.toroidal_alfven_continuum(r, m, n, q, R0, va, coupling=0.0)
-    a1, a2 = waves.alfven_continuum(r, m, n, q, R0, va), waves.alfven_continuum(r, m + 1, n, q, R0, va)
-    np.testing.assert_allclose(uncoupled["lower"], np.minimum(a1.real, a2.real), atol=1e-14)
-    np.testing.assert_allclose(uncoupled["upper"], np.maximum(a1.real, a2.real), atol=1e-14)
-    widths = []
-    for eps in (0.05, 0.1, 0.2, 0.3):
-        w = waves.toroidal_alfven_continuum(r, m, n, q, R0, va, coupling=eps)
-        top, bottom = np.max(w["lower"].real), np.min(w["upper"].real)
-        # the gap is at q = (m + ½)/|n| = 1.5, where the frequencies are ω_TAE/√(1 ± ε)
-        at_gap = waves.toroidal_alfven_continuum(0.5, m, n, q, R0, va, coupling=eps)
-        assert at_gap["lower"].real == pytest.approx(center / np.sqrt(1 + eps), rel=1e-12)
-        assert at_gap["upper"].real == pytest.approx(center / np.sqrt(1 - eps), rel=1e-12)
-        # the extrema of the branches lie within O(ε) of it (ω_TAE ∝ 1/q varies across the gap)
-        assert r[np.argmax(w["lower"].real)] == pytest.approx(0.5, abs=0.15 * eps)
-        assert r[np.argmin(w["upper"].real)] == pytest.approx(0.5, abs=0.15 * eps)
-        assert top == pytest.approx(center / np.sqrt(1 + eps), rel=0.01)
-        assert bottom == pytest.approx(center / np.sqrt(1 - eps), rel=0.01)
-        assert top < center < bottom
-        assert (bottom - top) / center == pytest.approx(eps, rel=0.1)
-        widths.append(bottom - top)
-        # each point solves the 2×2 determinant
-        x = w["lower"].real[::500] ** 2 / va**2
-        k1, k2 = (waves.parallel_wavenumber(r[::500], mm, n, q, R0) for mm in (m, m + 1))
-        np.testing.assert_allclose((x - k1**2) * (x - k2**2), eps**2 * x**2, atol=1e-12)
-    assert np.all(np.diff(widths) > 0)
-    # coupling as a profile ∝ r/R₀
-    w = waves.toroidal_alfven_continuum(r, m, n, q, R0, va, coupling=lambda x: 2.5 * x / R0)
-    at_gap = waves.toroidal_alfven_continuum(0.5, m, n, q, R0, va, coupling=lambda x: 2.5 * x / R0)
-    assert at_gap["lower"].real == pytest.approx(center / np.sqrt(1 + 2.5 * 0.5 / R0), rel=1e-12)
-    with pytest.raises(ValueError, match="coupling"):
-        waves.toroidal_alfven_continuum(r, m, n, q, coupling=1.0)
+    # the m and m + 1 continua cross at q = (m + ½)/|n| = 1.5, at the TAE frequency
+    a1, a2 = waves.alfven_continuum(r, m, n, q, R0, va).real, waves.alfven_continuum(r, m + 1, n, q, R0, va).real
+    crossing = np.argmin(np.abs(a1 - a2))
+    assert r[crossing] == pytest.approx(0.5, abs=1e-4)
+    assert a1[crossing] == pytest.approx(center, rel=1e-3)
+    # the continuum is |k∥| v_A, with k∥ = (n + m/q)/R₀
+    np.testing.assert_allclose(a1, np.abs(waves.parallel_wavenumber(r, m, n, q, R0)) * va, rtol=1e-14)

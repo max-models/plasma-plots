@@ -92,10 +92,10 @@ For other velocity distributions, describe each species as a
 | `light_wave`, `plasma_light_wave`, `cavity_modes` | Maxwell, a cavity, the O-wave cutoff |
 | `mhd_waves`, `magnetosonic_speeds` | ideal MHD at any angle |
 | `dissipative_alfven` | resistive and viscous MHD |
-| `hall_mhd_parallel`, `hall_mhd_waves` | Hall MHD: whistler and ion-cyclotron waves |
+| `hall_mhd_parallel` | Hall MHD along B: whistler and ion-cyclotron waves |
 | `stix`, `refractive_index`, `cold_plasma_waves`, `appleton_hartree`, `cutoffs`, `resonances`, `faraday_rotation` | cold plasma |
 | `drift_wave`, `hasegawa_wakatani` | drift waves |
-| `alfven_continuum`, `slow_continuum`, `tae_frequency`, `toroidal_alfven_continuum` | continuous spectra and the TAE gap |
+| `alfven_continuum`, `slow_continuum`, `tae_frequency` | continuous spectra and the TAE frequency |
 
 ```python
 waves.mhd_waves(k, theta=np.pi / 4, alfven_speed=1.0, sound_speed=0.6)     # {"shear Alfvén", "slow", "fast"}
@@ -108,13 +108,14 @@ waves.faraday_rotation(omega, length, plasma)
 ![The Friedrichs diagram of MHD phase speeds, and the cold-plasma branches at 45°](../../../assets/figures/theory_waves.png)
 
 The continua follow Struphy's `MhdContinousSpectraCylinder`:
-k∥ = (n + m/q)/R₀, so the (m, m+1) gap of a toroidal Alfvén eigenmode sits
-at q = −(m + ½)/n, e.g. q = 1.5 for m = 1, n = −1. `coupling` is the toroidal
-coupling ε of the two-mode model, of order r/R₀. The
+k∥ = (n + m/q)/R₀. The m and m + 1 continua cross at q = −(m + ½)/n, e.g.
+q = 1.5 for m = 1, n = −1, at the TAE frequency v_A/(2qR₀). In a torus the
+toroidal coupling of the two harmonics opens a gap there, where toroidal Alfvén
+eigenmodes live. The
 [continuous-spectrum plot](/struphy-plots/guides/spectral/#continuous-spectra)
-draws these as well.
+draws the continua over a measured spectrum.
 
-![Hall-MHD branches along B, and the toroidally coupled Alfvén continuum with its TAE gap](../../../assets/figures/theory_continuum.png)
+![Hall-MHD branches along B, and two Alfvén continua crossing at the TAE frequency](../../../assets/figures/theory_continuum.png)
 
 `hasegawa_wakatani` solves the standard linear Hasegawa–Wakatani equations,
 ∂(∇²φ)/∂t = α(φ − n) and ∂n/∂t = α(φ − n) − κ ∂φ/∂y, with lengths in ρ_s and
@@ -125,8 +126,8 @@ growth rates.
 
 ## Plasma parameters and Struphy's units
 
-`theory.parameters` gives the standard plasma frequencies, lengths, speeds,
-collision rates and dimensionless numbers in SI units, checked against the NRL
+`theory.parameters` gives the standard plasma frequencies, lengths, speeds and
+dimensionless numbers in SI units, checked against the NRL
 Plasma Formulary. It also gives the units Struphy normalizes with:
 
 ```python
@@ -143,8 +144,8 @@ and back.
 
 ## Particle orbits
 
-`theory.orbits` has the gyromotion, the guiding-center drifts (E×B, grad-B,
-curvature, polarization) as 3-vectors, and trapped particles in a
+`theory.orbits` has the gyromotion, the E×B and grad-B drifts as 3-vectors,
+and trapped particles in a
 large-aspect-ratio tokamak with B = B₀/(1 + ε cos θ). That covers the trapped
 fraction, the trapped–passing boundary, bounce and transit frequencies, and
 banana widths:
@@ -167,14 +168,10 @@ they work as `reference=` of the profile plots:
 | Function | Solution |
 | --- | --- |
 | `riemann_euler`, `sod_shock_tube`, `star_state` | the Euler Riemann problem, including vacuum |
-| `dam_break` | Ritter's dry-bed or Stoker's wet-bed dam break |
-| `heat_kernel`, `mean_square_displacement` | diffusion |
-| `advected`, `dalembert`, `standing_wave` | advection and waves |
+| `dam_break` | Ritter's dam break on a dry bed |
+| `heat_kernel` | diffusion (also of a magnetic field, or of momentum by viscosity) |
+| `advected`, `dalembert` | advection and waves |
 | `pressureless`, `pressureless_eulerian`, `caustic_time` | pressureless flow and its caustics (Zel'dovich) |
-| `taylor_green`, `abc_flow` | viscous vortices and Beltrami flows |
-| `cavity_field` | the electromagnetic fields of a cavity mode |
-| `damped_oscillation`, `magnetic_diffusion`, `viscous_decay` | damped and decaying modes |
-| `manufactured_poisson` | φ and ρ = −∇²φ for convergence tests |
 
 ```python
 sod = exact.sod_shock_tube(x, 0.2)                          # .density, .velocity, .pressure
@@ -189,22 +186,19 @@ exact.caustic_time(lambda q: -0.5 * np.sin(q), q)          # first shell crossin
 `theory.numerics` tells what errors the numerics themselves produce, so a
 measured drift or frequency error can be judged:
 
-- CFL numbers and time-step limits
 - the amplification factor, amplitude and phase errors and stability limits of
   time integrators (explicit and implicit Euler, implicit midpoint, Störmer–Verlet, RK2–RK4)
-- the numerical dispersion of finite differences, the Yee scheme and B-spline
-  Galerkin finite elements
-- resolution checks and the statistical noise of PIC markers
+- the numerical dispersion of B-spline Galerkin finite elements, as in Struphy's
+  discrete de Rham complex
 
 ```python
 numerics.phase_error(omega * dt, "implicit_midpoint")       # ≈ −(ωΔt)²/12
 numerics.numerical_frequency(omega, dt, "rk4")              # the complex frequency the scheme produces
+numerics.stability_limit("rk4")                             # the largest stable ωΔt, 2√2
 numerics.spline_galerkin_dispersion(k, dx, degree=3)        # ω of the discrete wave equation
-numerics.pic_noise(markers=1e6)                             # relative noise ~ 1/√N
-numerics.finite_grid_stable(dx, debye_length)
 ```
 
-![Phase errors of time integrators, and the numerical dispersion of spline finite elements and the Yee scheme](../../../assets/figures/theory_numerics.png)
+![Phase errors of time integrators, and the numerical dispersion of spline finite elements](../../../assets/figures/theory_numerics.png)
 
 ## Which tool for which Struphy example
 
@@ -216,23 +210,22 @@ analytic results to compare them with:
 | Langmuir wave dispersion, weak and strong Landau damping | `kinetic.langmuir`, `bohm_gross`, `landau_damping_weak` |
 | Two-stream and bump-on-tail instabilities | `kinetic.two_stream`, `two_stream_cold`, `bump_on_tail`, `maximum_growth` |
 | Weibel instability | `kinetic.weibel` |
-| Maxwell light-wave dispersion, cavity resonances | `waves.light_wave`, `cavity_modes`; `exact.cavity_field` |
+| Maxwell light-wave dispersion, cavity resonances | `waves.light_wave`, `cavity_modes` |
 | Cold-plasma oscillation, wave packets, waves along a magnetic field | `waves.cold_plasma_waves`, `stix`, `group_velocity` |
 | Ordinary waves and the plasma cutoff, Faraday rotation | `waves.plasma_light_wave`, `cutoffs`, `faraday_rotation` |
 | MHD waves in a slab, shear-Alfvén dispersion, standing shear-Alfvén wave | `waves.mhd_waves`, `magnetosonic_speeds` |
 | Resistively damped, viscous and resistive Alfvén waves | `waves.dissipative_alfven` |
-| Whistler and ion-cyclotron waves in Hall MHD | `waves.hall_mhd_parallel`, `hall_mhd_waves` |
-| Toroidal shear-Alfvén waves | `waves.alfven_continuum`, `toroidal_alfven_continuum`, `tae_frequency` |
+| Whistler and ion-cyclotron waves in Hall MHD | `waves.hall_mhd_parallel` |
+| Toroidal shear-Alfvén waves | `waves.alfven_continuum`, `tae_frequency` |
 | Hasegawa–Wakatani drift-wave turbulence | `waves.hasegawa_wakatani`, `drift_wave` |
 | Gyromotion, grad-B drift | `orbits.gyrofrequency`, `gyroradius`, `grad_b_drift` |
 | Guiding-center and Vlasov orbits in a tokamak | `orbits.trapped_fraction`, `bounce_frequency`, `transit_frequency`, `banana_width` |
-| Resistive diffusion of a magnetic field | `exact.magnetic_diffusion` |
+| Resistive diffusion of a magnetic field | `exact.heat_kernel` (a mode decays as exp(−ηk²t)) |
 | Acoustic pulse | `exact.dalembert` |
 | Gas expansion into vacuum | `exact.riemann_euler` (with a vacuum state) |
 | Dam break | `exact.dam_break` |
 | Zel'dovich caustic, pressureless density transport | `exact.pressureless`, `caustic_time`, `advected` |
-| Random and deterministic particle diffusion, SPH velocity diffusion | `exact.heat_kernel`, `mean_square_displacement` |
-| Incompressible shear relaxation, SPH in a Beltrami field | `exact.viscous_decay`, `taylor_green`, `abc_flow` |
-| Poisson convergence and time-dependent source | `exact.manufactured_poisson` |
+| Random and deterministic particle diffusion, SPH velocity diffusion | `exact.heat_kernel` (spread 2Dt) |
+| Incompressible shear relaxation | `exact.heat_kernel` (a shear mode decays as exp(−νk²t)) |
 | Structure preservation in time integration | `numerics.amplification_factor`, `phase_error`, `numerical_frequency` |
-| Every run: resolution, time step, markers | `numerics.cfl_number`, `points_per_wavelength`, `pic_noise`, `parameters.struphy_units` |
+| Every run: physical units | `parameters.struphy_units` |

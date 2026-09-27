@@ -1,6 +1,6 @@
 """Fluid, MHD and cold-plasma waves: light waves, MHD waves at any angle, dissipative and Hall-MHD
 Alfvén waves, cold-plasma (Stix) waves with their cutoffs and resonances, Faraday rotation, cavity
-modes, drift waves and Hasegawa–Wakatani, Alfvén and slow continua and the TAE gap.
+modes, drift waves and Hasegawa–Wakatani, Alfvén and slow continua and the TAE frequency.
 
 All frequencies are complex for ``exp(i(k·x − ωt))`` (a positive imaginary part is growth) and are
 the positive-frequency branches (−ω* is a solution as well). Characteristic frequencies that are
@@ -29,7 +29,6 @@ __all__ = [
     "faraday_rotation",
     "group_velocity",
     "hall_mhd_parallel",
-    "hall_mhd_waves",
     "hasegawa_wakatani",
     "light_wave",
     "magnetosonic_speeds",
@@ -41,7 +40,6 @@ __all__ = [
     "slow_continuum",
     "stix",
     "tae_frequency",
-    "toroidal_alfven_continuum",
 ]
 
 
@@ -229,7 +227,6 @@ def mhd_waves(k, theta=0.0, alfven_speed=1.0, sound_speed=0.5):
     See Also
     --------
     magnetosonic_speeds : The phase speeds.
-    hall_mhd_waves : With the Hall term.
 
     References
     ----------
@@ -320,10 +317,6 @@ def hall_mhd_parallel(k, alfven_speed=1.0, ion_inertial_length=1.0):
     dict of str to complex or numpy.ndarray
         ``{"whistler": ..., "ion cyclotron": ...}``, complex frequencies.
 
-    See Also
-    --------
-    hall_mhd_waves : At any angle, with pressure.
-
     References
     ----------
     E. Hameiri, A. Ishizawa and A. Ishida, "Waves in the Hall-magnetohydrodynamics model",
@@ -339,59 +332,6 @@ def hall_mhd_parallel(k, alfven_speed=1.0, ion_inertial_length=1.0):
     va, d = np.asarray(alfven_speed, dtype=float), np.asarray(ion_inertial_length, dtype=float)
     root = np.sqrt(1 + (k * d) ** 2 / 4)
     return {"whistler": _complex(k * va * (root + k * d / 2)), "ion cyclotron": _complex(k * va * (root - k * d / 2))}
-
-
-def hall_mhd_waves(k, theta=0.0, alfven_speed=1.0, sound_speed=0.5, ion_inertial_length=1.0):
-    """Compute the three wave branches of compressible Hall MHD at any angle to B₀.
-
-    The roots x = ω² of the cubic
-
-    (x − k∥²v_A²)(x² − k²(v_A² + c_s²) x + k²k∥²v_A²c_s²) = x k²k∥² v_A⁴ d_i² (x − k²c_s²),
-
-    k∥ = k cos θ, for a homogeneous plasma with a straight field B₀. For d_i = 0 these are the
-    ideal-MHD waves of :func:`mhd_waves`; along B₀ they are :func:`hall_mhd_parallel` and the sound
-    wave. This is Struphy's ``ExtendedMHDhomogenSlab`` (its ``eps`` is d_i in its units).
-
-    Parameters
-    ----------
-    k : float or array_like
-        The wavenumber |k|.
-    theta : float or array_like, optional
-        The angle between k and B₀, in radians. Default: ``0.0``.
-    alfven_speed : float or array_like, optional
-        The Alfvén speed v_A. Default: ``1.0``.
-    sound_speed : float or array_like, optional
-        The sound speed c_s. Default: ``0.5``.
-    ion_inertial_length : float or array_like, optional
-        The ion inertial length d_i = v_A/Ω_i. Default: ``1.0``.
-
-    Returns
-    -------
-    dict of str to complex or numpy.ndarray
-        ``{"slow": ..., "intermediate": ..., "fast": ...}``, the roots in ascending order. The
-        intermediate branch is the shear Alfvén wave for d_i → 0 (and becomes ion-cyclotron-like
-        at large k d_i), the fast branch the whistler.
-
-    References
-    ----------
-    E. Hameiri, A. Ishizawa and A. Ishida, "Waves in the Hall-magnetohydrodynamics model",
-    Phys. Plasmas 12, 072109 (2005).
-
-    Examples
-    --------
-    >>> w = hall_mhd_waves(1.0, theta=np.pi / 4, alfven_speed=1.0, sound_speed=0.5, ion_inertial_length=1.0)
-    >>> print({name: round(float(o.real), 4) for name, o in w.items()})
-    {'slow': 0.3042, 'intermediate': 0.6164, 'fast': 1.3332}
-    """
-    k, theta, va, cs, d = np.broadcast_arrays(
-        *(np.asarray(v, dtype=float) for v in (k, theta, alfven_speed, sound_speed, ion_inertial_length))
-    )
-    k2, kp2 = k**2, (k * np.cos(theta)) ** 2
-    a, b = kp2 * va**2, k2 * (va**2 + cs**2)
-    e, g, h = k2 * kp2 * va**2 * cs**2, k2 * kp2 * va**4 * d**2, k2 * cs**2
-    coefficients = np.stack([-a * e, a * b + e + g * h, -(a + b + g), np.ones_like(a)], axis=-1)
-    roots = np.sqrt(np.maximum(_sorted_real_roots(coefficients), 0.0))
-    return {name: _complex(roots[..., i]) for i, name in enumerate(("slow", "intermediate", "fast"))}
 
 
 # ----------------------------------------------------------------------------------------------
@@ -1256,10 +1196,6 @@ def tae_frequency(q, major_radius=1.0, alfven_speed=1.0):
     float or numpy.ndarray
         ω_TAE (real).
 
-    See Also
-    --------
-    toroidal_alfven_continuum : The coupled continuum with the gap.
-
     References
     ----------
     C. Z. Cheng, L. Chen and M. S. Chance, "High-n ideal and resistive shear Alfvén waves in
@@ -1275,74 +1211,3 @@ def tae_frequency(q, major_radius=1.0, alfven_speed=1.0):
     return np.asarray(np.asarray(alfven_speed, dtype=float) / (2 * np.abs(q) * np.asarray(major_radius)))[()]
 
 
-def toroidal_alfven_continuum(r, m, n, q, major_radius=1.0, alfven_speed=1.0, coupling=0.1):
-    """Compute the toroidally coupled shear Alfvén continuum of the harmonics m and m + 1.
-
-    The two-harmonic model of a large-aspect-ratio tokamak: with k_m = (n + m/q)/R₀ and
-    k_{m+1} = (n + (m + 1)/q)/R₀ (:func:`parallel_wavenumber`, Struphy's convention) and the
-    toroidal coupling ε, the continuum frequencies are the roots of
-
-    (ω²/v_A² − k_m²)(ω²/v_A² − k_{m+1}²) = ε² ω⁴/v_A⁴.
-
-    Without coupling these are the two cylindrical continua; with it, they reconnect and a gap
-    opens where k_m = −k_{m+1}, at q = −(m + ½)/n (e.g. q = 1.5 for m = 1, n = −1), around
-    ω_TAE = v_A/(2|q|R₀) (:func:`tae_frequency`): on that surface the two frequencies are
-    ω_TAE/√(1 + ε) and ω_TAE/√(1 − ε), a gap of width ≈ ε ω_TAE. (The extrema of the two branches
-    lie within O(ε) of that surface, since ω_TAE ∝ 1/q varies across the gap.)
-
-    Parameters
-    ----------
-    r : float or array_like
-        The minor radius.
-    m : int
-        The lower poloidal mode number of the coupled pair (m, m + 1).
-    n : int
-        The toroidal mode number. In Struphy's convention the gap needs n and m + ½ of opposite
-        sign.
-    q : float, array_like or callable
-        The safety factor: a number, an array or a function of r.
-    major_radius : float, optional
-        R₀. Default: ``1.0``.
-    alfven_speed : float, array_like or callable, optional
-        v_A: a number, an array or a function of r. Default: ``1.0``.
-    coupling : float, array_like or callable, optional
-        The dimensionless toroidal coupling ε, |ε| < 1: a number, an array or a function of r. It
-        comes from the cos θ variation of |B| (and of the metric) and is of order r/R₀, a few
-        times r/R₀ once the Shafranov shift is included. Default: ``0.1``.
-
-    Returns
-    -------
-    dict of str to complex or numpy.ndarray
-        ``{"lower": ..., "upper": ...}``, the two continuum frequencies (complex, real-valued),
-        below and above the gap.
-
-    Raises
-    ------
-    ValueError
-        If |ε| ≥ 1 anywhere.
-
-    References
-    ----------
-    C. Z. Cheng, L. Chen and M. S. Chance, "High-n ideal and resistive shear Alfvén waves in
-    tokamaks", Ann. Phys. 161, 21 (1985).
-    G. Y. Fu and J. W. Van Dam, "Excitation of the toroidicity-induced shear Alfvén eigenmode by
-    fusion alpha particles in an ignited tokamak", Phys. Fluids B 1, 1949 (1989).
-
-    Examples
-    --------
-    >>> w = toroidal_alfven_continuum(0.5, m=1, n=-1, q=1.5, major_radius=3.0, coupling=0.2)
-    >>> print(round(float(w["lower"].real), 4), round(float(w["upper"].real), 4))
-    0.1014 0.1242
-    """
-    r = np.asarray(r, dtype=float)
-    eps = _of_r(coupling, r)
-    if np.any(np.abs(eps) >= 1):
-        raise ValueError("the coupling must satisfy |coupling| < 1")
-    k1 = parallel_wavenumber(r, m, n, q, major_radius)
-    k2 = parallel_wavenumber(r, m + 1, n, q, major_radius)
-    va = _of_r(alfven_speed, r)
-    total, product = k1**2 + k2**2, k1**2 * k2**2
-    root = np.sqrt((k1**2 - k2**2) ** 2 + 4 * eps**2 * product)
-    lower = 2 * product / (total + root)   # = (total − root)/(2(1 − ε²)), without cancellation
-    upper = (total + root) / (2 * (1 - eps**2))
-    return {"lower": _complex(np.sqrt(lower) * va), "upper": _complex(np.sqrt(upper) * va)}

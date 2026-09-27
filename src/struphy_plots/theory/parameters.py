@@ -1,4 +1,4 @@
-"""Plasma parameters in SI units: frequencies, lengths, speeds, collisions and Struphy's units.
+"""Plasma parameters in SI units: frequencies, lengths, speeds and Struphy's units.
 
 Densities are in m⁻³, magnetic fields in T, temperatures in eV (k_B T / e, so 1 eV is
 11604.5 K) unless a function says otherwise, and the results are in SI units: angular
@@ -419,136 +419,9 @@ def plasma_parameter(density, temperature):
     return _out(4 * np.pi / 3 * density * debye_length(density, temperature) ** 3)
 
 
-def coulomb_logarithm(density, temperature, charge_number=1):
-    """Compute the electron–ion Coulomb logarithm ln Λ of the NRL Plasma Formulary.
-
-    With n_e in cm⁻³ and T_e in eV: ln Λ = 23 − ln(√n_e Z T_e^(−3/2)) for T_e < 10 Z² eV, and
-    ln Λ = 24 − ln(√n_e / T_e) above; both assume T_i m_e/m_i < T_e.
-
-    Parameters
-    ----------
-    density : float or array_like
-        Electron density n_e, in m⁻³.
-    temperature : float or array_like
-        Electron temperature T_e, in eV.
-    charge_number : float or array_like, optional
-        Ion charge number Z. Default: ``1``.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        ln Λ.
-
-    References
-    ----------
-    NRL Plasma Formulary, "Collisions and transport", electron–ion collisions.
-
-    Examples
-    --------
-    >>> print(f"{coulomb_logarithm(1e20, 1e4):.2f}")   # 1e20 m⁻³, 10 keV
-    17.09
-    """
-    n_cm3 = np.asarray(density, dtype=float) * 1e-6
-    te = np.asarray(temperature, dtype=float)
-    z = np.asarray(charge_number, dtype=float)
-    cold = 23 - np.log(np.sqrt(n_cm3) * z * te**-1.5)
-    hot = 24 - np.log(np.sqrt(n_cm3) / te)
-    return _out(np.where(te < 10 * z**2, cold, hot))
-
-
-def collision_frequency(density, temperature, coulomb_log=None, charge_number=1):
-    """Compute the electron–ion collision frequency ν_ei = 1/τ_e of Braginskii and the NRL formulary.
-
-    ν_ei = 4 √(2π) n_e Z e⁴ ln Λ / (3 (4πε₀)² √m_e T_e^(3/2)).
-
-    Parameters
-    ----------
-    density : float or array_like
-        Electron density n_e, in m⁻³.
-    temperature : float or array_like
-        Electron temperature T_e, in eV.
-    coulomb_log : float or array_like, optional
-        ln Λ. Default: :func:`coulomb_logarithm` of ``density`` and ``temperature``.
-    charge_number : float or array_like, optional
-        Ion charge number Z. Default: ``1``.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        ν_ei, in 1/s.
-
-    References
-    ----------
-    NRL Plasma Formulary: ν_e = 2.91e-6 × (n_e/cm⁻³) ln Λ (T_e/eV)^(−3/2) s⁻¹.
-
-    S. I. Braginskii, "Transport processes in a plasma", Rev. Plasma Phys. 1, 205 (1965).
-
-    Examples
-    --------
-    >>> print(f"{collision_frequency(1e20, 1e3, coulomb_log=15.0):.4g} 1/s")
-    1.379e+05 1/s
-    """
-    if coulomb_log is None:
-        coulomb_log = coulomb_logarithm(density, temperature, charge_number)
-    density = np.asarray(density, dtype=float)
-    te = np.asarray(temperature, dtype=float) * ev_to_joule
-    numerator = 4 * np.sqrt(2 * np.pi) * density * charge_number * _e**4 * np.asarray(coulomb_log, dtype=float)
-    denominator = 3 * (4 * np.pi * vacuum_permittivity) ** 2 * np.sqrt(electron_mass) * te**1.5
-    return _out(numerator / denominator)
-
-
 # Braginskii's α₀ (η∥/η⊥) against 1/Z, for Z = ∞, 4, 3, 2, 1
 _ALPHA0_INVERSE_Z = np.array([0.0, 0.25, 1 / 3, 0.5, 1.0])
 _ALPHA0 = np.array([0.2949, 0.3752, 0.3965, 0.4408, 0.5129])
-
-
-def spitzer_resistivity(temperature, coulomb_log, charge_number=1, direction="parallel"):
-    """Compute the Spitzer resistivity of a fully ionized plasma.
-
-    The perpendicular resistivity is η⊥ = m_e ν_ei / (n_e e²), independent of the density; the
-    parallel one is η∥ = α₀ η⊥ with Braginskii's α₀(Z) (0.5129 for Z = 1), interpolated in 1/Z
-    between Z = 1, 2, 3, 4 and ∞.
-
-    Parameters
-    ----------
-    temperature : float or array_like
-        Electron temperature T_e, in eV.
-    coulomb_log : float or array_like
-        ln Λ (e.g. from :func:`coulomb_logarithm`).
-    charge_number : float or array_like, optional
-        Ion charge number Z ≥ 1. Default: ``1``.
-    direction : {"parallel", "perpendicular"}, optional
-        Along or across the magnetic field. Default: ``"parallel"``.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        η, in Ω m.
-
-    Raises
-    ------
-    ValueError
-        If ``direction`` is unknown.
-
-    References
-    ----------
-    NRL Plasma Formulary: η⊥ = 1.03e-2 Z ln Λ (T/eV)^(−3/2) Ω cm, η∥ = η⊥ / 1.96 for Z = 1.
-
-    Braginskii, Rev. Plasma Phys. 1, 205 (1965), table of α₀.
-
-    Examples
-    --------
-    >>> print(f"{spitzer_resistivity(1e3, 17.0):.3e} Ω m")
-    2.844e-08 Ω m
-    """
-    if direction not in ("parallel", "perpendicular"):
-        raise ValueError(f"direction must be 'parallel' or 'perpendicular'; got {direction!r}")
-    z = np.asarray(charge_number, dtype=float)
-    density = 1e20  # cancels
-    eta = electron_mass * collision_frequency(density, temperature, coulomb_log, z) / (density * _e**2)
-    if direction == "parallel":
-        eta = eta * np.interp(1 / z, _ALPHA0_INVERSE_Z, _ALPHA0)
-    return _out(eta)
 
 
 def lower_hybrid_frequency(density, field, mass_number=1, charge_number=1):

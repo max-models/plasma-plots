@@ -22,21 +22,6 @@ def _order(x, err):
 # ---------------------------------------------------------------------------------------------
 # CFL
 # ---------------------------------------------------------------------------------------------
-def test_cfl_and_max_time_step():
-    assert nm.cfl_number(0.01, 0.05, 2.0) == pytest.approx(0.4)
-    assert nm.cfl_number(0.01, (0.05, 0.1), 2.0) == pytest.approx(0.6)
-    assert nm.cfl_number(0.01, (0.05, 0.1), (2.0, 1.0), combine="max") == pytest.approx(0.4)
-    assert nm.cfl_number(0.01, (0.05, 0.1), 2.0, combine="euclidean") == pytest.approx(0.02 * np.sqrt(500))
-    # max_time_step inverts cfl_number for every combination
-    for combine in ("sum", "max", "euclidean"):
-        dt = nm.max_time_step((0.05, 0.1, 0.2), (1.0, 2.0, 3.0), cfl=0.7, combine=combine)
-        assert nm.cfl_number(dt, (0.05, 0.1, 0.2), (1.0, 2.0, 3.0), combine=combine) == pytest.approx(0.7)
-    assert nm.max_time_step((0.1,) * 3, 1.0, combine="euclidean") == pytest.approx(0.1 / np.sqrt(3))
-    assert nm.cfl_number(np.array([0.1, 0.2]), 0.1, 1.0).shape == (2,)
-    with pytest.raises(ValueError, match="combine"):
-        nm.cfl_number(0.1, 0.1, 1.0, combine="l3")
-    with pytest.raises(ValueError, match="speeds"):
-        nm.cfl_number(0.1, (0.1, 0.1), (1.0, 1.0, 1.0))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -204,70 +189,6 @@ STENCILS_SECOND = {2: {0: -2, 1: 1}, 4: {0: -5 / 2, 1: 4 / 3, 2: -1 / 12},
                    6: {0: -49 / 18, 1: 3 / 2, 2: -3 / 20, 3: 1 / 90}}
 
 
-def test_finite_difference_wavenumber():
-    dx = 0.1
-    k = np.linspace(-np.pi / dx, np.pi / dx, 31)
-    for order in (2, 4, 6):
-        # apply the stencil to exp(ikx) at x = 0
-        first = sum(a * (np.exp(1j * k * j * dx) - np.exp(-1j * k * j * dx)) for j, a in STENCILS_FIRST[order].items())
-        np.testing.assert_allclose(1j * nm.finite_difference_wavenumber(k, dx, order), first / dx, atol=1e-12)
-        second = sum(b * (np.exp(1j * k * j * dx) + np.exp(-1j * k * j * dx)) * (0.5 if j == 0 else 1)
-                     for j, b in STENCILS_SECOND[order].items())
-        np.testing.assert_allclose(-nm.finite_difference_wavenumber(k, dx, order, derivative=2) ** 2, second.real / dx**2,
-                                   atol=1e-9)
-    for order, coefficient in ((2, -1 / 6), (4, -1 / 30), (6, -1 / 140)):
-        theta = np.logspace(-2, -1.5, 5) if order == 2 else np.logspace(-1.3, -0.9, 5)
-        err = nm.finite_difference_wavenumber(theta, 1.0, order) / theta - 1
-        assert _order(theta, err) == pytest.approx(order, abs=0.02)
-        np.testing.assert_allclose(err / theta**order, coefficient, rtol=1e-2)
-        err2 = nm.finite_difference_wavenumber(theta, 1.0, order, derivative=2) / theta - 1
-        assert _order(theta, err2) == pytest.approx(order, abs=0.05)
-    assert nm.finite_difference_wavenumber(1.0, 0.1, [2, 4]).shape == (2,)
-    with pytest.raises(ValueError, match="order"):
-        nm.finite_difference_wavenumber(1.0, 0.1, 3)
-    with pytest.raises(ValueError, match="derivative"):
-        nm.finite_difference_wavenumber(1.0, 0.1, 2, derivative=3)
-
-
-def test_yee_dispersion():
-    dx, c = 0.1, 1.0
-    k = np.linspace(0.1, np.pi / dx, 50)
-    for courant in (0.3, 0.7, 1.0):
-        dt = courant * dx / c
-        np.testing.assert_allclose(nm.yee_dispersion(k, dx, dt, c), 2 / dt * np.arcsin(courant * np.sin(k * dx / 2)))
-    # magic time step: exact
-    np.testing.assert_allclose(nm.yee_dispersion(k, dx, dx / c, c).real, c * k, rtol=1e-12)
-    # 2-D: the Courant limit dx/(c√2), first violated at the Brillouin-zone corner
-    limit = nm.max_time_step((dx, dx), c, combine="euclidean")
-    corner = (np.pi / dx, np.pi / dx)
-    assert nm.yee_dispersion(corner, (dx, dx), limit * 0.999).imag == 0
-    assert nm.yee_dispersion(corner, (dx, dx), limit * 1.01).imag > 0
-    assert nm.yee_dispersion(np.sqrt(2) * np.pi / dx, dx, limit * 1.01, dims=2).imag > 0
-    # along an axis the 2-D dispersion equals the 1-D one
-    np.testing.assert_allclose(nm.yee_dispersion((k, 0 * k), (dx, dx), 0.05), nm.yee_dispersion(k, dx, 0.05))
-    with pytest.raises(ValueError, match="components"):
-        nm.yee_dispersion((1.0, 1.0, 1.0), (dx, dx), 0.05)
-
-
-def test_yee_against_direct_simulation():
-    """1-D Yee on a periodic grid: E at nodes, B at half nodes, one Fourier mode."""
-    n, dx, c = 32, 1 / 32, 1.0
-    x = np.arange(n) * dx
-    for m, courant in ((3, 0.5), (10, 0.9), (15, 0.8)):
-        k = 2 * np.pi * m
-        dt = courant * dx / c
-        e = np.cos(k * x)
-        b = np.zeros(n)
-        es = [e[0]]
-        for _ in range(60):
-            b -= dt / dx * (np.roll(e, -1) - e)  # B_{j+1/2}
-            e -= c**2 * dt / dx * (b - np.roll(b, 1))
-            es.append(e[0])
-        es = np.array(es)
-        cos = np.linalg.lstsq(es[1:-1, None], (es[2:] + es[:-2]) / 2, rcond=None)[0][0]
-        assert np.arccos(cos) / dt == pytest.approx(nm.yee_dispersion(k, dx, dt, c).real, rel=1e-9)
-
-
 def _bspline(p, x):
     """Cardinal B-spline of degree p on [0, p + 1] by the Cox–de Boor recursion."""
     x = np.asarray(x, dtype=float)
@@ -329,36 +250,9 @@ def test_spline_galerkin_convergence_order():
         nm.spline_galerkin_dispersion(1.0, 0.1, 1.5)
 
 
-def test_points_per_wavelength():
-    assert nm.points_per_wavelength(np.pi, 1.0) == pytest.approx(2.0)
-    assert nm.points_per_wavelength(0.0, 1.0) == np.inf
-    np.testing.assert_allclose(nm.points_per_wavelength([-1.0, 1.0], 0.1), 20 * np.pi)
-
-
 # ---------------------------------------------------------------------------------------------
 # Particles
 # ---------------------------------------------------------------------------------------------
-def test_pic_noise_scaling_and_sampling():
-    assert nm.pic_noise(100) == pytest.approx(0.1)
-    assert nm.pic_noise(400, weight_rms=0.1) == pytest.approx(0.005)
-    np.testing.assert_allclose(nm.markers_for_noise(nm.pic_noise([10.0, 1e4], 0.3), 0.3), [10.0, 1e4])
-    rng = np.random.default_rng(1)
-    cells = 200
-    for per_cell in (25, 400):
-        # full-f: uniform markers of equal weight, density per cell
-        x = rng.random(cells * per_cell * 20)
-        counts = np.bincount((x * cells * 20).astype(int), minlength=cells * 20)
-        assert counts.std() / counts.mean() == pytest.approx(nm.pic_noise(per_cell), rel=0.05)
-        # δf: zero-mean weights of rms 0.2; noise of the perturbed density relative to the background
-        w = rng.normal(0.0, 0.2, x.size)
-        delta = np.bincount((x * cells * 20).astype(int), weights=w, minlength=cells * 20) / per_cell
-        assert delta.std() == pytest.approx(nm.pic_noise(per_cell, weight_rms=0.2), rel=0.05)
-
-
-def test_debye_resolution():
-    assert nm.debye_resolution(0.5, 2.0) == pytest.approx(0.25)
-    np.testing.assert_array_equal(nm.finite_grid_stable([0.5, 3.0, 4.0], 1.0), [True, True, False])
-    np.testing.assert_array_equal(nm.finite_grid_stable([0.5, 3.0], 1.0, max_ratio=1.0), [True, False])
 
 
 def test_scipy_eigenvalues_agree():

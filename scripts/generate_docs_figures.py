@@ -1199,13 +1199,11 @@ ax_h.legend(fontsize="small")
 r_t = np.linspace(0.05, 1.0, 400)
 R0_t = 5.0
 q_t = lambda r: 1.0 + r**2  # noqa: E731
-for coupling, style in ((0.0, ":"), (lambda r: 2.5 * r / R0_t, "-")):
-    branches_t = waves.toroidal_alfven_continuum(r_t, m=1, n=-1, q=q_t, major_radius=R0_t, coupling=coupling)
-    for name, omega in branches_t.items():
-        ax_t.plot(r_t, omega.real * R0_t, style, color="C0" if name == "lower" else "C1",
-                  label=f"{name}" + (" (uncoupled)" if coupling == 0.0 else ""))
-ax_t.axhline(waves.tae_frequency(1.5, major_radius=R0_t) * R0_t, color="k", lw=0.8, ls="--", label="TAE frequency at q = 1.5")
-ax_t.set(xlabel="r/a", ylabel=r"$\omega R_0/v_A$", ylim=(0, 0.8), title="Alfvén continuum, m = 1, 2, n = −1")
+for m_t in (1, 2):
+    ax_t.plot(r_t, waves.alfven_continuum(r_t, m=m_t, n=-1, q=q_t, major_radius=R0_t).real * R0_t, label=f"m = {m_t}")
+ax_t.axhline(waves.tae_frequency(1.5, major_radius=R0_t) * R0_t, color="k", lw=0.8, ls="--",
+             label="TAE frequency, q = 1.5")
+ax_t.set(xlabel="r/a", ylabel=r"$\omega R_0/v_A$", ylim=(0, 0.8), title="Alfvén continua, n = −1, q = 1 + r²")
 ax_t.legend(fontsize="x-small")
 save_fig(fig, "theory_continuum.png")
 
@@ -1259,7 +1257,6 @@ ax_p.legend(fontsize="small")
 kdx = np.linspace(0.01, np.pi, 200)
 for degree in (1, 2, 3, 4):
     ax_sp.plot(kdx, numerics.spline_galerkin_dispersion(kdx, 1.0, degree).real / kdx, label=f"degree {degree}")
-ax_sp.plot(kdx, numerics.yee_dispersion(kdx, 1.0, 0.5).real / kdx, "k--", label=r"Yee, $c\Delta t/\Delta x$ = 0.5")
 ax_sp.set(xlabel=r"$k\Delta x$", ylabel=r"$\omega_{num}/(ck)$", title="Numerical dispersion of the wave equation")
 ax_sp.legend(fontsize="small")
 save_fig(fig, "theory_numerics.png")

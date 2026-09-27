@@ -69,7 +69,6 @@ def test_gyromotion():
     assert orbits.gyrofrequency(-2.0, charge=-1.0) == pytest.approx(-2.0)
     v, b = np.array([1.0, 2.0]), np.array([[1.0], [4.0]])
     np.testing.assert_allclose(orbits.gyroradius(v, b, charge=-2.0) * np.abs(orbits.gyrofrequency(b, -2.0)), v * np.ones((2, 2)))
-    assert orbits.gyroperiod(2.0, charge=-1.0, mass=3.0) == pytest.approx(2 * np.pi * 3 / 2)
     assert orbits.magnetic_moment(3.0, 2.0, mass=2.0) == pytest.approx(4.5)
     assert np.ndim(orbits.gyroradius(1.0, 1.0)) == 0
 
@@ -89,25 +88,13 @@ def test_exb_drift():
         orbits.exb_drift([1.0, 0.0], [0.0, 1.0])
 
 
-def test_grad_b_and_curvature_drift_directions():
+def test_grad_b_drift_directions():
     B, grad_B = np.array([0.0, 0.0, 2.0]), np.array([0.3, 0.0, 0.0])
     ion = orbits.grad_b_drift(1.5, B, grad_B, charge=1.0, mass=2.0)
     electron = orbits.grad_b_drift(1.5, B, grad_B, charge=-1.0, mass=2.0)
     np.testing.assert_allclose(electron, -ion)
     mu = orbits.magnetic_moment(1.5, 2.0, mass=2.0)
     np.testing.assert_allclose(ion, [0, mu * 0.3 / (1.0 * 2.0), 0])  # μ ∇B / (qB) along B × ∇B for ions
-    # curvature: field along z bending towards −x; Chen: (m v∥²/q) R_c × B / (R_c² B²), R_c = +x̂ R
-    radius = 5.0
-    kappa = np.array([-1 / radius, 0.0, 0.0])
-    chen = 2.0 * 1.2**2 / 1.0 * np.cross([radius, 0, 0], B) / (radius**2 * 4.0)
-    np.testing.assert_allclose(orbits.curvature_drift(1.2, B, kappa, charge=1.0, mass=2.0), chen)
-    np.testing.assert_allclose(orbits.curvature_drift(-1.2, B, kappa, charge=-1.0, mass=2.0), -chen)
-    # in vacuum, κ = ∇⊥B/B: the sum of both drifts is vacuum_drift
-    kappa_vacuum = grad_B / 2.0
-    total = orbits.grad_b_drift(0.7, B, grad_B, 3.0, 2.0) + orbits.curvature_drift(1.1, B, kappa_vacuum, 3.0, 2.0)
-    np.testing.assert_allclose(orbits.vacuum_drift(0.7, 1.1, B, grad_B, 3.0, 2.0), total)
-    # polarization drift: the parallel part of dE/dt is dropped
-    np.testing.assert_allclose(orbits.polarization_drift([1.0, 2.0, 5.0], B, charge=2.0, mass=4.0), [0.5, 1.0, 0])
     # broadcasting of the scalars against the vectors
     assert orbits.grad_b_drift(np.ones(4), B, grad_B).shape == (4, 3)
 
@@ -125,25 +112,6 @@ def test_grad_b_drift_against_lorentz_orbit(charge):
     measured = (positions[-1] - positions[0]) / (40 * period)
     expected = orbits.grad_b_drift(1.0, [0, 0, 1.0], [1 / length, 0, 0], charge=charge)
     np.testing.assert_allclose(measured, expected, atol=2e-2 * np.linalg.norm(expected))
-
-
-def test_vacuum_drift_against_lorentz_orbit():
-    """Toroidal field B = B₀R₀/R φ̂: the vertical drift of a full orbit is v_∇B + v_κ."""
-    major, charge, mass = 50.0, 1.0, 1.0
-
-    def field(x):
-        r2 = x[0] ** 2 + x[1] ** 2
-        return major * np.array([-x[1], x[0], 0.0]) / r2
-
-    v_par, v_perp = 1.0, 0.5
-    v = np.array([0.0, v_par, v_perp])  # at (R₀, 0, 0) the field is along +y
-    x0 = np.array([major, 0.0, 0.0]) - np.cross(v, [0, 1.0, 0]) / charge  # guiding center at R₀
-    period = 2 * np.pi
-    positions = boris(x0, v, field, charge, mass, period / 400, 30 * 400)
-    measured = (positions[-1, 2] - positions[0, 2]) / (30 * period)
-    expected = orbits.vacuum_drift(v_perp, v_par, [0, 1.0, 0], [-1 / major, 0, 0], charge, mass)
-    np.testing.assert_allclose(expected, [0, 0, (v_par**2 + v_perp**2 / 2) / major], atol=1e-15)
-    assert measured == pytest.approx(expected[2], rel=3e-2)
 
 
 # ---------------------------------------------------------------------------------------------

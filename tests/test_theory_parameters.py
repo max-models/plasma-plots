@@ -43,10 +43,6 @@ def test_nrl_formulary_values(n_cm3, t_ev):
     assert par.plasma_beta(n, t_ev, b) == pytest.approx(4.03e-11 * n_cm3 * t_ev / b_gauss**2, rel=rtol)
     assert par.sound_speed(t_ev, mass_number=mu, electron_gamma=5 / 3) == pytest.approx(
         9.79e5 * np.sqrt(5 / 3 * t_ev / mu) * CM, rel=rtol)
-    assert par.collision_frequency(n, t_ev, coulomb_log=15.0) == pytest.approx(2.91e-6 * n_cm3 * 15 * t_ev**-1.5, rel=rtol)
-    eta_perp = par.spitzer_resistivity(t_ev, 15.0, direction="perpendicular")
-    assert eta_perp == pytest.approx(1.03e-2 * 15 * t_ev**-1.5 * 1e-2, rel=rtol)  # Ω cm → Ω m
-    assert par.spitzer_resistivity(t_ev, 15.0) == pytest.approx(eta_perp / 1.96, rel=1e-2)
 
 
 def test_quoted_reference_values():
@@ -57,17 +53,6 @@ def test_quoted_reference_values():
     v_a = par.alfven_speed(1.0, 1e14)
     assert par.alfven_speed(1.0, 1e14, relativistic=True) == pytest.approx(v_a / np.sqrt(1 + (v_a / par.speed_of_light) ** 2))
     assert par.alfven_speed(1.0, 1e10, relativistic=True) == pytest.approx(par.speed_of_light, rel=1e-3)
-
-
-def test_coulomb_logarithm_branches():
-    n = 1e19
-    n_cm3 = n * 1e-6
-    assert par.coulomb_logarithm(n, 5.0) == pytest.approx(23 - np.log(np.sqrt(n_cm3) * 5.0**-1.5))
-    assert par.coulomb_logarithm(n, 1e3) == pytest.approx(24 - np.log(np.sqrt(n_cm3) / 1e3))
-    # the boundary moves with Z²: 20 eV is "cold" for Z = 2
-    assert par.coulomb_logarithm(n, 20.0, charge_number=2) == pytest.approx(23 - np.log(np.sqrt(n_cm3) * 2 * 20.0**-1.5))
-    assert par.collision_frequency(n, 1e3) == pytest.approx(
-        par.collision_frequency(n, 1e3, coulomb_log=par.coulomb_logarithm(n, 1e3)))
 
 
 def test_identities():
@@ -91,11 +76,6 @@ def test_identities():
     assert par.lower_hybrid_frequency(1e10, b) == pytest.approx(omega_ci, rel=1e-3)  # tenuous: → Ω_i
     # beta is the pressure ratio
     assert par.plasma_beta(1e20, 1e3, 1.0) == pytest.approx(1e20 * 1e3 * par.elementary_charge / (1 / (2 * par.vacuum_permeability)))
-    # resistivity: ∝ Z, and α₀ from Braginskii's table at Z = 2 and Z → ∞
-    ratio = par.spitzer_resistivity(1e3, 15.0, charge_number=2) / par.spitzer_resistivity(1e3, 15.0, direction="perpendicular")
-    assert ratio == pytest.approx(2 * 0.4408)
-    assert par.spitzer_resistivity(1e3, 15.0, 1e9) / par.spitzer_resistivity(1e3, 15.0, 1e9, "perpendicular") == \
-        pytest.approx(0.2949, rel=1e-6)
 
 
 def test_broadcasting_and_errors():
@@ -108,8 +88,6 @@ def test_broadcasting_and_errors():
         par.larmor_radius(1.0)
     with pytest.raises(ValueError, match="exactly one"):
         par.larmor_radius(1.0, temperature=1.0, perpendicular_speed=1.0)
-    with pytest.raises(ValueError, match="direction"):
-        par.spitzer_resistivity(1.0, 10.0, direction="up")
     with pytest.raises(ValueError, match="velocity_scale"):
         par.struphy_units(velocity_scale="sound")
     with pytest.raises(ValueError, match="mass_number"):

@@ -5,26 +5,16 @@ import numpy as np
 import pytest
 
 from struphy_plots.theory.exact import (
-    abc_flow,
     advected,
     caustic_time,
-    cavity_field,
     dalembert,
     dam_break,
-    damped_oscillation,
-    exponential_decay,
     heat_kernel,
-    magnetic_diffusion,
-    manufactured_poisson,
-    mean_square_displacement,
     pressureless,
     pressureless_eulerian,
     riemann_euler,
     sod_shock_tube,
-    standing_wave,
     star_state,
-    taylor_green,
-    viscous_decay,
 )
 
 H = 1e-4  # finite-difference step: central differences are accurate to about H² ~ 1e-8
@@ -215,20 +205,19 @@ def test_riemann_errors():
 # ---------------------------------------------------------------------------------------------
 # Dam break
 # ---------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("depth_right", [0.0, 0.01, 0.1, 0.5])
-def test_dam_break_conserves_volume_and_momentum(depth_right):
+def test_dam_break_conserves_volume_and_momentum():
     h0, g, t = 2.0, 9.81, 0.3
     c0 = np.sqrt(g * h0)
     a = 3 * c0 * t
     x = np.linspace(-a, a, 600_001)
-    w = dam_break(x, t, depth=h0, gravity=g, depth_right=depth_right)
+    w = dam_break(x, t, depth=h0, gravity=g)
     volume = np.trapezoid(w.depth, x)
-    assert volume == pytest.approx(a * (h0 + depth_right), rel=1e-6)
+    assert volume == pytest.approx(a * h0, rel=1e-6)
     # d/dt ∫ hu dx = [g h²/2] flux difference at the (still) boundaries
     momentum = np.trapezoid(w.discharge, x)
-    assert momentum == pytest.approx(0.5 * g * (h0**2 - depth_right**2) * t, rel=1e-5)
-    # the Riemann invariant u + 2√(gh) = 2c0 through the rarefaction and the region behind the bore
-    behind = (x > -c0 * t) & (w.depth > depth_right)
+    assert momentum == pytest.approx(0.5 * g * h0**2 * t, rel=1e-5)
+    # the Riemann invariant u + 2√(gh) = 2c0 through the rarefaction
+    behind = (x > -c0 * t) & (w.depth > 0)
     np.testing.assert_allclose((w.velocity + 2 * np.sqrt(g * w.depth))[behind], 2 * c0, rtol=1e-12)
 
 
@@ -245,26 +234,8 @@ def test_ritter_front_and_profile():
     w = dam_break(0.0, [0.1, 1.0, 10.0], depth=h0, gravity=g)
     np.testing.assert_allclose(w.depth, 4 * h0 / 9)
     np.testing.assert_allclose(w.velocity, 2 * c0 / 3)
-    # Stoker's wet-bed solution approaches Ritter's as the bed dries
-    x = np.linspace(-2, 1.5, 50)
-    np.testing.assert_allclose(dam_break(x, 1.0, depth_right=1e-10).depth, dam_break(x, 1.0).depth, atol=1e-3)
     with pytest.raises(ValueError):
-        dam_break(0.0, 1.0, depth=1.0, depth_right=1.0)
-
-
-def test_stoker_bore_satisfies_jump_conditions():
-    g, h0, hr = 9.81, 1.0, 0.2
-    t = 1.0
-    x = np.linspace(-5, 8, 130_001)
-    w = dam_break(x, t, depth=h0, gravity=g, depth_right=hr)
-    # the bore: the last big jump in depth
-    jumps = np.nonzero(np.abs(np.diff(w.depth)) > 0.01)[0]
-    jump = jumps[-1]
-    speed = x[jump] / t
-    h_star, u_star = w.depth[jump - 1], w.velocity[jump - 1]
-    # mass: S (h* − h_R) = h* u*; momentum: S h* u* = h* u*² + g (h*² − h_R²)/2
-    assert speed * (h_star - hr) == pytest.approx(h_star * u_star, rel=1e-3)
-    assert speed * h_star * u_star == pytest.approx(h_star * u_star**2 + 0.5 * g * (h_star**2 - hr**2), rel=1e-3)
+        dam_break(0.0, 1.0, depth=0.0)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -281,7 +252,7 @@ def test_heat_kernel_solves_the_heat_equation_and_conserves_mass():
         u = heat_kernel(grid, t, D, width=width, center=0.2, mass=2.0)
         assert np.trapezoid(u, grid) == pytest.approx(2.0, rel=1e-10)
         variance = np.trapezoid(u * (grid - 0.2) ** 2, grid) / 2.0
-        assert variance == pytest.approx(width**2 + mean_square_displacement(t, D), rel=1e-8)
+        assert variance == pytest.approx(width**2 + 2 * D * t, rel=1e-8)
     # two dimensions
     X, Y = np.meshgrid(np.linspace(-2, 2, 5), np.linspace(-1, 1, 5))
 
@@ -296,7 +267,6 @@ def test_heat_kernel_solves_the_heat_equation_and_conserves_mass():
     assert total == pytest.approx(1.0, rel=1e-10)
     # a point source at t = 0
     assert np.isinf(heat_kernel(0.0, 0.0, D)) and heat_kernel(1.0, 0.0, D) == 0
-    assert mean_square_displacement(np.array([1.0, 2.0]), 0.5, dimensions=2).tolist() == [2.0, 4.0]
     with pytest.raises(ValueError):
         heat_kernel(0.0, -1.0, D)
 
@@ -339,18 +309,11 @@ def test_dalembert_solves_the_wave_equation():
     k = 2.0
     np.testing.assert_allclose(dalembert(x, t, np.zeros_like, c, lambda s: np.cos(k * s)),
                                np.cos(k * x) * np.sin(k * c * t) / (k * c), rtol=1e-13, atol=1e-15)
-    # the standing wave is the solution for u0 = A sin(kx) at rest
+    # the standing wave A sin(kx) cos(kct) is the solution for u0 = A sin(kx) at rest
     np.testing.assert_allclose(dalembert(x, t, lambda s: 0.5 * np.sin(k * s), c),
-                               standing_wave(x, t, k, c, amplitude=0.5), atol=1e-15)
+                               0.5 * np.sin(k * x) * np.cos(k * c * t), atol=1e-15)
     with pytest.raises(ValueError):
         dalembert(x, t, u0, 0.0)
-
-
-def test_standing_wave_solves_the_wave_equation():
-    x, t, k, c = np.linspace(0, 1, 7), 0.3, 3.0, 2.0
-    lhs = d2(lambda h: standing_wave(x, t + h, k, c, phase=0.4))
-    rhs = c**2 * d2(lambda h: standing_wave(x + h, t, k, c, phase=0.4))
-    np.testing.assert_allclose(lhs, rhs, rtol=1e-5, atol=1e-5)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -394,160 +357,18 @@ def test_pressureless_eulerian_on_an_unbounded_velocity():
 # ---------------------------------------------------------------------------------------------
 # Decaying modes
 # ---------------------------------------------------------------------------------------------
-def test_decaying_modes():
-    t = np.linspace(0, 3, 7)
-    omega, gamma = 2.0, 0.3
-    x = damped_oscillation(t, omega, gamma, amplitude=1.5, phase=0.2)
-    # x'' + 2γ x' + (ω² + γ²) x = 0
-    xd = d(lambda h: damped_oscillation(t + h, omega, gamma, 1.5, 0.2))
-    xdd = d2(lambda h: damped_oscillation(t + h, omega, gamma, 1.5, 0.2))
-    np.testing.assert_allclose(xdd + 2 * gamma * xd + (omega**2 + gamma**2) * x, 0, atol=1e-5)
-    np.testing.assert_allclose(exponential_decay(t, 0.5, 2.0), 2 * np.exp(-0.5 * t))
-    # B_y = sin(kx) A(t) satisfies ∂B/∂t = η ∂²B/∂x²
-    k, eta = 3.0, 0.05
-    xs = np.linspace(0, 2, 5)
-
-    def b(dx=0.0, dt=0.0):
-        return np.sin(k * (xs + dx)) * magnetic_diffusion(1.0 + dt, k, eta)
-
-    np.testing.assert_allclose(d(lambda h: b(dt=h)), eta * d2(lambda h: b(dx=h)), atol=1e-6)
-    assert magnetic_diffusion(2.0, (3.0, 4.0, 0.0), 0.1) == pytest.approx(np.exp(-5.0))
-    assert viscous_decay(2.0, 5.0, 0.1) == magnetic_diffusion(2.0, 5.0, 0.1)
 
 
 # ---------------------------------------------------------------------------------------------
 # Incompressible flows
 # ---------------------------------------------------------------------------------------------
-def test_taylor_green_solves_navier_stokes():
-    nu, k, U, rho = 0.05, 2.0, 1.3, 1.7
-    X, Y = np.meshgrid(np.linspace(0, 3, 6), np.linspace(-1, 2, 6))
-    t = 0.8
-
-    def field(dx=0.0, dy=0.0, dt=0.0):
-        return taylor_green(X + dx, Y + dy, t + dt, nu, wavenumber=k, amplitude=U, density=rho)
-
-    f = field()
-    u, v = f.velocity
-    for i, c in enumerate((u, v)):
-        c_t = d(lambda h: field(dt=h).velocity[i])
-        c_x = d(lambda h: field(dx=h).velocity[i])
-        c_y = d(lambda h: field(dy=h).velocity[i])
-        lap = d2(lambda h: field(dx=h).velocity[i]) + d2(lambda h: field(dy=h).velocity[i])
-        grad_p = d(lambda h: (field(dx=h) if i == 0 else field(dy=h)).pressure)
-        np.testing.assert_allclose(c_t + u * c_x + v * c_y + grad_p / rho - nu * lap, 0, atol=5e-6)
-    divergence = d(lambda h: field(dx=h).velocity[0]) + d(lambda h: field(dy=h).velocity[1])
-    np.testing.assert_allclose(divergence, 0, atol=1e-8)
-    vorticity = d(lambda h: field(dx=h).velocity[1]) - d(lambda h: field(dy=h).velocity[0])
-    np.testing.assert_allclose(vorticity, f.vorticity, atol=1e-7)
-    # the kinetic energy decays at 4νk²
-    grid = np.linspace(0, 2 * np.pi / k, 65)[:-1]
-    GX, GY = np.meshgrid(grid, grid)
-
-    def energy(t):
-        return np.mean(sum(c**2 for c in taylor_green(GX, GY, t, nu, k, U).velocity))
-
-    assert energy(1.0) / energy(0.0) == pytest.approx(np.exp(-4 * nu * k**2), rel=1e-12)
-
-
-def test_abc_flow_is_beltrami_and_solves_navier_stokes():
-    A, B, C, k, nu, t = 1.0, 0.7, 0.4, 2.0, 0.03, 0.5
-    grid = np.linspace(0, 3, 4)
-    X, Y, Z = np.meshgrid(grid, grid + 0.1, grid - 0.2, indexing="ij")
-
-    def field(shift=(0.0, 0.0, 0.0), dt=0.0):
-        return abc_flow(X + shift[0], Y + shift[1], Z + shift[2], A, B, C, wavenumber=k, t=t + dt, viscosity=nu)
-
-    def partial(axis, component, attr="velocity"):
-        return d(lambda h: getattr(field(tuple(h if a == axis else 0.0 for a in range(3))), attr)[component]
-                 if attr == "velocity" else getattr(field(tuple(h if a == axis else 0.0 for a in range(3))), attr))
-
-    f = field()
-    curl = (partial(1, 2) - partial(2, 1), partial(2, 0) - partial(0, 2), partial(0, 1) - partial(1, 0))
-    for i in range(3):
-        np.testing.assert_allclose(curl[i], k * f.velocity[i], atol=1e-7)
-        np.testing.assert_allclose(f.vorticity[i], k * f.velocity[i])
-    np.testing.assert_allclose(sum(partial(i, i) for i in range(3)), 0, atol=1e-8)
-    for i in range(3):
-        c_t = d(lambda h: field(dt=h).velocity[i])
-        advection = sum(f.velocity[j] * partial(j, i) for j in range(3))
-        lap = sum(d2(lambda h: field(tuple(h if a == j else 0.0 for a in range(3))).velocity[i]) for j in range(3))
-        np.testing.assert_allclose(c_t + advection + partial(i, None, "pressure") - nu * lap, 0, atol=5e-6)
 
 
 # ---------------------------------------------------------------------------------------------
 # Cavity fields
 # ---------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("mode, polarization", [((1, 1, 0), None), ((0, 2, 1), None), ((1, 2, 3), None),
-                                                ((2, 1, 1), (1.0, 0.5, -0.3)), ((1, 0, 1), (0.0, 1.0, 1.0))])
-def test_cavity_fields_satisfy_maxwell(mode, polarization):
-    lengths, c = (1.0, 0.7, 1.3), 2.0
-    grid = np.linspace(0.05, 0.6, 4)
-    X, Y, Z = np.meshgrid(grid, grid, grid * 1.5, indexing="ij")
-    t = 0.37
-
-    def field(shift=(0.0, 0.0, 0.0), dt=0.0):
-        return cavity_field(X + shift[0], Y + shift[1], Z + shift[2], t + dt, mode, lengths, c=c,
-                            polarization=polarization, amplitude=2.5)
-
-    def partial(axis, name, i):
-        return d(lambda h: getattr(field(tuple(h if a == axis else 0.0 for a in range(3))), name)[i], h=1e-5)
-
-    def curl(name):
-        return (partial(1, name, 2) - partial(2, name, 1), partial(2, name, 0) - partial(0, name, 2),
-                partial(0, name, 1) - partial(1, name, 0))
-
-    f = field()
-    k = np.pi * np.array(mode) / np.array(lengths)
-    assert f.frequency == pytest.approx(c * np.linalg.norm(k))
-    scale = 2.5 * f.frequency
-    for name in ("electric", "magnetic"):
-        np.testing.assert_allclose(sum(partial(i, name, i) for i in range(3)) / scale, 0, atol=1e-7)
-    curl_e, curl_b = curl("electric"), curl("magnetic")
-    for i in range(3):
-        b_t = d(lambda h: field(dt=h).magnetic[i], h=1e-5)
-        e_t = d(lambda h: field(dt=h).electric[i], h=1e-5)
-        np.testing.assert_allclose((b_t + curl_e[i]) / scale, 0, atol=1e-7)
-        np.testing.assert_allclose((e_t - c**2 * curl_b[i]) / scale, 0, atol=1e-7)
-    # the field is not trivial, and its amplitude is the given one
-    at_t0 = cavity_field(X, Y, Z, 0.0, mode, lengths, c=c, polarization=polarization, amplitude=2.5)
-    assert max(np.abs(e).max() for e in at_t0.electric) > 0.1
-    # the walls: tangential E and normal B vanish
-    for axis, length in enumerate(lengths):
-        wall = [X, Y, Z]
-        for position in (0.0, length):
-            wall[axis] = np.full_like(X, position)
-            w = cavity_field(*wall, t, mode, lengths, c=c, polarization=polarization)
-            for i in range(3):
-                if i != axis:
-                    np.testing.assert_allclose(w.electric[i], 0, atol=1e-14)
-            np.testing.assert_allclose(w.magnetic[axis], 0, atol=1e-14)
-
-
-def test_cavity_errors():
-    with pytest.raises(ValueError, match="at most one"):
-        cavity_field(0.1, 0.1, 0.1, 0.0, (1, 0, 0), (1, 1, 1))
-    with pytest.raises(ValueError, match="polarization"):
-        cavity_field(0.1, 0.1, 0.1, 0.0, (1, 1, 1), (1, 1, 1), polarization=(1.0, 1.0, 1.0))
 
 
 # ---------------------------------------------------------------------------------------------
 # Manufactured solutions
 # ---------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("kinds", [("sin", "sin", "sin"), ("cos", "sin", "cos"), ("cos", "cos", "cos")])
-def test_manufactured_poisson(kinds):
-    k = (2 * np.pi, np.pi, 3.0)
-    grid = np.linspace(0.1, 0.9, 5)
-    X, Y, Z = np.meshgrid(grid, grid, grid, indexing="ij")
-
-    def s(shift=(0.0, 0.0, 0.0)):
-        return manufactured_poisson(X + shift[0], Y + shift[1], Z + shift[2], k, kinds, amplitude=0.8)
-
-    def along(axis, h):
-        return tuple(h if a == axis else 0.0 for a in range(3))
-
-    lap = sum(d2(lambda h: s(along(axis, h)).potential) for axis in range(3))
-    np.testing.assert_allclose(-lap, s().source, rtol=1e-5, atol=1e-5)  # FD error (hk)²/12
-    for axis in range(3):
-        np.testing.assert_allclose(d(lambda h: s(along(axis, h)).potential), s().gradient[axis], atol=1e-6)
-    with pytest.raises(ValueError):
-        manufactured_poisson(0.0, 0.0, 0.0, k, ("sin", "tan", "sin"))

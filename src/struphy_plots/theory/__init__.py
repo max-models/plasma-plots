@@ -14,15 +14,14 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
 * :mod:`~struphy_plots.theory.waves`: fluid, MHD and cold-plasma waves: light waves, MHD waves at
   any angle, dissipative and Hall-MHD Alfvén waves, cold-plasma (Stix) waves, cutoffs and
   resonances, Faraday rotation, cavity modes, drift waves and Hasegawa–Wakatani, Alfvén and slow
-  continua and the TAE gap.
+  continua and the TAE frequency.
 * :mod:`~struphy_plots.theory.orbits`: gyromotion, guiding-center drifts, trapped particles,
   bounce frequencies and banana widths in a large-aspect-ratio tokamak.
 * :mod:`~struphy_plots.theory.exact`: exact solutions to verify simulations: the Riemann problem
   of gas dynamics (with vacuum), dam break, diffusion, advection, pressureless flow and its
-  caustics, standing waves and cavity fields, Taylor–Green and ABC flows.
-* :mod:`~struphy_plots.theory.numerics`: stability and accuracy of the numerics: CFL numbers,
-  amplification and phase errors of time integrators, numerical dispersion, resolution and PIC
-  noise.
+  caustics.
+* :mod:`~struphy_plots.theory.numerics`: accuracy of the numerics: amplification and phase errors
+  of time integrators, and the numerical dispersion of spline finite elements.
 
 Conventions
 -----------
