@@ -1,7 +1,8 @@
 """Plots and diagnostics of a whole run, as ``out.plot`` and ``out.analysis``.
 
 Importing ``struphy_plots`` adds two properties to struphy's ``Output`` (when struphy is
-installed): ``out.plot`` (:class:`OutputPlots`) for optional plots that need a whole run, and
+installed; without importing struphy itself, which takes seconds: the properties are attached
+when struphy's output module is imported, before or after ``struphy_plots``): ``out.plot`` (:class:`OutputPlots`) for optional plots that need a whole run, and
 ``out.analysis`` (:class:`OutputAnalysis`) for spectral diagnostics of its products.
 
 Plots and diagnostics of a single array live on the array, see
@@ -12,6 +13,8 @@ Plots and diagnostics of a single array live on the array, see
 
 from __future__ import annotations
 
+import importlib.abc
+import sys
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -704,20 +707,61 @@ class OutputAnalysis:
         return mode_spectrum(self._array(product), dims=dims, names=names, periods=periods)
 
 
-def _register_output_plot_property():
-    """Wire ``out.plot`` to :class:`OutputPlots`, if struphy is installed.
+_OUTPUT_MODULE = "struphy.post_processing.output"
 
-    Guarded so importing ``struphy_plots`` stays optional: the array-level accessor works on any
-    labeled ``xarray`` object without struphy installed at all.
+
+def _register_output_plot_property(module=None):
+    """Wire ``out.plot`` and ``out.analysis`` to :class:`OutputPlots` and :class:`OutputAnalysis`.
+
+    ``module`` is struphy's ``struphy.post_processing.output``, already imported: struphy-plots
+    never imports struphy itself, which takes seconds (see :class:`_RegisterOnImport`).
     """
-    try:
-        from struphy.post_processing.output import Output
-    except ImportError:
+    module = module if module is not None else sys.modules.get(_OUTPUT_MODULE)
+    Output = getattr(module, "Output", None)
+    if Output is None:
         return
     # never replace an attribute struphy defines itself (e.g. a future Output.analysis method)
     for name, accessor in (("plot", OutputPlots), ("analysis", OutputAnalysis)):
         if name not in Output.__dict__:
             setattr(Output, name, property(accessor))
+
+
+class _RegisterOnImport(importlib.abc.MetaPathFinder):
+    """Register ``out.plot`` as soon as struphy's output module is imported, in whichever order
+    struphy and struphy-plots are imported, without importing struphy in a process that never
+    uses it (e.g. plotting GENE output). struphy itself imports struphy-plots from
+    ``Output.__init__``, which is too late when ``struphy_plots`` was imported first."""
+
+    def find_spec(self, name, path=None, target=None):
+        if name != _OUTPUT_MODULE:
+            return None
+        for finder in sys.meta_path:  # the spec the other finders would give
+            if finder is self or not hasattr(finder, "find_spec"):
+                continue
+            spec = finder.find_spec(name, path, target)
+            if spec is not None:
+                break
+        else:
+            return None
+        loader = spec.loader
+        if loader is None or not hasattr(loader, "exec_module"):
+            return spec
+        execute = loader.exec_module
+
+        def exec_module(module):
+            execute(module)
+            _register_output_plot_property(module)
+
+        loader.exec_module = exec_module
+        sys.meta_path.remove(self)  # needed once
+        return spec
+
+
+def _register_output_plot_property_when_available():
+    if _OUTPUT_MODULE in sys.modules:
+        _register_output_plot_property()
+    elif not any(isinstance(finder, _RegisterOnImport) for finder in sys.meta_path):
+        sys.meta_path.insert(0, _RegisterOnImport())
 
 
 def _complete_docstrings():
@@ -730,4 +774,4 @@ def _complete_docstrings():
 
 
 _complete_docstrings()
-_register_output_plot_property()
+_register_output_plot_property_when_available()
