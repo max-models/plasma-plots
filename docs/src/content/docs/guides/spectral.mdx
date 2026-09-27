@@ -99,7 +99,7 @@ eigenfrequency.
 modes = phi.struphy.analysis.mode_spectrum()          # complex, (t, eta1, m, n)
 amplitudes = modes.struphy.analysis.mode_amplitudes(top=4)  # (t, eta1, mode), labels like "(10, -1)"
 phi.struphy.plot.mode_amplitudes(top=2, fit=(100, 500))
-phi.struphy.plot.mode_map(t="last", m_range=(0, 16), n_range=(-3, 3))
+phi.struphy.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3))
 ```
 
 For a real field, `mode_amplitudes` merges each (m, n) with its conjugate
@@ -204,7 +204,7 @@ time. `scale` multiplies the mode numbers, so `scale=(1, 6)` labels a sixth of
 a torus (`tor_period=6`) with full-torus toroidal mode numbers:
 
 ```python
-phi.struphy.plot.mode_profiles(t="last", scale=(1, 6), x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
+phi.struphy.plot.mode_profiles(t=-1, scale=(1, 6), x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
 ```
 
 ![Radial amplitude of each harmonic at the last time, with full-torus n](../../../assets/figures/mode_profiles_snapshot.png)

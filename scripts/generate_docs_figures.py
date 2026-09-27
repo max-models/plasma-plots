@@ -97,9 +97,9 @@ field = field_array(
     "phi", r"$\phi$", "a.u.", phi, ("t", "eta1", "eta2"), {"t": t, "eta1": eta1, "eta2": eta2}
 )
 
-save(field.struphy.plot.slice(x="eta1", y="eta2", t="last"), "slice.png")
+save(field.struphy.plot.slice(x="eta1", y="eta2", t=-1), "slice.png")
 save(field.struphy.plot.panels(x="eta1", y="eta2", nrows=2, ncols=3), "panels.png")
-save(field.struphy.plot.lineout(x="eta1", t="last", eta2=0.5), "lineout.png")
+save(field.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5), "lineout.png")
 
 anim = field.struphy.plot.animation(x="eta1", y="eta2", step=2, interval=120)
 anim_path = PUBLIC_OUT / "animation.gif"
@@ -124,7 +124,7 @@ vector = field_array(
     {"t": t, "eta1": eta1, "eta2": eta2},
 )
 save(
-    vector.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t="last"),
+    vector.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1),
     "vector.png",
 )
 
@@ -261,7 +261,7 @@ distribution = field_array(
     "f", "$f$", "a.u.", f, ("t", "eta1", "v1"), {"t": tp, "eta1": e1p, "v1": v1p}
 )
 
-save(distribution.struphy.plot.slice(x="eta1", y="v1", t="last"), "phase_space.png")
+save(distribution.struphy.plot.slice(x="eta1", y="v1", t=-1), "phase_space.png")
 
 moments = distribution.struphy.analysis.velocity_moments()
 final = moments.isel(t=-1)
@@ -422,7 +422,7 @@ try:
         fig.write_json(PLOTLY_OUT / f"{filename}.json")
         print(f"wrote {PLOTLY_OUT / f'{filename}.json'}")
 
-    selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
+    selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
     fig = px.imshow(
         selected.transpose("eta2", "eta1"),
         x=selected.eta1,
@@ -451,7 +451,7 @@ try:
     save_plotly(fig, "plotly_timeseries")
 
     vec = vector.struphy.data.vector(
-        x="eta1", y="eta2", components=(0, 1), stride=4, t="last"
+        x="eta1", y="eta2", components=(0, 1), stride=4, t=-1
     )
     xg, yg = np.meshgrid(vec.eta1.values, vec.eta2.values, indexing="ij")
     fig = ff.create_quiver(
@@ -498,7 +498,7 @@ try:
     fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
     save_plotly(fig, "plotly_trajectories", height=520)
 
-    phase_space_selected = distribution.struphy.data.slice(x="eta1", y="v1", t="last")
+    phase_space_selected = distribution.struphy.data.slice(x="eta1", y="v1", t=-1)
     fig = px.imshow(
         phase_space_selected.transpose("v1", "eta1"),
         x=phase_space_selected.eta1,
@@ -641,7 +641,7 @@ save(
 )
 save(phi_tae.struphy.plot.filtered(band_tae, eta1=0.4, eta2=0.0, eta3=0.0), "spectral_filtered.png")
 save(phi_tae.struphy.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)), "spectral_mode_amplitudes.png")
-save(phi_tae.struphy.plot.mode_map(t="last", m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
+save(phi_tae.struphy.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
 save(
     phi_tae.struphy.plot.radial_power(
         x_of=radius_of, xlabel=r"$r/a$", continuum=(alfven_continuum, [(10, n_tae), (11, n_tae)]),
@@ -729,7 +729,7 @@ save(
     "profiles.png",
 )
 save(
-    phi_tae.struphy.plot.mode_profiles(t="last", scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2),
+    phi_tae.struphy.plot.mode_profiles(t=-1, scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2),
     "mode_profiles_snapshot.png",
 )
 
@@ -832,7 +832,7 @@ ring = field_array(
     Z=(("eta1", "eta2", "eta3"), np.zeros((a1, a2, 1))),
 )
 save(
-    ring.struphy.plot.slice(coords="physical", plane="XY", t="last", eta3=0, levels=[0.2], cmap="viridis",
+    ring.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], cmap="viridis",
                             title="Charge density with the interface n = 0.2"),
     "contour_interface.png",
 )
@@ -869,12 +869,12 @@ dam_density = np.stack(
 )
 dam_field, _, _ = unit_square(dam_density, 40, 40, t=t_db, name="n", label="$n$")
 save(
-    dam.struphy.plot.scatter(x="x", y="y", color="x", color_at="first", t="last", s=5, cmap="plasma",
+    dam.struphy.plot.scatter(x="x", y="y", color="x", color_at=0, t=-1, s=5, cmap="plasma",
                              background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"}),
     "markers_over_density.png",
 )
 animation_db = dam.struphy.plot.animation(
-    x="x", y="y", color="x", color_at="first", s=5, cmap="plasma",
+    x="x", y="y", color="x", color_at=0, s=5, cmap="plasma",
     background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"},
 )
 animation_db.save(PUBLIC_OUT / "markers_animation.gif", writer="pillow", fps=8)
@@ -1090,8 +1090,8 @@ save(orbits_gc.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_fie
 
 # Selecting data: the ring's last slice and a radial cut from .struphy.data, drawn with plain
 # matplotlib, with the densest point and the ring's extent found on the selected arrays
-last = ring.struphy.data.slice(coords="physical", plane="XY", t="last", eta3=0)
-cut = ring.struphy.data.lineout(x="eta1", t="last", eta2=0.3, eta3=0)
+last = ring.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
+cut = ring.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
 radius = 0.1 + 0.9 * cut.eta1
 densest = last.isel(last.argmax(...))
 fig, (ax_map, ax_cut) = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained", width_ratios=(1, 1.2))

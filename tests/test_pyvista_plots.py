@@ -126,7 +126,7 @@ def test_isosurface_is_a_surface_in_3d_and_contour_lines_in_2d():
 def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
     field = scalar(torus_coords())
     assert [piece.shape for piece in p3.prepare_slices_3d(field)] == [(1, 12, 16), (6, 1, 16), (6, 12, 1)]
-    cuts = p3.prepare_slices_3d(field, cuts={"eta3": [0.0, "last"], "eta1": 2})
+    cuts = p3.prepare_slices_3d(field, cuts={"eta3": [0.0, -1], "eta1": 2})
     assert [piece.shape for piece in cuts] == [(6, 12, 1), (6, 12, 1), (1, 12, 16)]
     assert cuts[1].eta3.item() == 1.0
     with pytest.raises(ValueError, match="eta1, eta2 or eta3"):

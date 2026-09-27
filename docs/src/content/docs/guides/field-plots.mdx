@@ -12,7 +12,7 @@ signatures are in the [Plotting reference](/struphy-plots/reference/plot/).
 ## 1-D: lineouts
 
 ```python
-field.struphy.plot.lineout(x="eta1", t="last", eta2=0.5)
+field.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5)
 ```
 
 Selects every dimension except `x` (via keyword selection) and plots the
@@ -45,7 +45,7 @@ def exact(x, t, D=0.01, width=0.05):
     return width / np.sqrt(s2) * np.exp(-((x - 0.5) ** 2) / (2 * s2))
 
 T.struphy.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
-T.struphy.plot.lineout(x="eta1", t="last", reference=exact, x_of=lambda eta1: L * eta1)
+T.struphy.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
 ```
 
 Here the run's diffusion coefficient is 10 % too large, so its profiles fall
@@ -73,7 +73,7 @@ For the error itself, see [errors against exact solutions](/struphy-plots/guides
 ```python
 view = field.struphy.plot.view(x="eta1", y="eta2", sweep="t")
 
-view.slice(t="last")              # one snapshot
+view.slice(t=-1)              # one snapshot
 view.panels(nrows=3, ncols=4)     # a grid of snapshots
 view.viewer()                     # interactive slider (Jupyter/IPython)
 view.animation(interval=100)      # matplotlib.animation.FuncAnimation
@@ -88,7 +88,7 @@ it, taking the same keyword arguments as `view(...)`.
 
 ![A grid of snapshots swept over time](../../../assets/figures/panels.png)
 
-The data behind this plot: `field.struphy.data.slice(x="eta1", y="eta2", t="last")` returns the selected 2-D array itself, ordered `(x, y)`, with its coordinates and units, for your own analysis or another plotting library (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `field.struphy.data.slice(x="eta1", y="eta2", t=-1)` returns the selected 2-D array itself, ordered `(x, y)`, with its coordinates and units, for your own analysis or another plotting library (see [Selecting data](/struphy-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
@@ -99,7 +99,7 @@ the slice back and put the first `y` at the bottom with `origin="lower"`:
 ```python
 import plotly.express as px
 
-selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
+selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
 px.imshow(selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2, origin="lower")
 ```
 
@@ -137,7 +137,7 @@ surfaces, or the streamlines of a stream function. With `fill=False`, only the
 lines are drawn, colored by `cmap`.
 
 ```python
-n.struphy.plot.slice(coords="physical", plane="XY", t="last", eta3=0, levels=[0.2])   # the ring's edges
+n.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])   # the ring's edges
 psi.struphy.plot.slice(levels=12, fill=False, cmap="Greys")                              # streamlines only
 n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])            # the interface in motion
 ```

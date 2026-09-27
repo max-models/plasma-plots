@@ -12,12 +12,12 @@ labeled array, so every [field plot](/struphy-plots/guides/field-plots/)
 works on it directly:
 
 ```python
-distribution.struphy.plot.slice(x="eta1", y="v1", t="last")
+distribution.struphy.plot.slice(x="eta1", y="v1", t=-1)
 ```
 
 ![A bump-on-tail distribution in (eta1, v1) phase space](../../../assets/figures/phase_space.png)
 
-The data behind this plot: `distribution.struphy.data.slice(x="eta1", y="v1", t="last")` returns the selected phase-space slice, e.g. for its maximum or a cut through it (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `distribution.struphy.data.slice(x="eta1", y="v1", t=-1)` returns the selected phase-space slice, e.g. for its maximum or a cut through it (see [Selecting data](/struphy-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
@@ -25,7 +25,7 @@ The data behind this plot: `distribution.struphy.data.slice(x="eta1", y="v1", t=
 ```python
 import plotly.express as px
 
-selected = distribution.struphy.data.slice(x="eta1", y="v1", t="last")
+selected = distribution.struphy.data.slice(x="eta1", y="v1", t=-1)
 px.imshow(selected.transpose("v1", "eta1"), x=selected.eta1, y=selected.v1, origin="lower")
 ```
 
@@ -178,7 +178,7 @@ periods.where(codes == 1).plot.hist()
 ## Marker scatter and particle clouds
 
 ```python
-markers.struphy.plot.scatter(x="x", y="y", color="density", t="last")
+markers.struphy.plot.scatter(x="x", y="y", color="density", t=-1)
 ```
 
 Scatters two position-like variables from any per-marker Dataset (not just
@@ -215,7 +215,7 @@ position, to follow where fluid parcels go:
 
 ```python
 markers.struphy.plot.scatter(
-    x="x", y="y", color="x", color_at="first", t="last",
+    x="x", y="y", color="x", color_at=0, t=-1,
     background=density.isel(eta3=0), background_options={"cmap": "Blues"},
 )
 ```
@@ -230,7 +230,7 @@ Markers that leave the domain disappear, and the axes limits stay fixed:
 
 ```python
 anim = markers.struphy.plot.animation(
-    x="x", y="y", color="x", color_at="first", background=density.isel(eta3=0),
+    x="x", y="y", color="x", color_at=0, background=density.isel(eta3=0),
     background_options={"cmap": "Blues"},
 )
 anim.save("dam_break.gif", writer="pillow", fps=8)
@@ -258,7 +258,7 @@ markers.struphy.plot.paths(
 ## Orbits over a background field
 
 ```python
-field.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2", t="last")
+field.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
 ```
 
 Draws this field's 2-D slice with marker paths from an orbits-like Dataset
@@ -269,7 +269,7 @@ a poloidal cross-section). `orbits` needs position variables named `x` and
 
 ![Confined orbits at different radii overlaid on a potential well](../../../assets/figures/orbit_overlay.png)
 
-The data behind this plot: `field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t="last")` returns the field slice and the orbit subset as a tuple (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)` returns the field slice and the orbit subset as a tuple (see [Selecting data](/struphy-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
@@ -279,7 +279,7 @@ A heatmap plus one line trace per marker:
 ```python
 import plotly.graph_objects as go
 
-selected, orbit_subset = field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t="last")
+selected, orbit_subset = field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
 fig = go.Figure(go.Heatmap(z=selected.transpose("eta2", "eta1").values, x=selected.eta1, y=selected.eta2))
 for marker in orbit_subset.marker.values:
     path = orbit_subset.sel(marker=marker)

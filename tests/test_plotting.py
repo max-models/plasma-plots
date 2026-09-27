@@ -240,7 +240,7 @@ def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeyp
     view = data.struphy.plot.view(x="eta1", y="v1", cmap="plasma", equal_aspect=True)
     limits = (float(data.min()), float(data.max()))
     assert plt.get_fignums() == []
-    snapshot = view.slice(t="last")
+    snapshot = view.slice(t=-1)
     panels = view.panels(nrows=1, ncols=2)
     viewer = view.viewer()
     result = viewer.draw()
@@ -347,7 +347,7 @@ def test_plot_convergence_with_explicit_order_draws_a_reference_instead_of_fitti
 
 def test_marker_scatter_selects_a_time_and_colors_by_a_variable():
     markers = orbits_dataset(n_t=5, n_m=6)
-    result = markers.struphy.plot.scatter(x="x", y="y", color="weight", t="last")
+    result = markers.struphy.plot.scatter(x="x", y="y", color="weight", t=-1)
     assert result.artists[0].get_offsets().shape == (6, 2)
     assert result.fig.axes[-1].get_ylabel()  # the colorbar carries the color variable's label
 
@@ -380,7 +380,7 @@ def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
 def test_array_data_mirrors_what_array_plot_would_render():
     data = phase_space(nt=4)
     assert data.struphy.data.lineout(x="eta1", t=0, v1=0).dims == ("eta1",)
-    assert data.struphy.data.slice(x="eta1", y="v1", t="last").dims == ("eta1", "v1")
+    assert data.struphy.data.slice(x="eta1", y="v1", t=-1).dims == ("eta1", "v1")
     assert data.struphy.data.view(x="eta1", y="v1").dims == ("t", "eta1", "v1")
 
     vector = data_array(
@@ -425,7 +425,7 @@ def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
 def test_dataset_data_mirrors_what_dataset_plot_would_render():
     orbits = orbits_dataset(n_t=4, n_m=5)
 
-    scattered = orbits.struphy.data.scatter(x="x", y="y", color="weight", t="last")
+    scattered = orbits.struphy.data.scatter(x="x", y="y", color="weight", t=-1)
     assert scattered.sizes == {"marker": 5}
     assert set(scattered.data_vars) >= {"x", "y", "weight"}
     assert scattered.to_dataframe().shape == (

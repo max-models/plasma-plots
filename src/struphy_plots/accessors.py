@@ -4,8 +4,8 @@ Every product of an :class:`~struphy.Output` carries this accessor after importi
 ``struphy_plots``, and so does every array derived from one.
 
 Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
-position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
-coordinate value (``t=0.35``).
+position (``t=0`` the first, ``t=-1`` the last), and a float is the nearest coordinate value
+(``t=0.35``).
 """
 
 from __future__ import annotations
@@ -32,12 +32,8 @@ class _ArrayAccessor:
                 raise TypeError(
                     f"{dim!r} is not a dimension of {self._array.name!r}; its dimensions are {self._array.dims}"
                 )
-            if value == "first":
-                index[dim] = 0
-            elif value == "last":
-                index[dim] = -1
-            elif isinstance(value, (bool, str)):
-                raise TypeError(f'cannot select {dim}={value!r}; use a number, or "first"/"last"')
+            if isinstance(value, (bool, str)):
+                raise TypeError(f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value")
             elif isinstance(value, (int, np.integer)):
                 index[dim] = int(value)
             else:
@@ -57,8 +53,8 @@ class ArrayPlots(_ArrayAccessor):
     """Plots of one array, as ``array.struphy.plot.<kind>(...)``.
 
     Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
-    position (``t=-1``), ``"first"`` and ``"last"`` are the ends, and a float is the nearest
-    coordinate value (``t=0.35``).
+    position (``t=0`` the first, ``t=-1`` the last), and a float is the nearest coordinate value
+    (``t=0.35``).
     """
 
     def timeseries(
@@ -252,7 +248,7 @@ class ArrayPlots(_ArrayAccessor):
         **selection,
     ):
         """PyVista contour surfaces of this scalar field in physical space, after selecting every
-        dimension but ``eta1``, ``eta2``, ``eta3`` (e.g. ``t="last"``). For a 2-D field, contour
+        dimension but ``eta1``, ``eta2``, ``eta3`` (e.g. ``t=-1``). For a 2-D field, contour
         lines over the colored plane. See :func:`struphy_plots.pyvista_plots.pyvista_isosurface`.
         """
         from .pyvista_plots import pyvista_isosurface
@@ -601,7 +597,7 @@ class ArrayPlots(_ArrayAccessor):
         ax=None,
         **selection,
     ):
-        """``|amplitude|`` over the ``(m, n)`` plane at one time (select it, e.g. ``t="last"``),
+        """``|amplitude|`` over the ``(m, n)`` plane at one time (select it, e.g. ``t=-1``),
         reduced over the remaining dimensions by ``reduce``. See
         :func:`struphy_plots.spectral_plots.plot_mode_map`."""
         from .spectral import mode_spectrum
@@ -666,7 +662,7 @@ class ArrayPlots(_ArrayAccessor):
 
         With ``omega``, the eigenfunction at that frequency (amplitude and phase):
         ``mode_spectrum(mode_structure(field, omega))``. Without it, the harmonics' amplitudes
-        at one time, which is then selected by keyword (e.g. ``t="last"``). ``scale`` multiplies
+        at one time, which is then selected by keyword (e.g. ``t=-1``). ``scale`` multiplies
         the mode numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a torus. See
         :func:`struphy_plots.spectral_plots.plot_mode_profiles`.
         """
@@ -781,8 +777,8 @@ class ArrayPlots(_ArrayAccessor):
         """Configure a reusable slice view without rendering a figure.
 
         Use xarray's ``.sel()``/``.isel()`` for general selection, or pass remaining
-        dimensions here (integers are positions, floats nearest coordinates,
-        ``"first"``/``"last"`` select an end).
+        dimensions here (integers are positions, e.g. ``-1`` the last; floats nearest
+        coordinates).
 
         ``shared_clim=True`` fixes color limits over all selected data, including
         frames omitted by a panel layout or export step. False rescales each frame.
@@ -802,7 +798,7 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> view = f.struphy.plot.view(x="eta1", y="v1", cmap="RdBu_r")
-        >>> view.slice(t="last")
+        >>> view.slice(t=-1)
         >>> view.panels(nrows=2, ncols=3)
         >>> view.save_frames("frames")
         """
@@ -1532,7 +1528,7 @@ class StruphyAccessor:
 
     @property
     def plot(self) -> "ArrayPlots":
-        """Plots of this array, e.g. ``array.struphy.plot.slice(x="eta1", y="v1", t="last")``."""
+        """Plots of this array, e.g. ``array.struphy.plot.slice(x="eta1", y="v1", t=-1)``."""
         return ArrayPlots(self._array)
 
     @property
@@ -1543,7 +1539,7 @@ class StruphyAccessor:
     @property
     def data(self) -> "ArrayData":
         """The data behind each plot, without rendering it, e.g. for a different plotting
-        library: ``array.struphy.data.slice(x="eta1", y="v1", t="last")``."""
+        library: ``array.struphy.data.slice(x="eta1", y="v1", t=-1)``."""
         return ArrayData(self._array)
 
 
@@ -1618,9 +1614,9 @@ class DatasetPlots:
         """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
 
         Remaining dimensions such as ``t`` are selected by keyword, exactly like
-        :meth:`ArrayPlots.lineout`: an integer is a position, ``"first"``/``"last"`` are the ends,
-        and a float is the nearest coordinate value. ``color_at`` colors by the values at another
-        time (e.g. ``"first"``); ``background`` draws a field behind the markers. See
+        :meth:`ArrayPlots.lineout`: an integer is a position (``-1`` the last), and a float is the
+        nearest coordinate value. ``color_at`` colors by the values at another time (e.g. ``0``,
+        the initial positions); ``background`` draws a field behind the markers. See
         :func:`struphy_plots.plotting.plot_marker_scatter`.
         """
         from .plotting import plot_marker_scatter
@@ -1645,7 +1641,7 @@ class DatasetPlots:
         x: str = "v_par",
         y: str | None = None,
         v_par: str = "v_par",
-        t="first",
+        t=0,
         ax=None,
         s: int = 8,
     ):
@@ -1700,7 +1696,7 @@ class DatasetPlots:
         near=None,
         background: xr.DataArray | None = None,
         background_options: dict | None = None,
-        t="first",
+        t=0,
         ax=None,
     ):
         """Paths of a few markers in a plane with start and end markers, optionally over a
@@ -1809,7 +1805,7 @@ class DatasetData:
         return resolve_marker_selection(self._dataset, selection)
 
     def orbit_classification(
-        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t="first"
+        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0
     ) -> xr.Dataset:
         """The per-marker ``x``, ``y`` and ``classification`` :meth:`DatasetPlots.orbit_classification`
         would plot."""
@@ -1858,7 +1854,7 @@ class SliceView:
         return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
 
     def slice(self, *, ax=None, **selection):
-        """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
+        """Draw a snapshot, e.g. ``view.slice(t=-1)``; return a PlotResult."""
         # Resolve shared limits before selecting a single snapshot, so it uses
         # the same scale as panels, animation and export of this configured view.
         from .plotting import _SliceRenderer, plot_slice

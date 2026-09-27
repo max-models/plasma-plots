@@ -24,7 +24,7 @@ Importing `struphy_plots` registers the `.struphy` accessor on every
 import struphy_plots  # registers DataArray.struphy
 
 field = out.evaluate("em_fields/phi")
-field.struphy.plot.slice(x="eta1", y="eta2", t="last")
+field.struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
 
 You don't need to keep a reference to `struphy_plots` around — the import
@@ -57,7 +57,7 @@ does the same selection and returns the labeled `xarray` object instead of a
 figure, for your own analysis, another plotting library or an export:
 
 ```python
-last = field.struphy.data.slice(x="eta1", y="eta2", t="last")   # what plot.slice(...) draws
+last = field.struphy.data.slice(x="eta1", y="eta2", t=-1)   # what plot.slice(...) draws
 float(last.max()), last.to_dataframe()
 ```
 

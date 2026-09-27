@@ -16,8 +16,8 @@ so you can work with it directly:
 - export it with `.to_dataframe()`, `.to_netcdf()` or `.values`
 
 ```python
-last = n.struphy.data.slice(coords="physical", plane="XY", t="last", eta3=0)   # 2-D, with X and Y
-cut = n.struphy.data.lineout(x="eta1", t="last", eta2=0.3, eta3=0)            # 1-D, along eta1
+last = n.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)   # 2-D, with X and Y
+cut = n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)            # 1-D, along eta1
 ```
 
 ## Selecting by name
@@ -26,9 +26,11 @@ Name each dimension you don't plot, as for every plot:
 
 | Value | Selects |
 | --- | --- |
-| an integer, e.g. `t=-1` | that position |
-| `"first"`, `"last"` | an end |
+| an integer, e.g. `t=0` or `t=-1` | that position: the first, the last |
 | a float, e.g. `t=0.35` | the nearest coordinate value |
+
+An integer and a float differ: `t=0` is the first sample, `t=0.0` the one
+nearest to time zero.
 
 An unknown name raises an error that lists the array's dimensions, and a static
 slice asks you to select one time if you haven't.
@@ -69,11 +71,11 @@ directly. For the ring from the
 [contour-line example](/struphy-plots/guides/field-plots/#contour-lines):
 
 ```python
-last = n.struphy.data.slice(coords="physical", plane="XY", t="last", eta3=0)
+last = n.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
 densest = last.isel(last.argmax(...))                  # the densest point, with its X and Y
 print(float(densest.X), float(densest.Y))
 
-cut = n.struphy.data.lineout(x="eta1", t="last", eta2=0.3, eta3=0)
+cut = n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
 radius = 0.1 + 0.9 * cut.eta1                           # this mapping's minor radius
 inside = radius.where(cut >= 0.2)
 width = float(inside.max() - inside.min())              # the ring's width along the cut
@@ -112,7 +114,7 @@ matplotlib figure. A 2-D slice as a Plotly heatmap:
 ```python
 import plotly.express as px
 
-selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
+selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
 px.imshow(
     selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2,
     origin="lower", color_continuous_scale="viridis",

@@ -71,7 +71,7 @@ def test_plot_orbit_classification_colors_each_class_and_counts_them():
     data = orbits.struphy.data.orbit_classification()
     assert set(data.data_vars) == {"v_par", "mu", "classification"}
     assert data["v_par"].values.tolist() == [1.0, -0.5, 2.0, 0.3]  # initial time by default
-    assert len(orbits.struphy.plot.orbit_classification(t="last").artists) == 3
+    assert len(orbits.struphy.plot.orbit_classification(t=-1).artists) == 3
 
 
 def test_orbit_classification_defaults_to_v_perp_without_mu():

@@ -48,11 +48,11 @@ def markers(n_t=5, n=20):
 
 def test_slices_draw_contour_lines_and_lines_only():
     field = square()
-    filled = field.struphy.plot.slice(x="eta1", y="eta2", t="last", eta3=0, levels=[0.5, 1.0])
+    filled = field.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=[0.5, 1.0])
     assert filled.ax.collections[-1].get_array() is None or len(filled.ax.collections) >= 2
     contour_sets = [c for c in filled.ax.collections if c.__class__.__name__ == "QuadContourSet"]
     assert contour_sets, "no contour lines drawn"
-    lines = field.struphy.plot.slice(x="eta1", y="eta2", t="last", eta3=0, levels=4, fill=False)
+    lines = field.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=4, fill=False)
     mesh = lines.artists[0]
     assert mesh.get_alpha() == 0.0  # only the lines are visible
     # animations and panels redraw the lines frame by frame without piling them up
@@ -85,7 +85,7 @@ def test_marker_scatter_over_a_field_colored_at_another_time():
     field = square()
     orbits = markers()
     result = orbits.struphy.plot.scatter(
-        x="x", y="y", color="x", color_at="first", t="last",
+        x="x", y="y", color="x", color_at=0, t=-1,
         background=field.isel(eta3=0), background_options={"cmap": "Blues"},
     )
     mesh, points = result.artists[0], result.artists[-1]
@@ -97,7 +97,7 @@ def test_marker_scatter_over_a_field_colored_at_another_time():
 def test_marker_animation_over_a_field_hides_lost_markers():
     field = square()
     orbits = markers()
-    animation = animate_markers(orbits, x="x", y="y", color="x", color_at="first", background=field.isel(eta3=0))
+    animation = animate_markers(orbits, x="x", y="y", color="x", color_at=0, background=field.isel(eta3=0))
     assert isinstance(animation, FuncAnimation)
     animation._func(4)
     scatter = [c for c in animation._fig.axes[0].collections if c.__class__.__name__ == "PathCollection"][0]

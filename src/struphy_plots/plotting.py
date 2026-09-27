@@ -1420,12 +1420,8 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
             raise TypeError(f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}")
-        if value == "first":
-            selected = selected.isel({dim: 0})
-        elif value == "last":
-            selected = selected.isel({dim: -1})
-        elif isinstance(value, (bool, str)):
-            raise TypeError(f'cannot select {dim}={value!r}; use a number, or "first"/"last"')
+        if isinstance(value, (bool, str)):
+            raise TypeError(f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value")
         elif isinstance(value, (int, np.integer)):
             selected = selected.isel({dim: int(value)})
         else:
@@ -1490,8 +1486,8 @@ def plot_marker_scatter(
     selected by keyword, exactly like :meth:`ArrayPlots.lineout`. Useful for checking a marker
     loading scheme, or visualizing an SPH particle cloud colored by density or a tracer.
 
-    ``color_at`` takes the colors at another time (``"first"``, ``"last"``, an index or a
-    value), e.g. each marker's initial position, to follow where fluid parcels go.
+    ``color_at`` takes the colors at another time (an integer position such as ``0``, or a
+    float value), e.g. each marker's initial position, to follow where fluid parcels go.
     ``background`` is a field drawn behind the markers at the same time (select its other
     dimensions first), in logical or physical coordinates to match ``x``/``y``;
     ``background_options`` are passed to :func:`plot_slice` (e.g. ``cmap``, ``levels``,
@@ -1557,7 +1553,7 @@ def animate_markers(
     """Animate marker positions over time, optionally over a field animated in sync.
 
     ``color`` names a variable to color by: per frame, or fixed at the time ``color_at``
-    (e.g. ``"first"`` for the initial position, to follow fluid parcels). ``background`` is a
+    (e.g. ``0`` for the initial position, to follow fluid parcels). ``background`` is a
     field with a ``t`` dimension (other dimensions selected), drawn at the nearest time of each
     frame with shared color limits; ``background_options`` go to its renderer (``cmap``,
     ``symmetric``, ``levels``, ...). Markers that have left the domain are hidden. The axes
@@ -1648,7 +1644,7 @@ def plot_marker_paths(
     near=None,
     background: xr.DataArray | None = None,
     background_options: dict | None = None,
-    t="first",
+    t=0,
     ax=None,
     cmap="viridis",
 ):
@@ -1758,14 +1754,14 @@ ORBIT_CLASS_COLORS = {"passing": "C0", "trapped": "C1", "lost": "0.55"}
 
 
 def prepare_orbit_classification(
-    orbits, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t="first"
+    orbits, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0
 ) -> xr.Dataset:
     """Each marker's ``x`` and ``y`` at time ``t`` together with its orbit class.
 
     ``y`` defaults to the magnetic moment ``mu`` (Particles5D), or ``v_perp`` if there is no
-    ``mu`` (Particles5Dvperp). ``t`` is selected like any other dimension: ``"first"`` (default,
-    the initial phase-space position, before any marker is lost), ``"last"``, an integer position,
-    or a float nearest value. Used by :func:`plot_orbit_classification`.
+    ``mu`` (Particles5Dvperp). ``t`` is selected like any other dimension: an integer position
+    (default ``0``, the initial phase-space position, before any marker is lost; ``-1`` the
+    last), or a float nearest value. Used by :func:`plot_orbit_classification`.
     """
     if isinstance(orbits, xr.DataArray):
         orbits = orbits.to_dataset(dim="quantity")
@@ -1785,7 +1781,7 @@ def plot_orbit_classification(
     x: str = "v_par",
     y: str | None = None,
     v_par: str = "v_par",
-    t="first",
+    t=0,
     ax=None,
     s: int = 8,
 ):
@@ -2028,16 +2024,18 @@ def plot_profiles(
         at = np.unique(np.linspace(0, data.sizes[over] - 1, 4).astype(int)).tolist()
     xs = np.asarray(data[x], dtype=float)
     xs = np.asarray(x_of(xs), dtype=float) if x_of is not None else xs
+    # not via numpy: a list like [0, 0.5, -1] would turn the positions 0 and -1 into values
+    at = list(at) if isinstance(at, (list, tuple, np.ndarray)) else [at]
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     artists = []
-    for i, position in enumerate(np.atleast_1d(at).tolist()):
+    for i, position in enumerate(at):
         profile = (
             data.isel({over: position})
             if isinstance(position, (int, np.integer))
             else data.sel({over: position}, method="nearest")
         )
         value = float(profile[over])
-        color = plt.get_cmap("viridis")(i / max(len(np.atleast_1d(at)) - 1, 1))
+        color = plt.get_cmap("viridis")(i / max(len(at) - 1, 1))
         artists += ax.plot(
             xs,
             np.asarray(profile.transpose(x)),

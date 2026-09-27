@@ -167,7 +167,9 @@ def test_profiles_at_several_times_against_a_mapped_radius():
     assert len(result.artists) == 4
     np.testing.assert_allclose(result.artists[0].get_xdata()[[0, -1]], [0.1, 1.0])
     cube = field.expand_dims(eta2=[0.0, 0.5]).transpose("t", "eta1", "eta2")
-    assert len(cube.struphy.plot.profiles(x="eta1", at=[0, 0.5, "last"] if False else [0, 0.5], eta2=0.5).artists) == 2
+    assert len(cube.struphy.plot.profiles(x="eta1", at=[0, 0.5], eta2=0.5).artists) == 2
+    mixed = cube.struphy.plot.profiles(x="eta1", at=[0, 0.5, -1], eta2=0.5)   # positions and a value
+    assert mixed.artists[-1].get_label().endswith(f"{float(cube.t[-1]):.3g}")
 
 
 def orbits_dataset():

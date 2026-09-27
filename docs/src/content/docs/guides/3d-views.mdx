@@ -31,7 +31,7 @@ a notebook or an interactive session, or `.screenshot("view.png")` in a batch
 job (set `pyvista.OFF_SCREEN = True` first). To draw several views into one
 scene, pass the plotter back in with `plotter=`. Dimensions other than `eta1`,
 `eta2`, `eta3` (and `component` for vectors) are selected by keyword, exactly as
-for the 2-D plots, e.g. `t="last"`.
+for the 2-D plots, e.g. `t=-1`.
 
 ## Isosurfaces
 
@@ -66,7 +66,7 @@ phi.struphy.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0)
 <PyVistaScene src="/pyvista/3d_flux_surface.html" image={fig_flux_surface} alt="A mode on one flux surface" />
 
 Cut positions are logical coordinates (a float picks the nearest grid point),
-grid indices (integers) or `"first"`/`"last"`. Without `cuts`, the middle of
+or grid indices (integers, e.g. `-1` for the last). Without `cuts`, the middle of
 each direction is drawn. All cuts share one color scale.
 
 ## Vector fields: field lines and arrows
@@ -164,12 +164,12 @@ phi_2d.struphy.plot.movie("mode_2d.gif", kind="isosurface", values=7, cmap="RdBu
 
 ## Your own PyVista pipeline
 
-`field.struphy.data.grid(t="last")` returns the field as a
+`field.struphy.data.grid(t=-1)` returns the field as a
 `pyvista.StructuredGrid` on its physical points. Vector fields also get their
 magnitude as `"|name|"`. You can hand the grid to any PyVista filter:
 
 ```python
-grid = phi.struphy.data.grid(t="last")
+grid = phi.struphy.data.grid(t=-1)
 grid.contour([0.5]).plot(cmap="RdBu_r")
 ```
 

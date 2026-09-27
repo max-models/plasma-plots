@@ -130,8 +130,8 @@ a 2-D field, contour lines over the colored plane.
 #### `slices_3d(*, cuts=None, cmap="viridis", clim=None, show_domain=True, title=None, plotter=None, **selection)`
 Surfaces of constant logical coordinate, drawn in physical space, e.g.
 `cuts={"eta3": [0, 0.25]}` (poloidal cross-sections) or `cuts={"eta1": 0.8}` (a
-flux surface). A float is the nearest coordinate, an integer an index,
-`"first"`/`"last"` an end. The default is each midplane, or for a 2-D field
+flux surface). A float is the nearest coordinate, an integer an index
+(`-1` the last). The default is each midplane, or for a 2-D field
 the whole plane.
 
 #### `glyphs(*, components="cartesian", stride=2, scale=None, cmap="viridis", show_domain=True, title=None, plotter=None, **selection)`
@@ -161,7 +161,7 @@ Same as the `DataArray` accessor's `trajectories()` above.
 Scatter two position variables (`x`, `y`), optionally colored by a third
 (e.g. a density, weight, or Lagrangian tracer). Remaining dimensions such as
 `t` are selected by keyword, exactly like `lineout()`. `color_at` takes the
-colors at another time (e.g. `"first"`); `background` is a field drawn behind
+colors at another time (e.g. `0`, the initial positions); `background` is a field drawn behind
 the markers at the same time, in logical or physical coordinates to match
 `x`/`y`, with `background_options` for `plot_slice`.
 
@@ -170,12 +170,12 @@ Markers moving over time, optionally over a field animated in sync. Lost
 markers are hidden and the axes limits are fixed. Backed by
 `struphy_plots.plotting.animate_markers`.
 
-### `paths(*, x="x", y="y", markers=6, near=None, background=None, background_options=None, t="first", ax=None)`
+### `paths(*, x="x", y="y", markers=6, near=None, background=None, background_options=None, t=0, ax=None)`
 Paths of a few markers in a plane, with start (circle) and end (cross)
 markers. `near` picks the markers starting closest to given points. Backed by
 `struphy_plots.plotting.plot_marker_paths`.
 
-### `orbit_classification(*, x="v_par", y=None, v_par="v_par", t="first", ax=None, s=8)`
+### `orbit_classification(*, x="v_par", y=None, v_par="v_par", t=0, ax=None, s=8)`
 For a guiding-center orbits product (Particles5D or Particles5Dvperp): scatter
 markers in a phase-space plane, colored as passing, trapped or lost, with each
 class's count and fraction in the legend. The classification follows Struphy's

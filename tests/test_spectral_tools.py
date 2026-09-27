@@ -185,7 +185,7 @@ def test_mode_plots_on_a_torus_field():
     field = torus_field()
     amplitudes = field.struphy.plot.mode_amplitudes(top=2, fit=True)
     assert [fit.rate for fit in amplitudes.fit_results] == pytest.approx([0.05, 0.05], rel=1e-6)
-    assert field.struphy.plot.mode_map(t="last", m_range=(0, 15), n_range=(-4, 4)).data["amplitude"].dims == ("n", "m")
+    assert field.struphy.plot.mode_map(t=-1, m_range=(0, 15), n_range=(-4, 4)).data["amplitude"].dims == ("n", "m")
     profiles = field.struphy.plot.mode_profiles(0.4, top=2)
     peaks = profiles.data["profiles"]
     assert abs(peaks).idxmax("eta1").values.tolist() == pytest.approx([0.4, 0.6])
