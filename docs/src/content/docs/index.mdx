@@ -38,9 +38,10 @@ out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
 
 :::caution[Always `import struphy_plots` first]
-Struphy's output does not load struphy-plots by itself. Without the import,
-`.struphy` does not exist and you get
-`AttributeError: 'DataArray' object has no attribute 'struphy'`.
+Recent Struphy versions load struphy-plots when an `Output` is created, but
+older ones and plain xarray data don't. Without it, `.struphy` does not exist
+and you get `AttributeError: 'DataArray' object has no attribute 'struphy'`.
+The import is harmless either way, so keep it in every script.
 :::
 
 <CardGrid stagger>

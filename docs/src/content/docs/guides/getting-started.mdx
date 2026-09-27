@@ -17,17 +17,21 @@ pip install "struphy-plots[pyvista]"
 
 ## Import struphy_plots first
 
-:::caution[Required in every script and notebook]
+:::caution[Put it in every script and notebook]
 ```python
 import struphy_plots  # registers DataArray.struphy
 ```
-Struphy's output does not load struphy-plots by itself. Without this import,
-none of the examples in these docs work: `.struphy` does not exist on your
+Recent Struphy versions load struphy-plots when an `Output` is created. With
+older versions, or for plain xarray data, nothing loads it: without this import
+none of the examples in these docs work, `.struphy` does not exist on your
 arrays, and you get
 
 ```
 AttributeError: 'DataArray' object has no attribute 'struphy'
 ```
+
+The import is harmless when struphy-plots is already loaded, so keep it: the
+script then works everywhere.
 :::
 
 The import registers the accessors, as a side effect:
@@ -48,6 +52,23 @@ out = Output("path/to/run")
 field = out.evaluate("em_fields/phi")
 field.struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
+
+## Finding your way in Python
+
+Printing an accessor lists its methods with a one-line summary each, and
+`help()` on a method shows every parameter:
+
+```python
+print(field.struphy.plot)          # every plot, e.g. slice, animation, dispersion, ...
+help(field.struphy.plot.slice)     # its parameters, returns and examples
+print(out.plot)                    # whole-run plots
+help(struphy_plots)                # an overview: the pipeline, selection, what is where
+```
+
+`python -m struphy_plots` prints the same overview in a terminal. For language
+models and coding agents, the documentation is also available as plain text at
+[`/llms.txt`](/struphy-plots/llms.txt), with the full text in
+[`/llms-full.txt`](/struphy-plots/llms-full.txt).
 
 ## Where to look next
 
