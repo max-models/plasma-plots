@@ -8,7 +8,7 @@ pytest.importorskip("plotly")
 
 import struphy_plots  # noqa: E402, F401
 from struphy_plots.analysis import fit_dispersion_branches, power_spectrum  # noqa: E402
-from struphy_plots.plotly_plots import dispersion, space_time  # noqa: E402
+from struphy_plots.plotly_plots import dispersion, save_figure, space_time  # noqa: E402
 
 
 @pytest.fixture
@@ -63,3 +63,32 @@ def test_the_accessor_draws_the_same_figures(waves):
 def test_dispersion_needs_omega_and_k(waves):
     with pytest.raises(ValueError, match="omega"):
         dispersion(waves)
+
+
+def test_save_figure_writes_html_png_and_json(waves, tmp_path, monkeypatch):
+    import plotly.graph_objects as go
+    import plotly.io as pio
+
+    written = {}
+
+    def write_image(self, path, **kwargs):  # kaleido needs a Chrome install
+        written.update(kwargs)
+        open(path, "wb").close()
+
+    monkeypatch.setattr(go.Figure, "write_image", write_image)
+    figure = space_time(waves, title="E_x(z, t)")
+    paths = save_figure(figure, str(tmp_path / "figures" / "space-time"), width=800)
+    assert [p.name for p in paths] == ["space-time.html", "space-time.png", "space-time.plotly.json"]
+    assert all(p.is_file() for p in paths)
+    assert written == {"width": 800, "height": 650, "scale": 2.0}
+    assert pio.read_json(paths[2]).layout.title.text == "E_x(z, t)"
+
+
+def test_save_figure_writes_only_on_mpi_rank_0(waves, tmp_path, monkeypatch):
+    import sys
+    import types
+
+    rank_1 = types.SimpleNamespace(COMM_WORLD=types.SimpleNamespace(Get_rank=lambda: 1))
+    monkeypatch.setitem(sys.modules, "mpi4py.MPI", rank_1)
+    assert save_figure(space_time(waves), str(tmp_path / "space-time")) == []
+    assert not list(tmp_path.iterdir())

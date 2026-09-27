@@ -1,14 +1,17 @@
 """Interactive Plotly figures of labeled arrays, for web pages and notebooks.
 
 The functions here return a :class:`plotly.graph_objects.Figure`; call ``.show()`` on it, or
-``.write_html(...)``. They need Plotly (``pip install "struphy-plots[plotly]"``). The same
-plots are methods of ``array.struphy.plotly``, e.g. ``field.struphy.plotly.space_time()``.
-Axis titles are plain text: Plotly draws LaTeX only where MathJax is loaded.
+save it with :func:`save_figure`. They need Plotly (``pip install "struphy-plots[plotly]"``);
+the PNG of :func:`save_figure` also needs Kaleido. The same plots are methods of
+``array.struphy.plotly``, e.g. ``field.struphy.plotly.space_time()``. Axis titles are plain
+text: Plotly draws LaTeX only where MathJax is loaded.
 """
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 
 import numpy as np
 import xarray as xr
@@ -57,7 +60,61 @@ def _layout(figure, title, xaxis_title, yaxis_title):
         autosize=True,
         margin={"l": 75, "r": 45, "t": 80, "b": 70},
     )
+    # 1×10⁻⁶ instead of Plotly's SI prefixes (µ, n, k, M, ...)
+    figure.update_xaxes(exponentformat="power")
+    figure.update_yaxes(exponentformat="power")
     return figure
+
+
+def _writes_files() -> bool:
+    """Whether this process writes files: MPI rank 0, or a serial run (MPI is not initialized here)."""
+    mpi = sys.modules.get("mpi4py.MPI")
+    return mpi is None or mpi.COMM_WORLD.Get_rank() == 0
+
+
+def save_figure(figure, name: str, *, width: int = 1100, height: int = 650, scale: float = 2.0) -> list[Path]:
+    """Save a figure as ``<name>.html``, ``<name>.png`` and ``<name>.plotly.json``.
+
+    The HTML is the interactive figure as a standalone page (Plotly's JavaScript from a CDN), the
+    PNG a static image (it needs Kaleido and a Chrome install, see ``plotly_get_chrome``), and the
+    JSON the figure itself, to load again with ``plotly.io.read_json``. Under MPI only rank 0
+    writes, so a script run on several ranks can call this on every rank.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure to save.
+    name : str
+        The path of the files without their extensions, e.g. ``"maxwell-wave"`` or
+        ``"figures/maxwell-wave"``.
+    width : int, optional
+        Width of the PNG in layout pixels. Default: 1100.
+    height : int, optional
+        Height of the PNG in layout pixels. Default: 650.
+    scale : float, optional
+        Resolution factor of the PNG. Default: 2.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The files written (none on the other MPI ranks).
+
+    Examples
+    --------
+    >>> figure = e_x.struphy.plotly.space_time()
+    >>> save_figure(figure, "space-time")
+    """
+    if not _writes_files():
+        return []
+    base = Path(name)
+    base.parent.mkdir(parents=True, exist_ok=True)
+    html, png, json = (base.with_name(base.name + suffix) for suffix in (".html", ".png", ".plotly.json"))
+    figure.write_html(html, include_plotlyjs="cdn", full_html=True, auto_play=False, config={"responsive": True})
+    figure.write_image(png, width=width, height=height, scale=scale)
+    figure.write_json(json, pretty=False)
+    for path in (html, png, json):
+        print(f"Saved {path.resolve()}")
+    return [html, png, json]
 
 
 def space_time(
@@ -122,7 +179,10 @@ def space_time(
             colorscale=colorscale,
             zmin=-limit,
             zmax=limit,
-            colorbar={"title": {"text": colorbar_title if colorbar_title is not None else str(data.name or "")}},
+            colorbar={
+                "title": {"text": colorbar_title if colorbar_title is not None else str(data.name or "")},
+                "exponentformat": "power",
+            },
         )
     )
     return _layout(figure, title if title is not None else name, _axis_title(data, space), _axis_title(data, "t"))
