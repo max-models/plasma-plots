@@ -55,12 +55,12 @@ export default defineConfig({
 						{ label: 'Time series & comparisons', slug: 'guides/timeseries' },
 						{ label: 'Diagnostics', slug: 'guides/analysis' },
 						{ label: 'Spectral analysis', slug: 'guides/spectral' },
-						{ label: 'Theory toolbox', slug: 'guides/theory' },
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 						{ label: 'Profiling', slug: 'guides/profiling' },
 						{ label: 'Recipes', slug: 'guides/recipes' },
 						{ label: 'MHD slab waves', slug: 'guides/real-example' },
+						{ label: 'Theory toolbox', slug: 'guides/theory' },
 					],
 				},
 				{
