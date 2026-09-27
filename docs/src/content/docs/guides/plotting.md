@@ -72,3 +72,22 @@ markers.struphy.plot.trajectories(max_markers=200)
 ```
 
 Plots 3-D orbits for kinetic marker output.
+
+## Running under MPI
+
+A post-processing script can run on several ranks, e.g. next to a simulation
+with `mpirun -n 4 python script.py`. Plots are then drawn on rank 0 only; the
+other ranks get a `SkippedPlot` placeholder whose methods do nothing, so the
+same script works in serial and in parallel without `if rank == 0:` guards:
+
+```python
+out.plot.scalars().save("scalars.png")                # written once, by rank 0
+field.struphy.plot.frames("frames/", x="eta1", y="eta2")  # [] on ranks > 0
+```
+
+Analysis (`array.struphy.analysis.*`) still runs on every rank. The rank is read
+from the MPI launcher's environment, or from `mpi4py` if MPI is already
+initialized — importing `struphy_plots` never initializes MPI itself. Set
+`STRUPHY_MPI=0` to make every process plot. Nothing waits for rank 0: call
+`MPI.COMM_WORLD.Barrier()` before other ranks read a file rank 0 wrote.
+`struphy_plots.is_plotting_rank()` tells whether the current process draws.

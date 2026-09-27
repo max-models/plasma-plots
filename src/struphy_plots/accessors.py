@@ -382,8 +382,12 @@ class SliceView:
         """Draw a snapshot, e.g. ``view.slice(t="last")``; return a PlotResult."""
         # Resolve shared limits before selecting a single snapshot, so it uses
         # the same scale as panels, animation and export of this configured view.
+        from .mpi import SkippedPlot, mpi_rank
         from .plotting import _SliceRenderer, plot_slice
 
+        rank = mpi_rank()
+        if rank:  # skip the limits over the whole sweep too
+            return SkippedPlot("SliceView.slice", rank)
         options = dict(self._options)
         if options["shared_clim"]:
             renderer = _SliceRenderer(self._array, self._view(), **options)

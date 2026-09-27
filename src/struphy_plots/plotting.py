@@ -31,6 +31,7 @@ from .arrays import (
     validate_array,
     value_label,
 )
+from .mpi import rank_zero
 
 logger = logging.getLogger("struphy")
 
@@ -216,6 +217,7 @@ def _slice_data(data, view):
     return selected, grids
 
 
+@rank_zero
 def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, title=None, run_label=None):
     """Plot one or more time series, each on its own time grid; series of different runs are labeled by run."""
     series = _items(data)
@@ -264,6 +266,7 @@ def plot_timeseries(data, *, ax=None, logy=True, fit: GrowthFit | None = None, t
     return PlotResult(fig, ax, artists, fits)
 
 
+@rank_zero
 def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=None):
     """Plot a selected one-dimensional profile using one named coordinate."""
     validate_array(data)
@@ -279,6 +282,7 @@ def plot_lineout(data: xr.DataArray, *, x: str | None = None, ax=None, title=Non
     return PlotResult(fig, ax, [line])
 
 
+@rank_zero
 def plot_vector(
     data: xr.DataArray,
     *,
@@ -314,6 +318,7 @@ def plot_vector(
     return PlotResult(fig, ax, [quiver])
 
 
+@rank_zero
 def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
     """Show three orthogonal midpoint slices of a selected scalar volume."""
     validate_array(data, required_dims=("e1", "e2", "e3"))
@@ -332,6 +337,7 @@ def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = N
     return PlotResult(fig, axes, artists)
 
 
+@rank_zero
 def plot_compare(
     first: xr.DataArray, second: xr.DataArray, *, mode: Literal["difference", "ratio"] = "difference", ax=None
 ):
@@ -342,6 +348,7 @@ def plot_compare(
     return plot_lineout(result, ax=ax)
 
 
+@rank_zero
 def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"):
     """Create a PyVista volume view from a selected scalar field with ``X/Y/Z`` coordinates.
 
@@ -366,6 +373,7 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     return plotter
 
 
+@rank_zero
 def show_equilibrium(path_out, *, scalars: str = "p0", cmap="viridis"):
     """Create a PyVista view of ``geometry.vts`` and its equilibrium scalar field."""
     import pyvista as pv
@@ -424,6 +432,7 @@ class _SliceRenderer:
         return range(0, self.data.sizes[self.view.sweep], step)
 
 
+@rank_zero
 def plot_slice(
     data: xr.DataArray,
     *,
@@ -459,6 +468,7 @@ def plot_slice(
     return PlotResult(fig, ax, [mesh])
 
 
+@rank_zero
 def plot_panels(
     data: xr.DataArray,
     *,
@@ -545,6 +555,7 @@ class InteractiveSliceViewer:
     def _ipython_display_(self):
         (self.result or self.draw())._ipython_display_()
 
+    @rank_zero
     def draw(self):
         if self.result is not None:
             return self.result
@@ -591,6 +602,7 @@ class InteractiveSliceViewer:
         return self.result
 
 
+@rank_zero
 def animate_slices(
     data: xr.DataArray,
     *,
@@ -638,6 +650,7 @@ def animate_slices(
     return animation
 
 
+@rank_zero
 def save_frames(
     data: xr.DataArray,
     directory,
@@ -688,6 +701,7 @@ def save_frames(
     return paths
 
 
+@rank_zero
 def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=None, logy=False, run_label=None):
     """Plot every scalar time series in one axes."""
     selected = scalar_names(scalars, names=names, exclude=exclude)
@@ -709,6 +723,7 @@ def plot_scalars(scalars, *, names=None, exclude=SCALARS_EXCLUDE, relative_to=No
     return PlotResult(fig, ax, list(ax.lines))
 
 
+@rank_zero
 def save_all_scalars(
     scalars,
     directory,
@@ -742,6 +757,7 @@ def save_all_scalars(
     return paths
 
 
+@rank_zero
 def plot_marker_trajectories(orbits: xr.DataArray, *, ax=None, max_markers=200, show_paths=None):
     """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate."""
     validate_array(orbits, required_dims=("t", "marker", "quantity"))
@@ -759,6 +775,7 @@ def plot_marker_trajectories(orbits: xr.DataArray, *, ax=None, max_markers=200, 
     return PlotResult(fig, ax, artists)
 
 
+@rank_zero
 def plot_equilibrium_profile(path_out, *, ax=None):
     """Plot radial equilibrium profiles from ``geometry.vts``."""
     import pyvista as pv

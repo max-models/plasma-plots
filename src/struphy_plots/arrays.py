@@ -67,6 +67,11 @@ def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_E
 
 
 def save_scalars(scalars: xr.Dataset | Mapping, path: str, *, names=None, exclude=SCALARS_EXCLUDE, fmt=None) -> str:
+    """Write the scalar time series as a table; under MPI only rank 0 writes, every rank returns ``path``."""
+    from .mpi import is_plotting_rank
+
+    if not is_plotting_rank():
+        return path
     selected = scalar_names(scalars, names=names, exclude=exclude)
     arrays = [scalars[name] for name in selected]
     for array in arrays:
