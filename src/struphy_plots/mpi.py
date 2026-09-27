@@ -36,7 +36,21 @@ _OVERRIDE_ENV_VAR = "STRUPHY_MPI"
 
 
 def mpi_rank() -> int:
-    """This process' rank in ``MPI_COMM_WORLD``, or 0 outside an MPI job; never initializes MPI."""
+    """Return this process' rank in ``MPI_COMM_WORLD``, without initializing MPI.
+
+    The rank comes from ``mpi4py`` if the application has already initialized MPI, otherwise from
+    the per-rank variables MPI launchers export. ``STRUPHY_MPI=0`` makes every process rank 0.
+
+    Returns
+    -------
+    int
+        The rank, or 0 outside an MPI job.
+
+    Examples
+    --------
+    >>> mpi_rank()  # in a serial run
+    0
+    """
     if os.environ.get(_OVERRIDE_ENV_VAR, "").strip().lower() in ("0", "false", "no", "off"):
         return 0
     mpi = sys.modules.get("mpi4py.MPI")
@@ -55,7 +69,17 @@ def mpi_rank() -> int:
 
 
 def is_plotting_rank() -> bool:
-    """Whether this process draws: rank 0 of an MPI job, or any process outside one."""
+    """Tell whether this process draws plots and writes their files.
+
+    Returns
+    -------
+    bool
+        ``True`` on rank 0 of an MPI job and in any process outside one.
+
+    See Also
+    --------
+    mpi_rank : The rank this is decided from.
+    """
     return mpi_rank() == 0
 
 
@@ -65,6 +89,21 @@ class SkippedPlot:
     Any public attribute or call returns the same object, so ``plot(...).save(path)``,
     ``plotter.show()`` or ``animation.save(path)`` run on every rank but act only on rank 0. It is
     false and iterates as empty, like the (empty) list of files it wrote.
+
+    Parameters
+    ----------
+    name : str
+        The skipped plot function, shown by ``repr``.
+    rank : int
+        The rank that skipped it.
+
+    Examples
+    --------
+    >>> skipped = SkippedPlot("plot_slice", rank=1)
+    >>> skipped.save("slice.png").fig is skipped  # nothing is written
+    True
+    >>> list(skipped), bool(skipped)
+    ([], False)
     """
 
     def __init__(self, name: str, rank: int):
@@ -77,6 +116,18 @@ class SkippedPlot:
         return self
 
     def __call__(self, *args, **kwargs):
+        """Do nothing, in place of the skipped plot's method.
+
+        Parameters
+        ----------
+        *args, **kwargs
+            The method's arguments, ignored.
+
+        Returns
+        -------
+        SkippedPlot
+            This object, so that calls can be chained.
+        """
         return self
 
     def __bool__(self):
@@ -93,7 +144,23 @@ class SkippedPlot:
 
 
 def rank_zero(func):
-    """Run ``func`` on the plotting rank only; other ranks get a :class:`SkippedPlot`."""
+    """Decorate a plotting function so that it runs on the plotting rank only.
+
+    Parameters
+    ----------
+    func : callable
+        A function that draws a figure or writes files.
+
+    Returns
+    -------
+    callable
+        ``func`` on rank 0 and outside MPI; on other ranks a function that returns a
+        :class:`SkippedPlot` without calling ``func``.
+
+    See Also
+    --------
+    is_plotting_rank : Whether this process is the plotting rank.
+    """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
