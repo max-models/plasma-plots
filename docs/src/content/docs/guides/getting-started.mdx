@@ -15,39 +15,55 @@ For interactive 3-D volume rendering, install the optional PyVista extra:
 pip install "struphy-plots[pyvista]"
 ```
 
-## Import struphy_plots first
+## Loading struphy-plots
 
-:::caution[Required in every script and notebook]
+Creating a Struphy `Output` loads struphy-plots, so there is nothing to import:
+
 ```python
-import struphy_plots  # registers DataArray.struphy
-```
-Struphy's output does not load struphy-plots by itself. Without this import,
-none of the examples in these docs work: `.struphy` does not exist on your
-arrays, and you get
+from struphy.post_processing.output import Output
 
+out = Output("path/to/run")
+out.plot.energies()                                    # whole-run plots and diagnostics
+field = out.evaluate("em_fields/phi")
+field.struphy.plot.slice(x="eta1", y="eta2", t=-1)     # .struphy on every product
 ```
-AttributeError: 'DataArray' object has no attribute 'struphy'
-```
-:::
 
-The import registers the accessors, as a side effect:
+Loading it registers the accessors:
 
 - `.struphy` on every `xarray.DataArray` and `xarray.Dataset`, including the
   products of Struphy's `Output` and every array derived from them
 - `out.plot` and `out.analysis` on Struphy's `Output` object
 
-You don't need to use the imported module; the import alone enables the
-accessors, so linters may flag it as unused (silence them with `# noqa: F401`).
-Put it at the top of the script, or in the first cell of a notebook:
+:::caution[Other xarray data: `import struphy_plots`]
+For xarray data that doesn't come from an `Output` (your own arrays, or files
+opened with xarray), import the package first:
 
 ```python
 import struphy_plots  # noqa: F401  (registers DataArray.struphy)
-from struphy.post_processing.output import Output
-
-out = Output("path/to/run")
-field = out.evaluate("em_fields/phi")
-field.struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
+
+Without it, `.struphy` does not exist and you get
+`AttributeError: 'DataArray' object has no attribute 'struphy'`. The import
+alone does the work, so linters may flag it as unused.
+:::
+
+## Finding your way in Python
+
+Printing an accessor lists its methods with a one-line summary each, and
+`help()` on a method shows every parameter:
+
+```python
+print(field.struphy.plot)          # every plot, e.g. slice, animation, dispersion, ...
+help(field.struphy.plot.slice)     # its parameters, returns and examples
+print(out.plot)                    # whole-run plots
+import struphy_plots
+help(struphy_plots)                # an overview: the pipeline, selection, what is where
+```
+
+`python -m struphy_plots` prints the same overview in a terminal. For language
+models and coding agents, the documentation is also available as plain text at
+[`/llms.txt`](/struphy-plots/llms.txt), with the full text in
+[`/llms-full.txt`](/struphy-plots/llms-full.txt).
 
 ## Where to look next
 

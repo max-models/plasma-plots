@@ -8,19 +8,26 @@ Full documentation: https://struphy-hub.github.io/struphy-plots
 
 For development, install it with `pip install -e .`.
 
-> [!IMPORTANT]
-> Always `import struphy_plots` first. The import registers the `.struphy`
-> accessor on every `xarray.DataArray` and `Dataset` (and `out.plot` on
-> Struphy's `Output`); Struphy does not load it by itself. Without it you get
-> `AttributeError: 'DataArray' object has no attribute 'struphy'`.
+Creating a Struphy `Output` loads struphy-plots, which registers `out.plot`,
+`out.analysis` and the `.struphy` accessor on every product:
 
 ```python
-import struphy_plots  # required: registers DataArray.struphy
 from struphy.post_processing.output import Output
 
 out = Output("path/to/run")
 out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
+
+> [!IMPORTANT]
+> For xarray data that doesn't come from an `Output`, `import struphy_plots`
+> first. Without it you get
+> `AttributeError: 'DataArray' object has no attribute 'struphy'`.
+
+In Python, `import struphy_plots; help(struphy_plots)` (or `python -m struphy_plots`) gives an overview,
+printing an accessor lists its methods (`print(phi.struphy.plot)`), and `help()`
+on a method shows every parameter. For language models and coding agents, the
+documentation is available as plain text at
+https://struphy-hub.github.io/struphy-plots/llms.txt.
 
 Direct plotting functions are available from
 `struphy_plots.plotting`; analysis functions are in `struphy_plots.analysis`.

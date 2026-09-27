@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightLlmsTxt from 'starlight-llms-txt';
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,6 +12,31 @@ export default defineConfig({
 			title: 'struphy-plots',
 			description: 'Optional plotting and diagnostics layer for Struphy output',
 			customCss: ['./src/styles/custom.css', './src/styles/api.css'],
+			// /llms.txt, /llms-full.txt and /llms-small.txt: the docs for language models
+			plugins: [
+				starlightLlmsTxt({
+					projectName: 'struphy-plots',
+					description:
+						'struphy-plots is the plotting and diagnostics package for the output of Struphy, a Python code for plasma physics simulations. It works on labeled xarray data.',
+					details: [
+						'How to use it:',
+						'',
+						'- It adds accessors rather than functions to call: `out.plot` and `out.analysis` on a Struphy `Output`, `.struphy.plot`, `.struphy.analysis` and `.struphy.data` on every `xarray.DataArray` product (e.g. `out.evaluate("em_fields/phi")`), and the same on marker Datasets such as orbits.',
+						'- Creating a Struphy `Output` loads it, so Struphy output needs no import. For xarray data from elsewhere, run `import struphy_plots` first, or `.struphy` raises an AttributeError.',
+						'- Select every dimension a plot does not draw by keyword: an integer is a position (`t=-1` the last), a float the nearest coordinate value.',
+						'- In Python, `import struphy_plots; help(struphy_plots)` (or `python -m struphy_plots`) gives an overview, printing an accessor (e.g. `print(phi.struphy.plot)`) lists its methods, and `help()` on a method shows every parameter.',
+						'- The Reference pages list every accessor method and function with all parameters; the Guides show them with figures.',
+					].join('\n'),
+					promote: ['guides/getting-started', 'guides/data', 'reference', 'reference/**'],
+					customSets: [
+						{
+							label: 'API reference',
+							description: 'every accessor method and function, with all parameters',
+							paths: ['reference', 'reference/**'],
+						},
+					],
+				}),
+			],
 			components: {
 				Header: './src/components/Header.astro',
 			},

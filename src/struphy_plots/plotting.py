@@ -2478,9 +2478,8 @@ def save_all_scalars(
 def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset:
     """Normalize an orbits product to its Dataset form and keep only the first ``max_markers``.
 
-    ``orbits`` is an ``xarray.Dataset`` with one ``(t, marker)`` variable per saved quantity (as
-    produced by recent Struphy), or, for backward compatibility, a single
-    ``(t, marker, quantity)`` ``xarray.DataArray``. Used by :func:`plot_marker_trajectories` and
+    ``orbits`` is an ``xarray.Dataset`` with one ``(t, marker)`` variable per saved quantity, as
+    Struphy saves them; a single ``(t, marker, quantity)`` ``xarray.DataArray`` works too. Used by :func:`plot_marker_trajectories` and
     :func:`plot_field_with_orbits`; also available directly to get the same data without a plot.
 
     Parameters
@@ -2522,8 +2521,8 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
     ----------
     orbits : xarray.Dataset or xarray.DataArray
         An orbits product with the quantities ``x``, ``y`` and ``z``: an ``xarray.Dataset`` with
-        one ``(t, marker)`` variable per saved quantity (as produced by recent Struphy), or, for
-        backward compatibility, a single ``(t, marker, quantity)`` ``xarray.DataArray``.
+        one ``(t, marker)`` variable per saved quantity, as Struphy saves them; a single
+        ``(t, marker, quantity)`` ``xarray.DataArray`` works too.
     ax : mpl_toolkits.mplot3d.Axes3D, optional
         A 3-D axes to draw into. Default: a new figure.
     max_markers : int, optional

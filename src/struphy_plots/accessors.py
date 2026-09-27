@@ -3772,3 +3772,18 @@ class SliceView:
             dpi=dpi,
             **self._options,
         )
+
+
+def _complete_docstrings():
+    """Give every accessor method the parameter docs it inherits, so ``help()`` shows them all, and
+    let every accessor print a menu of its methods."""
+    from ._docs import add_menu, complete_class
+
+    for cls in (ArrayPlots, ArrayAnalysis, ArrayData, SliceView, DatasetPlots, DatasetAnalysis, DatasetData):
+        complete_class(cls)
+        add_menu(cls)
+    add_menu(StruphyAccessor)
+    add_menu(StruphyDatasetAccessor)
+
+
+_complete_docstrings()
