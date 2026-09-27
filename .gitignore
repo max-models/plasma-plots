@@ -15,7 +15,17 @@ docs/node_modules/
 docs/dist/
 docs/.astro/
 
+# Generated docs figures (built by `make figures` / CI, not checked in)
+docs/src/assets/figures/
+docs/public/figures/
+docs/public/plotly/
+docs/public/pyvista/
+
+
 # Editors / OS
 .DS_Store
 .vscode/
 .idea/
+
+sim_1/
+struphy.*

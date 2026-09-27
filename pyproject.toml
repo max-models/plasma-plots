@@ -20,8 +20,12 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-pyvista = ["pyvista"]
-dev = ["pytest", "ruff", "h5py"]
+pyvista = ["pyvista", "imageio"]
+profiling = ["scope-profiler[pproc]"]
+# the output helpers of the struphy-hub example gallery (struphy_plots.gallery): Plotly figures,
+# their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
+gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]
+dev = ["pytest", "ruff", "h5py", "griffe"]
 
 [project.urls]
 Homepage = "https://github.com/struphy-hub/struphy-plots"
@@ -31,6 +35,16 @@ Issues = "https://github.com/struphy-hub/struphy-plots/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+# Restrict collection to our own tests: the struphy submodule now lives at
+# ./struphy (with its own nested feectools submodule), and bare `pytest`
+# would otherwise recurse into their test suites too -- and fail on their
+# own optional dependencies (e.g. psydac) that struphy-plots has no need of.
+testpaths = ["tests"]
+# Real struphy simulations (compiled kernels, ~1 min): skipped unless requested with
+# `pytest --run-simulations` (see tests/conftest.py); run in the docs workflow.
+markers = ["simulation: runs a real struphy simulation; needs compiled kernels"]
 
 [tool.ruff]
 line-length = 120

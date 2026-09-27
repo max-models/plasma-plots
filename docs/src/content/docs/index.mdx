@@ -4,10 +4,16 @@ description: Optional plotting and diagnostics layer for labeled Struphy output.
 template: splash
 hero:
   tagline: Plotting, animation, and diagnostics for Struphy simulation output — built on xarray.
+  image:
+    file: ../../assets/figures/panels.png
   actions:
     - text: Getting started
       link: /struphy-plots/guides/getting-started/
       icon: right-arrow
+    - text: Struphy examples
+      link: https://struphy-hub.github.io/examples/
+      icon: external
+      variant: minimal
     - text: View on GitHub
       link: https://github.com/struphy-hub/struphy-plots
       icon: external
@@ -23,8 +29,17 @@ whole-run helpers for [Struphy](https://github.com/struphy-hub/struphy)
 output, so you can go from a saved simulation to a figure in one line:
 
 ```python
-out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
+out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
+
+:::note[Loaded by Struphy]
+Creating a Struphy `Output` loads struphy-plots. For xarray data from
+elsewhere, `import struphy_plots` first; without it, `.struphy` raises
+`AttributeError: 'DataArray' object has no attribute 'struphy'`.
+:::
 
 <CardGrid stagger>
 	<Card title="Field plots" icon="seti:image">
@@ -44,3 +59,42 @@ out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
 		scalar fields and equilibria.
 	</Card>
 </CardGrid>
+
+## A few examples
+
+<CardGrid>
+	<Card title="Vector field">
+		![Quiver plot of a vector field](../../assets/figures/vector.png)
+	</Card>
+	<Card title="Marker trajectories">
+		![3-D marker trajectories](../../assets/figures/trajectories.png)
+	</Card>
+	<Card title="Phase-space distributions">
+		![A bump-on-tail distribution](../../assets/figures/phase_space.png)
+	</Card>
+	<Card title="3-D equilibrium views">
+		![A 3-D equilibrium view](../../assets/figures/equilibrium_3d.png)
+	</Card>
+</CardGrid>
+
+See [Field plots](/struphy-plots/guides/field-plots/),
+[Time series & comparisons](/struphy-plots/guides/timeseries/),
+[Diagnostics](/struphy-plots/guides/analysis/),
+[Particles & distributions](/struphy-plots/guides/particles/), and
+[Whole-run plots](/struphy-plots/guides/output-plots/) for the rest — every
+kind of plot and diagnostic struphy-plots has, with a real figure for each.
+
+## Looking for a simulation to plot?
+
+`struphy-plots` plots data recorded by [Struphy](https://github.com/struphy-hub/struphy)
+simulations; it doesn't run any physics itself. If you want simulations to
+generate output from:
+
+- **[Struphy's examples gallery](https://struphy-hub.github.io/examples/)** —
+  Landau damping, the Orszag–Tang vortex, bump-on-tail, and dozens more,
+  each with the model, domain, and parameters that produced it.
+- **[MHD slab waves](/struphy-plots/guides/real-example/)** — every figure
+  on that page comes from an actual Struphy run, reproduced by this repo's
+  own docs build.
+- **[Struphy's own documentation](https://struphy-hub.github.io/)** — models,
+  propagators, domains, and everything else struphy-plots reads output from.

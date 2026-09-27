@@ -108,3 +108,14 @@ def test_files_are_written_by_rank_zero_only(monkeypatch, scalars, tmp_path):
 def test_analysis_runs_on_every_rank(monkeypatch, scalars):
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
     assert scalars.en_E.struphy.analysis.growth_rate().rate == pytest.approx(1.0)
+
+
+def test_every_plotting_module_skips_other_ranks(monkeypatch, field):
+    from struphy_plots.plotting import plot_energy_budget
+    from struphy_plots.pyvista_plots import pyvista_isosurface, save_vtk
+    from struphy_plots.spectral_plots import plot_power_spectrum
+
+    monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
+    for plot in (plot_power_spectrum, pyvista_isosurface, save_vtk, plot_energy_budget):
+        assert isinstance(plot(field), SkippedPlot)  # before any argument is used
+    assert not plt.get_fignums()

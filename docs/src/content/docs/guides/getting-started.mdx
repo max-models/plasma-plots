@@ -1,0 +1,122 @@
+---
+title: Getting started
+description: Install struphy-plots and make your first plot.
+---
+
+## Installation
+
+```bash
+pip install struphy-plots
+```
+
+For interactive 3-D volume rendering, install the optional PyVista extra:
+
+```bash
+pip install "struphy-plots[pyvista]"
+```
+
+## Loading struphy-plots
+
+Creating a Struphy `Output` loads struphy-plots, so there is nothing to import:
+
+```python
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
+out.plot.energies()                                    # whole-run plots and diagnostics
+field = out.evaluate("em_fields/phi")
+field.struphy.plot.slice(x="eta1", y="eta2", t=-1)     # .struphy on every product
+```
+
+Loading it registers the accessors:
+
+- `.struphy` on every `xarray.DataArray` and `xarray.Dataset`, including the
+  products of Struphy's `Output` and every array derived from them
+- `out.plot` and `out.analysis` on Struphy's `Output` object
+
+:::caution[Other xarray data: `import struphy_plots`]
+For xarray data that doesn't come from an `Output` (your own arrays, or files
+opened with xarray), import the package first:
+
+```python
+import struphy_plots  # noqa: F401  (registers DataArray.struphy)
+```
+
+Without it, `.struphy` does not exist and you get
+`AttributeError: 'DataArray' object has no attribute 'struphy'`. The import
+alone does the work, so linters may flag it as unused.
+:::
+
+## Finding your way in Python
+
+Printing an accessor lists its methods with a one-line summary each, and
+`help()` on a method shows every parameter:
+
+```python
+print(field.struphy.plot)          # every plot, e.g. slice, animation, dispersion, ...
+help(field.struphy.plot.slice)     # its parameters, returns and examples
+print(out.plot)                    # whole-run plots
+import struphy_plots
+help(struphy_plots)                # an overview: the pipeline, selection, what is where
+```
+
+`python -m struphy_plots` prints the same overview in a terminal. For language
+models and coding agents, the documentation is also available as plain text at
+[`/llms.txt`](/struphy-plots/llms.txt), with the full text in
+[`/llms-full.txt`](/struphy-plots/llms-full.txt).
+
+## Where to look next
+
+- **`array.struphy.plot`** — plotting methods for a single labeled array:
+  [Field plots](/struphy-plots/guides/field-plots/),
+  [Time series & comparisons](/struphy-plots/guides/timeseries/), and
+  [Particles & distributions](/struphy-plots/guides/particles/).
+- **`array.struphy.analysis`** — numerical diagnostics on a single labeled
+  array (see [Diagnostics](/struphy-plots/guides/analysis/)).
+- **`array.struphy.data`** — the selected data behind every plot, as a labeled
+  `xarray` object, for your own analysis, other plotting libraries and exports
+  (see [Selecting data](/struphy-plots/guides/data/)).
+- **`struphy_plots.output_accessors.OutputPlots`** — overview plots for a
+  whole simulation run (see [Whole-run plots](/struphy-plots/guides/output-plots/)).
+
+Lower-level, function-based versions of everything above are also available
+directly from `struphy_plots.plotting` and `struphy_plots.analysis`, if you'd
+rather call a function on a plain `xarray.DataArray` than go through the
+accessor.
+
+## Getting the data instead of a plot
+
+Every method on `array.struphy.plot` has a twin on `array.struphy.data`. It
+does the same selection and returns the labeled `xarray` object instead of a
+figure, for your own analysis, another plotting library or an export:
+
+```python
+last = field.struphy.data.slice(x="eta1", y="eta2", t=-1)   # what plot.slice(...) draws
+float(last.max()), last.to_dataframe()
+```
+
+See [Selecting data](/struphy-plots/guides/data/).
+
+## Running under MPI
+
+A post-processing script can run on several ranks, e.g. right after the
+simulation in the same `mpirun -n 4 python script.py`. Plots are then drawn and
+saved on rank 0 only; the other ranks get a `SkippedPlot` placeholder whose
+methods do nothing, so the same script works in serial and in parallel without
+`if rank == 0:` guards:
+
+```python
+out = sim.run()                                             # or Output(path)
+phi = out.evaluate("em_fields/phi")                         # on every rank
+phi.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0).save("phi.png")  # written once, by rank 0
+phi.struphy.plot.frames("frames/", x="eta1", y="eta2", eta3=0)            # [] on ranks > 0
+```
+
+Struphy processes the run on first use, collectively: call `evaluate()` on every
+rank until the run is processed. Analysis (`array.struphy.analysis.*`) runs on
+every rank. The rank is read from `mpi4py` once MPI is initialized (Struphy does
+that), and otherwise from the MPI launcher's environment, so struphy-plots never
+needs `mpi4py` itself. Set `STRUPHY_MPI=0` to make every process plot. Nothing
+waits for rank 0: call `MPI.COMM_WORLD.Barrier()` before other ranks read a file
+rank 0 wrote. `struphy_plots.is_plotting_rank()` tells whether the current
+process draws.

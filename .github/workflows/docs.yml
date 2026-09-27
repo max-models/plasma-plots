@@ -1,8 +1,12 @@
-name: Deploy docs
+name: Docs
 
 on:
   push:
     branches: [devel]
+  # Pull requests build the site (and run the real-simulation tests) as a check;
+  # only pushes to devel deploy it.
+  pull_request:
+    branches: [main, devel]
   workflow_dispatch:
 
 permissions:
@@ -11,17 +15,132 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('docs-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: docs
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Most docs figures use small synthetic data (generate_docs_figures.py) and
+      # don't need struphy at all -- but the "A real simulation" guide's figures
+      # come from an actual struphy run (generate_real_example_figures.py), so
+      # the full compiled struphy runtime is still required for every docs
+      # build. It has compiled dependencies (pyccel/mpi4py), hence the system
+      # packages below. struphy comes from the `struphy` submodule (pinned to a
+      # known-good commit), not a fresh clone, so the version used here is
+      # reproducible.
+      - name: Install struphy system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gfortran gcc g++ \
+            liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
+            libnetcdf-dev libnetcdff-dev cmake
+
+      # Editable, so that `struphy compile` writes its kernels into the checkout
+      # (struphy/src/struphy), where they can be cached between runs.
+      - name: Install struphy (from the struphy submodule)
+        run: pip install -e ./struphy
+
+      # Simulations need compiled pyccel kernels, not just the pure-Python
+      # package -- the test suite doesn't hit this (it only builds fake
+      # Output fixtures), but running real simulations here does. Compiling
+      # takes most of this job's time, so the compiled kernels are cached:
+      # struphy's (next to its sources, plus state.yml, which records the
+      # language and compiler) and those psydac-accelerate builds inside the
+      # installed feectools package. The key covers everything the binaries
+      # depend on: the runner image (system compilers and libraries), the Python
+      # version, the kernel sources and build recipe, and struphy's dependency
+      # pins (e.g. feectools).
+      - name: Locate compiled-kernel paths
+        id: kernel-paths
+        run: |
+          echo "feectools=$(python -c 'import os, feectools; print(os.path.dirname(feectools.__file__))')" >> "$GITHUB_OUTPUT"
+          echo "python=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore compiled struphy kernels
+        id: kernel-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            struphy/src/struphy/**/*.so
+            struphy/src/struphy/**/__pyccel__
+            struphy/src/struphy/state.yml
+            struphy/src/struphy/kernels.txt
+            ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
+            ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
+          key: struphy-kernels-fortran-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-py${{ steps.kernel-paths.outputs.python }}-${{ hashFiles('struphy/src/struphy/**/*kernels*.py', 'struphy/src/struphy/compile_struphy.mk', 'struphy/pyproject.toml') }}
+
+      # Compile on a cache miss, or if the restored kernels are incomplete.
+      - name: Compile struphy kernels
+        id: compile
+        run: |
+          if [ "${{ steps.kernel-cache.outputs.cache-hit }}" = "true" ] \
+             && struphy compile --status | grep -q "^0 of [0-9]* Struphy kernels are not compiled"; then
+            echo "Using cached struphy kernels:"
+            struphy compile --status
+            echo "compiled=false" >> "$GITHUB_OUTPUT"
+          else
+            struphy compile -y --language fortran
+            echo "compiled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Saved right after compiling, so a failure later in the job does not
+      # lose them.
+      - name: Save compiled struphy kernels
+        if: steps.compile.outputs.compiled == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            struphy/src/struphy/**/*.so
+            struphy/src/struphy/**/__pyccel__
+            struphy/src/struphy/state.yml
+            struphy/src/struphy/kernels.txt
+            ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
+            ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
+          key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
+
+      - name: Install struphy-plots (with PyVista, profiling and test tools)
+        run: pip install -e ".[pyvista,profiling,dev]"
+
+      # The 3-D views guide embeds interactive scenes exported with
+      # plotter.trame.export_html(). trame-vtk >= 2.11.15 is needed for VTK 9.7 and
+      # trame-pyvista requires < 2.11.17. struphy pins an older trame-vtk, which pip
+      # reports as a conflict; figure generation does not use struphy's trame code.
+      - name: Install trame-pyvista (docs interactive scenes only)
+        run: pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
+
+      # The docs embed live interactive Plotly charts (via <PlotlyChart>) to
+      # demonstrate `array.struphy.data`; plotly is not a struphy-plots
+      # dependency, only needed here to export each figure's JSON.
+      - name: Install Plotly (docs examples only)
+        run: pip install plotly
+
+      # A few example figures render an interactive PyVista scene off-screen
+      # (3-D volumes, equilibria), which needs a virtual display and Mesa's
+      # software OpenGL/EGL implementation.
+      - name: Install headless rendering dependencies
+        run: |
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
+
+      # The plotting layer on real struphy output: small torus, guiding-center and
+      # slab runs (tests/test_real_simulations.py, ~1 min). They need the compiled
+      # kernels, so they run here rather than in the test workflow.
+      - name: Run real-simulation tests
+        run: xvfb-run -a pytest -v --run-simulations tests/test_real_simulations.py
+
+      - name: Generate example figures
+        run: xvfb-run -a make figures
 
       - uses: actions/setup-node@v4
         with:
@@ -29,19 +148,22 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install docs dependencies
+        run: make docs-install
 
       - name: Build site
+        working-directory: docs
         run: npm run build
 
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/dist
 
   deploy:
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

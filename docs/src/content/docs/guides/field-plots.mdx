@@ -1,0 +1,298 @@
+---
+title: Field plots
+description: Slices, panels, animations, vector fields, and 3-D volumes.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+:::note[Where the accessors come from]
+The examples on this page use output of a Struphy `Output`, which loads
+struphy-plots and its `.struphy` accessors. For other xarray data, run
+`import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+Everything here is a method of `array.struphy.plot`, where `array` is a labeled
+`xarray.DataArray` produced by Struphy's `Output.evaluate(...)`. Full
+signatures are in the [Plotting reference](/struphy-plots/reference/plot/).
+
+## 1-D: lineouts
+
+```python
+field.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5)
+```
+
+Selects every dimension except `x` (via keyword selection) and plots the
+remaining 1-D profile.
+
+![Lineout of a scalar field along one axis](../../../assets/figures/lineout.png)
+
+Several profiles in one axes, e.g. at a few times, against the minor radius:
+
+```python
+phi.struphy.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=lambda eta1: 0.1 + 0.9 * eta1, eta2=0.0, eta3=0.0)
+```
+
+`at` picks the times (integers are positions, floats nearest values; the
+default is four evenly spaced ones), and `over` names another dimension to
+sweep instead of `t`.
+
+![Radial profiles at four times](../../../assets/figures/profiles.png)
+
+### Exact solutions
+
+`lineout` and `profiles` take a `reference`: the exact or expected profile,
+drawn dashed in the same color as its profile. It can be a function of the
+plotted `x` and of `t` (the profile's time), an `(x, y)` pair, or a dict of
+labels to these. For a diffusing temperature against the heat kernel:
+
+```python
+def exact(x, t, D=0.01, width=0.05):
+    s2 = width**2 + 2 * D * t
+    return width / np.sqrt(s2) * np.exp(-((x - 0.5) ** 2) / (2 * s2))
+
+T.struphy.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
+T.struphy.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
+```
+
+Here the run's diffusion coefficient is 10 % too large, so its profiles fall
+below the exact ones:
+
+![Temperature profiles and the exact solution at four times](../../../assets/figures/profiles_exact.png)
+
+`line_animation` animates a 1-D profile over time with the exact profile of
+each frame. The value axis stays fixed over the whole animation:
+
+```python
+anim = T.struphy.plot.line_animation(reference={"exact": exact}, step=2)
+anim.save("heat.gif", writer="pillow")
+```
+
+![A profile animated with the exact solution](/struphy-plots/figures/line_animation.gif)
+
+For the error itself, see [errors against exact solutions](/struphy-plots/guides/analysis/#errors-against-exact-solutions).
+
+## 2-D: slices, panels, viewers, animations
+
+`plot.view(...)` configures a reusable 2-D slice — pick the two axes to plot
+(`x`, `y`) and which dimension to sweep over (`sweep`, default `"t"`):
+
+```python
+view = field.struphy.plot.view(x="eta1", y="eta2", sweep="t")
+
+view.slice(t=-1)              # one snapshot
+view.panels(nrows=3, ncols=4)     # a grid of snapshots
+view.viewer()                     # interactive slider (Jupyter/IPython)
+view.animation(interval=100)      # matplotlib.animation.FuncAnimation
+view.save_frames("frames/", step=2, prefix="phi")
+```
+
+`plot.slice(...)`, `plot.panels(...)`, `plot.viewer(...)`, `plot.animation(...)`
+and `plot.frames(...)` are shortcuts that build a view and immediately render
+it, taking the same keyword arguments as `view(...)`.
+
+![A single 2-D slice snapshot](../../../assets/figures/slice.png)
+
+![A grid of snapshots swept over time](../../../assets/figures/panels.png)
+
+The data behind this plot: `field.struphy.data.slice(x="eta1", y="eta2", t=-1)` returns the selected 2-D array itself, ordered `(x, y)`, with its coordinates and units, for your own analysis or another plotting library (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+`px.imshow` reads an array as `(row, column)`, i.e. `(y, x)`, so transpose
+the slice back and put the first `y` at the bottom with `origin="lower"`:
+
+```python
+import plotly.express as px
+
+selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
+px.imshow(selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2, origin="lower")
+```
+
+<PlotlyChart src="/plotly/plotly_slice.json" />
+
+</details>
+
+`plot.animation(...)` returns a `matplotlib.animation.FuncAnimation`; save it
+with `anim.save("orbit.gif", writer="pillow")`:
+
+![An animation swept over time, saved as a GIF](/struphy-plots/figures/animation.gif)
+
+### Color limits for perturbations
+
+Every slice presentation takes `symmetric=True`, which centers the color
+limits on zero, as a diverging colormap such as `"RdBu_r"` for a perturbation
+needs. `robust=True` takes the limits from the 1st and 99th percentiles, so a
+few extreme values do not wash out the rest. The 3-D views take the same two
+options.
+
+```python
+view = u.struphy.plot.view(x="eta1", y="eta2", coords="physical", plane="RZ", cmap="RdBu_r", symmetric=True, eta3=0)
+view.animation()
+```
+
+Physical slices of Struphy's cell-centered fields close the seam of periodic
+directions (e.g. θ = 0) automatically, so a poloidal cross-section has no gap.
+
+### Contour lines
+
+`levels` draws contour lines of the field on top of any slice presentation:
+`slice`, `panels`, `viewer`, `animation` and `frames`. It takes a number of
+evenly spaced levels or explicit values. Use it for an interface, flux
+surfaces, or the streamlines of a stream function. With `fill=False`, only the
+lines are drawn, colored by `cmap`.
+
+```python
+n.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])   # the ring's edges
+psi.struphy.plot.slice(levels=12, fill=False, cmap="Greys")                              # streamlines only
+n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])            # the interface in motion
+```
+
+![Charge density of a ring with the interface n = 0.2 as a contour line](../../../assets/figures/contour_interface.png)
+
+### Overlays
+
+`overlays` draws more on top of any slice presentation, as a dict:
+
+| Key | Draws |
+| --- | --- |
+| `contours_of` | contour lines of a second field, e.g. the flux function over the current; with `contour_levels` and `contour_color` |
+| `boundary=True` | the outline of the grid, e.g. the wall of a mapped domain; with `boundary_color` |
+| `grid_lines=n` | every n-th grid line, to show the mesh or the mapping |
+| `lines` | labels to `(x, y)` pairs or functions `y(x)`, e.g. characteristics on a space-time map |
+| `points` | labels to `(x, y)`, e.g. O- and X-points |
+
+Lines and points are white by default, for dark colormaps; set `line_color` and
+`point_color` otherwise. In an animation, a `contours_of` field with a `t`
+dimension follows the frames.
+
+Magnetic islands: `|B|` with the flux surfaces from
+[`flux_function()`](/struphy-plots/guides/analysis/#vector-calculus), and the
+O- and X-points:
+
+```python
+flux = B.struphy.analysis.flux_function()
+absB.struphy.plot.slice(
+    coords="physical", plane="XY", eta3=0, cmap="magma",
+    overlays={"contours_of": flux, "contour_levels": 14, "contour_color": "w", "boundary": True,
+              "points": {"O-point": (np.pi, np.pi), "X-points": ([0, 2 * np.pi], [np.pi, np.pi])}},
+)
+```
+
+![|B| with flux surfaces, an O-point and X-points](../../../assets/figures/overlay_flux.png)
+
+A wave packet on a space-time map (`x="eta1", y="t"`), with the line
+`x = x0 + v_g t` it should follow:
+
+```python
+phi.struphy.plot.slice(
+    x="eta1", y="t", cmap="RdBu_r", symmetric=True,
+    overlays={"lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4}, "line_color": "k"},
+)
+```
+
+![A wave packet on a space-time map with its group-velocity line](../../../assets/figures/overlay_spacetime.png)
+
+### Several fields side by side
+
+`animation(alongside=[...])` animates further fields next to the first one,
+frame by frame in sync. Each field keeps its own color limits and color bar.
+The selection and options apply to all of them:
+
+```python
+omega.struphy.plot.animation(
+    coords="physical", plane="XY", eta3=0, alongside=[density], cmap="RdBu_r", symmetric=True, robust=True,
+)
+```
+
+![Vorticity and density animated side by side](/struphy-plots/figures/fields_side_by_side.gif)
+
+## Vector fields
+
+```python
+b_field.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=4)
+```
+
+![A quiver plot of two vector components](../../../assets/figures/vector.png)
+
+The data behind this plot: `b_field.struphy.data.vector(x="eta1", y="eta2", components=(0, 1), stride=4)` returns the selected, strided components (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+Plotly has no built-in quiver trace; `plotly.figure_factory.create_quiver`
+takes flat position and component arrays instead of a grid, so flatten the
+coordinates and components first:
+
+```python
+import numpy as np
+import plotly.figure_factory as ff
+
+selected = b_field.struphy.data.vector(x="eta1", y="eta2", components=(0, 1), stride=4)
+xg, yg = np.meshgrid(selected.eta1, selected.eta2, indexing="ij")
+ff.create_quiver(
+    xg.ravel(), yg.ravel(),
+    selected.isel(component=0).values.ravel(), selected.isel(component=1).values.ravel(),
+    scale=0.05,
+)
+```
+
+<PlotlyChart src="/plotly/plotly_vector.json" />
+
+</details>
+
+## 3-D scalar volumes
+
+Three orthogonal midpoint slices need nothing extra:
+
+```python
+density.struphy.plot.volume_slices()
+```
+
+![Three orthogonal slices through a 3-D scalar field](../../../assets/figures/volume_slices.png)
+
+The data behind this plot: `density.struphy.data.volume_slices()` returns the three planes as a dict keyed by the fixed dimension (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+One `go.Heatmap` per plane:
+
+```python
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+planes = density.struphy.data.volume_slices()
+fig = make_subplots(rows=1, cols=3, subplot_titles=list(planes))
+for i, (name, plane) in enumerate(planes.items(), start=1):
+    x, y = plane.dims
+    fig.add_trace(go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values), row=1, col=i)
+```
+
+<PlotlyChart src="/plotly/plotly_volume_slices.json" height="340px" />
+
+</details>
+
+A full interactive volume render needs the optional PyVista extra
+(`pip install "struphy-plots[pyvista]"`):
+
+```python
+plotter = density.struphy.plot.volume(cmap="viridis", opacity="linear")
+plotter.show()
+```
+
+![A PyVista volume render of a 3-D scalar field](../../../assets/figures/volume.png)
+
+For isosurfaces, cuts through mapped domains, field lines, orbits and movies,
+in 3-D and 2-D runs, see [3-D views](/struphy-plots/guides/3d-views/).
+
+## Comparing two arrays
+
+```python
+field.struphy.plot.compare(reference_field, mode="difference")
+```
+
+See [Time series & comparisons](/struphy-plots/guides/timeseries/) for
+`compare()` figures — it's a 1-D lineout under the hood, so it fits either
+page; we keep the write-up there next to `timeseries()`.

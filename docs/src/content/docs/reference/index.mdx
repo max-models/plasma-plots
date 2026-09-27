@@ -1,0 +1,48 @@
+---
+title: API reference
+description: Every accessor, function and class of struphy-plots, generated from the docstrings.
+sidebar:
+  order: 0
+---
+
+The reference is generated from the docstrings, so it always matches the code. The
+guides show the same functionality with figures.
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads struphy-plots and its
+`.struphy` accessors. For other xarray data, run `import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+## Accessors
+
+Most of struphy-plots is reached through accessors on the objects Struphy returns:
+
+| Accessor | What it does |
+| --- | --- |
+| [`array.struphy.plot`](/struphy-plots/reference/plot/) | Plots of one labeled array: time series, slices, animations, spectra, 3-D views |
+| [`array.struphy.analysis`](/struphy-plots/reference/analysis/) | Diagnostics of one labeled array: fits, norms, errors, spectra, vector calculus |
+| [`array.struphy.data`](/struphy-plots/reference/data/) | The selected data behind every plot, without drawing it |
+| [`dataset.struphy`](/struphy-plots/reference/dataset/) | Plots, diagnostics and data of marker Datasets such as orbits |
+| [`out.plot` and `out.analysis`](/struphy-plots/reference/output/) | Whole-run plots and diagnostics of a Struphy `Output` |
+
+A method's page lists every parameter, including those it shares with the function it wraps.
+
+## Modules
+
+The functions behind the accessors, to call on a plain `xarray.DataArray`, and the analytic theory:
+
+| Module | Contents |
+| --- | --- |
+| [`struphy_plots.plotting`](/struphy-plots/api/struphy_plots/plotting/) | Plotting functions for labeled Struphy output |
+| [`struphy_plots.analysis`](/struphy-plots/api/struphy_plots/analysis/) | Numerical diagnostics: fits, norms, errors, integrals, vector calculus, orbits |
+| [`struphy_plots.spectral`](/struphy-plots/api/struphy_plots/spectral/) | Fourier transforms, filters, peaks, mode spectra, matrix pencil |
+| [`struphy_plots.spectral_plots`](/struphy-plots/api/struphy_plots/spectral_plots/) | Plots of spectra, filters, modes and fits |
+| [`struphy_plots.pyvista_plots`](/struphy-plots/api/struphy_plots/pyvista_plots/) | Three-dimensional PyVista views and VTK export |
+| [`struphy_plots.arrays`](/struphy-plots/api/struphy_plots/arrays/) | Labels, validation and helpers for labeled arrays |
+| [`struphy_plots.theory`](/struphy-plots/api/struphy_plots/theory/) | Analytic theory: kinetic, wave, orbit, exact-solution and numerics results (see the [Theory guide](/struphy-plots/guides/theory/)) |
+| [`struphy_plots.gallery`](/struphy-plots/api/struphy_plots/gallery/) | Output helpers of the [example gallery](https://struphy-hub.github.io/examples/): Plotly figure files, profiling exports and metadata (`pip install "struphy-plots[gallery]"`) |
+
+The full module tree is under **All modules** in the sidebar. For other tools, each package
+also has an `objects.inv` (for Sphinx and mkdocstrings links) and an `llms.txt` at
+[`/api/struphy_plots/`](/struphy-plots/api/struphy_plots/).
