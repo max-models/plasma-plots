@@ -77,7 +77,13 @@ n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], st
 
 <PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
 
-Every frame is stored in the figure, so a long, finely resolved sweep makes a large page. Use
+Every frame stores only what changes: parts that are the same in every frame (static contour
+lines, the domain's boundary, a fixed background, a mesh's grid) are stored once. A contour level
+the field reaches only in some frames is hidden in the others. On a mapped grid, each frame is an
+image of the mesh; `struphy_plots.plotly_backend.IMAGE_PIXELS = 600` (default 1200 along the
+longer side) makes those images, and the page, smaller.
+
+Still, a long, finely resolved sweep makes a large page. Use
 `step` to keep every n-th frame, or `max_frames` for at most that many, evenly spaced (the first
 and the last included). If the first frame is still featureless, the image of an animation can
 show a later one; the page and the JSON keep the whole animation:

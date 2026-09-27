@@ -421,3 +421,36 @@ def test_a_figure_of_your_own_saves_with_the_same_defaults_on_rank_zero_only(tmp
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
     assert PlotResult(figure).save(tmp_path / "other.html").endswith("other.html")
     assert not (tmp_path / "other.html").exists()
+
+
+def growing_blob(nt=5):
+    t, x = np.linspace(0, 1, nt), np.linspace(0, 1, 20)
+    E1, E2 = np.meshgrid(x, x, indexing="ij")
+    values = np.stack([(0.2 + ti) * np.exp(-((E1 - 0.5) ** 2 + (E2 - 0.5) ** 2) / 0.05) for ti in t])
+    return xr.DataArray(values, dims=("t", "eta1", "eta2"), coords={"t": t, "eta1": x, "eta2": x}, name="n")
+
+
+def test_a_contour_level_the_field_reaches_only_later_is_hidden_until_then():
+    blob = growing_blob()
+    result = blob.struphy.plot.animation(x="eta1", y="eta2", levels=[0.9], shared_clim=False, backend="plotly")
+    level = next(j for j, trace in enumerate(result.fig.data) if trace.name == "level 0.9")
+    shown = []
+    for frame in result.fig.frames:
+        trace = frame.data[list(frame.traces).index(level)]
+        shown.append(trace.visible)
+    assert shown[0] is False and shown[-1] is True  # the peak reaches 0.9 only after t = 0.7
+    assert result.fig.data[level].visible is False  # the figure starts at the first frame
+
+
+def test_traces_that_never_change_are_stored_once_in_the_figure():
+    blob = growing_blob()
+    result = blob.struphy.plot.animation(x="eta1", y="eta2", overlays={"boundary": True, "points": {"c": (0.5, 0.5)}},
+                                         backend="plotly")
+    figure = result.fig
+    heatmap = next(j for j, trace in enumerate(figure.data) if trace.type == "heatmap")
+    static = [j for j, trace in enumerate(figure.data) if trace.type == "scatter"]  # boundary edges and the point
+    assert static and all(set(frame.traces) == {heatmap} for frame in figure.frames)
+    # the image of a later frame still shows the static traces with the changed heatmap
+    still = result._still(-1)
+    assert len(still.data) == len(figure.data)
+    np.testing.assert_allclose(np.asarray(still.data[heatmap].z), np.asarray(figure.frames[-1].data[0].z))

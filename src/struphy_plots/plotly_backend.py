@@ -44,6 +44,9 @@ import numpy as np
 BACKENDS = ("matplotlib", "plotly")
 PX_PER_INCH = 100.0
 PX_PER_PT = PX_PER_INCH / 72.0
+#: The longer side, in pixels, of the image a mesh on a mapped (curvilinear) grid is drawn as. Lower it
+#: for smaller pages, e.g. of long animations: ``struphy_plots.plotly_backend.IMAGE_PIXELS = 600``.
+IMAGE_PIXELS = 1200
 
 _default = "matplotlib"
 # inside a plot method: nested accessor calls draw with Matplotlib (the outermost call converts)
@@ -910,7 +913,7 @@ class _FigureConverter:
         ax = axes.ax
         (x0, x1), (y0, y1) = ax.get_xlim(), ax.get_ylim()
         box = ax.get_window_extent()
-        scale = min(1200.0 / max(box.width, box.height, 1.0), 3.0)  # crisp, yet small for animations
+        scale = min(IMAGE_PIXELS / max(box.width, box.height, 1.0), 3.0)
         width, height = max(box.width * scale, 8.0), max(box.height * scale, 8.0)
         raster = Figure(figsize=(width / 100.0, height / 100.0), dpi=100)
         FigureCanvasAgg(raster)
@@ -932,7 +935,7 @@ class _FigureConverter:
         keep = np.isfinite(values)
         self.data.append(
             dict(type="scattergl" if keep.sum() > 20000 else "scatter", mode="markers", x=cx[keep], y=cy[keep],
-                 marker={"color": values[keep], "coloraxis": coloraxis, "opacity": 0, "size": 6},
+                 marker={"color": values[keep].astype(np.float32), "coloraxis": coloraxis, "opacity": 0, "size": 6},
                  hovertemplate=self._hover_template(axes, coloraxis, value="%{marker.color:.4g}"),
                  showlegend=False, name="", **self._refs(axes))
         )
@@ -961,7 +964,8 @@ class _FigureConverter:
             style = styles[i % len(styles)] if len(styles) else None
             dash = _dash_pattern(style) if isinstance(style, tuple) else _DASHES.get(style, "solid")
             self.data.append(
-                dict(type="scatter", mode="lines", x=_nan_joined(xs), y=_nan_joined(ys), showlegend=False,
+                dict(type="scatter", mode="lines", x=_nan_joined(xs).astype(np.float32),
+                     y=_nan_joined(ys).astype(np.float32), showlegend=False,
                      name=f"level {level:.4g}", line={"color": color, "width": widths[i % len(widths)] * PX_PER_PT,
                                                      "dash": dash},
                      hovertemplate=f"level = {level:.4g}<extra></extra>", **self._refs(axes))
@@ -1240,22 +1244,24 @@ def animation_to_plotly(animation, *, labels=None, prefix: str | None = None, pl
             animation._func(frame, *animation._args)
             snapshots.append(_FigureConverter(animation._fig).convert())
     animation._draw_was_started = True  # it was drawn, frame by frame: no "deleted without rendering" warning
-    kinds = [tuple(t["type"] for t in s["data"]) for s in snapshots]
-    if len(set(kinds)) != 1:
-        raise ValueError("the frames of this animation have different traces; it cannot be converted to Plotly")
+    traces = _aligned(snapshots)  # one list per frame, the same traces in every one
     first = snapshots[0]
-    figure = go.Figure(data=first["data"], layout=first["layout"])
-    constant = _constant_keys(snapshots)
+    figure = go.Figure(data=traces[0], layout=first["layout"])
+    # a frame names only what changes: traces that are the same in every frame (a static contour,
+    # the domain's boundary, a fixed background) and the coordinates every frame shares (a mesh's
+    # grid) are stored once, in the figure itself
+    static = [j for j in range(len(traces[0])) if all(_same(frame[j], traces[0][j]) for frame in traces[1:])]
+    changing = [j for j in range(len(traces[0])) if j not in static]
+    constant = _constant_keys(traces)
     figure.frames = [
         go.Frame(
-            # a frame only updates what it names: the coordinates every frame shares (e.g. a mesh's
-            # grid) are stored once, in the figure itself
-            data=[{k: v for k, v in trace.items() if (j, k) not in constant} for j, trace in enumerate(snapshot["data"])],
+            data=[{k: v for k, v in frame[j].items() if (j, k) not in constant} for j in changing],
+            traces=changing,
             name=str(i),
             layout={key: snapshot["layout"].get(key, [] if key != "title" else {"text": ""})
                     for key in _FRAME_LAYOUT + tuple(k for k in snapshot["layout"] if k.startswith("coloraxis"))},
         )
-        for i, snapshot in enumerate(snapshots)
+        for i, (frame, snapshot) in enumerate(zip(traces, snapshots))
     ]
     duration = int(getattr(animation, "_interval", 100))
     steps = [
@@ -1269,7 +1275,7 @@ def animation_to_plotly(animation, *, labels=None, prefix: str | None = None, pl
         height=figure.layout.height + extra,
         margin={**figure.layout.margin.to_plotly_json(), "b": figure.layout.margin.b + extra},
         sliders=[dict(active=0, steps=steps, x=0.08 if play else 0.0, len=0.92 if play else 1.0, y=0,
-                      yanchor="top", pad={"t": 45 if play else 35}, currentvalue={"prefix": prefix})],
+                      yanchor="top", pad={"t": 45 if play else 35}, currentvalue={"prefix": prefix, "xanchor": "right"})],
     )
     if play:
         figure.update_layout(updatemenus=[dict(
@@ -1287,21 +1293,71 @@ def animation_to_plotly(animation, *, labels=None, prefix: str | None = None, pl
     return figure
 
 
-def _constant_keys(snapshots):
+def _signature(trace):
+    return (trace.get("type"), trace.get("name", ""), trace.get("mode", ""), trace.get("xaxis"), trace.get("yaxis"))
+
+
+def _aligned(snapshots):
+    """The traces of every frame, aligned: a trace missing from some frames (e.g. a contour level the
+    field reaches only later) is kept in every frame, hidden where it is missing."""
+    import difflib
+
+    union = [_signature(t) for t in snapshots[0]["data"]]
+    for snapshot in snapshots[1:]:
+        signatures = [_signature(t) for t in snapshot["data"]]
+        merged = []
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, union, signatures, autojunk=False).get_opcodes():
+            if tag == "equal":
+                merged += union[i1:i2]
+            else:  # keep both sides, in order: the union only grows
+                merged += union[i1:i2] + signatures[j1:j2]
+        union = merged
+    frames, example = [], {}
+    for snapshot in snapshots:
+        signatures = [_signature(t) for t in snapshot["data"]]
+        row, position = [None] * len(union), 0
+        for trace, signature in zip(snapshot["data"], signatures):
+            while union[position] != signature:
+                position += 1
+            row[position] = trace
+            example.setdefault(position, trace)
+            position += 1
+        frames.append(row)
+    sometimes = {j for row in frames for j, trace in enumerate(row) if trace is None}
+    for row in frames:
+        for j in sometimes:
+            if row[j] is None:  # the same kind of trace, hidden, with nothing to show
+                hidden = {k: v for k, v in example[j].items() if k in ("type", "name", "mode", "xaxis", "yaxis",
+                                                                       "showlegend", "legend", "line", "marker")}
+                row[j] = {**hidden, "x": [], "y": [], "visible": False}
+            else:
+                row[j] = {**row[j], "visible": True}
+    return frames
+
+
+def _same(a, b) -> bool:
+    """Whether two converted traces (nested dicts, lists and arrays) are equal."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
+    if isinstance(a, (np.ndarray, list, tuple)) or isinstance(b, (np.ndarray, list, tuple)):
+        try:
+            x, y = np.asarray(a), np.asarray(b)
+        except ValueError:
+            return False
+        if x.shape != y.shape:
+            return False
+        if x.dtype.kind in "fc" or y.dtype.kind in "fc":
+            return bool(np.array_equal(x.astype(float), y.astype(float), equal_nan=True))
+        return bool(np.array_equal(x, y))
+    return a == b
+
+
+def _constant_keys(frames):
     """``(trace index, key)`` of the coordinates that are the same in every frame."""
     constant = set()
-    first = snapshots[0]["data"]
-    for i, trace in enumerate(first):
+    for i, trace in enumerate(frames[0]):
         for key in ("x", "y", "z"):
-            if key not in trace:
-                continue
-            base = np.asarray(trace[key], dtype=float)
-            if all(
-                key in s["data"][i]
-                and np.asarray(s["data"][i][key], dtype=float).shape == base.shape
-                and np.array_equal(np.asarray(s["data"][i][key], dtype=float), base, equal_nan=True)
-                for s in snapshots[1:]
-            ):
+            if key in trace and all(key in frame[i] and _same(frame[i][key], trace[key]) for frame in frames[1:]):
                 constant.add((i, key))
     return constant
 
