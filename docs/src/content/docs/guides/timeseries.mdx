@@ -29,13 +29,11 @@ The data behind this plot: `energy.struphy.data.timeseries(other_run_energy)` re
 <details>
 <summary>The same plot with Plotly</summary>
 
-```python
-import plotly.graph_objects as go
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
 
-fig = go.Figure()
-for series in energy.struphy.data.timeseries(other_run_energy):
-    fig.add_trace(go.Scatter(x=series.t, y=series, mode="lines", name=series.name))   # the LaTeX label needs MathJax in Plotly
-fig.update_layout(yaxis_type="log")
+```python
+energy.struphy.plot.timeseries(logy=True, fit=(0.0, 2.0), backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_timeseries.json" />
@@ -111,11 +109,11 @@ The data behind this plot: `field.struphy.data.compare(reference_field, mode="ra
 <details>
 <summary>The same plot with Plotly</summary>
 
-```python
-import plotly.express as px
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
 
-result = field.struphy.data.compare(reference_field, mode="ratio")
-px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
+```python
+field.struphy.plot.compare(reference_field, mode="ratio", backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_compare.json" />

@@ -305,6 +305,7 @@ orbits = xr.Dataset(
     attrs={"product": "orbits", "label": "marker orbits"},
 )
 save(orbits.struphy.plot.trajectories(show_paths=True), "trajectories.png")
+marker_orbits = orbits  # `orbits` becomes struphy_plots.theory.orbits further down
 
 # A cloud of Lagrangian particles (e.g. an SPH gas expansion), colored by a
 # tracer they carry -- their own initial radius.
@@ -403,17 +404,35 @@ save(
     "dispersion.png",
 )
 
+# Broadband light waves, omega = |k|, both ways along z: a straight branch, fitted without theory
+rng_light = np.random.default_rng(0)
+t_light, z_light = np.arange(400) * 0.05, np.linspace(0.0, 20.0, 128, endpoint=False)
+T_light, Z_light = np.meshgrid(t_light, z_light, indexing="ij")
+light_values = np.zeros_like(T_light)
+for n_light in range(1, 40):
+    k_light = 2 * np.pi * n_light / 20
+    for sign in (1, -1):
+        light_values += rng_light.normal() * np.cos(k_light * Z_light + sign * k_light * T_light
+                                                    + rng_light.uniform(0, 2 * np.pi))
+e_x = xr.DataArray(light_values, dims=("t", "z"), coords={"t": t_light, "z": z_light}, name="E_x",
+                   attrs={"label": "$E_x$"})
+light_spectrum = e_x.struphy.analysis.dispersion(dim="z")
+light_fits = light_spectrum.struphy.analysis.fit_branches(n_branches=1)
+save(
+    light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
+                                           dynamic_range=12, omega_max=25),
+    "dispersion_fits.png",
+)
+
 
 # =============================================================================
-# Plotly examples via .struphy.data (needs `pip install plotly`): figure JSON
-# for the docs' <PlotlyChart> component (docs/src/components/PlotlyChart.astro),
-# which loads Plotly.js from a CDN and renders it client-side.
+# A Plotly figure built by hand from .struphy.data (the Selecting data guide; needs
+# `pip install plotly`): figure JSON for the docs' <PlotlyChart> component
+# (docs/src/components/PlotlyChart.astro), which loads Plotly.js from a CDN. The
+# backend="plotly" versions of the plots are written at the end of this script.
 # =============================================================================
 try:
     import plotly.express as px
-    import plotly.figure_factory as ff
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
 
     def save_plotly(fig, filename, *, width=560, height=440):
         # Only the JSON is used (fetched client-side by <PlotlyChart>, which sets its own
@@ -432,143 +451,8 @@ try:
     )
     fig.update_layout(xaxis_title="eta1", yaxis_title="eta2")
     save_plotly(fig, "plotly_slice")
-
-    frame = cloud.struphy.data.scatter(x="x", y="y", color="density").to_dataframe()
-    fig = px.scatter(
-        frame, x="x", y="y", color="density", color_continuous_scale="viridis"
-    )
-    save_plotly(fig, "plotly_scatter")
-
-    series = energy.struphy.data.timeseries(total)
-    fig = go.Figure()
-    for item in series:
-        fig.add_trace(
-            go.Scatter(
-                x=item.t, y=item, mode="lines", name=item.name
-            )
-        )
-    fig.update_layout(xaxis_title="t", yaxis_title="[J]", yaxis_type="log", legend=dict(x=0.02, y=0.98))
-    save_plotly(fig, "plotly_timeseries")
-
-    vec = vector.struphy.data.vector(
-        x="eta1", y="eta2", components=(0, 1), stride=4, t=-1
-    )
-    xg, yg = np.meshgrid(vec.eta1.values, vec.eta2.values, indexing="ij")
-    fig = ff.create_quiver(
-        xg.ravel(),
-        yg.ravel(),
-        vec.isel(component=0).values.ravel(),
-        vec.isel(component=1).values.ravel(),
-        scale=0.05,
-    )
-    fig.update_layout(xaxis_title="eta1", yaxis_title="eta2")
-    save_plotly(fig, "plotly_vector")
-
-    planes = volume_data.struphy.data.volume_slices()
-    fig = make_subplots(rows=1, cols=3, subplot_titles=list(planes))
-    for i, (name, plane) in enumerate(planes.items(), start=1):
-        x, y = plane.dims
-        fig.add_trace(
-            go.Heatmap(
-                z=plane.values.T,
-                x=plane[x].values,
-                y=plane[y].values,
-                colorscale="viridis",
-                showscale=False,
-            ),
-            row=1,
-            col=i,
-        )
-    save_plotly(fig, "plotly_volume_slices", width=900, height=340)
-
-    subset = orbits.struphy.data.trajectories(max_markers=24)
-    fig = go.Figure()
-    for marker in subset.marker.values:
-        path = subset.sel(marker=marker)
-        fig.add_trace(
-            go.Scatter3d(
-                x=path.x,
-                y=path.y,
-                z=path.z,
-                mode="lines",
-                line=dict(width=3),
-                showlegend=False,
-            )
-        )
-    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
-    save_plotly(fig, "plotly_trajectories", height=520)
-
-    phase_space_selected = distribution.struphy.data.slice(x="eta1", y="v1", t=-1)
-    fig = px.imshow(
-        phase_space_selected.transpose("v1", "eta1"),
-        x=phase_space_selected.eta1,
-        y=phase_space_selected.v1,
-        origin="lower",
-        color_continuous_scale="viridis",
-    )
-    fig.update_layout(xaxis_title="eta1", yaxis_title="v1")
-    save_plotly(fig, "plotly_phase_space")
-
-    result = run_a.struphy.data.compare(run_b, mode="ratio")
-    fig = px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
-    save_plotly(fig, "plotly_compare")
-
-    field_slice, orbit_subset = well.struphy.data.overlay_orbits(
-        confined_orbits, x="eta1", y="eta2"
-    )
-    fig = go.Figure(
-        go.Heatmap(
-            z=field_slice.transpose("eta2", "eta1").values,
-            x=field_slice.eta1.values,
-            y=field_slice.eta2.values,
-            colorscale="viridis",
-            showscale=False,
-        )
-    )
-    for marker in orbit_subset.marker.values:
-        path = orbit_subset.sel(marker=marker)
-        fig.add_trace(
-            go.Scatter(
-                x=path.eta1,
-                y=path.eta2,
-                mode="lines",
-                line=dict(color="#ffb347"),
-                showlegend=False,
-            )
-        )
-    fig.update_layout(xaxis_title="eta1", yaxis_title="eta2")
-    save_plotly(fig, "plotly_overlay_orbits")
-
-    disp_spectrum = dispersive_field.struphy.data.dispersion()
-    disp_values = np.log10(np.asarray(disp_spectrum) + np.finfo(float).tiny)
-    positive = disp_spectrum.omega.values >= 0
-    k_line = np.linspace(0, 7, 60)
-    fig = go.Figure(
-        go.Heatmap(
-            z=disp_values[positive],
-            x=disp_spectrum.k.values,
-            y=disp_spectrum.omega.values[positive],
-            colorscale="viridis",
-            zmin=disp_values.max() - 6,
-            zmax=disp_values.max(),
-            showscale=False,
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=k_line,
-            y=bohm_gross(k_line),
-            mode="lines",
-            name="Bohm-Gross",
-            line=dict(color="#ffb347", dash="dash"),
-        )
-    )
-    fig.update_layout(
-        xaxis_title="k", yaxis_title="omega", xaxis_range=[-7, 7], yaxis_range=[0, 12]
-    )
-    save_plotly(fig, "plotly_dispersion")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped plotly_*.json (plotly unavailable): {exc}")
+    print(f"skipped plotly_slice.json (plotly unavailable): {exc}")
 
 
 # =============================================================================
@@ -1545,6 +1429,46 @@ try:
         print("skipped plotly_profile_gantt.json (plotly unavailable)")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped profile_*.png (scope-profiler unavailable): {exc}")
+
+
+# =============================================================================
+# backend="plotly": the same plots as interactive Plotly figures (needs `pip install plotly`),
+# as figure JSON for the docs' <PlotlyChart> component. The folds "The same plot with Plotly"
+# in the guides show these, with the same arguments as the Matplotlib figures above.
+# =============================================================================
+try:
+    import plotly  # noqa: F401
+
+    def save_plotly(result, filename):
+        path = result.save(PLOTLY_OUT / f"{filename}.json")
+        print(f"wrote {path}")
+
+    save_plotly(field.struphy.plot.slice(x="eta1", y="eta2", t=-1, backend="plotly"), "plotly_view_slice")
+    save_plotly(vector.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1, backend="plotly"),
+                "plotly_vector")
+    save_plotly(volume_data.struphy.plot.volume_slices(backend="plotly"), "plotly_volume_slices")
+    save_plotly(energy.struphy.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth", backend="plotly"),
+                "plotly_timeseries")
+    save_plotly(run_a.struphy.plot.compare(run_b, mode="ratio", backend="plotly"), "plotly_compare")
+    save_plotly(distribution.struphy.plot.slice(x="eta1", y="v1", t=-1, backend="plotly"), "plotly_phase_space")
+    save_plotly(marker_orbits.struphy.plot.trajectories(show_paths=True, backend="plotly"), "plotly_trajectories")
+    save_plotly(cloud.struphy.plot.scatter(x="x", y="y", color="density", backend="plotly"), "plotly_scatter")
+    save_plotly(well.struphy.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2", backend="plotly"),
+                "plotly_overlay_orbits")
+    save_plotly(dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12,
+                                                         backend="plotly"), "plotly_dispersion")
+    save_plotly(light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
+                                                       dynamic_range=12, omega_max=25, backend="plotly"), "plotly_dispersion_fits")
+    # the Plotly guide
+    save_plotly(ring.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"),
+                "plotly_ring_slice")
+    save_plotly(ring.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4,
+                                            backend="plotly"), "plotly_ring_animation")
+    save_plotly(phi_tae.struphy.plot.power_spectrum(peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate":
+                                                    omega_tae}, omega_max=0.5, backend="plotly"),
+                "plotly_spectral_power")
+except ImportError as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped the backend=\"plotly\" figures (plotly unavailable): {exc}")
 
 plt.close("all")
 print("done")

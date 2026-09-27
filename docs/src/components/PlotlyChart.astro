@@ -64,7 +64,9 @@ const resolvedSrc = import.meta.env.BASE_URL.replace(/\/$/, '') + src;
 			autosize: true,
 			margin: layout.margin ?? { t: 30, r: 20, b: 40, l: 50 },
 			paper_bgcolor: 'rgba(0, 0, 0, 0)',
-			plot_bgcolor: 'rgba(0, 0, 0, 0)',
+			// A figure converted from Matplotlib (backend="plotly") keeps its white plot area: its
+			// colors (black reference curves, white overlays) were chosen for one.
+			plot_bgcolor: layout.meta?.converted_from === 'matplotlib' ? 'white' : 'rgba(0, 0, 0, 0)',
 			font: { color: fontColor },
 			legend: { ...layout.legend, font: { color: fontColor } },
 		};
@@ -93,9 +95,12 @@ const resolvedSrc = import.meta.env.BASE_URL.replace(/\/$/, '') + src;
 			const [, response] = await Promise.all([loadPlotly(), fetch(src)]);
 			const fig = await response.json();
 			el.innerHTML = '';
-			(window as any).Plotly.newPlot(el, fig.data, themedLayout(fig.layout ?? {}), {
-				responsive: true,
-				displaylogo: false,
+			// frames: the slider and Play button of an animation (backend="plotly")
+			(window as any).Plotly.newPlot(el, {
+				data: fig.data,
+				layout: themedLayout(fig.layout ?? {}),
+				frames: fig.frames ?? [],
+				config: { responsive: true, displaylogo: false },
 			});
 		} catch (err) {
 			el.innerHTML = '<p class="plotly-fallback">Could not load the interactive chart.</p>';

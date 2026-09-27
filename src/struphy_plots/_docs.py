@@ -166,7 +166,6 @@ MENUS = {
     "ArrayPlots": ("array.struphy.plot", "plot"),
     "ArrayAnalysis": ("array.struphy.analysis", "analysis"),
     "ArrayData": ("array.struphy.data", "data"),
-    "ArrayPlotly": ("array.struphy.plotly", "plotly"),
     "SliceView": ("array.struphy.plot.view(...)", "plot"),
     "DatasetPlots": ("dataset.struphy.plot", "dataset"),
     "DatasetAnalysis": ("dataset.struphy.analysis", "dataset"),
@@ -232,7 +231,7 @@ def menu(accessor) -> str:
     first = next((n for n, _ in rows if n != "()"), None)
     if not page:  # array.struphy / dataset.struphy: the sub-accessors
         lines.append(
-            f"{example}.plot, .plotly, .analysis and .data list their methods; python -m struphy_plots prints an overview."
+            f"{example}.plot, .analysis and .data list their methods; python -m struphy_plots prints an overview."
         )
     elif first:
         lines.append(f"help({example}.{first}) shows the parameters; reference: {REFERENCE}/{page}/")

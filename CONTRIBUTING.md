@@ -164,6 +164,17 @@ solutions. Its docstring examples must run: `tests/test_theory_doctests.py` runs
 `tests/test_docstrings.py` runs the same check in CI, together with a check that the reference
 shows every parameter of every function.
 
+## Plotly versions of the plots
+
+`backend="plotly"` (`src/struphy_plots/plotly_backend.py`) converts the finished Matplotlib
+figure into Plotly; there is no second implementation of any plot. A new accessor plot method
+that draws with Matplotlib gets the option with `@with_backend` and a `backend: Backend | None =
+None` parameter, documented in the method itself (copy the entry of a neighbouring method);
+`tests/test_plotly_backend.py` fails for a method without it, and converts every plot with
+conversion warnings as errors. If a plot starts using a Matplotlib artist the converter does not
+know (a `ConversionWarning` says which), teach `_FigureConverter` to convert it and add the plot
+to the test's cases.
+
 ## Branches and releases
 
 - **`devel`** — default development branch. Every push rebuilds and deploys

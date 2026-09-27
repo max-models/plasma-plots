@@ -100,17 +100,14 @@ The data behind this plot: `field.struphy.data.slice(x="eta1", y="eta2", t=-1)` 
 <details>
 <summary>The same plot with Plotly</summary>
 
-`px.imshow` reads an array as `(row, column)`, i.e. `(y, x)`, so transpose
-the slice back and put the first `y` at the bottom with `origin="lower"`:
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
 
 ```python
-import plotly.express as px
-
-selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
-px.imshow(selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2, origin="lower")
+view.slice(t=-1, backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_slice.json" />
+<PlotlyChart src="/plotly/plotly_view_slice.json" />
 
 </details>
 
@@ -134,6 +131,13 @@ view.animation()
 
 Physical slices of Struphy's cell-centered fields close the seam of periodic
 directions (e.g. θ = 0) automatically, so a poloidal cross-section has no gap.
+
+The axis and color bar labels come from the coordinates' and the array's names and units;
+`xlabel=`, `ylabel=` and `colorbar_label=` replace them, in every slice presentation:
+
+```python
+f_v.struphy.plot.slice(x="t", y="v1", xlabel="time [ms]", ylabel="v", colorbar_label="f(v, t)")
+```
 
 ### Contour lines
 
@@ -221,21 +225,11 @@ The data behind this plot: `b_field.struphy.data.vector(x="eta1", y="eta2", comp
 <details>
 <summary>The same plot with Plotly</summary>
 
-Plotly has no built-in quiver trace; `plotly.figure_factory.create_quiver`
-takes flat position and component arrays instead of a grid, so flatten the
-coordinates and components first:
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
 
 ```python
-import numpy as np
-import plotly.figure_factory as ff
-
-selected = b_field.struphy.data.vector(x="eta1", y="eta2", components=(0, 1), stride=4)
-xg, yg = np.meshgrid(selected.eta1, selected.eta2, indexing="ij")
-ff.create_quiver(
-    xg.ravel(), yg.ravel(),
-    selected.isel(component=0).values.ravel(), selected.isel(component=1).values.ravel(),
-    scale=0.05,
-)
+b_field.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=4, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_vector.json" />
@@ -257,17 +251,11 @@ The data behind this plot: `density.struphy.data.volume_slices()` returns the th
 <details>
 <summary>The same plot with Plotly</summary>
 
-One `go.Heatmap` per plane:
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
 
 ```python
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-
-planes = density.struphy.data.volume_slices()
-fig = make_subplots(rows=1, cols=3, subplot_titles=list(planes))
-for i, (name, plane) in enumerate(planes.items(), start=1):
-    x, y = plane.dims
-    fig.add_trace(go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values), row=1, col=i)
+density.struphy.plot.volume_slices(backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_volume_slices.json" height="340px" />
