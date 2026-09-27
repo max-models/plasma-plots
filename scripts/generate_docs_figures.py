@@ -444,10 +444,10 @@ try:
     for item in series:
         fig.add_trace(
             go.Scatter(
-                x=item.t, y=item, mode="lines", name=item.attrs.get("label", item.name)
+                x=item.t, y=item, mode="lines", name=item.name
             )
         )
-    fig.update_layout(xaxis_title="t", yaxis_title="[J]", legend=dict(x=0.02, y=0.98))
+    fig.update_layout(xaxis_title="t", yaxis_title="[J]", yaxis_type="log", legend=dict(x=0.02, y=0.98))
     save_plotly(fig, "plotly_timeseries")
 
     vec = vector.struphy.data.vector(
@@ -1087,6 +1087,27 @@ save(
 
 # Individual guiding-center orbits side by side, with their invariants and bounce periods
 save(orbits_gc.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_field), "orbit_grid.png")
+
+# Selecting data: the ring's last slice and a radial cut from .struphy.data, drawn with plain
+# matplotlib, with the densest point and the ring's extent found on the selected arrays
+last = ring.struphy.data.slice(coords="physical", plane="XY", t="last", eta3=0)
+cut = ring.struphy.data.lineout(x="eta1", t="last", eta2=0.3, eta3=0)
+radius = 0.1 + 0.9 * cut.eta1
+densest = last.isel(last.argmax(...))
+fig, (ax_map, ax_cut) = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained", width_ratios=(1, 1.2))
+filled = ax_map.contourf(last.X, last.Y, last, levels=12, cmap="viridis")
+ax_map.plot(float(densest.X), float(densest.Y), "w*", ms=12, label="maximum")
+angle = 2 * np.pi * float(cut.eta2)
+ax_map.plot(radius * np.cos(angle), radius * np.sin(angle), "w--", lw=1.2, label="cut")
+ax_map.set(aspect="equal", xlabel="X", ylabel="Y", title="data.slice(...) drawn with contourf")
+ax_map.legend(loc="lower left", fontsize="small", facecolor="0.25", labelcolor="w")
+fig.colorbar(filled, ax=ax_map, label="$n$")
+ax_cut.plot(radius, cut, color="#168aad")
+inside = radius.where(cut >= 0.2)
+ax_cut.axvspan(float(inside.min()), float(inside.max()), color="#f08a4b", alpha=0.25, label="n ≥ 0.2")
+ax_cut.set(xlabel="r", ylabel="$n$", title="data.lineout(...) along the cut")
+ax_cut.legend(fontsize="small")
+save_fig(fig, "data_selection.png")
 
 
 # =============================================================================

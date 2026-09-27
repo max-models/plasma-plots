@@ -258,7 +258,9 @@ returns just the `(omega, k)` power spectrum, an `xarray.DataArray`, without
 plotting it — see `struphy_plots.analysis.power_spectrum` for the exact
 definition (a detrended 2-D FFT).
 
-:::tip[Plot it with Plotly instead]
+<details>
+<summary>The same plot with Plotly</summary>
+
 ```python
 import plotly.graph_objects as go
 
@@ -269,9 +271,10 @@ fig = go.Figure(go.Heatmap(
     x=spectrum.k.values, y=spectrum.omega.values[positive],
 ))
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_dispersion.json" />
+
+</details>
 
 ### Tracing a branch
 

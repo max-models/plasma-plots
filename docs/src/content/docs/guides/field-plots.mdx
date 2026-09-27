@@ -88,11 +88,13 @@ it, taking the same keyword arguments as `view(...)`.
 
 ![A grid of snapshots swept over time](../../../assets/figures/panels.png)
 
-:::tip[Plot it with Plotly instead]
-`.data.slice(...)` returns the exact same selected, transposed array
-`.plot.slice(...)` draws — feed it to `px.imshow` for an interactive
-heatmap (see [Getting started](/struphy-plots/guides/getting-started/#getting-the-data-instead-of-a-plot)
-for why the extra `.transpose(...)` is needed):
+The data behind this plot: `field.struphy.data.slice(x="eta1", y="eta2", t="last")` returns the selected 2-D array itself, ordered `(x, y)`, with its coordinates and units, for your own analysis or another plotting library (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+`px.imshow` reads an array as `(row, column)`, i.e. `(y, x)`, so transpose
+the slice back and put the first `y` at the bottom with `origin="lower"`:
 
 ```python
 import plotly.express as px
@@ -100,9 +102,10 @@ import plotly.express as px
 selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
 px.imshow(selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2, origin="lower")
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_slice.json" />
+
+</details>
 
 `plot.animation(...)` returns a `matplotlib.animation.FuncAnimation`; save it
 with `anim.save("orbit.gif", writer="pillow")`:
@@ -206,10 +209,14 @@ b_field.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=4)
 
 ![A quiver plot of two vector components](../../../assets/figures/vector.png)
 
-:::tip[Plot it with Plotly instead]
+The data behind this plot: `b_field.struphy.data.vector(x="eta1", y="eta2", components=(0, 1), stride=4)` returns the selected, strided components (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
 Plotly has no built-in quiver trace; `plotly.figure_factory.create_quiver`
-takes flat position and component arrays instead of a grid, so flatten
-`.data.vector(...)`'s coordinates and components first:
+takes flat position and component arrays instead of a grid, so flatten the
+coordinates and components first:
 
 ```python
 import numpy as np
@@ -223,9 +230,10 @@ ff.create_quiver(
     scale=0.05,
 )
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_vector.json" />
+
+</details>
 
 ## 3-D scalar volumes
 
@@ -237,10 +245,12 @@ density.struphy.plot.volume_slices()
 
 ![Three orthogonal slices through a 3-D scalar field](../../../assets/figures/volume_slices.png)
 
-:::tip[Plot it with Plotly instead]
-`.data.volume_slices()` returns the same three planes as a
-`dict[str, xarray.DataArray]`, keyed by the fixed dimension — drop each
-straight into its own `go.Heatmap`:
+The data behind this plot: `density.struphy.data.volume_slices()` returns the three planes as a dict keyed by the fixed dimension (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+One `go.Heatmap` per plane:
 
 ```python
 import plotly.graph_objects as go
@@ -252,9 +262,10 @@ for i, (name, plane) in enumerate(planes.items(), start=1):
     x, y = plane.dims
     fig.add_trace(go.Heatmap(z=plane.values.T, x=plane[x].values, y=plane[y].values), row=1, col=i)
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_volume_slices.json" height="340px" />
+
+</details>
 
 A full interactive volume render needs the optional PyVista extra
 (`pip install "struphy-plots[pyvista]"`):

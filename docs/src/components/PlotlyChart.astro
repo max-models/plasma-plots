@@ -37,6 +37,11 @@ const resolvedSrc = import.meta.env.BASE_URL.replace(/\/$/, '') + src;
 	function loadPlotly(): Promise<void> {
 		if ((window as any).Plotly) return Promise.resolve();
 		if (plotlyReady) return plotlyReady;
+		// Elements with an id are globals: a heading "Exports" makes `window.exports` a DOM element,
+		// and Plotly's module wrapper would then attach itself there instead of to `window.Plotly`.
+		for (const name of ['exports', 'module', 'define']) {
+			if ((window as any)[name] instanceof Element) (window as any)[name] = undefined;
+		}
 		plotlyReady = new Promise((resolve, reject) => {
 			const script = document.createElement('script');
 			script.src = PLOTLY_CDN;
@@ -101,7 +106,15 @@ const resolvedSrc = import.meta.env.BASE_URL.replace(/\/$/, '') + src;
 	function mountAll() {
 		document
 			.querySelectorAll<HTMLElement>('.plotly-chart:not([data-mounted="true"])')
-			.forEach((el) => void mount(el));
+			.forEach((el) => {
+				// A chart in a closed <details> would be laid out at zero width: draw it on first open.
+				const folded = el.closest('details');
+				if (folded && !folded.open) {
+					folded.addEventListener('toggle', () => folded.open && void mount(el), { once: false });
+				} else {
+					void mount(el);
+				}
+			});
 	}
 
 	mountAll();

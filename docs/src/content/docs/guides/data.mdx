@@ -1,0 +1,122 @@
+---
+title: Selecting data
+description: array.struphy.data returns the data behind every plot, for your own analysis, plots and exports.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+Every plot on `array.struphy.plot` has a twin on `array.struphy.data`. The twin
+takes the same arguments and does the same selection, but returns the
+`xarray` object the plot would draw instead of a figure. The result keeps the
+coordinates (including the physical `X`, `Y`, `Z`), the units and the labels,
+so you can work with it directly:
+
+- analyze it: take maxima, means and cuts, or compare two times
+- plot it with plain matplotlib, Plotly, HoloViews or any other library
+- export it with `.to_dataframe()`, `.to_netcdf()` or `.values`
+
+```python
+last = n.struphy.data.slice(coords="physical", plane="XY", t="last", eta3=0)   # 2-D, with X and Y
+cut = n.struphy.data.lineout(x="eta1", t="last", eta2=0.3, eta3=0)            # 1-D, along eta1
+```
+
+## Selecting by name
+
+Name each dimension you don't plot, as for every plot:
+
+| Value | Selects |
+| --- | --- |
+| an integer, e.g. `t=-1` | that position |
+| `"first"`, `"last"` | an end |
+| a float, e.g. `t=0.35` | the nearest coordinate value |
+
+An unknown name raises an error that lists the array's dimensions, and a static
+slice asks you to select one time if you haven't.
+
+`coords="physical"` with a `plane` (`"XY"`, `"XZ"`, `"YZ"` or `"RZ"`) selects
+for a slice in physical space. Struphy's cell-centered grids leave out the
+periodic seam (e.g. θ = 1 ≡ 0), and the physical slice closes it again, so
+`data.slice` returns one more point along a periodic angle than the field has.
+
+The 2-D slice comes back ordered `(x, y)`, the order you asked for. Many
+libraries read an array as `(row, column)`, i.e. `(y, x)`, so transpose it for
+those (`selected.transpose("eta2", "eta1")`, or `.T`).
+
+## The data behind each plot
+
+| Plot | Data | Returns |
+| --- | --- | --- |
+| `plot.lineout(...)` | `data.lineout(...)` | the 1-D profile |
+| `plot.slice(...)` | `data.slice(...)` | the 2-D slice, ordered `(x, y)` |
+| `plot.panels`, `viewer`, `animation`, `frames` | `data.view(...)` | the slice over the whole sweep, e.g. `(t, x, y)` |
+| `plot.vector(...)` | `data.vector(...)` | the selected, strided components |
+| `plot.volume_slices(...)` | `data.volume_slices(...)` | the three midplanes, as a dict |
+| `plot.compare(other)` | `data.compare(other)` | the aligned difference or ratio |
+| `plot.timeseries(*others)` | `data.timeseries(*others)` | the validated list of series |
+| `plot.dispersion(...)` | `data.dispersion(...)` | the `(omega, k)` power |
+| `plot.overlay_orbits(...)` | `data.overlay_orbits(...)` | the field slice and the orbit subset |
+| `plot.slices_3d(...)` | `data.slices_3d(...)` | the logical cuts |
+| every 3-D view | `data.grid(...)`, `data.to_vtk(...)` | a PyVista grid, or VTK files for ParaView |
+| `dataset.plot.scatter(...)` | `dataset.data.scatter(...)` | the selected marker Dataset |
+| `plot.trajectories(...)` | `data.trajectories(...)` | the marker subset |
+
+The full signatures are in the [`struphy.data` reference](/struphy-plots/reference/data/).
+
+## Analysis on the selection
+
+The selection is an ordinary `DataArray`, so xarray and numpy work on it
+directly. For the ring from the
+[contour-line example](/struphy-plots/guides/field-plots/#contour-lines):
+
+```python
+last = n.struphy.data.slice(coords="physical", plane="XY", t="last", eta3=0)
+densest = last.isel(last.argmax(...))                  # the densest point, with its X and Y
+print(float(densest.X), float(densest.Y))
+
+cut = n.struphy.data.lineout(x="eta1", t="last", eta2=0.3, eta3=0)
+radius = 0.1 + 0.9 * cut.eta1                           # this mapping's minor radius
+inside = radius.where(cut >= 0.2)
+width = float(inside.max() - inside.min())              # the ring's width along the cut
+
+frames = n.struphy.data.view(coords="physical", plane="XY", eta3=0)   # (t, eta1, eta2)
+peak_over_time = frames.max("t")                        # the largest density each point reached
+```
+
+The same selections drawn with plain matplotlib:
+
+```python
+fig, (ax_map, ax_cut) = plt.subplots(1, 2)
+ax_map.contourf(last.X, last.Y, last, levels=12)
+ax_map.plot(densest.X, densest.Y, "w*")
+ax_cut.plot(radius, cut)
+ax_cut.axvspan(float(inside.min()), float(inside.max()), alpha=0.25)
+```
+
+![A physical slice from data.slice drawn with contourf, and a radial cut from data.lineout](../../../assets/figures/data_selection.png)
+
+## Exports
+
+```python
+last.to_dataframe()                          # a pandas table, one row per point, with X and Y
+last.to_netcdf("ring_last.nc")               # a self-describing file with all coordinates
+np.save("ring_last.npy", last.values)        # the bare numbers
+n.struphy.data.to_vtk("ring")                # one .vts per time and a .pvd for ParaView
+```
+
+## Other plotting libraries
+
+`struphy-plots` never depends on another plotting library. The guides show the
+same plots with [Plotly](https://plotly.com/python/), folded under each
+matplotlib figure. A 2-D slice as a Plotly heatmap:
+
+```python
+import plotly.express as px
+
+selected = field.struphy.data.slice(x="eta1", y="eta2", t="last")
+px.imshow(
+    selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2,
+    origin="lower", color_continuous_scale="viridis",
+)
+```
+
+<PlotlyChart src="/plotly/plotly_slice.json" />
