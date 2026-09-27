@@ -141,7 +141,9 @@ The rules:
   name it first under `See Also`. Parameters the method doesn't document are
   then taken from that function, so the two can't disagree. Document a
   parameter in the method only when it differs from the function's
-  (`**selection`, for example).
+  (`**selection`, for example). The first entry may also be another method
+  with the same options: `slice`, `panels`, `viewer`, `animation` and
+  `frames` all take theirs from `ArrayPlots.view`.
 - **Markup:** ``` ``code`` ```, cross-references as `` :func:`struphy_plots.spectral.fft` ``,
   `` :meth:`ArrayPlots.slice` `` or `` :class:`PlotResult` `` (a leading `~`
   shows only the last name), and Unicode instead of LaTeX (`ω`, `|√g|`).

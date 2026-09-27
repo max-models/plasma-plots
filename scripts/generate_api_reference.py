@@ -412,6 +412,14 @@ class Site:
                 for path in page.classes:
                     cls = package[path]
                     self.anchors.setdefault(cls.path, f"{BASE}/{page.slug}/")
+        # exact names a plain ``code`` span may use: full accessor/function paths and class names
+        self.names = {}
+        for path, url in self.anchors.items():
+            obj = package[path.removeprefix(PACKAGE + ".")]
+            self.names[self.display_name(obj)] = url
+            self.names[obj.path] = url
+            if obj.is_class:
+                self.names[obj.name] = url
 
     def entries(self, page):
         """(object, heading text) in page order: classes and their methods, or module members."""
@@ -497,6 +505,7 @@ def markdown(site, text: str, context=None) -> str:
             continue
         line = re.sub(r"``([^`]+)``", r"`\1`", line)
         line = _ROLE.sub(role, line)
+        line = re.sub(r"(?<![\[`])`([A-Za-z_][\w.]*)(\(\))?`(?!\]\()", lambda m: autolink(site, m), line)
         # links produced above contain ](url); keep them out of the escaping
         pieces = re.split(r"(\]\([^)]*\))", line)
         out.append("".join(p if p.startswith("](") else escape_mdx(p) for p in pieces))
@@ -507,6 +516,12 @@ def html_text(text: str) -> str:
     """Text for raw HTML in MDX: escaped, with quotes as entities so the typographer leaves them straight."""
     return (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("{", "&#123;")
             .replace("}", "&#125;").replace('"', "&quot;").replace("'", "&#39;"))
+
+
+def autolink(site, match):
+    """A plain code span that names a documented object exactly, as a link to it."""
+    url = site.names.get(match.group(1))
+    return f"[{match.group(0)}]({url})" if url else match.group(0)
 
 
 def type_markdown(site, text: str, context=None) -> str:
