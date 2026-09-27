@@ -158,21 +158,27 @@ class PlotResult:
     def _plotly(self) -> bool:
         return type(self.fig).__module__.startswith("plotly")
 
-    def save(self, path, *, close=False, **kwargs):
+    def save(self, path, *, close=False, frame=None, **kwargs):
         """Save the figure to a file, as drawn.
 
         Parameters
         ----------
         path : str or pathlib.Path
             The file to write; its extension picks the format. A Plotly figure is written as a
-            standalone page (``.html``), as figure JSON (``.json``), or as an image through kaleido
-            (``.png``, ``.svg``, ``.pdf``, ...).
+            standalone page (``.html``, loading Plotly's JavaScript from its CDN, responsive, an
+            animation not playing until asked), as figure JSON (``.json``), or as an image through
+            kaleido (``.png``, ``.svg``, ``.pdf``, ...).
         close : bool, optional
             Close the Matplotlib figure afterwards, to free its memory. Default: ``False``.
+        frame : int, optional
+            For an image of a Plotly animation: the frame it shows, with the slider there (e.g.
+            ``len(result.fig.frames) // 2``, when the first frame is still featureless). The page
+            and the JSON keep the whole animation. Default: the first frame.
         **kwargs
             Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``;
             ``bbox_inches="tight"`` unless given), or to Plotly's ``write_html``, ``write_json``
-            or ``write_image`` (``dpi`` then sets the image's ``scale``, 100 dpi per unit).
+            or ``write_image`` (e.g. ``width``, ``height``, ``scale``; ``dpi`` sets the
+            ``scale``, 100 dpi per unit).
 
         Returns
         -------
@@ -182,6 +188,7 @@ class PlotResult:
         if self._plotly:
             suffix = Path(path).suffix.lower()
             if suffix in (".html", ".htm"):
+                kwargs = {"include_plotlyjs": "cdn", "auto_play": False, "config": {"responsive": True}, **kwargs}
                 self.fig.write_html(path, **kwargs)
             elif suffix == ".json":
                 self.fig.write_json(path, **kwargs)
@@ -189,13 +196,29 @@ class PlotResult:
                 if "dpi" in kwargs:
                     kwargs["scale"] = kwargs.pop("dpi") / 100.0
                 kwargs.pop("bbox_inches", None)
-                self.fig.write_image(path, **kwargs)
+                (self.fig if frame is None else self._still(frame)).write_image(path, **kwargs)
             return str(path)
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
         if close:
             plt.close(self.fig)
         return str(path)
+
+    def _still(self, frame):
+        """One frame of a Plotly animation as a figure of its own, the slider at that frame."""
+        import plotly.graph_objects as go
+
+        if not self.fig.frames:
+            raise ValueError("frame= needs a Plotly animation; this figure has no frames")
+        index = range(len(self.fig.frames))[frame]  # also -1 for the last
+        update = self.fig.frames[index]
+        # a frame names only what changes: complete it with the first frame's traces
+        data = [{**base.to_plotly_json(), **new.to_plotly_json()} for base, new in zip(self.fig.data, update.data)]
+        still = go.Figure(data=data, layout=self.fig.layout)
+        still.update_layout(update.layout)
+        if still.layout.sliders:
+            still.layout.sliders[0].active = index
+        return still
 
     def show(self):
         """Show the figure with ``matplotlib.pyplot.show``, or a Plotly figure with its ``show``.
@@ -1230,8 +1253,13 @@ class _SliceRenderer:
         levels=None,
         fill=True,
         overlays=None,
+        xlabel=None,
+        ylabel=None,
+        colorbar_label=None,
     ):
         self.data = _select(data, view)
+        self.xlabel, self.ylabel = xlabel, ylabel
+        self.colorbar_label = value_label(data) if colorbar_label is None else colorbar_label
         self.symmetric, self.robust = symmetric, robust
         self.levels, self.fill = levels, fill
         unknown = set(overlays or {}) - OVERLAY_KEYS
@@ -1353,8 +1381,8 @@ class _SliceRenderer:
                 extras.append(ax.contour(xg, yg, np.asarray(values), levels=levels, **style))
         extras += self._draw_overlays(ax, data, xg, yg)
         ax.set(
-            xlabel=xlabel,
-            ylabel=ylabel,
+            xlabel=xlabel if self.xlabel is None else self.xlabel,
+            ylabel=ylabel if self.ylabel is None else self.ylabel,
             aspect="equal" if self.equal_aspect else "auto",
         )
         ax.grid(False)
@@ -1363,13 +1391,20 @@ class _SliceRenderer:
     def frame_title(self, index):
         return f"{self.title} at {self.view.sweep} = {float(self.data[self.view.sweep][index]):.3e}"
 
-    def indices(self, step):
+    def indices(self, step, max_frames=None):
         if not isinstance(step, (int, np.integer)) or step < 1:
             raise ValueError("step must be a positive integer")
         validate_array(self.data, required_dims=(self.view.sweep,))
         if not self.data.sizes[self.view.sweep]:
             raise ValueError("cannot render an empty sweep")
-        return range(0, self.data.sizes[self.view.sweep], step)
+        frames = range(0, self.data.sizes[self.view.sweep], step)
+        if max_frames is not None:
+            if not isinstance(max_frames, (int, np.integer)) or max_frames < 1:
+                raise ValueError("max_frames must be a positive integer")
+            if len(frames) > max_frames:
+                picks = np.unique(np.linspace(0, len(frames) - 1, max_frames).round().astype(int))
+                frames = [frames[i] for i in picks]
+        return frames
 
 
 @rank_zero
@@ -1390,6 +1425,9 @@ def plot_slice(
     levels=None,
     fill=True,
     overlays=None,
+    xlabel=None,
+    ylabel=None,
+    colorbar_label=None,
 ):
     """Render one selected two-dimensional slice.
 
@@ -1453,6 +1491,12 @@ def plot_slice(
         - ``"point_color"``: their color (default white).
 
         Lines and points do not widen the axes and are listed in a legend.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's name and units.
+    ylabel : str, optional
+        The vertical axis label. Default: the coordinate's name and units.
+    colorbar_label : str, optional
+        The color bar label. Default: the array's label and units.
 
     Returns
     -------
@@ -1489,13 +1533,16 @@ def plot_slice(
         fill=fill,
         overlays=overlays,
         shared_clim=shared_clim,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        colorbar_label=colorbar_label,
     )
     run_label = shared_run_label(data) if run_label is None else run_label
     own_figure = ax is None
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = renderer.draw(ax, renderer.data)
-        fig.colorbar(mesh, ax=ax, label=value_label(data))
+        fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
         ax.set_title(renderer.title)
         _finish(fig, run_label=run_label if own_figure else "", tight=own_figure)
     return PlotResult(fig, ax, [mesh])
@@ -1520,6 +1567,9 @@ def plot_panels(
     levels=None,
     fill=True,
     overlays=None,
+    xlabel=None,
+    ylabel=None,
+    colorbar_label=None,
 ):
     """Plot snapshots with common color limits over the entire selected sweep by default.
 
@@ -1587,6 +1637,12 @@ def plot_panels(
         - ``"point_color"``: their color (default white).
 
         Lines and points do not widen the axes and are listed in a legend.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's name and units.
+    ylabel : str, optional
+        The vertical axis label. Default: the coordinate's name and units.
+    colorbar_label : str, optional
+        The color bar label. Default: the array's label and units.
 
     Returns
     -------
@@ -1622,6 +1678,9 @@ def plot_panels(
         levels=levels,
         fill=fill,
         overlays=overlays,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        colorbar_label=colorbar_label,
     )
     renderer.indices(1)
     if nrows < 1 or ncols < 1:
@@ -1645,9 +1704,9 @@ def plot_panels(
             meshes.append(mesh)
             ax.set_title(f"{sweep} = {float(renderer.data[sweep][index]):.3e}")
             if not shared_clim:
-                fig.colorbar(mesh, ax=ax, label=value_label(data))
+                fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
         if shared_clim:
-            fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=value_label(data))
+            fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=renderer.colorbar_label)
         fig.suptitle(" — ".join(filter(None, (renderer.title, run_label))))
     return PlotResult(fig, axes, meshes)
 
@@ -1714,6 +1773,12 @@ class InteractiveSliceViewer:
         - ``"point_color"``: their color (default white).
 
         Lines and points do not widen the axes and are listed in a legend.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's name and units.
+    ylabel : str, optional
+        The vertical axis label. Default: the coordinate's name and units.
+    colorbar_label : str, optional
+        The color bar label. Default: the array's label and units.
 
     See Also
     --------
@@ -1741,6 +1806,9 @@ class InteractiveSliceViewer:
         levels=None,
         fill=True,
         overlays=None,
+        xlabel=None,
+        ylabel=None,
+        colorbar_label=None,
     ):
         self.data = validate_array(data)
         self.view = view or View()
@@ -1756,6 +1824,9 @@ class InteractiveSliceViewer:
             levels=levels,
             fill=fill,
             overlays=overlays,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            colorbar_label=colorbar_label,
         )
         self.run_label = shared_run_label(data) if run_label is None else run_label
         self.result = None
@@ -1807,7 +1878,7 @@ class InteractiveSliceViewer:
             fig, ax = plt.subplots()
             fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
             mesh = renderer.draw(ax, base.isel(indices))
-            colorbar = fig.colorbar(mesh, ax=ax, label=value_label(self.data))
+            colorbar = fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
             self.result = PlotResult(fig, ax, [mesh])
 
             def update(_=None):
@@ -1842,6 +1913,7 @@ def animate_slices(
     view=None,
     interval=100,
     step=1,
+    max_frames=None,
     vmin=None,
     vmax=None,
     shared_clim=True,
@@ -1853,6 +1925,9 @@ def animate_slices(
     levels=None,
     fill=True,
     overlays=None,
+    xlabel=None,
+    ylabel=None,
+    colorbar_label=None,
 ):
     """Animate slices with fixed color limits over the selected sweep by default.
 
@@ -1871,6 +1946,9 @@ def animate_slices(
         The delay between frames, in milliseconds. Default: ``100``.
     step : int, optional
         Use every ``step``-th value of the sweep. Default: ``1``.
+    max_frames : int, optional
+        Keep at most this many frames, evenly spaced over those ``step`` leaves (the first and
+        last included), e.g. to keep a Plotly animation small. Default: all.
     vmin : float, optional
         The lower color limit. Default: from the data (see ``symmetric`` and ``robust``).
     vmax : float, optional
@@ -1916,6 +1994,12 @@ def animate_slices(
         - ``"point_color"``: their color (default white).
 
         Lines and points do not widen the axes and are listed in a legend.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's name and units.
+    ylabel : str, optional
+        The vertical axis label. Default: the coordinate's name and units.
+    colorbar_label : str, optional
+        The color bar label. Default: the array's label and units.
 
     Returns
     -------
@@ -1955,13 +2039,16 @@ def animate_slices(
         levels=levels,
         fill=fill,
         overlays=overlays,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        colorbar_label=colorbar_label,
     )
-    frames = renderer.indices(step)
+    frames = renderer.indices(step, max_frames)
     sweep = renderer.view.sweep
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots()
         mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
-        colorbar = fig.colorbar(mesh, ax=ax, label=value_label(data))
+        colorbar = fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
         _finish(fig, run_label=shared_run_label(data))
 
     def update(index):
@@ -1990,6 +2077,7 @@ def animate_fields(
     view=None,
     interval=100,
     step=1,
+    max_frames=None,
     titles=None,
     **options,
 ):
@@ -2011,6 +2099,9 @@ def animate_fields(
         The delay between frames, in milliseconds. Default: ``100``.
     step : int, optional
         Use every ``step``-th value of the sweep. Default: ``1``.
+    max_frames : int, optional
+        Keep at most this many frames, evenly spaced over those ``step`` leaves (the first and
+        last included), e.g. to keep a Plotly animation small. Default: all.
     titles : sequence of str, optional
         One axes title per field. Default: the fields' labels.
     **options
@@ -2044,7 +2135,7 @@ def animate_fields(
     view = view or View()
     renderers = [_SliceRenderer(field, view, **options) for field in fields]
     sweep = renderers[0].view.sweep
-    frames = renderers[0].indices(step)
+    frames = renderers[0].indices(step, max_frames)
     lengths = {renderer.data.sizes[sweep] for renderer in renderers}
     if len(lengths) != 1:
         raise ValueError(f"every field needs the same number of {sweep!r} values; got {sorted(lengths)}")
@@ -2062,7 +2153,7 @@ def animate_fields(
         for ax, renderer, field in zip(axes, renderers, fields):
             mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
             meshes.append(mesh)
-            colorbars.append(fig.colorbar(mesh, ax=ax, label=value_label(field)))
+            colorbars.append(fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label))
         run_label = shared_run_label(fields)
         heading = fig.suptitle("")
 
@@ -2103,6 +2194,9 @@ def save_frames(
     levels=None,
     fill=True,
     overlays=None,
+    xlabel=None,
+    ylabel=None,
+    colorbar_label=None,
 ):
     """Export the configured sweep as PNGs, sharing color limits by default.
 
@@ -2171,6 +2265,12 @@ def save_frames(
         - ``"point_color"``: their color (default white).
 
         Lines and points do not widen the axes and are listed in a legend.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's name and units.
+    ylabel : str, optional
+        The vertical axis label. Default: the coordinate's name and units.
+    colorbar_label : str, optional
+        The color bar label. Default: the array's label and units.
 
     Returns
     -------
@@ -2205,6 +2305,9 @@ def save_frames(
         levels=levels,
         fill=fill,
         overlays=overlays,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        colorbar_label=colorbar_label,
     )
     frames = renderer.indices(step)
     directory = Path(directory)
@@ -2215,7 +2318,7 @@ def save_frames(
         try:
             sweep = renderer.view.sweep
             mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
-            colorbar = fig.colorbar(mesh, ax=ax, label=value_label(data))
+            colorbar = fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
             _finish(fig, run_label=shared_run_label(data))
             for frame, index in enumerate(frames):
                 mesh.remove()
@@ -3050,7 +3153,7 @@ def animate_markers(
             options = dict(background_options or {})
             renderer = _SliceRenderer(background, _background_view(x, y), **options)
             mesh = renderer.draw(ax, _at_time(renderer.data, times[0]))
-            fig.colorbar(mesh, ax=ax, label=value_label(background))
+            fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
         first = positions[0]
         clim = None
         if colors is not None:

@@ -132,6 +132,13 @@ view.animation()
 Physical slices of Struphy's cell-centered fields close the seam of periodic
 directions (e.g. θ = 0) automatically, so a poloidal cross-section has no gap.
 
+The axis and color bar labels come from the coordinates' and the array's names and units;
+`xlabel=`, `ylabel=` and `colorbar_label=` replace them, in every slice presentation:
+
+```python
+f_v.struphy.plot.slice(x="t", y="v1", xlabel="time [ms]", ylabel="v", colorbar_label="f(v, t)")
+```
+
 ### Contour lines
 
 `levels` draws contour lines of the field on top of any slice presentation:

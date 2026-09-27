@@ -334,3 +334,62 @@ def test_a_spectrum_plots_its_positive_quadrant_with_branches_and_fits(backend):
     assert axis.cmax - axis.cmin == pytest.approx(12)
     np.testing.assert_allclose(light.y, light.x)
     assert fit.name.startswith("fit, v = ")
+
+
+def phase_space_f():
+    t, eta1, v1 = np.linspace(0.0, 2.0, 7), np.linspace(0.0, 1.0, 8), np.linspace(-3.0, 3.0, 6)
+    values = np.random.default_rng(1).random((t.size, eta1.size, v1.size))
+    return xr.DataArray(values, dims=("t", "eta1", "v1"), coords={"t": t, "eta1": eta1, "v1": v1}, name="f")
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
+def test_slices_take_their_own_axis_and_colorbar_labels(backend):
+    f = phase_space_f()
+    result = f.mean("eta1").struphy.plot.slice(x="t", y="v1", vmin=0.0, xlabel="time [ms]", ylabel="v",
+                                               colorbar_label="f(v, t)", backend=backend)
+    if backend == "matplotlib":
+        ax = result.ax
+        assert (ax.get_xlabel(), ax.get_ylabel()) == ("time [ms]", "v")
+        assert result.fig.axes[-1].get_ylabel() == "f(v, t)"
+        return
+    layout = result.fig.layout
+    assert (layout.xaxis.title.text, layout.yaxis.title.text) == ("time [ms]", "v")
+    assert layout.coloraxis.colorbar.title.text == "f(v, t)" and layout.coloraxis.cmin == 0.0
+    assert np.asarray(result.fig.data[0].z).shape == (f.sizes["v1"], f.sizes["t"])  # x across, y up
+
+
+def test_an_animation_keeps_at_most_max_frames_first_and_last_included():
+    f = phase_space_f()
+    result = f.struphy.plot.animation(x="eta1", y="v1", max_frames=3, xlabel="x", backend="plotly")
+    frames, steps = result.fig.frames, result.fig.layout.sliders[0].steps
+    assert len(frames) == len(steps) == 3
+    assert [step.label for step in steps] == [f"{v:.4g}" for v in f.t.values[[0, 3, 6]]]
+    np.testing.assert_allclose(np.asarray(frames[-1].data[0].z), f.isel(t=-1).transpose("v1", "eta1").values)
+    assert result.fig.layout.xaxis.title.text == "x"
+    with pytest.raises(ValueError, match="max_frames"):
+        f.struphy.plot.animation(x="eta1", y="v1", max_frames=0, backend="plotly")
+
+
+def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch):
+    shown = []
+
+    def write_image(self, path, **kwargs):  # kaleido needs a Chrome install
+        shown.append((np.asarray(self.data[0].z), self.layout.sliders[0].active, kwargs))
+        open(path, "wb").close()
+
+    monkeypatch.setattr(go.Figure, "write_image", write_image)
+    f = phase_space_f()
+    movie = f.struphy.plot.animation(x="eta1", y="v1", max_frames=3, backend="plotly")
+    first = np.asarray(movie.fig.data[0].z).copy()
+    movie.save(tmp_path / "movie.png", frame=1, width=800, height=650, scale=2)
+    z, active, kwargs = shown[-1]
+    np.testing.assert_allclose(z, np.asarray(movie.fig.frames[1].data[0].z))
+    assert active == 1 and kwargs == {"width": 800, "height": 650, "scale": 2}
+    np.testing.assert_allclose(np.asarray(movie.fig.data[0].z), first)  # the animation itself is unchanged
+    movie.save(tmp_path / "movie.png", frame=-1)
+    assert shown[-1][1] == 2
+    page = movie.save(tmp_path / "movie.html")
+    text = (tmp_path / "movie.html").read_text()
+    assert "cdn.plot.ly" in text and page.endswith("movie.html")
+    with pytest.raises(ValueError, match="no frames"):
+        energy().struphy.plot.timeseries(backend="plotly").save(tmp_path / "e.png", frame=0)

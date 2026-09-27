@@ -76,7 +76,15 @@ n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], st
 <PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
 
 Every frame is stored in the figure, so a long, finely resolved sweep makes a large page. Use
-`step` to keep every n-th frame.
+`step` to keep every n-th frame, or `max_frames` for at most that many, evenly spaced (the first
+and the last included). If the first frame is still featureless, the image of an animation can
+show a later one; the page and the JSON keep the whole animation:
+
+```python
+movie = f.struphy.plot.animation(x="eta1", y="v1", max_frames=150, backend="plotly")
+movie.save("phase-space.html")
+movie.save("phase-space.png", frame=len(movie.fig.frames) // 2, width=1100, height=650, scale=2)
+```
 
 ## Spectra, particles, whole runs
 

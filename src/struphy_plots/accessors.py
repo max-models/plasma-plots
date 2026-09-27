@@ -1499,6 +1499,9 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        colorbar_label: str | None = None,
         **selection,
     ) -> "SliceView":
         """Configure a reusable slice view without rendering a figure.
@@ -1552,6 +1555,12 @@ class ArrayPlots(_ArrayAccessor):
             n-th grid line), ``lines`` (label to ``(x, y)`` or a function ``y(x)``, e.g.
             characteristics on a space-time map) and ``points`` (label to ``(x, y)``), in
             ``line_color`` and ``point_color`` (white by default, for dark colormaps).
+        xlabel : str, optional
+            The horizontal axis label. Default: the coordinate's name and units.
+        ylabel : str, optional
+            The vertical axis label. Default: the coordinate's name and units.
+        colorbar_label : str, optional
+            The color bar label. Default: the array's label and units.
         **selection
             Every dimension but ``x``, ``y`` and ``sweep``: an integer is a position (``-1`` the
             last), a float the nearest coordinate value. Checked now; a name that is not a
@@ -1592,6 +1601,9 @@ class ArrayPlots(_ArrayAccessor):
                 levels=levels,
                 fill=fill,
                 overlays=overlays,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                colorbar_label=colorbar_label,
             ),
         )
 
@@ -1615,6 +1627,9 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        colorbar_label: str | None = None,
         ax=None,
         backend: Backend | None = None,
         **selection,
@@ -1665,6 +1680,9 @@ class ArrayPlots(_ArrayAccessor):
             levels=levels,
             fill=fill,
             overlays=overlays,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            colorbar_label=colorbar_label,
             **selection,
         ).slice(ax=ax)
 
@@ -1688,6 +1706,9 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        colorbar_label: str | None = None,
         nrows: int = 3,
         ncols: int = 4,
         backend: Backend | None = None,
@@ -1740,6 +1761,9 @@ class ArrayPlots(_ArrayAccessor):
             levels=levels,
             fill=fill,
             overlays=overlays,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            colorbar_label=colorbar_label,
             **selection,
         ).panels(nrows=nrows, ncols=ncols)
 
@@ -1763,6 +1787,9 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        colorbar_label: str | None = None,
         backend: Backend | None = None,
         **selection,
     ):
@@ -1809,6 +1836,9 @@ class ArrayPlots(_ArrayAccessor):
             levels=levels,
             fill=fill,
             overlays=overlays,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            colorbar_label=colorbar_label,
             **selection,
         ).viewer()
 
@@ -1832,8 +1862,12 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        colorbar_label: str | None = None,
         interval: int = 100,
         step: int = 1,
+        max_frames: int | None = None,
         alongside=None,
         backend: Backend | None = None,
         **selection,
@@ -1848,6 +1882,9 @@ class ArrayPlots(_ArrayAccessor):
             The delay between frames, in milliseconds. Default: 100.
         step : int, optional
             Show every ``step``-th element of the sweep. Default: 1.
+        max_frames : int, optional
+            Keep at most this many frames, evenly spaced over those ``step`` leaves (the first and
+            last included), e.g. to keep a Plotly animation small. Default: all.
         alongside : list of xarray.DataArray, optional
             Further arrays with the same dimensions (e.g. the density next to the vorticity),
             animated side by side in sync, each with its own color limits and the same selection
@@ -1891,8 +1928,11 @@ class ArrayPlots(_ArrayAccessor):
             levels=levels,
             fill=fill,
             overlays=overlays,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            colorbar_label=colorbar_label,
             **selection,
-        ).animation(interval=interval, step=step, alongside=alongside)
+        ).animation(interval=interval, step=step, max_frames=max_frames, alongside=alongside)
 
     def frames(
         self,
@@ -1914,6 +1954,9 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        colorbar_label: str | None = None,
         step: int = 1,
         prefix: str = "frame",
         dpi: int = 110,
@@ -1967,6 +2010,9 @@ class ArrayPlots(_ArrayAccessor):
             levels=levels,
             fill=fill,
             overlays=overlays,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            colorbar_label=colorbar_label,
             **selection,
         ).save_frames(directory, step=step, prefix=prefix, dpi=dpi)
 
@@ -4014,7 +4060,9 @@ class SliceView:
         return InteractiveSliceViewer(self._array, view=self._view(), **self._options)
 
     @with_backend
-    def animation(self, *, interval=100, step=1, alongside=None, backend: Backend | None = None):
+    def animation(
+        self, *, interval=100, step=1, max_frames=None, alongside=None, backend: Backend | None = None
+    ):
         """Create a Matplotlib animation using this view's rendering options.
 
         Keep a reference to the returned animation.
@@ -4052,6 +4100,7 @@ class SliceView:
                 view=self._view(),
                 interval=interval,
                 step=step,
+                max_frames=max_frames,
                 **self._options,
             )
         return animate_slices(
@@ -4059,6 +4108,7 @@ class SliceView:
             view=self._view(),
             interval=interval,
             step=step,
+            max_frames=max_frames,
             **self._options,
         )
 
