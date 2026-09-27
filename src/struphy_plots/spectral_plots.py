@@ -12,6 +12,7 @@ import xarray as xr
 from . import spectral
 from .analysis import GrowthFit, growth_rate
 from .arrays import axis_label, value_label
+from .mpi import rank_zero
 from .plotting import (
     STRUPHY_STYLE,
     PlotResult,
@@ -51,6 +52,7 @@ def _band(band):
     return float(lo), float(hi)
 
 
+@rank_zero
 def plot_power_spectrum(
     data,
     *,
@@ -189,6 +191,7 @@ def plot_power_spectrum(
     return PlotResult(fig, ax, artists, data={"power": reduced, "peaks": found})
 
 
+@rank_zero
 def plot_filtered(data: xr.DataArray, result, *, ax=None, **selection):
     """Plot a probe of the signal (minus its mean) against its filtered reconstruction.
 
@@ -251,6 +254,7 @@ def plot_filtered(data: xr.DataArray, result, *, ax=None, **selection):
     return PlotResult(fig, ax, [raw, kept])
 
 
+@rank_zero
 def plot_spectrogram(
     power: xr.DataArray,
     *,
@@ -324,6 +328,7 @@ def plot_spectrogram(
     return PlotResult(fig, ax, artists, data={"spectrogram": power})
 
 
+@rank_zero
 def plot_mode_amplitudes(
     modes: xr.DataArray,
     *,
@@ -401,6 +406,7 @@ def plot_mode_amplitudes(
     return PlotResult(fig, ax, artists, fits, data={"amplitudes": amplitudes})
 
 
+@rank_zero
 def plot_mode_map(
     modes: xr.DataArray,
     *,
@@ -473,6 +479,7 @@ def _x_values(data, x, x_of):
     return (np.asarray(x_of(coordinate), dtype=float), "r") if x_of is not None else (coordinate, axis_label(data, x))
 
 
+@rank_zero
 def plot_radial_power(
     power: xr.DataArray,
     *,
@@ -583,6 +590,7 @@ def plot_radial_power(
     return PlotResult(fig, ax, artists, data={"power": power})
 
 
+@rank_zero
 def plot_mode_profiles(
     structure: xr.DataArray,
     *,
@@ -699,6 +707,7 @@ def plot_mode_profiles(
     return PlotResult(fig, axes, artists, data={"profiles": stacked.isel(mode=order)})
 
 
+@rank_zero
 def plot_cross_spectrum(cross: xr.Dataset, *, omega_max: float | None = None, title: str | None = None):
     """Plot the magnitude (and coherence, if present) and phase of a cross-spectrum.
 
@@ -777,6 +786,7 @@ def plot_cross_spectrum(cross: xr.Dataset, *, omega_max: float | None = None, ti
     )
 
 
+@rank_zero
 def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = None):
     """Plot a :func:`~struphy_plots.spectral.matrix_pencil` fit and its complex frequencies.
 

@@ -96,3 +96,27 @@ float(last.max()), last.to_dataframe()
 ```
 
 See [Selecting data](/struphy-plots/guides/data/).
+
+## Running under MPI
+
+A post-processing script can run on several ranks, e.g. right after the
+simulation in the same `mpirun -n 4 python script.py`. Plots are then drawn and
+saved on rank 0 only; the other ranks get a `SkippedPlot` placeholder whose
+methods do nothing, so the same script works in serial and in parallel without
+`if rank == 0:` guards:
+
+```python
+out = sim.run()                                             # or Output(path)
+phi = out.evaluate("em_fields/phi")                         # on every rank
+phi.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0).save("phi.png")  # written once, by rank 0
+phi.struphy.plot.frames("frames/", x="eta1", y="eta2", eta3=0)            # [] on ranks > 0
+```
+
+Struphy processes the run on first use, collectively: call `evaluate()` on every
+rank until the run is processed. Analysis (`array.struphy.analysis.*`) runs on
+every rank. The rank is read from `mpi4py` once MPI is initialized (Struphy does
+that), and otherwise from the MPI launcher's environment, so struphy-plots never
+needs `mpi4py` itself. Set `STRUPHY_MPI=0` to make every process plot. Nothing
+waits for rank 0: call `MPI.COMM_WORLD.Barrier()` before other ranks read a file
+rank 0 wrote. `struphy_plots.is_plotting_rank()` tells whether the current
+process draws.

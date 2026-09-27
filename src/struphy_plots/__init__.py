@@ -75,6 +75,10 @@ Plots return a ``PlotResult`` (``.fig``, ``.ax``, ``.save(path)``, ``.show()``);
 views a ``pyvista.Plotter`` (``.show()``, ``.screenshot(path)``; ``pyvista.OFF_SCREEN = True`` in
 scripts). Analysis methods return labeled xarray objects, which have ``.struphy`` in turn.
 
+Under MPI (``mpirun -n 4 python script.py``), plots are drawn and saved on rank 0 only; the other
+ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchanged in serial and
+in parallel. Analysis runs on every rank. See :mod:`struphy_plots.mpi`.
+
 The functions behind the accessors, for plain ``xarray.DataArray`` input, are in
 ``struphy_plots.plotting``, ``.analysis``, ``.spectral``, ``.spectral_plots``, ``.pyvista_plots``
 and ``.arrays``.
@@ -107,5 +111,6 @@ Runs as is, on synthetic data:
 
 from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import StruphyAccessor
+from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 
-__all__ = ["StruphyAccessor"]
+__all__ = ["SkippedPlot", "StruphyAccessor", "is_plotting_rank", "mpi_rank"]

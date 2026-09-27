@@ -152,7 +152,7 @@ def save_scalars(
     exclude=SCALARS_EXCLUDE,
     fmt=None,
 ) -> str:
-    """Save scalar time series to a CSV or NPZ file.
+    """Save scalar time series to a CSV or NPZ file; under MPI only rank 0 writes it.
 
     Parameters
     ----------
@@ -173,7 +173,7 @@ def save_scalars(
     Returns
     -------
     str
-        ``path``.
+        ``path``, on every rank.
 
     Raises
     ------
@@ -187,6 +187,10 @@ def save_scalars(
     --------
     >>> save_scalars(out.scalars, "scalars.csv", names=["en_E", "en_tot"])
     """
+    from .mpi import is_plotting_rank
+
+    if not is_plotting_rank():
+        return path
     selected = scalar_names(scalars, names=names, exclude=exclude)
     arrays = [scalars[name] for name in selected]
     for array in arrays:

@@ -18,6 +18,7 @@ import xarray as xr
 
 from .analysis import ORBIT_CLASSES, classify_orbits
 from .arrays import close_periodic, mapping_jacobian, validate_array, value_label
+from .mpi import rank_zero
 
 SPATIAL = ("eta1", "eta2", "eta3")
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
@@ -319,6 +320,7 @@ def _finish(plotter, title, grid=None):
     return plotter
 
 
+@rank_zero
 def pyvista_isosurface(
     data: xr.DataArray,
     *,
@@ -485,6 +487,7 @@ def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[x
     return [data.isel({dim: [index]}) for dim, indices in _cut_indices(data, cuts).items() for index in indices]
 
 
+@rank_zero
 def pyvista_slices(
     data: xr.DataArray,
     *,
@@ -575,6 +578,7 @@ def pyvista_slices(
     return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 
+@rank_zero
 def pyvista_glyphs(
     data: xr.DataArray,
     *,
@@ -660,6 +664,7 @@ def pyvista_glyphs(
     return _finish(plotter, name if title is None else title, full if own else None)
 
 
+@rank_zero
 def pyvista_streamlines(
     data: xr.DataArray,
     *,
@@ -850,6 +855,7 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     return lines
 
 
+@rank_zero
 def pyvista_orbits(
     orbits: xr.Dataset,
     *,
@@ -936,6 +942,7 @@ def pyvista_orbits(
     return _finish(plotter, "Marker orbits" if title is None else title)
 
 
+@rank_zero
 def pyvista_domain(
     domain,
     *,
@@ -1017,6 +1024,7 @@ def pyvista_domain(
     return _finish(plotter, "Domain" if title is None else title, grid if own else None)
 
 
+@rank_zero
 def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
     """Write a field to VTK structured grids (``.vts``) on its physical points, for ParaView.
 
@@ -1083,6 +1091,7 @@ RENDERERS = {
 }
 
 
+@rank_zero
 def save_movie(
     data: xr.DataArray,
     path,

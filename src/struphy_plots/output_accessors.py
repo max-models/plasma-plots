@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import accessors  # noqa: F401  (registers array.struphy)
+from .mpi import rank_zero
 
 if TYPE_CHECKING:
     from struphy.post_processing.output import Output
@@ -46,6 +47,7 @@ class ProfilePlots:
     def __init__(self, output: "Output"):
         self._output = output
 
+    @rank_zero
     def gantt(self, *, return_fig: bool = True, verbose: bool = False, **kwargs):
         """A timeline of every recorded region, one row per rank.
 
@@ -79,6 +81,7 @@ class ProfilePlots:
             **kwargs,
         )
 
+    @rank_zero
     def flame(self, *, return_fig: bool = True, verbose: bool = False, **kwargs):
         """A flame chart reconstructing the call stack from region timings.
 
@@ -112,6 +115,7 @@ class ProfilePlots:
             **kwargs,
         )
 
+    @rank_zero
     def callgraph(self, *, return_fig: bool = True, verbose: bool = False, **kwargs):
         """The explicit call graph (which region calls which), without timings.
 

@@ -35,6 +35,7 @@ from .analysis import (
     relative_error,
 )
 from .arrays import SCALARS_EXCLUDE, axis_label, close_periodic, save_scalars, scalar_names, validate_array, value_label
+from .mpi import rank_zero
 
 logger = logging.getLogger("struphy")
 
@@ -433,6 +434,7 @@ def _reference_curve(spec, x_fine, t=None):
     return np.asarray(x), np.asarray(y)
 
 
+@rank_zero
 def plot_timeseries(
     data,
     *,
@@ -572,6 +574,7 @@ def prepare_lineout(data: xr.DataArray, *, x: str | None = None) -> xr.DataArray
     return data
 
 
+@rank_zero
 def plot_lineout(
     data: xr.DataArray,
     *,
@@ -699,6 +702,7 @@ def prepare_vector(
     )
 
 
+@rank_zero
 def plot_vector(
     data: xr.DataArray,
     *,
@@ -820,6 +824,7 @@ def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None 
     return planes
 
 
+@rank_zero
 def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
     """Show three orthogonal midpoint slices of a selected scalar volume.
 
@@ -895,6 +900,7 @@ def prepare_compare(
     return result
 
 
+@rank_zero
 def plot_compare(
     first: xr.DataArray,
     second: xr.DataArray,
@@ -933,6 +939,7 @@ def plot_compare(
     return plot_lineout(prepare_compare(first, second, mode=mode), ax=ax)
 
 
+@rank_zero
 def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"):
     """Create a PyVista volume view from a selected scalar field with ``X/Y/Z`` coordinates.
 
@@ -986,6 +993,7 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     return plotter
 
 
+@rank_zero
 def show_equilibrium(
     equil,
     domain,
@@ -1298,6 +1306,7 @@ class _SliceRenderer:
         return range(0, self.data.sizes[self.view.sweep], step)
 
 
+@rank_zero
 def plot_slice(
     data: xr.DataArray,
     *,
@@ -1426,6 +1435,7 @@ def plot_slice(
     return PlotResult(fig, ax, [mesh])
 
 
+@rank_zero
 def plot_panels(
     data: xr.DataArray,
     *,
@@ -1699,6 +1709,7 @@ class InteractiveSliceViewer:
     def _ipython_display_(self):
         (self.result or self.draw())._ipython_display_()
 
+    @rank_zero
     def draw(self):
         """Draw the slice and its sliders, once; later calls return the same result.
 
@@ -1758,6 +1769,7 @@ class InteractiveSliceViewer:
         return self.result
 
 
+@rank_zero
 def animate_slices(
     data: xr.DataArray,
     *,
@@ -1899,6 +1911,7 @@ def animate_slices(
     return animation
 
 
+@rank_zero
 def animate_fields(
     fields,
     *,
@@ -1997,6 +2010,7 @@ def animate_fields(
     return animation
 
 
+@rank_zero
 def save_frames(
     data: xr.DataArray,
     directory,
@@ -2143,6 +2157,7 @@ def save_frames(
     return paths
 
 
+@rank_zero
 def plot_scalars(
     scalars,
     *,
@@ -2210,6 +2225,7 @@ def plot_scalars(
     return PlotResult(fig, ax, list(ax.lines))
 
 
+@rank_zero
 def plot_convergence(
     sizes,
     errors,
@@ -2314,6 +2330,7 @@ def _branch_curves(branches, k):
     return curves
 
 
+@rank_zero
 def plot_dispersion(
     data: xr.DataArray,
     *,
@@ -2448,6 +2465,7 @@ def plot_dispersion(
     return PlotResult(fig, ax, artists)
 
 
+@rank_zero
 def save_all_scalars(
     scalars,
     directory,
@@ -2555,6 +2573,7 @@ def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset
     return orbits.isel(marker=slice(0, count))
 
 
+@rank_zero
 def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=None):
     """Plot a static 3-D trajectory overview.
 
@@ -2723,6 +2742,7 @@ def _marker_colors(markers, color, color_at, selection):
     return source[color]
 
 
+@rank_zero
 def plot_marker_scatter(
     markers: xr.Dataset,
     *,
@@ -2847,6 +2867,7 @@ def _alive(orbits: xr.Dataset) -> np.ndarray:
     return ~zero
 
 
+@rank_zero
 def animate_markers(
     markers: xr.Dataset,
     *,
@@ -2990,6 +3011,7 @@ def animate_markers(
     return animation
 
 
+@rank_zero
 def plot_marker_paths(
     orbits,
     *,
@@ -3112,6 +3134,7 @@ def plot_marker_paths(
     return PlotResult(fig, ax, artists, data={"markers": chosen})
 
 
+@rank_zero
 def plot_field_with_orbits(
     field: xr.DataArray,
     view: View,
@@ -3212,6 +3235,7 @@ def prepare_orbit_classification(
     return selected.assign(classification=classification)
 
 
+@rank_zero
 def plot_orbit_classification(
     orbits,
     *,
@@ -3341,6 +3365,7 @@ def prepare_continuous_spectrum(spectrum, x, modes) -> xr.DataArray:
     )
 
 
+@rank_zero
 def plot_continuous_spectrum(
     spectrum,
     x,
@@ -3417,6 +3442,7 @@ def plot_continuous_spectrum(
     return PlotResult(fig, ax, artists, data={"spectrum": data})
 
 
+@rank_zero
 def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):
     """Plot radial profiles of a fluid equilibrium along ``eta1`` (at ``eta2 = eta3 = 0``).
 
@@ -3467,6 +3493,7 @@ def _series(scalars, name):
     return values
 
 
+@rank_zero
 def plot_energy_budget(
     scalars,
     *,
@@ -3576,6 +3603,7 @@ def plot_energy_budget(
     return PlotResult(fig, axes, artists)
 
 
+@rank_zero
 def plot_profiles(
     data: xr.DataArray,
     *,
@@ -3718,6 +3746,7 @@ def _colored_path(ax, xs, ys, values, norm, cmap):
     return line
 
 
+@rank_zero
 def plot_orbit_poloidal(
     orbits,
     *,
@@ -3820,6 +3849,7 @@ def plot_orbit_poloidal(
     return PlotResult(fig, ax, artists)
 
 
+@rank_zero
 def plot_orbit_quantities(
     orbits,
     *,
@@ -3903,6 +3933,7 @@ def plot_orbit_quantities(
     return PlotResult(fig, axes, artists)
 
 
+@rank_zero
 def animate_lines(
     data: xr.DataArray,
     *,
@@ -4045,6 +4076,7 @@ def _theory_at(spec, xs):
     return np.interp(xs, tx[order], ty[order], left=np.nan, right=np.nan)
 
 
+@rank_zero
 def plot_measured_vs_theory(
     measured,
     theory=None,
@@ -4185,6 +4217,7 @@ def plot_measured_vs_theory(
     return PlotResult(fig, axes if panels == 2 else axes[0], artists)
 
 
+@rank_zero
 def plot_orbit_grid(
     orbits,
     *,
