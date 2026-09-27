@@ -1840,26 +1840,35 @@ class ArrayData(_ArrayAccessor):
         Parameters
         ----------
         x : str, optional
-            The dimension to keep. Unlike :meth:`ArrayPlots.lineout`, it is not checked: the
-            result keeps every dimension left after ``selection``.
+            The dimension to keep: checked to be the only one left after ``selection``.
+            Default: whichever it is.
+        **selection
+            The other dimensions: an integer is a position (``t=-1`` the last), a float the
+            nearest coordinate value.
 
         Returns
         -------
         xarray.DataArray
-            The selected profile.
+            The selected profile, over ``x`` only.
+
+        Raises
+        ------
+        ValueError
+            If more or fewer than one dimension remains, or ``x`` is not the remaining one.
 
         See Also
         --------
+        struphy_plots.plotting.prepare_lineout : The check behind this method.
         ArrayPlots.lineout : The plot of this profile.
 
         Examples
         --------
         >>> n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
         """
-        from .plotting import _select
+        from .plotting import _select, prepare_lineout
 
-        view = self._view(x, None, "t", "logical", "XY", selection)
-        return _select(self._array, view)
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return prepare_lineout(_select(self._array, view), x=x)
 
     def vector(
         self,
@@ -2029,14 +2038,20 @@ class ArrayData(_ArrayAccessor):
         """Return every remaining dimension of this array, sweep included.
 
         This data is shared by :meth:`ArrayPlots.panels`, ``.viewer()``, ``.animation()`` and
-        ``.frames()``, which each render one frame of exactly this data at a time. ``x``, ``y``,
-        ``coords`` and ``plane`` do not change the result; they are accepted so that the same
-        arguments work here and there.
+        ``.frames()``, which each render one frame of exactly this data at a time.
 
         Returns
         -------
         xarray.DataArray
-            The array after ``selection``.
+            The selection ordered ``(sweep, x, y)``. With ``coords="physical"`` the periodic seam
+            of a cell-centered grid is closed, as in every drawn frame (one more point along a
+            periodic angle).
+
+        Raises
+        ------
+        ValueError
+            If other dimensions than ``sweep``, ``x`` and ``y`` remain, or the physical
+            coordinates are missing.
 
         See Also
         --------
@@ -2046,10 +2061,10 @@ class ArrayData(_ArrayAccessor):
         --------
         >>> n.struphy.data.view(coords="physical", plane="XY", eta3=0)
         """
-        from .plotting import _select
+        from .plotting import prepare_view
 
         view = self._view(x, y, sweep, coords, plane, selection)
-        return _select(self._array, view, keep_sweep=True)
+        return prepare_view(self._array, view)
 
     def slice(
         self,
@@ -3508,52 +3523,31 @@ class DatasetData:
 
         return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
 
-    def scatter(self, *, x: str, y: str, color: str | None = None, **selection) -> xr.Dataset:
-        """Return the selected dataset :meth:`DatasetPlots.scatter` would plot.
+    def scatter(
+        self, *, x: str, y: str, color: str | None = None, color_at=None, **selection
+    ) -> xr.Dataset:
+        """Return the per-marker positions and colors :meth:`DatasetPlots.scatter` would plot.
 
-        ``.to_dataframe()`` hands it straight to e.g. Plotly Express.
-
-        Parameters
-        ----------
-        x : str
-            The horizontal position variable; checked to exist.
-        y : str
-            The vertical position variable; checked to exist.
-        color : str, optional
-            Accepted for parity with :meth:`DatasetPlots.scatter`; not used, since the result
-            holds every variable.
-        **selection
-            Dimensions such as ``t`` to select: an integer is a position (``-1`` the last), a
-            float the nearest coordinate value.
+        ``.to_dataframe()`` hands them straight to e.g. Plotly Express.
 
         Returns
         -------
         xarray.Dataset
-            The dataset after ``selection``, with every variable.
-
-        Raises
-        ------
-        ValueError
-            If ``x`` or ``y`` is not a data variable.
-        TypeError
-            If a selected name is not a dimension, or its value is a string or bool.
+            ``x``, ``y`` and ``color`` over ``marker``.
 
         See Also
         --------
+        struphy_plots.plotting.prepare_marker_scatter : The function behind this method.
         DatasetPlots.scatter : The plot of these markers.
 
         Examples
         --------
         >>> markers.struphy.data.scatter(x="x", y="y", color="density", t=-1).to_dataframe()
+        >>> markers.struphy.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)   # colored by the start
         """
-        from .plotting import resolve_marker_selection
+        from .plotting import prepare_marker_scatter
 
-        missing = [name for name in (x, y) if name not in self._dataset.data_vars]
-        if missing:
-            raise ValueError(
-                f"{missing} are not data variables of this dataset; it has {tuple(self._dataset.data_vars)}"
-            )
-        return resolve_marker_selection(self._dataset, selection)
+        return prepare_marker_scatter(self._dataset, x=x, y=y, color=color, color_at=color_at, **selection)
 
     def orbit_classification(self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0) -> xr.Dataset:
         """Return the per-marker ``x``, ``y`` and ``classification`` that orbit_classification plots.

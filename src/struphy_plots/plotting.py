@@ -324,6 +324,51 @@ def physical_grids(data: xr.DataArray, *, plane="XY"):
     return np.asarray(xcoord), np.asarray(ycoord), xlabel, ylabel
 
 
+def prepare_view(data: xr.DataArray, view: View) -> xr.DataArray:
+    """Every frame of a slice view at once: the data panels, viewers and animations draw.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The labeled array.
+    view : View
+        The selection and presentation (``x``, ``y``, ``sweep``, ``coordinates``, ``plane``).
+
+    Returns
+    -------
+    xarray.DataArray
+        The selection ordered ``(sweep, x, y)`` (without ``sweep`` if it was selected). In
+        physical coordinates, the periodic seam of a cell-centered grid is closed, as in every
+        drawn frame.
+
+    Raises
+    ------
+    ValueError
+        If other dimensions than ``sweep``, ``x`` and ``y`` remain, or the physical coordinates
+        the plane needs are missing.
+    """
+    selected = _select(data, view, keep_sweep=True)
+    others = [d for d in selected.dims if d != view.sweep]
+    if view.x is None or view.y is None:
+        if len(others) != 2:
+            raise ValueError(f"x and y are required for remaining dims {tuple(others)}")
+        x, y = others
+    else:
+        x, y = view.x, view.y
+    if set(others) != {x, y}:
+        raise ValueError(f"selection leaves dimensions {selected.dims}; expected {view.sweep!r}, {x!r} and {y!r}")
+    order = ([view.sweep] if view.sweep in selected.dims else []) + [x, y]
+    selected = selected.transpose(*order)
+    if view.coordinates == "physical":
+        if view.plane not in PLANES:
+            raise ValueError(f"unknown plane {view.plane!r}; expected one of {tuple(PLANES)}")
+        missing = [name for name in ("X", "Y", "Z") if name not in selected.coords]
+        if missing:
+            raise ValueError(f"physical coordinates are not attached to {data.name!r}: missing {missing}")
+        selected = close_periodic(selected, (x, y)).transpose(*order)
+    return selected
+
+
 def _slice_data(data, view):
     selected = _select(data, view)
     if view.sweep in selected.dims and view.sweep not in (view.x, view.y):
@@ -499,6 +544,34 @@ def plot_timeseries(
     return PlotResult(fig, ax, artists, fits)
 
 
+def prepare_lineout(data: xr.DataArray, *, x: str | None = None) -> xr.DataArray:
+    """Check that a selected profile has one dimension left, and that it is ``x``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The profile: every dimension but one already selected.
+    x : str, optional
+        The dimension that should remain. Default: whichever it is.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``data`` itself, as :func:`plot_lineout` draws it.
+
+    Raises
+    ------
+    ValueError
+        If more or fewer than one dimension remains, or ``x`` is not the remaining one.
+    """
+    validate_array(data)
+    if data.ndim != 1:
+        raise ValueError(f"lineout needs exactly one remaining dimension, got {data.dims}")
+    if x is not None and x != data.dims[0]:
+        raise ValueError(f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}")
+    return data
+
+
 def plot_lineout(
     data: xr.DataArray,
     *,
@@ -548,12 +621,8 @@ def plot_lineout(
     --------
     >>> plot_lineout(phi.isel(t=-1, eta2=0, eta3=0), reference=lambda x: np.sin(np.pi * x))
     """
-    validate_array(data)
-    if data.ndim != 1:
-        raise ValueError(f"lineout needs exactly one remaining dimension, got {data.dims}")
-    x = data.dims[0] if x is None else x
-    if x != data.dims[0]:
-        raise ValueError(f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}")
+    data = prepare_lineout(data, x=x)
+    x = data.dims[0]
     coordinate = np.asarray(data[x], dtype=float)
     plotted = np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
@@ -2550,6 +2619,51 @@ def _at_time(data, t):
     return data.sel(t=t, method="nearest")
 
 
+def prepare_marker_scatter(
+    markers: xr.Dataset, *, x: str, y: str, color: str | None = None, color_at=None, **selection
+) -> xr.Dataset:
+    """The per-marker positions and colors :func:`plot_marker_scatter` draws.
+
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        Per-marker variables with a ``marker`` dimension (and usually ``t``).
+    x, y : str
+        The variables for the horizontal and vertical axes.
+    color : str, optional
+        The variable to color by. Default: none.
+    color_at : int or float, optional
+        Take the colors at another time (an integer position such as ``0``, or a float value).
+        Default: at the selected time.
+    **selection
+        The other dimensions, e.g. ``t``: an integer is a position (``t=-1`` the last), a float the
+        nearest coordinate value.
+
+    Returns
+    -------
+    xarray.Dataset
+        ``x``, ``y`` and ``color`` over ``marker``. The colors are named after their variable, or
+        ``"color"`` when that is ``x`` or ``y`` itself (e.g. colored by the initial position).
+
+    Raises
+    ------
+    ValueError
+        If ``x``, ``y`` or ``color`` is not a variable, or dimensions other than ``marker`` remain.
+    """
+    missing = [name for name in (x, y, color) if name is not None and name not in markers.data_vars]
+    if missing:
+        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
+    selected = resolve_marker_selection(markers, selection)
+    if selected[x].ndim != 1:
+        raise ValueError(f"select every dimension except 'marker' before scatter(); got dims {selected[x].dims}")
+    out = selected[[x, y]]
+    if color is not None:
+        values = _marker_colors(markers, color, color_at, selection)
+        name = "color" if color in (x, y) else color
+        out = out.assign({name: values.drop_vars([c for c in values.coords if c not in values.dims], errors="ignore")})
+    return out
+
+
 def _marker_colors(markers, color, color_at, selection):
     """The values of ``color`` per marker, at the selection or at the time ``color_at``."""
     if color is None:
@@ -3522,6 +3636,32 @@ def plot_profiles(
     return PlotResult(fig, ax, artists)
 
 
+def _orbit_values(subset, color_by):
+    """``(values, label)`` to color orbits along their paths by: ``t`` or a ``(t, marker)``
+    variable of ``subset``; ``(None, None)`` for ``"classification"`` or ``None``."""
+    if color_by in ("classification", None):
+        return None, None
+    if color_by == "t":
+        values = np.broadcast_to(np.asarray(subset.t, dtype=float)[:, None], (subset.sizes["t"], subset.sizes["marker"]))
+        return values, "t"
+    if color_by in subset.data_vars and set(subset[color_by].dims) == {"t", "marker"}:
+        return np.asarray(subset[color_by].transpose("t", "marker"), dtype=float), _label(subset[color_by]) or color_by
+    variables = [n for n, v in subset.data_vars.items() if set(v.dims) == {"t", "marker"}]
+    raise ValueError(f'color_by must be "classification", None, "t" or a (t, marker) variable {variables}; got {color_by!r}')
+
+
+def _colored_path(ax, xs, ys, values, norm, cmap):
+    """A line through ``(xs, ys)`` whose segments are colored by ``values``."""
+    from matplotlib.collections import LineCollection
+
+    points = np.column_stack([xs, ys])
+    segments = np.stack([points[:-1], points[1:]], axis=1)
+    line = LineCollection(segments, cmap=cmap, norm=norm, linewidths=1.0)
+    line.set_array(0.5 * (values[:-1] + values[1:]))
+    ax.add_collection(line)
+    return line
+
+
 def plot_orbit_poloidal(
     orbits,
     *,
@@ -3542,8 +3682,9 @@ def plot_orbit_poloidal(
         :func:`prepare_orbits`).
     color_by : str or None, optional
         ``"classification"`` colors by orbit class (needs ``v_par``, see
-        :func:`~struphy_plots.analysis.classify_orbits`); ``None`` (or any other value) gives
-        one color per marker. Default: ``"classification"``.
+        :func:`~struphy_plots.analysis.classify_orbits`); ``"t"`` or the name of a
+        ``(t, marker)`` variable (e.g. ``"v_par"``) colors each orbit along its path, with a
+        color bar; ``None`` gives one color per marker. Default: ``"classification"``.
     max_markers : int, optional
         Draw only the first ``max_markers`` markers. Default: ``200``.
     boundary : xarray.DataArray, optional
@@ -3572,10 +3713,20 @@ def plot_orbit_poloidal(
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     artists = []
     codes = np.asarray(classify_orbits(subset)) if color_by == "classification" else None
+    values, value_label_ = _orbit_values(subset, color_by)
+    norm = None
+    if values is not None:
+        from matplotlib.colors import Normalize
+
+        norm = Normalize(*np.nanpercentile(np.where(alive, values, np.nan), [0, 100]))
     labeled = set()
     for marker in range(subset.sizes["marker"]):
         keep = alive[:, marker]
         if keep.sum() < 2:
+            continue
+        if values is not None:
+            artists.append(_colored_path(ax, R[keep, marker], Z[keep, marker], values[keep, marker], norm,
+                                         STRUPHY_STYLE["image.cmap"]))
             continue
         if codes is not None:
             name = ORBIT_CLASSES[int(codes[marker])]
@@ -3597,6 +3748,9 @@ def plot_orbit_poloidal(
         edge = close_periodic(edge.isel(eta1=-1, eta3=0), ("eta2",)) if "eta3" in edge.dims else edge.isel(eta1=-1)
         artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2, label="boundary")
     ax.set(xlabel="R", ylabel="z", title="Orbits in the poloidal plane", aspect="equal")
+    if values is not None:
+        ax.autoscale_view()
+        fig.colorbar(artists[0], ax=ax, label=value_label_)
     if labeled or boundary is not None:
         ax.legend(fontsize="small")
     return PlotResult(fig, ax, artists)
@@ -3817,6 +3971,16 @@ def animate_lines(
     return animation
 
 
+def _theory_at(spec, xs):
+    """A theory at the measured parameters: evaluated if it is a function, else interpolated
+    linearly between its points (NaN outside them)."""
+    if callable(spec):
+        return np.asarray(spec(xs), dtype=float) * np.ones_like(xs, dtype=float)
+    tx, ty = (np.asarray(v, dtype=float) for v in _reference_curve(spec, xs))
+    order = np.argsort(tx)
+    return np.interp(xs, tx[order], ty[order], left=np.nan, right=np.nan)
+
+
 def plot_measured_vs_theory(
     measured,
     theory=None,
@@ -3841,7 +4005,8 @@ def plot_measured_vs_theory(
         lines over the measured range.
     show_error : bool, optional
         Add a second panel with ``(measured - theory) / theory`` against the first theory, for
-        every measured series; only if the first theory is a function. Default: ``True``.
+        every measured series. A theory given as points is interpolated linearly between them
+        (NaN outside them). Default: ``True``.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate label of the first measured array.
     ylabel : str, optional
@@ -3894,7 +4059,7 @@ def plot_measured_vs_theory(
     if not series:
         raise ValueError("no measured values")
     theories = _references(theory, default="theory")
-    panels = 2 if show_error and theories and callable(theories[0][1]) else 1
+    panels = 2 if show_error and theories else 1
     with plt.rc_context(STRUPHY_STYLE):
         fig, axes = plt.subplots(
             panels,
@@ -3928,9 +4093,8 @@ def plot_measured_vs_theory(
             label=label,
         )
     if panels == 2:
-        function = theories[0][1]
         for i, (label, xs, ys, _) in enumerate(series):
-            expected = np.asarray(function(xs), dtype=float)
+            expected = _theory_at(theories[0][1], xs)
             with np.errstate(invalid="ignore", divide="ignore"):
                 artists += axes[1].plot(
                     xs,
@@ -3982,9 +4146,10 @@ def plot_orbit_grid(
         A field with physical coordinates whose outer (last ``eta1``) surface is drawn in every
         panel, at its first ``eta3``.
     color_by : str or None, optional
-        ``"classification"`` colors by orbit class and names it in the panel titles (when
-        ``v_par`` is saved); ``None`` (or any other value) draws every orbit in one color.
-        Default: ``"classification"``.
+        ``"classification"`` colors by orbit class (when ``v_par`` is saved); ``"t"`` or the name
+        of a ``(t, marker)`` variable (e.g. ``"v_par"``) colors each orbit along its path, with
+        one color bar for all panels; ``None`` draws every orbit in one color. The panel titles
+        name the class whenever ``v_par`` is saved. Default: ``"classification"``.
 
     Returns
     -------
@@ -4003,7 +4168,8 @@ def plot_orbit_grid(
     subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=("x", "y", "z")).transpose(
         "t", "marker", ...
     )
-    codes = np.asarray(classify_orbits(subset)) if (color_by == "classification" and "v_par" in subset) else None
+    codes = np.asarray(classify_orbits(subset)) if "v_par" in subset else None
+    values, value_label_ = _orbit_values(subset, color_by)
     if isinstance(markers, (int, np.integer)):
         if codes is not None:
             by_class = [np.flatnonzero(codes == code).tolist() for code in ORBIT_CLASSES]
@@ -4034,11 +4200,22 @@ def plot_orbit_grid(
     if boundary is not None:
         field = boundary.isel({d: 0 for d in boundary.dims if d not in ("eta1", "eta2", "eta3")})
         edge = close_periodic(field.isel(eta1=-1, eta3=0), ("eta2",)) if "eta3" in field.dims else field.isel(eta1=-1)
+    norm = None
+    if values is not None:
+        from matplotlib.colors import Normalize
+
+        chosen = np.where(alive[:, markers], values[:, markers], np.nan)
+        norm = Normalize(*np.nanpercentile(chosen, [0, 100]))
     for ax, marker in zip(axes.ravel(), markers):
         keep = alive[:, marker]
         name = ORBIT_CLASSES[int(codes[marker])] if codes is not None else None
-        color = ORBIT_CLASS_COLORS[name] if name else "C0"
-        artists += ax.plot(R[keep, marker], Z[keep, marker], color=color, lw=1)
+        if values is not None:
+            artists.append(_colored_path(ax, R[keep, marker], Z[keep, marker], values[keep, marker], norm,
+                                         STRUPHY_STYLE["image.cmap"]))
+            ax.autoscale_view()
+        else:
+            color = ORBIT_CLASS_COLORS[name] if (name and color_by == "classification") else "C0"
+            artists += ax.plot(R[keep, marker], Z[keep, marker], color=color, lw=1)
         if edge is not None:
             artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=0.8)
         ax.set_title(f"marker {marker}" + (f" ({name})" if name else ""), fontsize="small")
@@ -4049,4 +4226,6 @@ def plot_orbit_grid(
         ax.set_xlabel("R")
     for ax in axes[:, 0]:
         ax.set_ylabel("z")
+    if values is not None:
+        fig.colorbar(artists[0], ax=axes, label=value_label_, shrink=0.8)
     return PlotResult(fig, axes, artists, data={"markers": list(markers)})

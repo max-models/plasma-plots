@@ -44,7 +44,7 @@ slice asks you to select one time if you haven't.
 `coords="physical"` with a `plane` (`"XY"`, `"XZ"`, `"YZ"` or `"RZ"`) selects
 for a slice in physical space. Struphy's cell-centered grids leave out the
 periodic seam (e.g. θ = 1 ≡ 0), and the physical slice closes it again, so
-`data.slice` returns one more point along a periodic angle than the field has.
+`data.slice` and `data.view` return one more point along a periodic angle than the field has.
 
 The 2-D slice comes back ordered `(x, y)`, the order you asked for. Many
 libraries read an array as `(row, column)`, i.e. `(y, x)`, so transpose it for
@@ -65,7 +65,7 @@ those (`selected.transpose("eta2", "eta1")`, or `.T`).
 | `plot.overlay_orbits(...)` | `data.overlay_orbits(...)` | the field slice and the orbit subset |
 | `plot.slices_3d(...)` | `data.slices_3d(...)` | the logical cuts |
 | every 3-D view | `data.grid(...)`, `data.to_vtk(...)` | a PyVista grid, or VTK files for ParaView |
-| `dataset.plot.scatter(...)` | `dataset.data.scatter(...)` | the selected marker Dataset |
+| `dataset.plot.scatter(...)` | `dataset.data.scatter(...)` | the positions and colors per marker |
 | `plot.trajectories(...)` | `data.trajectories(...)` | the marker subset |
 
 The full signatures are in the [`struphy.data` reference](/struphy-plots/reference/data/).
