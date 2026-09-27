@@ -346,6 +346,109 @@ class OutputPlots:
         return self.scalars(*args, **kwargs)
 
 
+def _quadrature_grid(output):
+    """Gauss-Legendre points (degree + 1 per element) and weights of each logical direction."""
+    elements = tuple(output.grid.num_elements)
+    degrees = tuple(output.derham_opts.degree)
+    etas, weights = {}, {}
+    for dim, n_elements, degree in zip(("eta1", "eta2", "eta3"), elements, degrees):
+        x, w = np.polynomial.legendre.leggauss(int(degree) + 1)
+        starts = np.arange(n_elements)[:, None] / n_elements
+        etas[dim] = (starts + (x[None] + 1) / (2 * n_elements)).ravel()
+        weights[dim] = np.tile(w / (2 * n_elements), n_elements)
+    return etas, weights
+
+
+def _matching_quadrature(field, etas, weights):
+    """The Gauss weights if ``field`` sits on the Gauss grid, else ``None`` (default rules)."""
+    for dim in ("eta1", "eta2", "eta3"):
+        if dim not in field.dims or field.sizes[dim] != etas[dim].size:
+            return None
+        if not np.allclose(np.asarray(field[dim], dtype=float), etas[dim]):
+            return None
+    return weights
+
+
+def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
+    import xarray as xr
+
+    from .analysis import field_energy, volume_integral
+
+    etas_q, weights_q = _quadrature_grid(output)
+
+    def array(product, representation):
+        # a raw FEEC field in its own space's representation, at the Gauss points of every
+        # element (the default products are in "norm" / "0" representations, on one point per
+        # cell, which neither the mass matrices nor an exact quadrature use)
+        if isinstance(product, str):
+            return output.evaluate(
+                product,
+                eta1=etas_q["eta1"],
+                eta2=etas_q["eta2"],
+                eta3=etas_q["eta3"],
+                representation=representation,
+            )
+        return product
+
+    def etas(field):
+        return [np.asarray(field[d], dtype=float) for d in ("eta1", "eta2", "eta3")]
+
+    domain, equil = output.domain, output.equil
+    if not hasattr(equil, "_domain"):
+        equil.domain = domain  # the equilibrium profiles are pulled back to this run's mapping
+    fields = {
+        name: array(value, representation)
+        for name, value, representation in (
+            ("u", velocity, "2"),
+            ("b", b_field, "2"),
+            ("p", pressure, "3"),
+        )
+        if value is not None
+    }
+    energies = {}
+    if "u" in fields:
+        n0 = np.asarray(equil.n0(*etas(fields["u"])), dtype=float)
+        energies["en_U"] = field_energy(
+            fields["u"],
+            form=2,
+            weight=n0,
+            domain=domain,
+            quadrature=_matching_quadrature(fields["u"], etas_q, weights_q),
+        )
+    if "b" in fields:
+        energies["en_B"] = field_energy(
+            fields["b"],
+            form=2,
+            domain=domain,
+            quadrature=_matching_quadrature(fields["b"], etas_q, weights_q),
+        )
+    if "p" in fields:
+        p0 = np.asarray(equil.p0(*etas(fields["p"])), dtype=float)
+        with np.errstate(divide="ignore"):
+            inverse = np.where(p0 > 1e-12 * p0.max(), 1.0 / p0, np.nan)
+        energies["en_thermal"] = field_energy(
+            fields["p"],
+            form=3,
+            weight=inverse,
+            domain=domain,
+            normalization=1.0 / gamma,
+            quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
+        )
+        energies["en_p"] = volume_integral(
+            fields["p"],
+            form=3,
+            domain=domain,
+            quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
+        ) / (gamma - 1)
+    if not energies:
+        raise ValueError("pass at least one of velocity, b_field and pressure")
+    quadratic = [energies[k] for k in ("en_U", "en_B", "en_thermal") if k in energies]
+    energies["en_tot"] = sum(quadratic[1:], quadratic[0])
+    for name, values in energies.items():
+        values.attrs = {**values.attrs, "label": name}
+    return xr.Dataset(energies, attrs={"label": "LinearMHD energies from fields"})
+
+
 class OutputAnalysis:
     """Spectral diagnostics of a run's products, as ``out.analysis.<kind>(product, ...)``.
 
@@ -564,109 +667,6 @@ class OutputAnalysis:
         from .spectral import mode_spectrum
 
         return mode_spectrum(self._array(product), dims=dims, names=names, periods=periods)
-
-
-def _quadrature_grid(output):
-    """Gauss-Legendre points (degree + 1 per element) and weights of each logical direction."""
-    elements = tuple(output.grid.num_elements)
-    degrees = tuple(output.derham_opts.degree)
-    etas, weights = {}, {}
-    for dim, n_elements, degree in zip(("eta1", "eta2", "eta3"), elements, degrees):
-        x, w = np.polynomial.legendre.leggauss(int(degree) + 1)
-        starts = np.arange(n_elements)[:, None] / n_elements
-        etas[dim] = (starts + (x[None] + 1) / (2 * n_elements)).ravel()
-        weights[dim] = np.tile(w / (2 * n_elements), n_elements)
-    return etas, weights
-
-
-def _matching_quadrature(field, etas, weights):
-    """The Gauss weights if ``field`` sits on the Gauss grid, else ``None`` (default rules)."""
-    for dim in ("eta1", "eta2", "eta3"):
-        if dim not in field.dims or field.sizes[dim] != etas[dim].size:
-            return None
-        if not np.allclose(np.asarray(field[dim], dtype=float), etas[dim]):
-            return None
-    return weights
-
-
-def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
-    import xarray as xr
-
-    from .analysis import field_energy, volume_integral
-
-    etas_q, weights_q = _quadrature_grid(output)
-
-    def array(product, representation):
-        # a raw FEEC field in its own space's representation, at the Gauss points of every
-        # element (the default products are in "norm" / "0" representations, on one point per
-        # cell, which neither the mass matrices nor an exact quadrature use)
-        if isinstance(product, str):
-            return output.evaluate(
-                product,
-                eta1=etas_q["eta1"],
-                eta2=etas_q["eta2"],
-                eta3=etas_q["eta3"],
-                representation=representation,
-            )
-        return product
-
-    def etas(field):
-        return [np.asarray(field[d], dtype=float) for d in ("eta1", "eta2", "eta3")]
-
-    domain, equil = output.domain, output.equil
-    if not hasattr(equil, "_domain"):
-        equil.domain = domain  # the equilibrium profiles are pulled back to this run's mapping
-    fields = {
-        name: array(value, representation)
-        for name, value, representation in (
-            ("u", velocity, "2"),
-            ("b", b_field, "2"),
-            ("p", pressure, "3"),
-        )
-        if value is not None
-    }
-    energies = {}
-    if "u" in fields:
-        n0 = np.asarray(equil.n0(*etas(fields["u"])), dtype=float)
-        energies["en_U"] = field_energy(
-            fields["u"],
-            form=2,
-            weight=n0,
-            domain=domain,
-            quadrature=_matching_quadrature(fields["u"], etas_q, weights_q),
-        )
-    if "b" in fields:
-        energies["en_B"] = field_energy(
-            fields["b"],
-            form=2,
-            domain=domain,
-            quadrature=_matching_quadrature(fields["b"], etas_q, weights_q),
-        )
-    if "p" in fields:
-        p0 = np.asarray(equil.p0(*etas(fields["p"])), dtype=float)
-        with np.errstate(divide="ignore"):
-            inverse = np.where(p0 > 1e-12 * p0.max(), 1.0 / p0, np.nan)
-        energies["en_thermal"] = field_energy(
-            fields["p"],
-            form=3,
-            weight=inverse,
-            domain=domain,
-            normalization=1.0 / gamma,
-            quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
-        )
-        energies["en_p"] = volume_integral(
-            fields["p"],
-            form=3,
-            domain=domain,
-            quadrature=_matching_quadrature(fields["p"], etas_q, weights_q),
-        ) / (gamma - 1)
-    if not energies:
-        raise ValueError("pass at least one of velocity, b_field and pressure")
-    quadratic = [energies[k] for k in ("en_U", "en_B", "en_thermal") if k in energies]
-    energies["en_tot"] = sum(quadratic[1:], quadratic[0])
-    for name, values in energies.items():
-        values.attrs = {**values.attrs, "label": name}
-    return xr.Dataset(energies, attrs={"label": "LinearMHD energies from fields"})
 
 
 def _register_output_plot_property():

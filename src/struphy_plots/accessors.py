@@ -45,10 +45,15 @@ class _ArrayAccessor:
                 raise TypeError(
                     f"{dim!r} is not a dimension of {self._array.name!r}; its dimensions are {self._array.dims}"
                 )
-            if value in ("first", "last"):  # accepted, but integer positions are the documented form
+            if value in (
+                "first",
+                "last",
+            ):  # accepted, but integer positions are the documented form
                 index[dim] = 0 if value == "first" else -1
             elif isinstance(value, (bool, str)):
-                raise TypeError(f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value")
+                raise TypeError(
+                    f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value"
+                )
             elif isinstance(value, (int, np.integer)):
                 index[dim] = int(value)
             else:
@@ -3550,9 +3555,7 @@ class DatasetData:
             )
         return resolve_marker_selection(self._dataset, selection)
 
-    def orbit_classification(
-        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0
-    ) -> xr.Dataset:
+    def orbit_classification(self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0) -> xr.Dataset:
         """Return the per-marker ``x``, ``y`` and ``classification`` that orbit_classification plots.
 
         The values :meth:`DatasetPlots.orbit_classification` would plot.

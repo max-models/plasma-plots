@@ -1110,45 +1110,6 @@ class _SliceRenderer:
         self.title = _label(data) if title is None else title
         self.limits = self._limits(self.data) if shared_clim else None
 
-    def draw(self, ax, data):
-        values, (xg, yg, xlabel, ylabel) = _slice_data(data, self.view)
-        lo, hi = self.limits if self.shared_clim else self._limits(values)
-        mesh = ax.pcolormesh(
-            xg,
-            yg,
-            values,
-            shading="auto",
-            vmin=lo,
-            vmax=hi,
-            cmap=self.cmap,
-            alpha=None if self.fill else 0.0,
-        )
-        for artist in self._lines.pop(id(ax), []):
-            artist.remove()
-        extras = self._lines.setdefault(id(ax), [])
-        if self.levels is not None:
-            levels = (
-                np.linspace(lo, hi, int(self.levels) + 2)[1:-1]
-                if isinstance(self.levels, (int, np.integer))
-                else np.atleast_1d(self.levels)
-            )
-            finite = np.asarray(values, dtype=float)
-            if np.isfinite(finite).any() and np.nanmin(finite) < max(levels) and np.nanmax(finite) > min(levels):
-                style = (
-                    dict(colors="k", linewidths=0.8)
-                    if self.fill
-                    else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
-                )
-                extras.append(ax.contour(xg, yg, np.asarray(values), levels=levels, **style))
-        extras += self._draw_overlays(ax, data, xg, yg)
-        ax.set(
-            xlabel=xlabel,
-            ylabel=ylabel,
-            aspect="equal" if self.equal_aspect else "auto",
-        )
-        ax.grid(False)
-        return mesh
-
     def _draw_overlays(self, ax, data, xg, yg):
         """Contour lines of a second field, the grid's boundary and lines, fixed lines and points."""
         overlays, artists = self.overlays, []
@@ -1216,6 +1177,45 @@ class _SliceRenderer:
         if overlays.get("lines") or overlays.get("points"):
             ax.legend(fontsize="small")
         return artists
+
+    def draw(self, ax, data):
+        values, (xg, yg, xlabel, ylabel) = _slice_data(data, self.view)
+        lo, hi = self.limits if self.shared_clim else self._limits(values)
+        mesh = ax.pcolormesh(
+            xg,
+            yg,
+            values,
+            shading="auto",
+            vmin=lo,
+            vmax=hi,
+            cmap=self.cmap,
+            alpha=None if self.fill else 0.0,
+        )
+        for artist in self._lines.pop(id(ax), []):
+            artist.remove()
+        extras = self._lines.setdefault(id(ax), [])
+        if self.levels is not None:
+            levels = (
+                np.linspace(lo, hi, int(self.levels) + 2)[1:-1]
+                if isinstance(self.levels, (int, np.integer))
+                else np.atleast_1d(self.levels)
+            )
+            finite = np.asarray(values, dtype=float)
+            if np.isfinite(finite).any() and np.nanmin(finite) < max(levels) and np.nanmax(finite) > min(levels):
+                style = (
+                    dict(colors="k", linewidths=0.8)
+                    if self.fill
+                    else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
+                )
+                extras.append(ax.contour(xg, yg, np.asarray(values), levels=levels, **style))
+        extras += self._draw_overlays(ax, data, xg, yg)
+        ax.set(
+            xlabel=xlabel,
+            ylabel=ylabel,
+            aspect="equal" if self.equal_aspect else "auto",
+        )
+        ax.grid(False)
+        return mesh
 
     def frame_title(self, index):
         return f"{self.title} at {self.view.sweep} = {float(self.data[self.view.sweep][index]):.3e}"
@@ -2511,7 +2511,10 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
             raise TypeError(f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}")
-        if value in ("first", "last"):  # accepted, but integer positions are the documented form
+        if value in (
+            "first",
+            "last",
+        ):  # accepted, but integer positions are the documented form
             selected = selected.isel({dim: 0 if value == "first" else -1})
         elif isinstance(value, (bool, str)):
             raise TypeError(f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value")
@@ -2671,6 +2674,15 @@ def plot_marker_scatter(
         aspect="equal",
     )
     return PlotResult(fig, ax, artists)
+
+
+def _alive(orbits: xr.Dataset) -> np.ndarray:
+    """``(t, marker)`` mask of samples where a marker is still in the domain (not all zeros)."""
+    zero = np.ones((orbits.sizes["t"], orbits.sizes["marker"]), dtype=bool)
+    for name in orbits.data_vars:
+        if set(orbits[name].dims) == {"t", "marker"}:
+            zero &= np.asarray(orbits[name].transpose("t", "marker")) == 0
+    return ~zero
 
 
 def animate_markers(
@@ -3508,15 +3520,6 @@ def plot_profiles(
     ax.legend(fontsize="small")
     _finish(fig, run_label=shared_run_label(data) if len(fig.axes) == 1 else "")
     return PlotResult(fig, ax, artists)
-
-
-def _alive(orbits: xr.Dataset) -> np.ndarray:
-    """``(t, marker)`` mask of samples where a marker is still in the domain (not all zeros)."""
-    zero = np.ones((orbits.sizes["t"], orbits.sizes["marker"]), dtype=bool)
-    for name in orbits.data_vars:
-        if set(orbits[name].dims) == {"t", "marker"}:
-            zero &= np.asarray(orbits[name].transpose("t", "marker")) == 0
-    return ~zero
 
 
 def plot_orbit_poloidal(
