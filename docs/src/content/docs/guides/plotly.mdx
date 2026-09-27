@@ -113,8 +113,9 @@ The guides show many of the plots with Plotly, folded under each Matplotlib figu
   `movie`, `orbits_3d`) are already interactive; see [3-D views](/struphy-plots/guides/3d-views/).
 - `frames` and `save_frames` write PNG files for a movie.
 - `ax=`, which draws into a Matplotlib axes you made, cannot be combined with
-  `backend="plotly"` (that raises `TypeError`). To compose several plots, save them
-  separately, or build your own figure from [`.struphy.data`](/struphy-plots/guides/data/).
+  `backend="plotly"` (that raises `TypeError`). To compose several plots into one Plotly
+  figure, use `struphy_plots.figure(..., backend="plotly")` (see
+  [Several plots in one figure](/struphy-plots/guides/timeseries/#several-plots-in-one-figure)).
 - `out.plot.profile.*` has its own `backend="plotly"`, from scope-profiler (see
   [Profiling](/struphy-plots/guides/profiling/)).
 

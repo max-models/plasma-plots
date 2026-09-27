@@ -93,6 +93,66 @@ def axis_label(data: xr.DataArray, dim: str) -> str:
     return f"{label} [{unit}]" if unit else label
 
 
+def map_coordinate(
+    data: xr.DataArray,
+    dim: str,
+    mapping,
+    *,
+    name: str | None = None,
+    units: str | None = None,
+    label: str | None = None,
+) -> xr.DataArray:
+    """Replace a coordinate by a function of it, e.g. a logical one by a physical length.
+
+    Every plot then draws and labels the new coordinate, e.g. the minor radius
+    ``r = a1 + (a2 - a1) * eta1`` in meters instead of ``eta1``. With ``name``, the dimension is
+    renamed too, so ``r`` is what selections (``r=0.5``) and plots (``x="r"``) name; without it,
+    ``dim`` keeps its name and only its values, label and units change.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array.
+    dim : str
+        The dimension whose coordinate is mapped, e.g. ``"eta1"``.
+    mapping : callable or float
+        A function of the coordinate's values (``lambda eta1: 0.1 + 0.9 * eta1``), or a factor
+        (a length, for ``length * eta1``).
+    name : str, optional
+        The name of the new dimension, e.g. ``"r"``. Default: keep ``dim``.
+    units : str, optional
+        The new coordinate's units, e.g. ``"m"``. Default: none.
+    label : str, optional
+        The new coordinate's axis label (its ``long_name``), mathtext allowed. Default: ``name``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The array over the new coordinate; the data itself is unchanged.
+
+    Raises
+    ------
+    KeyError
+        If ``dim`` is not a dimension of ``data``.
+
+    Examples
+    --------
+    >>> map_coordinate(T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m").struphy.plot.lineout(x="r", t=-1)
+    >>> map_coordinate(n, "eta1", 2 * np.pi, units="m")   # a length of 2π along eta1
+    """
+    if dim not in data.dims:
+        raise KeyError(f"dimension {dim!r} not found in {data.dims}")
+    values = np.asarray(data[dim], dtype=float)
+    mapped = np.asarray(mapping(values) if callable(mapping) else mapping * values, dtype=float)
+    attrs = {"long_name": label if label is not None else (name or dim)}
+    if units:
+        attrs["units"] = units
+    if name is None or name == dim:
+        return data.assign_coords({dim: (dim, mapped, attrs)})
+    renamed = data.assign_coords({name: (dim, mapped, attrs)}).swap_dims({dim: name})
+    return renamed.drop_vars(dim)
+
+
 def value_label(data: xr.DataArray) -> str:
     """The label of an array's values, with their units.
 

@@ -178,6 +178,11 @@ save(
 )
 save(plot_scalars({"en_phi": energy, "en_tot": total}, logy=False), "scalars.png")
 
+with struphy_plots.figure(2, 1, sharex=True) as composed:
+    energy.struphy.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
+    total.struphy.analysis.drift().struphy.plot.timeseries(logy=False, ax=composed[1])
+save(composed, "composed_energies.png")
+
 
 def oscillating_energy(rate=-0.3, omega=3.0):
     time = np.linspace(0.0, 20.0, 4001)
@@ -201,6 +206,15 @@ ax.set(
 )
 ax.legend(fontsize="small")
 save_fig(fig, "damping.png")
+
+# the frequency of a damped oscillation from its zero crossings
+t_osc = np.linspace(0.0, 30.0, 301)
+probe_osc = field_array("E", "$E_x$", "a.u.", np.exp(-0.06 * t_osc) * np.cos(1.3 * t_osc + 0.4), ("t",), {"t": t_osc})
+fit_osc = probe_osc.struphy.analysis.oscillation_frequency()
+shown_osc = probe_osc.struphy.plot.timeseries(logy=False, title=f"zero crossings: ω = {fit_osc.omega:.4f} (exact 1.3)")
+shown_osc.ax.plot(fit_osc.times, np.zeros_like(fit_osc.times), "o", ms=5, mfc="none", label="zero crossings")
+shown_osc.ax.legend(fontsize="small")
+save(shown_osc, "oscillation_frequency.png")
 
 run_a = field_array("en_phi", r"$e_\phi$", "J", np.exp(0.55 * tt), ("t",), {"t": tt})
 run_b = field_array("en_phi", r"$e_\phi$", "J", np.exp(0.62 * tt), ("t",), {"t": tt})
@@ -363,11 +377,10 @@ save(
 sizes = np.array([8.0, 16.0, 32.0, 64.0, 128.0])
 first_order = 0.4 / sizes
 second_order = 0.4 / sizes**2
-fig, ax = plt.subplots()
-plot_convergence(sizes, first_order, ax=ax, label="scheme A")
-plot_convergence(sizes, second_order, ax=ax, label="scheme B")
-ax.legend(fontsize="small")
-save_fig(fig, "convergence.png")
+resolution = {"n": ("n", sizes, {"long_name": "resolution"})}
+scheme_a = xr.DataArray(first_order, dims="n", coords=resolution, name="scheme A")
+scheme_b = xr.DataArray(second_order, dims="n", coords=resolution, name="scheme B")
+save(scheme_a.struphy.plot.convergence(scheme_b), "convergence.png")
 
 
 # =============================================================================
@@ -675,6 +688,20 @@ save(
     "continuous_spectrum.png",
 )
 save(orbits_gc.struphy.plot.quantities(markers=4), "orbits_quantities.png")
+# the orbits moving in the poloidal plane over flux surfaces, colored by class, with trails
+e1_s = np.linspace(0, 1, 12)
+E1_s, E2_s = np.meshgrid(e1_s, e2_b, indexing="ij")
+psi_gc = field_array("psi", r"$\psi$", "a.u.", ((0.1 + 0.9 * E1_s) ** 2)[..., None], ("eta1", "eta2", "eta3"),
+                     {"eta1": e1_s, "eta2": e2_b, "eta3": [0.0]}).assign_coords(
+    X=(("eta1", "eta2", "eta3"), (3.0 + (0.1 + 0.9 * E1_s) * np.cos(2 * np.pi * E2_s))[..., None]),
+    Y=(("eta1", "eta2", "eta3"), np.zeros((12, 64, 1))),
+    Z=(("eta1", "eta2", "eta3"), ((0.1 + 0.9 * E1_s) * np.sin(2 * np.pi * E2_s))[..., None]),
+).isel(eta3=0)
+orbit_movie = dict(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80, background=psi_gc,
+                   background_options={"levels": 6, "fill": False, "cmap": "Greys"})
+animation_gc = orbits_gc.struphy.plot.animation(**orbit_movie)
+animation_gc.save(PUBLIC_OUT / "orbits_animation.gif", writer="pillow", fps=10)
+print(f"wrote {PUBLIC_OUT / 'orbits_animation.gif'}")
 
 
 # =============================================================================
@@ -902,6 +929,18 @@ save(
 animation_hd = heat.struphy.plot.line_animation(reference={"exact": heat_kernel}, step=2)
 animation_hd.save(PUBLIC_OUT / "line_animation.gif", writer="pillow", fps=8)
 print(f"wrote {PUBLIC_OUT / 'line_animation.gif'}")
+# the same with the peak temperature below, the run's against the exact one
+peak_hd = heat.max("eta1").rename("peak")
+peak_hd.attrs = {"label": "peak of the run", "units": "a.u."}
+exact_peak_hd = xr.DataArray(heat_kernel(0.5, t_hd), dims="t", coords={"t": t_hd}, name="exact",
+                             attrs={"label": "exact peak", "units": "a.u."})
+animation_hc = heat.struphy.plot.line_animation(reference={"exact": heat_kernel}, alongside=[[peak_hd, exact_peak_hd]],
+                                                step=2)
+animation_hc.save(PUBLIC_OUT / "line_animation_companions.gif", writer="pillow", fps=8)
+print(f"wrote {PUBLIC_OUT / 'line_animation_companions.gif'}")
+# a coordinate in physical units: the unit interval is 2 m long
+heat_m = heat.struphy.analysis.map_coordinate("eta1", 2.0, name="x", units="m")
+save(heat_m.struphy.plot.profiles(x="x", at=[0, 20, 40], title="Temperature over x in meters"), "profiles_meters.png")
 errors_hd = xr.Dataset({
     "rms": heat.struphy.analysis.error(heat_kernel, relative=True),
     "max": heat.struphy.analysis.error(heat_kernel, norm="max", relative=True),
@@ -1449,6 +1488,10 @@ try:
     save_plotly(volume_data.struphy.plot.volume_slices(backend="plotly"), "plotly_volume_slices")
     save_plotly(energy.struphy.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth", backend="plotly"),
                 "plotly_timeseries")
+    with struphy_plots.figure(2, 1, sharex=True, backend="plotly") as composed:
+        energy.struphy.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
+        total.struphy.analysis.drift().struphy.plot.timeseries(logy=False, ax=composed[1])
+    save_plotly(composed, "plotly_composed_energies")
     save_plotly(run_a.struphy.plot.compare(run_b, mode="ratio", backend="plotly"), "plotly_compare")
     save_plotly(distribution.struphy.plot.slice(x="eta1", y="v1", t=-1, backend="plotly"), "plotly_phase_space")
     save_plotly(marker_orbits.struphy.plot.trajectories(show_paths=True, backend="plotly"), "plotly_trajectories")
@@ -1459,6 +1502,10 @@ try:
                                                          backend="plotly"), "plotly_dispersion")
     save_plotly(light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
                                                        dynamic_range=12, omega_max=25, backend="plotly"), "plotly_dispersion_fits")
+    save_plotly(heat.struphy.plot.line_animation(reference={"exact": heat_kernel},
+                                                  alongside=[[peak_hd, exact_peak_hd]], step=2, backend="plotly"),
+                "plotly_line_animation_companions")
+    save_plotly(orbits_gc.struphy.plot.animation(**orbit_movie, backend="plotly"), "plotly_orbits_animation")
     # the Plotly guide
     save_plotly(ring.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"),
                 "plotly_ring_slice")

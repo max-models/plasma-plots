@@ -345,9 +345,11 @@ def shared_run_label(data, default="") -> str:
 
 
 def _finish(fig, *, run_label="", tight=True):
+    if getattr(fig, "_struphy_composed", False):  # a panel of struphy_plots.figure: it has its own title
+        return
     if run_label:
         fig.suptitle(run_label, fontsize="small")
-    if tight:
+    if tight and fig.get_layout_engine() is None:  # a constrained layout lays out itself
         fig.tight_layout()
 
 
@@ -501,6 +503,18 @@ def _slice_data(data, view):
 
 
 REFERENCE_STYLES = ("--", ":", "-.", (0, (5, 1, 1, 1)))
+
+
+def _thin(frames, max_frames=None):
+    """At most ``max_frames`` of ``frames``, evenly spaced, the first and the last included."""
+    if max_frames is None:
+        return frames
+    if not isinstance(max_frames, (int, np.integer)) or max_frames < 1:
+        raise ValueError("max_frames must be a positive integer")
+    if len(frames) <= max_frames:
+        return frames
+    picks = np.unique(np.linspace(0, len(frames) - 1, max_frames).round().astype(int))
+    return [frames[i] for i in picks]
 
 
 def _references(reference, default="exact"):
@@ -1405,6 +1419,15 @@ class _SliceRenderer:
         ax.grid(False)
         return mesh
 
+    def shown(self, mesh):
+        """What a colorbar shows for a drawn mesh: the mesh itself, or with ``fill=False`` (a
+        transparent mesh, only its contour lines colored) its colormap and limits."""
+        if self.fill:
+            return mesh
+        from matplotlib.cm import ScalarMappable
+
+        return ScalarMappable(norm=mesh.norm, cmap=mesh.get_cmap())
+
     def frame_title(self, index):
         return f"{self.title} at {self.view.sweep} = {float(self.data[self.view.sweep][index]):.3e}"
 
@@ -1414,14 +1437,7 @@ class _SliceRenderer:
         validate_array(self.data, required_dims=(self.view.sweep,))
         if not self.data.sizes[self.view.sweep]:
             raise ValueError("cannot render an empty sweep")
-        frames = range(0, self.data.sizes[self.view.sweep], step)
-        if max_frames is not None:
-            if not isinstance(max_frames, (int, np.integer)) or max_frames < 1:
-                raise ValueError("max_frames must be a positive integer")
-            if len(frames) > max_frames:
-                picks = np.unique(np.linspace(0, len(frames) - 1, max_frames).round().astype(int))
-                frames = [frames[i] for i in picks]
-        return frames
+        return _thin(range(0, self.data.sizes[self.view.sweep], step), max_frames)
 
 
 @rank_zero
@@ -1559,7 +1575,7 @@ def plot_slice(
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = renderer.draw(ax, renderer.data)
-        fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
+        fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         ax.set_title(renderer.title)
         _finish(fig, run_label=run_label if own_figure else "", tight=own_figure)
     return PlotResult(fig, ax, [mesh])
@@ -1721,9 +1737,9 @@ def plot_panels(
             meshes.append(mesh)
             ax.set_title(f"{sweep} = {float(renderer.data[sweep][index]):.3e}")
             if not shared_clim:
-                fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
+                fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         if shared_clim:
-            fig.colorbar(meshes[-1], ax=list(axes.ravel()), label=renderer.colorbar_label)
+            fig.colorbar(renderer.shown(meshes[-1]), ax=list(axes.ravel()), label=renderer.colorbar_label)
         fig.suptitle(" — ".join(filter(None, (renderer.title, run_label))))
     return PlotResult(fig, axes, meshes)
 
@@ -1895,7 +1911,7 @@ class InteractiveSliceViewer:
             fig, ax = plt.subplots()
             fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
             mesh = renderer.draw(ax, base.isel(indices))
-            colorbar = fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
+            colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
             self.result = PlotResult(fig, ax, [mesh])
 
             def update(_=None):
@@ -1904,7 +1920,7 @@ class InteractiveSliceViewer:
                 self.result.artists[0].remove()
                 mesh = renderer.draw(ax, base.isel(indices))
                 self.result.artists[:] = [mesh]
-                colorbar.update_normal(mesh)
+                colorbar.update_normal(renderer.shown(mesh))
                 values = ", ".join(f"{dim}={float(base[dim][index]):.3e}" for dim, index in indices.items())
                 ax.set_title(" at ".join(filter(None, (renderer.title, values))))
                 fig.canvas.draw_idle()
@@ -2065,14 +2081,14 @@ def animate_slices(
     with plt.rc_context(STRUPHY_STYLE):
         fig, ax = plt.subplots()
         mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
-        colorbar = fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
+        colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         _finish(fig, run_label=shared_run_label(data))
 
     def update(index):
         nonlocal mesh
         mesh.remove()
         mesh = renderer.draw(ax, renderer.data.isel({sweep: index}))
-        colorbar.update_normal(mesh)
+        colorbar.update_normal(renderer.shown(mesh))
         ax.set_title(renderer.frame_title(index))
         return (mesh,)
 
@@ -2170,7 +2186,7 @@ def animate_fields(
         for ax, renderer, field in zip(axes, renderers, fields):
             mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
             meshes.append(mesh)
-            colorbars.append(fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label))
+            colorbars.append(fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label))
         run_label = shared_run_label(fields)
         heading = fig.suptitle("")
 
@@ -2178,7 +2194,7 @@ def animate_fields(
         for i, (ax, renderer) in enumerate(zip(axes, renderers)):
             meshes[i].remove()
             meshes[i] = renderer.draw(ax, renderer.data.isel({sweep: index}))
-            colorbars[i].update_normal(meshes[i])
+            colorbars[i].update_normal(renderer.shown(meshes[i]))
             ax.set_title(titles[i])
         value = float(renderers[0].data[sweep][index])
         heading.set_text(" — ".join(filter(None, (f"{sweep} = {value:.3e}", run_label))))
@@ -2335,12 +2351,12 @@ def save_frames(
         try:
             sweep = renderer.view.sweep
             mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
-            colorbar = fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
+            colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
             _finish(fig, run_label=shared_run_label(data))
             for frame, index in enumerate(frames):
                 mesh.remove()
                 mesh = renderer.draw(ax, renderer.data.isel({sweep: index}))
-                colorbar.update_normal(mesh)
+                colorbar.update_normal(renderer.shown(mesh))
                 ax.set_title(renderer.frame_title(index))
                 path = directory / f"{prefix}_{frame:04d}.png"
                 fig.savefig(path, dpi=dpi, bbox_inches="tight")
@@ -2876,7 +2892,7 @@ def _background_view(x: str, y: str) -> View:
     if x in LOGICAL and y in LOGICAL:
         return View(x=x, y=y)
     plane = f"{x}{y}".upper()
-    if plane in PLANES and plane != "RZ":
+    if plane in PLANES and (plane != "RZ" or x == "R"):  # R from x and y, as the markers' R
         return View(coordinates="physical", plane=plane)
     raise ValueError(
         f"a background needs marker positions named after logical (eta1, ...) or physical (x, y, z) "
@@ -3078,6 +3094,23 @@ def _alive(orbits: xr.Dataset) -> np.ndarray:
     return ~zero
 
 
+def _with_major_radius(markers: xr.Dataset, names) -> xr.Dataset:
+    """``markers`` with ``R = √(x² + y²)`` added, if ``R`` is asked for and not a variable yet."""
+    if "R" in names and "R" not in markers.data_vars and {"x", "y"} <= set(markers.data_vars):
+        radius = np.hypot(markers.x, markers.y)
+        radius.attrs = {"label": "R", "long_name": "major radius"}
+        return markers.assign(R=radius)
+    return markers
+
+
+def _joined_paths(positions, samples):
+    """The ``(x, y)`` of every marker's path over ``samples`` (a slice of times), NaN between them."""
+    part = positions[samples]  # (t, marker, 2)
+    gap = np.full((1, part.shape[1], 2), np.nan)
+    joined = np.concatenate([part, gap]).transpose(1, 0, 2).reshape(-1, 2)
+    return joined[:, 0], joined[:, 1]
+
+
 @rank_zero
 def animate_markers(
     markers: xr.Dataset,
@@ -3089,9 +3122,12 @@ def animate_markers(
     background: xr.DataArray | None = None,
     background_options: dict | None = None,
     step: int = 1,
+    max_frames: int | None = None,
     interval: int = 100,
     s: int = 8,
     cmap=None,
+    trail: int | None = None,
+    paths: bool = False,
 ):
     """Animate marker positions over time, optionally over a field animated in sync.
 
@@ -3103,30 +3139,41 @@ def animate_markers(
     markers : xarray.Dataset
         The per-marker data over ``(t, marker)``, e.g. an orbits product.
     x : str
-        The data variable along the horizontal axis, e.g. the position ``"x"``.
+        The data variable along the horizontal axis, e.g. the position ``"x"``; ``"R"`` is
+        ``√(x² + y²)`` when the data has no ``R`` of its own (with ``y="z"`` the poloidal plane).
     y : str
         The data variable along the vertical axis, e.g. the position ``"y"``.
     color : str, optional
-        A variable to color by: per frame, or fixed at the time ``color_at``. Default: one color.
+        A variable to color by: per frame, or fixed at the time ``color_at``; or
+        ``"classification"``, the orbit class of each marker (passing, trapped, lost; needs
+        ``v_par``, see :func:`~struphy_plots.analysis.classify_orbits`), with a legend. Default: one
+        color.
     color_at : int or float, optional
         Fix the colors at this time (an integer position, e.g. ``0`` for the initial position,
         to follow fluid parcels, or a float value). Default: the colors of each frame.
     background : xarray.DataArray, optional
-        A field with a ``t`` dimension (other dimensions selected), drawn at the nearest time of
-        each frame with shared color limits, in logical coordinates if ``x``/``y`` are
-        ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field then
-        needs its ``X``, ``Y``, ``Z`` coordinates).
+        A field drawn behind the markers: with a ``t`` dimension (other dimensions selected) at the
+        nearest time of each frame, with shared color limits; without one, fixed (drawn once). In
+        logical coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical
+        plane of ``x``/``y`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
     background_options : dict, optional
         Rendering options for the background, as for :func:`plot_slice` (``cmap``,
         ``symmetric``, ``levels``, ...).
     step : int, optional
         Use every ``step``-th time. Default: ``1``.
+    max_frames : int, optional
+        Keep at most this many frames, evenly spaced over those ``step`` leaves (the first and
+        last included), e.g. to keep a Plotly animation small. Default: all.
     interval : int, optional
         The delay between frames, in milliseconds. Default: ``100``.
     s : int, optional
         The marker size, in points². Default: ``8``.
     cmap : str or matplotlib.colors.Colormap, optional
         The colormap for ``color``. Default: ``"viridis"``.
+    trail : int, optional
+        Draw each marker's last ``trail`` samples as a faint line behind it. Default: none.
+    paths : bool, optional
+        Draw each marker's whole path, fixed and faint, under the animation. Default: ``False``.
 
     Returns
     -------
@@ -3136,7 +3183,7 @@ def animate_markers(
     Raises
     ------
     ValueError
-        If ``step`` is not a positive integer.
+        If ``step``, ``max_frames`` or ``trail`` is not a positive integer.
 
     See Also
     --------
@@ -3150,18 +3197,24 @@ def animate_markers(
 
     if not isinstance(step, (int, np.integer)) or step < 1:
         raise ValueError("step must be a positive integer")
+    if trail is not None and (not isinstance(trail, (int, np.integer)) or trail < 1):
+        raise ValueError("trail must be a positive integer")
+    markers = _with_major_radius(markers, (x, y))
     subset = markers.transpose("t", "marker", ...)
     positions = np.stack([np.asarray(subset[x]), np.asarray(subset[y])], axis=-1)
     alive = _alive(subset)
     positions = np.where(alive[..., None], positions, np.nan)
-    colors = None
-    if color is not None:
+    colors, classes = None, None
+    if color == "classification":
+        codes = np.asarray(classify_orbits(subset))
+        classes = np.array([ORBIT_CLASSES[int(code)] for code in codes])
+    elif color is not None:
         if color_at is not None:
             colors = np.asarray(_marker_colors(markers, color, color_at, {}))
         else:
             values = np.asarray(subset[color])
             colors = values
-    frames = range(0, subset.sizes["t"], step)
+    frames = _thin(range(0, subset.sizes["t"], step), max_frames)
     times = np.asarray(subset.t)
     renderer = None
     with plt.rc_context(STRUPHY_STYLE):
@@ -3170,7 +3223,7 @@ def animate_markers(
             options = dict(background_options or {})
             renderer = _SliceRenderer(background, _background_view(x, y), **options)
             mesh = renderer.draw(ax, _at_time(renderer.data, times[0]))
-            fig.colorbar(mesh, ax=ax, label=renderer.colorbar_label)
+            fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         first = positions[0]
         clim = None
         if colors is not None:
@@ -3184,7 +3237,24 @@ def animate_markers(
                 vmin=None if clim is None else clim[0],
                 vmax=None if clim is None else clim[1],
             )
+        elif classes is not None:
+            shading = dict(color=[ORBIT_CLASS_COLORS[name] for name in classes])
+            for name in ORBIT_CLASSES.values():  # a legend entry per class present
+                if (classes == name).any():
+                    ax.scatter([], [], s=s * 3, color=ORBIT_CLASS_COLORS[name], label=f"{name} ({(classes == name).sum()})")
+        if paths:
+            ax.plot(*_joined_paths(positions, slice(None)), color="0.55", lw=0.6, alpha=0.5, zorder=2)
+        groups = [(None, np.ones(positions.shape[1], dtype=bool), "0.35")]
+        if classes is not None:
+            groups = [(name, classes == name, ORBIT_CLASS_COLORS[name]) for name in ORBIT_CLASSES.values()]
+        trails = []
+        if trail is not None:
+            for _, members, trail_color in groups:
+                (line,) = ax.plot([np.nan], [np.nan], color=trail_color, lw=1.0, alpha=0.7, zorder=2.5)
+                trails.append((members, line))
         scatter = ax.scatter(first[:, 0], first[:, 1], s=s, edgecolors="none", zorder=3, **shading)
+        if classes is not None:
+            ax.legend(fontsize="small", loc="upper right")
         if colors is not None:
             label = (
                 color
@@ -3205,11 +3275,14 @@ def animate_markers(
         ax.grid(False)
         _finish(fig, run_label=shared_run_label([markers[x]]))
     state = {"mesh": mesh if renderer is not None else None}
+    moving_background = renderer is not None and "t" in renderer.data.dims  # a fixed one is drawn once
 
     def update(index):
-        if renderer is not None:
+        if moving_background:
             state["mesh"].remove()
             state["mesh"] = renderer.draw(ax, _at_time(renderer.data, times[index]))
+        for members, line in trails:
+            line.set_data(*_joined_paths(positions[:, members], slice(max(0, index - trail + 1), index + 1)))
         scatter.set_offsets(positions[index])
         if colors is not None and colors.ndim == 2:
             scatter.set_array(colors[index])
@@ -4156,12 +4229,17 @@ def animate_lines(
     xlabel: str | None = None,
     ylim=None,
     step: int = 1,
+    max_frames: int | None = None,
     interval: int = 100,
     title: str | None = None,
+    alongside=None,
+    alongside_logy: bool = False,
 ):
     """Animate a one-dimensional profile over ``sweep``, optionally with its exact profile.
 
-    The value axis is fixed over the whole animation. Retain the returned animation, e.g. in a
+    The value axis is fixed over the whole animation. With ``alongside``, further panels below it
+    run in sync: other profiles over the same sweep, or time series (e.g. the energy), drawn whole
+    with a marker at the current value of the sweep. Retain the returned animation, e.g. in a
     variable, or it stops.
 
     Parameters
@@ -4186,10 +4264,21 @@ def animate_lines(
         5 %.
     step : int, optional
         Use every ``step``-th value of the sweep. Default: ``1``.
+    max_frames : int, optional
+        Keep at most this many frames, evenly spaced over those ``step`` leaves (the first and
+        last included), e.g. to keep a Plotly animation small. Default: all.
     interval : int, optional
         The delay between frames, in milliseconds. Default: ``100``.
     title : str, optional
         The title, followed in each frame by the sweep value. Default: the array's label.
+    alongside : sequence, optional
+        One panel below the profile per item, in sync with it: an array over ``sweep`` and one
+        other dimension (another profile, animated, e.g. the density next to the velocity), or an
+        array over ``sweep`` alone, or a list of those (time series such as energies, drawn whole
+        with a marker at each frame's value of the sweep, nearest where the times differ).
+        Default: none.
+    alongside_logy : bool, optional
+        Logarithmic value axes for the time-series panels. Default: ``False``.
 
     Returns
     -------
@@ -4199,8 +4288,9 @@ def animate_lines(
     Raises
     ------
     ValueError
-        If ``sweep`` is missing, more than one other dimension remains, or ``step`` is not a
-        positive integer.
+        If ``sweep`` is missing, more than one other dimension remains, ``step`` or
+        ``max_frames`` is not a positive integer, or an ``alongside`` array has other dimensions
+        than ``sweep`` and at most one more.
 
     See Also
     --------
@@ -4209,6 +4299,7 @@ def animate_lines(
     Examples
     --------
     >>> animation = animate_lines(phi.isel(eta2=0, eta3=0), reference=lambda x, t: np.cos(t) * np.sin(np.pi * x))
+    >>> animation = animate_lines(u.isel(eta2=0, eta3=0), alongside=[n.isel(eta2=0, eta3=0), [en_U, en_B]])
     """
     from matplotlib.animation import FuncAnimation
 
@@ -4226,7 +4317,8 @@ def animate_lines(
     fine = np.asarray(x_of(fine), dtype=float) if x_of is not None else fine
     sweeps = np.asarray(data[sweep], dtype=float)
     references = _references(reference)
-    frames = range(0, data.sizes[sweep], step)
+    frames = _thin(range(0, data.sizes[sweep], step), max_frames)
+    panels = [_companion(item, sweep) for item in (alongside or [])]
     if ylim is None:
         values = [np.asarray(data, dtype=float)]
         for index in frames:
@@ -4236,7 +4328,14 @@ def animate_lines(
         pad = 0.05 * (hi - lo if hi > lo else 1.0)
         ylim = (lo - pad, hi + pad)
     with plt.rc_context(STRUPHY_STYLE):
-        fig, ax = plt.subplots()
+        if panels:
+            width, height = STRUPHY_STYLE["figure.figsize"]
+            fig, axes = plt.subplots(1 + len(panels), 1, figsize=(width, 0.8 * height + 2.4 * len(panels)),
+                                     layout="constrained", gridspec_kw={"height_ratios": [1.6] + [1] * len(panels)})
+            ax, companion_axes = axes[0], list(axes[1:])
+        else:
+            fig, ax = plt.subplots()
+            companion_axes = []
         (line,) = ax.plot(
             plotted,
             data.isel({sweep: 0}),
@@ -4262,7 +4361,8 @@ def animate_lines(
         )
         if references:
             ax.legend(fontsize="small", loc="upper right")
-        _finish(fig, run_label=shared_run_label(data))
+        movers = [panel.draw(companion, sweep, logy=alongside_logy) for panel, companion in zip(panels, companion_axes)]
+        _finish(fig, run_label=shared_run_label(data), tight=not panels)
     name = _label(data) if title is None else title
 
     def update(index):
@@ -4270,13 +4370,71 @@ def animate_lines(
         for curve, (_, spec) in zip(curves, references):
             curve.set_data(*_reference_curve(spec, fine, sweeps[index]))
         ax.set_title(f"{name} at {sweep} = {sweeps[index]:.3e}")
-        return (line, *curves)
+        moved = [artist for move in movers for artist in move(sweeps[index])]
+        return (line, *curves, *moved)
 
     update(0)
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
     _label_frames(animation, sweep, sweeps[list(frames)])
     _detach_figure(fig)
     return animation
+
+
+class _Companion:
+    """A panel below a line animation: another profile over the sweep, or time series over it."""
+
+    def __init__(self, arrays, sweep):
+        self.arrays = arrays
+        dims = {tuple(a.dims) for a in arrays}
+        self.profile = len(arrays) == 1 and arrays[0].ndim == 2
+        for array in arrays:
+            validate_array(array, required_dims=(sweep,))
+            if array.ndim > 2 or (array.ndim == 2 and len(arrays) > 1):
+                raise ValueError(
+                    f"an alongside panel is a profile over {sweep!r} and one more dimension, or time series over "
+                    f"{sweep!r} alone; got {sorted(dims)}"
+                )
+
+    def draw(self, ax, sweep, *, logy=False):
+        """Draw the panel; returns a function that moves it to a value of the sweep."""
+        if self.profile:
+            data = self.arrays[0]
+            (x,) = [d for d in data.dims if d != sweep]
+            data = data.transpose(sweep, x)
+            (line,) = ax.plot(data[x], data.isel({sweep: 0}), lw=1.8, color="C1")
+            values = np.asarray(data, dtype=float)
+            lo, hi = np.nanmin(values), np.nanmax(values)
+            pad = 0.05 * (hi - lo if hi > lo else 1.0)
+            ax.set(xlim=(float(data[x].min()), float(data[x].max())), ylim=(lo - pad, hi + pad),
+                   xlabel=axis_label(data, x), ylabel=value_label(data))
+
+            def move(value):
+                line.set_ydata(np.asarray(data.sel({sweep: value}, method="nearest")))
+                return (line,)
+
+            return move
+        markers = []
+        for i, series in enumerate(self.arrays):
+            (whole,) = ax.plot(series[sweep], series, lw=1.4, color=f"C{i}", label=_label(series) or None)
+            (marker,) = ax.plot([np.nan], [np.nan], "o", ms=6, color=whole.get_color())
+            markers.append((series, marker))
+        if logy:
+            ax.set_yscale("log")
+        ax.set(xlabel=axis_label(self.arrays[0], sweep), ylabel=value_label(self.arrays[0]))
+        if len(self.arrays) > 1:
+            ax.legend(fontsize="small")
+
+        def move(value):
+            for series, marker in markers:
+                now = series.sel({sweep: value}, method="nearest")
+                marker.set_data([float(now[sweep])], [float(now)])
+            return tuple(marker for _, marker in markers)
+
+        return move
+
+
+def _companion(item, sweep):
+    return _Companion([item] if isinstance(item, xr.DataArray) else list(item), sweep)
 
 
 def _theory_at(spec, xs):

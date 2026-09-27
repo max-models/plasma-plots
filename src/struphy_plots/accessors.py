@@ -223,8 +223,11 @@ class ArrayPlots(_ArrayAccessor):
         xlabel: str | None = None,
         ylim=None,
         step: int = 1,
+        max_frames: int | None = None,
         interval: int = 100,
         title: str | None = None,
+        alongside=None,
+        alongside_logy: bool = False,
         backend: Backend | None = None,
         **selection,
     ):
@@ -257,6 +260,7 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> T.struphy.plot.line_animation(reference={"exact": exact}, step=2)
+        >>> u.struphy.plot.line_animation(x="eta1", alongside=[n, [en_U, en_B]], alongside_logy=True, eta2=0, eta3=0)
         """
         from .plotting import _select, animate_lines
 
@@ -270,8 +274,11 @@ class ArrayPlots(_ArrayAccessor):
             xlabel=xlabel,
             ylim=ylim,
             step=step,
+            max_frames=max_frames,
             interval=interval,
             title=title,
+            alongside=alongside,
+            alongside_logy=alongside_logy,
         )
 
     @with_backend
@@ -326,6 +333,75 @@ class ArrayPlots(_ArrayAccessor):
             logx=logx,
             logy=logy,
         )
+
+    @with_backend
+    def convergence(
+        self,
+        *others,
+        order: float | None = None,
+        xlabel: str | None = None,
+        title: str = "Convergence",
+        ax=None,
+        backend: Backend | None = None,
+    ):
+        """Plot these errors against their resolution (or step size) on log-log axes, with the order.
+
+        The array is 1-D over the resolution, e.g. an error norm per number of cells; each series
+        gets its fitted convergence order (or, with ``order``, a reference slope).
+
+        Parameters
+        ----------
+        *others
+            Further 1-D error arrays, e.g. of other methods or norms, drawn in the same axes.
+        xlabel : str, optional
+            The horizontal axis label. Default: the coordinate's label.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and, per series, the error line and its fitted or reference line.
+
+        Raises
+        ------
+        ValueError
+            If an array is not one-dimensional.
+
+        See Also
+        --------
+        struphy_plots.plotting.plot_convergence : The function behind this method.
+        struphy_plots.analysis.convergence_order : The fitted order, without plotting it.
+
+        Examples
+        --------
+        >>> errors = xr.DataArray(l2_errors, dims="n", coords={"n": [16, 32, 64, 128]}, name="L2 error")
+        >>> errors.struphy.plot.convergence(max_errors, backend="plotly")
+        """
+        from .arrays import axis_label
+        from .plotting import _label, plot_convergence
+
+        result = None
+        for series in (self._array, *others):
+            if series.ndim != 1:
+                raise ValueError(f"convergence needs one-dimensional errors; got {series.dims}")
+            (dim,) = series.dims
+            drawn = plot_convergence(
+                np.asarray(series[dim], dtype=float),
+                np.asarray(series, dtype=float),
+                ax=ax if result is None else result.ax,
+                order=order,
+                label=_label(series) or None,
+                xlabel=xlabel or axis_label(series, dim),
+                title=title,
+            )
+            if result is None:
+                result = drawn
+            else:
+                result.artists.extend(drawn.artists)
+        return result
 
     @with_backend
     def vector(
@@ -2522,6 +2598,63 @@ class ArrayAnalysis(_ArrayAccessor):
             GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude),
         )
 
+    def oscillation_frequency(
+        self,
+        *,
+        window: tuple[float | None, float | None] = (None, None),
+        method: str = "zero_crossings",
+        detrend: bool = True,
+    ):
+        """Measure the frequency of this oscillating time series from its zero crossings or peaks.
+
+        Returns
+        -------
+        OscillationFit or None
+            ``omega``, ``period`` and the ``times`` of the crossings or peaks used; ``None`` with
+            fewer than two.
+
+        See Also
+        --------
+        struphy_plots.analysis.oscillation_frequency : The function behind this method.
+        ArrayAnalysis.damping_rate : The decay of the same oscillation.
+
+        Examples
+        --------
+        >>> probe.struphy.analysis.oscillation_frequency(window=(5.0, 40.0)).omega
+        """
+        from .analysis import oscillation_frequency
+
+        return oscillation_frequency(self._array, window=window, method=method, detrend=detrend)
+
+    def map_coordinate(
+        self,
+        dim: str,
+        mapping,
+        *,
+        name: str | None = None,
+        units: str | None = None,
+        label: str | None = None,
+    ) -> xr.DataArray:
+        """Replace a coordinate by a function of it, e.g. ``eta1`` by the minor radius in meters.
+
+        Returns
+        -------
+        xarray.DataArray
+            The array over the new coordinate, which every plot then draws and labels.
+
+        See Also
+        --------
+        struphy_plots.arrays.map_coordinate : The function behind this method.
+
+        Examples
+        --------
+        >>> r_T = T.struphy.analysis.map_coordinate("eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m")
+        >>> r_T.struphy.plot.profiles(x="r", eta2=0, eta3=0)
+        """
+        from .arrays import map_coordinate
+
+        return map_coordinate(self._array, dim, mapping, name=name, units=units, label=label)
+
     def envelope(self) -> xr.DataArray:
         """Return the local maxima of this time series.
 
@@ -3557,9 +3690,12 @@ class DatasetPlots:
         background: xr.DataArray | None = None,
         background_options: dict | None = None,
         step: int = 1,
+        max_frames: int | None = None,
         interval: int = 100,
         s: int = 8,
         cmap=None,
+        trail: int | None = None,
+        paths: bool = False,
         backend: Backend | None = None,
     ):
         """Animate the markers moving over time, optionally over a field animated in sync.
@@ -3587,6 +3723,7 @@ class DatasetPlots:
         Examples
         --------
         >>> markers.struphy.plot.animation(x="x", y="y", color="density", background=n, step=2)
+        >>> orbits.struphy.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)
         """
         from .plotting import animate_markers
 
@@ -3599,9 +3736,12 @@ class DatasetPlots:
             background=background,
             background_options=background_options,
             step=step,
+            max_frames=max_frames,
             interval=interval,
             s=s,
             cmap=cmap,
+            trail=trail,
+            paths=paths,
         )
 
     @with_backend

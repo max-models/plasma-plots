@@ -240,6 +240,40 @@ anim.save("dam_break.gif", writer="pillow", fps=8)
 
 ![A collapsing column of fluid markers over its density](/struphy-plots/figures/markers_animation.gif)
 
+For orbits, a few more options:
+
+- A `background` without a `t` dimension (e.g. flux-surface contours, with
+  `background_options={"levels": 6, "fill": False}`) is drawn once and stays fixed.
+- `trail=60` draws each marker's last 60 samples behind it; `paths=True` its whole path, faint.
+- `color="classification"` colors the markers as passing, trapped or lost (from `v_par`, see
+  [orbit classification](#orbit-classification)), with a legend.
+- `x="R"` is the major radius `√(x² + y²)`, so `x="R", y="z"` is the poloidal plane.
+- `max_frames=80` keeps at most 80 evenly spaced frames.
+
+```python
+anim = orbits.struphy.plot.animation(
+    x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
+    background=psi, background_options={"levels": 6, "fill": False, "cmap": "Greys"},
+)
+```
+
+![Guiding-center orbits in the poloidal plane, passing and trapped, with trails over flux surfaces](/struphy-plots/figures/orbits_animation.gif)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+
+```python
+orbits.struphy.plot.animation(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
+                               background=psi, background_options={"levels": 6, "fill": False, "cmap": "Greys"}, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_orbits_animation.json" height="560px" />
+
+</details>
+
 ## Marker paths
 
 `paths()` draws the paths of a few markers in a plane, with a circle where

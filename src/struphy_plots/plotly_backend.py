@@ -51,6 +51,10 @@ IMAGE_PIXELS = 1200
 _default = "matplotlib"
 # inside a plot method: nested accessor calls draw with Matplotlib (the outermost call converts)
 _drawing = contextvars.ContextVar("struphy_plots_drawing", default=False)
+# how many plot methods are running, one inside the other
+_depth = contextvars.ContextVar("struphy_plots_depth", default=0)
+# the result lists of the figures being composed with struphy_plots.figure, innermost last
+_collecting: list[list] = []
 
 
 class ConversionWarning(UserWarning):
@@ -173,16 +177,20 @@ def with_backend(method):
     def wrapper(*args, **kwargs):
         arguments = signature.bind(*args, **kwargs).arguments
         backend = resolve_backend(arguments.get("backend"))
-        token = _drawing.set(True)
+        token, depth = _drawing.set(True), _depth.set(_depth.get() + 1)
         try:
             if backend == "matplotlib":
-                return method(*args, **kwargs)
+                result = method(*args, **kwargs)
+                if _collecting and _depth.get() == 1:  # a panel of struphy_plots.figure
+                    _collecting[-1].append(result)
+                return result
             ax = arguments.get("ax", (arguments.get("options") or {}).get("ax"))
             if ax is not None:
                 raise TypeError("ax= draws into a Matplotlib axes; it cannot be combined with backend='plotly'")
             return _drawn_as_plotly(lambda: method(*args, **kwargs))
         finally:
             _drawing.reset(token)
+            _depth.reset(depth)
 
     return wrapper
 
@@ -687,8 +695,11 @@ class _FigureConverter:
         limits as one with a colorbar (e.g. the panels of one shared colorbar)."""
         norm, cmap = mappable.norm, mappable.get_cmap()
         key = (getattr(cmap, "name", id(cmap)), type(norm).__name__, _float(norm.vmin), _float(norm.vmax))
-        for name, other, other_colorbar, other_key in self.coloraxes:
-            if other is mappable or (colorbar is None and other_key == key and other_colorbar is not None):
+        for name, other, _, _ in self.coloraxes:  # its own colorbar's first
+            if other is mappable:
+                return name
+        for name, _, other_colorbar, other_key in self.coloraxes:
+            if colorbar is None and other_key == key and other_colorbar is not None:
                 return name
         name = "coloraxis" if not self.coloraxes else f"coloraxis{len(self.coloraxes) + 1}"
         self.coloraxes.append((name, mappable, colorbar, key))
@@ -978,7 +989,7 @@ class _FigureConverter:
         offsets = np.asarray(collection.get_offsets(), dtype=float)
         marker = self._scatter_marker(axes, collection)
         trace = dict(type="scattergl" if len(offsets) > 20000 else "scatter", mode="markers",
-                     x=offsets[:, 0] if len(offsets) else [], y=offsets[:, 1] if len(offsets) else [],
+                     x=offsets[:, 0] if len(offsets) else [None], y=offsets[:, 1] if len(offsets) else [None],  # a legend-only entry needs a point
                      marker=marker, **self._shown(axes, collection.get_label()), **self._refs(axes))
         self.data.append(trace)
 
