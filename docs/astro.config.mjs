@@ -10,7 +10,7 @@ export default defineConfig({
 		starlight({
 			title: 'struphy-plots',
 			description: 'Optional plotting and diagnostics layer for Struphy output',
-			customCss: ['./src/styles/custom.css'],
+			customCss: ['./src/styles/custom.css', './src/styles/api.css'],
 			components: {
 				Header: './src/components/Header.astro',
 			},
@@ -37,7 +37,19 @@ export default defineConfig({
 				},
 				{
 					label: 'Reference',
-					items: [{ autogenerate: { directory: 'reference' } }],
+					items: [
+						{ label: 'Overview', slug: 'reference' },
+						{ label: 'array.struphy.plot', slug: 'reference/plot' },
+						{ label: 'array.struphy.analysis', slug: 'reference/analysis' },
+						{ label: 'array.struphy.data', slug: 'reference/data' },
+						{ label: 'dataset.struphy', slug: 'reference/dataset' },
+						{ label: 'out.plot, out.analysis', slug: 'reference/output' },
+						{
+							label: 'Functions',
+							collapsed: true,
+							items: [{ autogenerate: { directory: 'reference/functions' } }],
+						},
+					],
 				},
 			],
 		}),

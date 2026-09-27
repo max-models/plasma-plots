@@ -1,4 +1,10 @@
-"""Numerical diagnostics returning values and labeled arrays, without rendering."""
+"""Numerical diagnostics returning values and labeled arrays, without rendering.
+
+Fits (growth and damping rates, convergence orders, dispersion branches), norms and errors,
+volume integrals and field energies on mapped domains, vector calculus on the logical grid,
+velocity moments and orbit diagnostics. Most functions are also available as accessor methods,
+e.g. ``array.struphy.analysis.error(...)``.
+"""
 
 from dataclasses import dataclass
 
@@ -14,7 +20,20 @@ def _label(data):
 
 @dataclass(frozen=True)
 class GrowthFit:
-    """Configuration for an exponential growth-rate fit."""
+    """Configuration for an exponential growth-rate fit.
+
+    Passed to :func:`growth_rate` and :func:`damping_rate`.
+
+    Attributes
+    ----------
+    window : (float or None, float or None)
+        The time interval ``(start, end)`` of the samples that are fitted; ``None`` means the
+        first or last time. The two ends may be given in either order. Default: every sample.
+    amplitude_from_quadratic : bool
+        Whether the series is quadratic in an amplitude (e.g. an energy). The fit then uses the
+        square root of the samples, so that ``rate`` is the growth rate of the amplitude, half that
+        of the series itself. Default: ``False``.
+    """
 
     window: tuple[float | None, float | None] = (None, None)
     amplitude_from_quadratic: bool = False
@@ -22,6 +41,23 @@ class GrowthFit:
 
 @dataclass(frozen=True)
 class FitResult:
+    """An exponential fit ``exp(rate t + intercept)``, from :func:`growth_rate` or :func:`damping_rate`.
+
+    Attributes
+    ----------
+    rate : float
+        The fitted rate: positive for growth, negative for damping. With
+        ``GrowthFit.amplitude_from_quadratic`` it is the rate of the amplitude.
+    intercept : float
+        The fitted intercept of the logarithm (of the amplitude, with
+        ``GrowthFit.amplitude_from_quadratic``).
+    time : numpy.ndarray
+        The times of the samples that were used in the fit.
+    fitted : numpy.ndarray
+        The fitted curve at ``time``, in the units of the fitted series (squared again with
+        ``GrowthFit.amplitude_from_quadratic``), ready to plot over the data.
+    """
+
     rate: float
     intercept: float
     time: np.ndarray
@@ -30,6 +66,21 @@ class FitResult:
 
 @dataclass(frozen=True)
 class ConvergenceFit:
+    """A power law ``error = constant * size**order``, from :func:`convergence_order`.
+
+    Attributes
+    ----------
+    order : float
+        The fitted exponent: negative when the error shrinks as the size grows (e.g. points per
+        cell), positive when it shrinks with the size (e.g. ``dt``).
+    constant : float
+        The fitted prefactor.
+    sizes : numpy.ndarray
+        The sizes of the valid (finite, positive) samples used in the fit.
+    fitted : numpy.ndarray
+        The fitted errors at ``sizes``, ready to plot over the data.
+    """
+
     order: float
     constant: float
     sizes: np.ndarray
@@ -39,11 +90,27 @@ class ConvergenceFit:
 def convergence_order(sizes, errors) -> ConvergenceFit | None:
     """Fit ``error = constant * size**order`` in log-log space.
 
-    ``sizes`` is typically a resolution (points per cell, coarser to finer) or a step size
-    (``dt``); ``errors`` are the corresponding, necessarily positive, error norms. ``order`` is
-    negative when the error shrinks as ``sizes`` grows (e.g. more points per cell), and positive
-    when it shrinks as ``sizes`` shrinks (e.g. a smaller ``dt``). Returns ``None`` with fewer than
-    two valid (finite, positive) samples.
+    Only valid samples, where both the size and the error are finite and positive, are used.
+
+    Parameters
+    ----------
+    sizes : array_like of float
+        Typically a resolution (points per cell, coarser to finer) or a step size (``dt``).
+    errors : array_like of float
+        The corresponding, necessarily positive, error norms, e.g. from :func:`error`.
+
+    Returns
+    -------
+    ConvergenceFit or None
+        The fit. ``order`` is negative when the error shrinks as ``sizes`` grows (e.g. more
+        points per cell), and positive when it shrinks as ``sizes`` shrinks (e.g. a smaller
+        ``dt``). ``None`` with fewer than two valid (finite, positive) samples.
+
+    Examples
+    --------
+    >>> errors = [run.evaluate("T").struphy.analysis.error(exact).isel(t=-1) for run in runs]
+    >>> convergence_order([16, 32, 64], errors).order
+    -2.01
     """
     sizes = np.asarray(sizes, dtype=float)
     errors = np.asarray(errors, dtype=float)
@@ -57,7 +124,38 @@ def convergence_order(sizes, errors) -> ConvergenceFit | None:
 
 
 def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult | None:
-    """Fit ``exp(rate*t + intercept)`` using only finite, positive samples."""
+    """Fit ``exp(rate*t + intercept)`` to a time series, using only finite, positive samples.
+
+    The fit is a straight line through the logarithm of the samples within ``fit.window``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The time series, with ``t`` as its only dimension (e.g. a field energy).
+    fit : GrowthFit, optional
+        The time window and whether the series is quadratic in the amplitude. Default:
+        ``GrowthFit()``, every sample, the series itself.
+
+    Returns
+    -------
+    FitResult or None
+        The rate, the intercept, the times used and the fitted curve. ``None`` with fewer than
+        two samples, or fewer than two finite, positive samples within the window.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``t``.
+
+    See Also
+    --------
+    damping_rate : The same fit to the envelope of an oscillating series.
+
+    Examples
+    --------
+    >>> energy = out.scalars["en_E"]
+    >>> growth_rate(energy, GrowthFit(window=(0.0, 5.0), amplitude_from_quadratic=True)).rate
+    """
     validate_array(data, required_dims=("t",))
     if data.dims != ("t",):
         raise ValueError(f"growth-rate input must have dims ('t',), got {data.dims}")
@@ -80,7 +178,26 @@ def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult |
 
 
 def envelope(data: xr.DataArray) -> xr.DataArray:
-    """Local maxima of a time series: the interior samples not smaller than their neighbours."""
+    """Local maxima of a time series: the interior samples not smaller than their neighbours.
+
+    A sample is a peak when it is larger than the previous sample and not smaller than the next;
+    the first and last samples never are.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The time series, with ``t`` as its only dimension.
+
+    Returns
+    -------
+    xarray.DataArray
+        The peaks of ``data``, a selection along ``t`` with the attributes and coordinates kept.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``t``.
+    """
     validate_array(data, required_dims=("t",))
     if data.dims != ("t",):
         raise ValueError(f"envelope input must have dims ('t',), got {data.dims}")
@@ -94,14 +211,65 @@ def damping_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult 
     """Fit ``exp(rate*t + intercept)`` to the envelope of an oscillating time series.
 
     Use this for signals such as the field energy in Landau damping, where :func:`growth_rate` on
-    the raw series would fit the oscillation. ``fit.window`` restricts the peaks that are used.
-    The rate is negative for damping.
+    the raw series would fit the oscillation. The envelope is the series' local maxima, see
+    :func:`envelope`.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The oscillating time series, with ``t`` as its only dimension.
+    fit : GrowthFit, optional
+        ``fit.window`` restricts the peaks that are used; with ``fit.amplitude_from_quadratic``
+        the rate of the amplitude is returned. Default: ``GrowthFit()``.
+
+    Returns
+    -------
+    FitResult or None
+        The fit to the peaks; the rate is negative for damping. ``None`` with fewer than two
+        finite, positive peaks within the window.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``t``.
+
+    See Also
+    --------
+    growth_rate, envelope
+
+    Examples
+    --------
+    >>> damping_rate(out.scalars["en_E"], GrowthFit(amplitude_from_quadratic=True)).rate
     """
     return growth_rate(envelope(data), fit)
 
 
 def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArray:
-    """L2 norm over ``dims`` (default: every dimension except ``t``), as a function of the rest."""
+    """L2 norm over ``dims`` (default: every dimension except ``t``), as a function of the rest.
+
+    The discrete norm ``√(Σ f²)``, a plain sum over the grid points: neither divided by their
+    number nor weighted by the volume element (see :func:`error` and :func:`volume_integral`
+    for those).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field.
+    dims : str or sequence of str, optional
+        The dimensions summed over. Default: every dimension except ``t``.
+    squared : bool, optional
+        Return the squared norm ``Σ f²`` instead. Default: ``False``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The norm as a function of the remaining dimensions, labeled ``"norm of ..."`` (or
+        ``"squared norm of ..."``), keeping the run provenance attributes.
+
+    Examples
+    --------
+    >>> div_B.struphy.analysis.norm().struphy.plot.timeseries()
+    """
     validate_array(data)
     dims = [dim for dim in data.dims if dim != "t"] if dims is None else list(dims)
     total = (data**2).sum(dims)
@@ -113,7 +281,28 @@ def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArra
 
 
 def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
-    """Signed deviation from an explicit reference or the first time sample."""
+    """Signed deviation from an explicit reference or the first time sample.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array, with a ``t`` dimension.
+    ref : float or array_like or xarray.DataArray, optional
+        The reference, broadcast against ``data``. Default: ``data`` at the first time sample.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``data - ref``, with the attributes of ``data`` and the label ``"... drift"``.
+
+    See Also
+    --------
+    relative_error : The absolute relative deviation.
+
+    Examples
+    --------
+    >>> drift(out.scalars["en_tot"]).struphy.plot.timeseries()
+    """
     validate_array(data, required_dims=("t",))
     reference = data.isel(t=0) if ref is None else ref
     out = data - reference
@@ -146,10 +335,29 @@ def _select_dims(data: xr.DataArray, dims, default) -> list[str]:
 def spatial_average(data: xr.DataArray, *, dims=None) -> xr.DataArray:
     """Mean over the logical space dimensions, e.g. a binned f(t, eta1, v1) becomes f(t, v1).
 
-    ``dims`` defaults to every one of ``eta1``, ``eta2``, ``eta3`` that ``data`` has. The mean is
-    uniform in the logical coordinates, which is the volume average on a Cartesian domain; on a
-    mapped domain it is not weighted by the Jacobian. Physical ``X``, ``Y``, ``Z`` coordinates
-    that depend on the averaged dimensions are dropped.
+    The mean is uniform in the logical coordinates, which is the volume average on a Cartesian
+    domain; on a mapped domain it is not weighted by the Jacobian (use :func:`volume_integral`
+    for that). Physical ``X``, ``Y``, ``Z`` coordinates that depend on the averaged dimensions
+    are dropped.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array, e.g. a binned distribution function.
+    dims : str or sequence of str, optional
+        The dimensions averaged over. Default: every one of ``eta1``, ``eta2``, ``eta3`` that
+        ``data`` has.
+
+    Returns
+    -------
+    xarray.DataArray
+        The mean over ``dims``, as a function of the remaining dimensions, with the attributes
+        of ``data`` and the label ``"average of ..."``.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has none of the default dimensions, or lacks one of ``dims``.
     """
     validate_array(data)
     averaged = _select_dims(data, dims, SPATIAL_DIMS)
@@ -169,20 +377,42 @@ def _bin_widths(data: xr.DataArray, dim: str) -> xr.DataArray:
 def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
     """Moments of a binned distribution function over its velocity dimensions.
 
-    ``dims`` defaults to every one of ``v1``, ``v2``, ``v3`` that ``f`` has; the moments are
-    functions of the remaining dimensions, for example ``(t, eta1)`` for an ``e1_v1`` product.
-    The integrals are sums over the bins, weighted by the bin widths.
+    The moments are functions of the remaining dimensions, for example ``(t, eta1)`` for an
+    ``e1_v1`` product. The integrals are sums over the bins, weighted by the bin widths (from
+    ``numpy.gradient`` of the velocity coordinates). The values keep the normalization of the
+    run; see ``Output.to_si``.
 
-    Returns a Dataset with
+    Parameters
+    ----------
+    f : xarray.DataArray
+        The binned distribution function. A product named ``delta_f`` has only the density,
+        which is then the density perturbation, because its mean and variance are not defined.
+    dims : str or sequence of str, optional
+        The velocity dimensions integrated over, each with a coordinate of at least two bins.
+        Default: every one of ``v1``, ``v2``, ``v3`` that ``f`` has.
 
-    * ``density``: the zeroth moment, :math:`\\int f\\,\\mathrm{d}v`.
-    * ``mean_<dim>``: the mean velocity :math:`u = \\int v f\\,\\mathrm{d}v / n` along each dimension.
-    * ``variance_<dim>``: :math:`\\int (v-u)^2 f\\,\\mathrm{d}v / n`. In normalized units this is the
-      temperature over the particle mass along that direction, :math:`T/m`.
+    Returns
+    -------
+    xarray.Dataset
+        The moments, over the remaining dimensions:
 
-    Where the density is not positive, the mean and variance are NaN. A ``delta_f`` product has
-    only the density, which is then the density perturbation, because its mean and variance are
-    not defined. The values keep the normalization of the run; see ``Output.to_si``.
+        * ``density``: the zeroth moment, ``n = ∫ f dv``.
+        * ``mean_<dim>``: the mean velocity ``u = ∫ v f dv / n`` along each dimension.
+        * ``variance_<dim>``: ``∫ (v − u)² f dv / n``. In normalized units this is the
+          temperature over the particle mass along that direction, ``T/m``.
+
+        Where the density is not positive, the mean and variance are NaN.
+
+    Raises
+    ------
+    ValueError
+        If ``f`` has none of the default dimensions, lacks one of ``dims``, or a dimension has
+        fewer than two bins.
+
+    Examples
+    --------
+    >>> moments = velocity_moments(f)          # f(t, eta1, v1)
+    >>> moments.variance_v1.isel(t=-1).struphy.plot.lineout()
     """
     validate_array(f)
     integrated = _select_dims(f, dims, VELOCITY_DIMS)
@@ -210,7 +440,36 @@ def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
 
 
 def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataArray:
-    """Absolute relative deviation from an explicit reference or first sample."""
+    """Absolute relative deviation from an explicit reference or first sample.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array, with a ``t`` dimension, e.g. a conserved energy.
+    ref : float or array_like or xarray.DataArray, optional
+        The reference, broadcast against ``data``; must be non-zero everywhere. Default: ``data``
+        at the first time sample.
+    skip_first : bool, optional
+        Leave out the first time sample (zero against the default reference). Default: ``True``.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``|data − ref| / |ref|``, labeled ``"relative error of ..."`` with empty units.
+
+    Raises
+    ------
+    ValueError
+        If the reference is zero anywhere.
+
+    See Also
+    --------
+    drift : The signed deviation.
+
+    Examples
+    --------
+    >>> relative_error(out.scalars["en_tot"]).struphy.plot.timeseries()
+    """
     validate_array(data, required_dims=("t",))
     reference = data.isel(t=0) if ref is None else ref
     if np.any(np.asarray(reference) == 0):
@@ -230,8 +489,34 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
     The same criteria as Struphy's ``post_process_orbit_classification``: a marker is trapped if
     its parallel velocity ``v_par`` ever has the opposite sign to its initial one, and lost if at
     any saved time every quantity is zero (how Struphy stores a marker that has left the domain).
-    Lost takes precedence over trapped. Returns a ``(marker,)`` array of integer codes; the
-    names are in ``attrs["flag_meanings"]`` and in :data:`ORBIT_CLASSES`.
+    Lost takes precedence over trapped.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset
+        The orbits product, with variables over ``(t, marker)``.
+    v_par : str, optional
+        The name of the parallel-velocity variable. Default: ``"v_par"``.
+
+    Returns
+    -------
+    xarray.DataArray
+        A ``(marker,)`` array of integer codes named ``classification``; the names are in
+        ``attrs["flag_meanings"]`` and in :data:`ORBIT_CLASSES`.
+
+    Raises
+    ------
+    ValueError
+        If ``orbits`` has no variable ``v_par``, or it is not over ``(t, marker)``.
+
+    See Also
+    --------
+    bounce_period, orbit_invariants
+
+    Examples
+    --------
+    >>> codes = classify_orbits(orbits)
+    >>> trapped = orbits.sel(marker=codes == 1)
     """
     if v_par not in orbits.data_vars:
         raise ValueError(
@@ -259,7 +544,17 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
 
 @dataclass(frozen=True)
 class BranchFit:
-    """A dispersion branch fitted as ``omega = velocity * k``."""
+    """A dispersion branch fitted as ``omega = velocity * k``, from :func:`fit_dispersion_branches`.
+
+    Attributes
+    ----------
+    velocity : float
+        The fitted slope, the phase velocity of the branch.
+    k : numpy.ndarray
+        The wavenumbers of the ridge points used in the fit.
+    omega : numpy.ndarray
+        The angular frequencies of the ridge points, one per ``k``.
+    """
 
     velocity: float
     k: np.ndarray
@@ -290,24 +585,57 @@ def fit_dispersion_branches(
     noise_level: float = 0.5,
     order: int = 10,
 ) -> list[BranchFit]:
-    """Fit ``omega = v * k`` to each of ``n_branches`` straight ridges in a (omega, k) power
-    spectrum (as returned by :func:`power_spectrum`), with no theoretical curve to guide the
-    search -- useful when several linear wave branches are excited at once and there is nothing to
-    search around yet. (For a single, possibly non-linear branch with a known theoretical curve to
-    guide the search instead, take the frequency of maximum power in a window of ``spectrum``
-    around that curve at each k, rather than this blind approach.)
+    """Fit ``omega = v * k`` to each of ``n_branches`` straight ridges in an (omega, k) power spectrum.
+
+    The spectrum is as returned by :func:`power_spectrum`, and there is no theoretical curve to
+    guide the search -- useful when several linear wave branches are excited at once and there is
+    nothing to search around yet. (For a single, possibly non-linear branch with a known
+    theoretical curve to guide the search instead, take the frequency of maximum power in a window
+    of ``spectrum`` around that curve at each k, rather than this blind approach.)
 
     Only non-negative ``omega`` and ``k`` are scanned (a real signal's spectrum is symmetric under
     ``(k, omega) -> (-k, -omega)``, so every branch already appears on both sides of ``k = 0``). At
-    each remaining k, the local maxima of the spectrum along omega are found (see
-    :func:`_local_maxima`); a k column contributes to the fit only where it has exactly
-    ``n_branches`` maxima above ``noise_level`` times that column's own peak power, taken in
-    increasing-omega order. ``k_range`` restricts which non-negative k's are scanned (default:
-    ``(k.max() / 8, k.max() / 2)``, which in practice skips both the low-k region where branches
-    have not yet separated, and the folded Nyquist edge).
+    each remaining k, the local maxima of the spectrum along omega are found; a k column
+    contributes to the fit only where it has exactly ``n_branches`` maxima above ``noise_level``
+    times that column's own peak power, taken in increasing-omega order.
 
-    Returns one :class:`BranchFit` per branch, in increasing-omega order at the low-k end of
-    ``k_range``; ``.velocity`` is the fitted slope, ``.k``/``.omega`` the ridge points used.
+    Parameters
+    ----------
+    spectrum : xarray.DataArray
+        The power spectrum, with dimensions ``omega`` and ``k``.
+    n_branches : int
+        The number of branches, at least 1.
+    k_range : (float, float), optional
+        The interval of non-negative k's that are scanned. Default: ``(k.max() / 8, k.max() / 2)``,
+        which in practice skips both the low-k region where branches have not yet separated, and
+        the folded Nyquist edge.
+    noise_level : float, optional
+        Maxima count only above this fraction of the column's peak power. Default: 0.5.
+    order : int, optional
+        A local maximum must exceed every one of its ``order`` neighbors on both sides along
+        omega (out-of-range neighbors are clipped to the edge sample, as in
+        ``scipy.signal.argrelextrema``). Default: 10.
+
+    Returns
+    -------
+    list of BranchFit
+        One fit per branch, in increasing-omega order at the low-k end of ``k_range``;
+        ``.velocity`` is the fitted slope, ``.k``/``.omega`` the ridge points used.
+
+    Raises
+    ------
+    ValueError
+        If ``spectrum`` lacks the ``omega`` or ``k`` dimension, ``n_branches`` is not positive, or
+        no k in ``k_range`` has exactly ``n_branches`` peaks above the noise level.
+
+    See Also
+    --------
+    power_spectrum
+
+    Examples
+    --------
+    >>> spectrum = power_spectrum(b.isel(eta2=0, eta3=0, component=0))
+    >>> [fit.velocity for fit in fit_dispersion_branches(spectrum, n_branches=2)]
     """
     if not {"omega", "k"} <= set(spectrum.dims):
         raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
@@ -352,15 +680,42 @@ def fit_dispersion_branches(
 
 
 def power_spectrum(data: xr.DataArray, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
-    """The 2-D power spectrum of a ``(t, dim)`` signal: a plain space-time FFT, as a function of
-    angular frequency and wavenumber -- the basis of a dispersion-relation plot
-    (:meth:`~struphy_plots.accessors.ArrayPlots.dispersion`), independent of Struphy.
+    """The 2-D power spectrum of a ``(t, dim)`` signal, as a function of frequency and wavenumber.
 
-    ``dim`` defaults to the sole dimension other than ``t``; the array must have exactly these
-    two dimensions, each on a uniform grid. ``detrend`` removes the time-mean at each point of
-    ``dim`` first, which otherwise dominates the spectrum as a spurious zero-frequency line.
-    Built on :func:`struphy_plots.spectral.fft`, so it shares its conventions: coefficients are
-    divided by the sample counts, and the power sums to the mean square of the signal.
+    A plain space-time FFT, as a function of angular frequency and wavenumber -- the basis of a
+    dispersion-relation plot (:meth:`~struphy_plots.accessors.ArrayPlots.dispersion`),
+    independent of Struphy. Built on :func:`struphy_plots.spectral.fft`, so it shares its
+    conventions: coefficients are divided by the sample counts, and the power sums to the mean
+    square of the signal.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The signal, with exactly the two dimensions ``t`` and ``dim``, each on a uniform grid.
+    dim : str, optional
+        The spatial dimension. Default: the sole dimension other than ``t``.
+    detrend : bool, optional
+        Remove the time-mean at each point of ``dim`` first, which otherwise dominates the
+        spectrum as a spurious zero-frequency line. Default: ``True``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The power ``|ĉ|²``, named ``power``, over ``(omega, k)``.
+
+    Raises
+    ------
+    ValueError
+        If ``dim`` is not given and ``data`` has more than one dimension besides ``t``, or
+        ``data`` has dimensions other than ``t`` and ``dim``.
+
+    See Also
+    --------
+    fit_dispersion_branches
+
+    Examples
+    --------
+    >>> spectrum = power_spectrum(phi.isel(eta2=0, eta3=0), dim="eta1")
     """
     validate_array(data, required_dims=("t",))
     others = [d for d in data.dims if d != "t"]
@@ -393,6 +748,20 @@ def quadrature_weights(coordinate) -> np.ndarray:
     Struphy's cell centers (uniform, half a cell from each end) get the midpoint rule, which
     integrates over the whole unit interval; any other grid gets the trapezoidal rule over the
     sampled range. A single point (a 2-D run's flat direction) has weight 1.
+
+    Parameters
+    ----------
+    coordinate : array_like of float
+        The sample points along one logical direction.
+
+    Returns
+    -------
+    numpy.ndarray
+        One weight per sample point.
+
+    See Also
+    --------
+    volume_integral, field_energy
     """
     x = np.asarray(coordinate, dtype=float)
     if x.size == 1:
@@ -446,14 +815,48 @@ def _spatial_array(values, data):
 
 
 def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=None, quadrature=None) -> xr.DataArray:
-    """``int w f dV`` over the logical grid, as a function of every other dimension (e.g. ``t``).
+    """``∫ w f dV`` over the logical grid, as a function of every other dimension (e.g. ``t``).
 
-    ``form=0`` (default) is a function, integrated with the volume element ``|sqrt g| de``;
-    ``form=3`` is a density (a 3-form, e.g. Struphy's L2 fields), integrated as ``int f de``.
-    ``weight`` is an optional ``(eta1, eta2, eta3)`` array. The geometry comes from a struphy
-    ``domain`` (``out.domain``, exact) or, without one, from the X, Y, Z coordinates.
-    ``quadrature`` maps ``eta1``/``eta2``/``eta3`` to explicit weights (e.g. Gauss weights, see
-    ``out.analysis.quadrature_grid()``); by default see :func:`quadrature_weights`.
+    A function (``form=0``) is integrated with the volume element ``|√g| dη``; a density (a
+    3-form, e.g. Struphy's L2 fields, ``form=3``) as ``∫ f dη``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The integrand, with the dimensions ``eta1``, ``eta2``, ``eta3``.
+    form : {0, 3}, optional
+        ``0`` (default) for a function, ``3`` for a density.
+    weight : array_like, optional
+        An extra weight ``w`` over ``(eta1, eta2, eta3)``, broadcast against ``data``.
+    domain : struphy domain, optional
+        The mapping (``out.domain``), which gives the exact ``|√g|``. Without one, ``|√g|`` comes
+        from the numerical Jacobian of the ``X``, ``Y``, ``Z`` coordinates (see
+        :func:`struphy_plots.arrays.mapping_jacobian`). Only needed for ``form=0``.
+    quadrature : dict, optional
+        Maps ``eta1``/``eta2``/``eta3`` to explicit weights, one per point (e.g. Gauss weights,
+        see ``out.analysis.quadrature_grid()``). Directions left out get
+        :func:`quadrature_weights`: the midpoint rule on Struphy's cell centers, else trapezoidal.
+
+    Returns
+    -------
+    xarray.DataArray
+        The integral, as a function of the dimensions other than ``eta1``, ``eta2``, ``eta3``,
+        labeled ``"integral of ..."``.
+
+    Raises
+    ------
+    ValueError
+        If ``form`` is not 0 or 3, a logical dimension is missing, or a quadrature has the wrong
+        number of weights.
+
+    See Also
+    --------
+    field_energy, quadrature_weights
+
+    Examples
+    --------
+    >>> total_charge = volume_integral(rho, domain=out.domain)
+    >>> mass = volume_integral(n3, form=3)          # a 3-form: no |√g|
     """
     if form not in (0, 3):
         raise ValueError("volume_integral takes form=0 (a function) or form=3 (a density)")
@@ -478,7 +881,7 @@ def field_energy(
     normalization: float = 1.0,
     quadrature=None,
 ) -> xr.DataArray:
-    r"""The quadratic energy ``alpha * 1/2 int w  omega^T A omega de``, as a function of time.
+    r"""The quadratic energy ``α ½ ∫ w ωᵀ A ω dη``, as a function of time.
 
     ``form`` says what ``data`` holds, and sets the metric factor ``A`` (as struphy's mass
     matrices do, so that e.g. LinearMHD's ``en_U`` is ``field_energy(u, form=2, weight=n0)``):
@@ -486,19 +889,60 @@ def field_energy(
     ========================  ===========================================  ==============
     ``form``                  data                                         ``A``
     ========================  ===========================================  ==============
-    ``None`` (default)        a function, or Cartesian vector components    ``|sqrt g|``
-    ``0``                     0-form                                        ``|sqrt g|``
-    ``1``                     1-form components                             ``G^-1 |sqrt g|``
-    ``2``                     2-form components                             ``G / |sqrt g|``
-    ``3``                     3-form                                        ``1 / |sqrt g|``
-    ``"v"``                   contravariant vector components               ``G |sqrt g|``
+    ``None`` (default)        a function, or Cartesian vector components    ``|√g|``
+    ``0``                     0-form                                        ``|√g|``
+    ``1``                     1-form components                             ``G⁻¹ |√g|``
+    ``2``                     2-form components                             ``G / |√g|``
+    ``3``                     3-form                                        ``1 / |√g|``
+    ``"v"``                   contravariant vector components               ``G |√g|``
     ========================  ===========================================  ==============
 
-    Vectors have a ``component`` dimension. Non-finite ``weight`` values (e.g. ``1/p0`` where
-    ``p0`` vanishes on the boundary) are left out. The energy of a filtered field, e.g. from
-    :func:`~struphy_plots.spectral.filter_time`, measures how much of the energy is in that mode.
-    ``quadrature``: as for :func:`volume_integral`. A spline field squared is integrated exactly
-    only with enough points per element: evaluate it at Gauss points for accurate energies.
+    Here ``G = Jᵀ J`` is the metric of the mapping and ``|√g|`` its Jacobian determinant. The
+    energy of a filtered field, e.g. from :func:`~struphy_plots.spectral.filter_time`, measures
+    how much of the energy is in that mode. A spline field squared is integrated exactly only
+    with enough points per element: evaluate it at Gauss points for accurate energies.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with the dimensions ``eta1``, ``eta2``, ``eta3``; vectors have a ``component``
+        dimension of size 3.
+    form : {None, 0, 1, 2, 3, "v"}, optional
+        What ``data`` holds, see the table. Default: ``None``, a function or Cartesian vector
+        components.
+    weight : array_like, optional
+        The weight ``w`` over ``(eta1, eta2, eta3)`` (e.g. a background density ``n0``).
+        Non-finite values (e.g. ``1/p0`` where ``p0`` vanishes on the boundary) are left out.
+    domain : struphy domain, optional
+        The mapping (``out.domain``), which gives the exact ``|√g|`` and ``G``. Without one, they
+        come from the numerical Jacobian of the ``X``, ``Y``, ``Z`` coordinates (see
+        :func:`struphy_plots.arrays.mapping_jacobian`).
+    normalization : float, optional
+        The prefactor ``α``. Default: 1.
+    quadrature : dict, optional
+        Explicit quadrature weights per logical dimension, as for :func:`volume_integral`.
+
+    Returns
+    -------
+    xarray.DataArray
+        The energy, as a function of the dimensions other than ``eta1``, ``eta2``, ``eta3`` and
+        ``component`` (typically ``t``), labeled ``"energy of ..."``.
+
+    Raises
+    ------
+    ValueError
+        If ``form`` is not one of the above or does not match ``data`` (a vector form for a
+        scalar or the reverse), a vector does not have 3 components, or a logical dimension is
+        missing.
+
+    See Also
+    --------
+    volume_integral
+
+    Examples
+    --------
+    >>> field_energy(u_2form, form=2, weight=n0, domain=out.domain)   # ½ uᵀ M2n u, as LinearMHD's en_U
+    >>> field_energy(E)                                               # ½ ∫ |E|² dV
     """
     validate_array(data)
     if form not in (None, 0, 1, 2, 3, "v"):
@@ -542,15 +986,45 @@ def field_energy(
 
 
 def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
-    """The Cartesian gradient of a scalar field on the logical grid, with a ``component``
-    dimension ``(x, y, z)`` in front of the field's own dimensions (e.g. ``t`` is kept).
+    """The Cartesian gradient of a scalar field on the logical grid.
 
-    ``grad f = J^-T d f / d eta``, with the Jacobian ``J`` of the mapping from a struphy
-    ``domain`` (exact) or, without one, from the attached ``X``, ``Y``, ``Z`` coordinates. The
-    logical derivatives are spectral around periodic directions and second order elsewhere
-    (see :func:`struphy_plots.arrays.logical_derivative`). A direction with a single point (a
-    2-D run) is left out: the result is then the gradient within the plane. For example,
-    ``E = -gradient(phi)``, or the E x B velocity ``z x grad(phi)`` of a 2-D drift-wave model.
+    ``∇f = J⁻ᵀ ∂f/∂η``, with the Jacobian ``J`` of the mapping from a struphy ``domain`` (exact)
+    or, without one, from the attached ``X``, ``Y``, ``Z`` coordinates. The logical derivatives
+    are spectral around periodic directions and second order elsewhere (see
+    :func:`struphy_plots.arrays.logical_derivative`). A direction with a single point (a 2-D run)
+    is left out: the result is then the gradient within the plane (with the pseudo-inverse of
+    the remaining Jacobian columns). For example, ``E = -gradient(phi)``, or the E × B velocity
+    ``ẑ × ∇φ`` of a 2-D drift-wave model.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The scalar field, with the dimensions ``eta1``, ``eta2``, ``eta3`` (at least one with
+        more than one point) and no ``component`` dimension.
+    domain : struphy domain, optional
+        The mapping (``out.domain``), for the exact Jacobian. Default: differentiate the ``X``,
+        ``Y``, ``Z`` coordinates numerically.
+
+    Returns
+    -------
+    xarray.DataArray
+        The gradient, with a ``component`` dimension ``(x, y, z)`` (coordinates 0, 1, 2) in front
+        of the field's own dimensions (e.g. ``t`` is kept), named ``grad_<name>``.
+
+    Raises
+    ------
+    ValueError
+        If a logical dimension is missing, ``data`` has a ``component`` dimension, no direction
+        has more than one point, or there is neither a ``domain`` nor ``X``, ``Y``, ``Z``.
+
+    See Also
+    --------
+    divergence, curl
+
+    Examples
+    --------
+    >>> E = -gradient(phi)                          # Cartesian components (x, y, z), over time
+    >>> E = -gradient(phi, domain=out.domain)       # with the exact Jacobian
     """
     from .arrays import logical_derivative, mapping_jacobian, periodicity
 
@@ -613,10 +1087,34 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
 def evaluate_on(data: xr.DataArray, function, args=None) -> xr.DataArray:
     """``function`` evaluated on the coordinates of ``data``, broadcast to its shape.
 
-    ``args`` names the coordinates passed positionally, in order; by default the physical
-    ``X``, ``Y``, ``Z`` (if attached, else the logical dimensions ``eta1``... that ``data``
-    has), followed by ``t`` if ``data`` has it. E.g. an exact solution ``exact(x, y, z, t)`` on
-    the points of a field, or ``exact(eta1, t)`` on a 1-D profile.
+    E.g. an exact solution ``exact(x, y, z, t)`` on the points of a field, or ``exact(eta1, t)``
+    on a 1-D profile.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array whose coordinates and shape are used.
+    function : callable
+        Called with the coordinates named by ``args``, positionally, as xarray.DataArrays; returns
+        an array (or number) broadcastable to ``data``.
+    args : sequence of str, optional
+        The coordinates passed positionally, in order. Default: the physical ``X``, ``Y``, ``Z``
+        (if attached, else the logical dimensions ``eta1``... that ``data`` has), followed by
+        ``t`` if ``data`` has it.
+
+    Returns
+    -------
+    xarray.DataArray
+        The values, broadcast to the shape of ``data`` with its dimensions first.
+
+    Raises
+    ------
+    ValueError
+        If one of ``args`` is not a coordinate of ``data``.
+
+    Examples
+    --------
+    >>> exact = evaluate_on(u, lambda x, y, z, t: np.sin(x - t))
     """
     if args is None:
         space = (
@@ -646,16 +1144,60 @@ def error(
 ) -> xr.DataArray:
     """The error of ``data`` against an exact solution, as a function of the other dimensions.
 
-    ``exact`` is an array (aligned with ``data``) or a function of its coordinates, evaluated
-    with :func:`evaluate_on` (``args`` as there), e.g. ``lambda x, y, z, t: ...``. ``norm`` is
-    ``"pointwise"`` (the difference itself), ``"max"``, ``"rms"`` (default), ``"l1"`` or
-    ``"l2"``, over ``dims`` (default: every dimension but ``t``): unweighted, the mean over the
-    grid points (``l1``, and ``rms`` = ``l2`` its root mean square), i.e. integrals over the
-    logical unit cube. ``relative`` divides by the same norm of the exact solution. With
-    ``weighted`` the norms over the logical grid are integrals over the physical volume
-    (``rms`` divided by that volume), (with ``|sqrt g|``, from ``domain`` or the ``X``, ``Y``, ``Z``
-    coordinates; see :func:`volume_integral`): the proper L2 error on a mapped domain, where a
-    plain mean over grid points is not.
+    Unweighted, the norms are means over the grid points (``l1``, and ``rms`` = ``l2`` its root
+    mean square), i.e. integrals over the logical unit cube. With ``weighted`` the norms over the
+    logical grid are integrals over the physical volume (with ``|√g|``, from ``domain`` or the
+    ``X``, ``Y``, ``Z`` coordinates; see :func:`volume_integral`), and ``rms`` is divided by that
+    volume: the proper L2 error on a mapped domain, where a plain mean over grid points is not.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The numerical solution.
+    exact : callable, array_like, number or xarray.DataArray
+        The exact solution: an array (aligned with ``data``, or broadcast to it) or a function of
+        its coordinates, evaluated with :func:`evaluate_on`, e.g. ``lambda x, y, z, t: ...``.
+    norm : {"rms", "max", "l1", "l2", "pointwise"}, optional
+        ``"pointwise"`` is the difference ``data − exact`` itself; ``"max"`` the largest absolute
+        difference; ``"l1"`` the mean (or, weighted, the integral) of ``|data − exact|``;
+        ``"l2"`` the square root of the mean (or integral) of ``|data − exact|²``; ``"rms"``
+        (default) as ``"l2"``, divided by the volume when weighted.
+    relative : bool, optional
+        Divide by the same norm of the exact solution; for ``"pointwise"``, by the largest
+        ``|exact|`` over the whole array. Default: ``False``.
+    dims : str or sequence of str, optional
+        The dimensions the norm is taken over. Default: every dimension but ``t``. Weighted
+        norms need exactly ``eta1``, ``eta2``, ``eta3``.
+    weighted : bool, optional
+        Integrate over the physical volume instead of averaging over the grid points (no effect
+        on ``"max"`` and ``"pointwise"``). Default: ``False``.
+    domain : struphy domain, optional
+        The mapping (``out.domain``), for the exact ``|√g|`` of weighted norms. Default: from
+        the ``X``, ``Y``, ``Z`` coordinates.
+    args : sequence of str, optional
+        The coordinates passed to a callable ``exact``, as in :func:`evaluate_on`. Default: ``X``,
+        ``Y``, ``Z`` (or the logical dimensions), then ``t``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The error as a function of the dimensions not in ``dims`` (typically ``t``); for
+        ``"pointwise"``, an array like ``data``. Labeled e.g. ``"relative rms error of ..."``.
+
+    Raises
+    ------
+    ValueError
+        If ``norm`` is unknown, or a weighted norm is not over ``eta1``, ``eta2``, ``eta3``.
+
+    See Also
+    --------
+    convergence_order : The order of a series of errors.
+
+    Examples
+    --------
+    >>> error(T, exact, relative=True)          # relative RMS error over time
+    >>> error(T, exact, norm="max")             # largest pointwise error
+    >>> error(u, lambda x, y, z, t: np.sin(x - t), norm="l2", weighted=True)   # √∫|u − u_exact|² dV
     """
     validate_array(data)
     if callable(exact):
@@ -714,12 +1256,43 @@ def project_mode(
 ) -> xr.DataArray:
     """The amplitude of one Fourier mode along a periodic dimension, as a function of the rest.
 
-    ``kind="sin"`` gives ``a`` of ``a sin(2 pi number x / period)``: ``2 <f sin(...)>``;
-    ``"cos"`` the cosine amplitude, and ``"complex"`` the complex amplitude ``2 <f exp(-i...)>``
-    (``abs()`` the amplitude, ``np.angle()`` the phase). The dimension must sample one full period
-    uniformly (a duplicate endpoint is dropped). ``bin_correction`` undoes the damping of binned
-    particle data, whose bins average the mode over their width ``h``: it divides by
-    ``sinc(number h / period)``. A mode number, not a wavenumber: ``k = 2 pi number / L``.
+    The amplitude is twice the mean over the samples of ``data`` times the basis function, e.g.
+    ``2 ⟨f sin(…)⟩``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field. ``dim`` must sample one full period uniformly (a duplicate endpoint is
+        dropped).
+    dim : str
+        The periodic dimension, e.g. ``"eta1"``.
+    number : float
+        The mode number, not a wavenumber: ``k = 2π number / L``.
+    kind : {"sin", "cos", "complex"}, optional
+        ``"sin"`` (default) gives ``a`` of ``a sin(2π number x / period)``: ``2 ⟨f sin(…)⟩``;
+        ``"cos"`` the cosine amplitude, and ``"complex"`` the complex amplitude
+        ``2 ⟨f exp(−i…)⟩`` (``abs()`` the amplitude, ``np.angle()`` the phase).
+    period : float, optional
+        The period of ``dim``. Default: 1, the logical unit interval.
+    bin_correction : bool, optional
+        Undo the damping of binned particle data, whose bins average the mode over their width
+        ``h``: divide by ``sinc(number h / period)``. Default: ``False``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The amplitude as a function of the other dimensions (complex for ``"complex"``), named
+        e.g. ``sin_1``.
+
+    Raises
+    ------
+    ValueError
+        If ``kind`` is unknown, or ``dim`` does not sample one full period uniformly.
+
+    Examples
+    --------
+    >>> amplitude = project_mode(e1, dim="eta1", number=1)          # sine amplitude over t
+    >>> phase = np.angle(project_mode(rho, dim="eta2", number=3, kind="complex"))
     """
     from .spectral import drop_periodic_endpoint
 
@@ -768,9 +1341,41 @@ def _jacobian_of_components(vector, domain):
 def divergence(vector: xr.DataArray, *, components: str = "cartesian", domain=None) -> xr.DataArray:
     """The divergence ``sum_a d v_a / d x_a`` of a vector field on a mapped domain.
 
-    ``components`` as for the 3-D views (``"contravariant"`` components are pushed forward
-    first). Derivatives as in :func:`gradient`: spectral around periodic angles; a flat
-    direction (2-D run) is left out. E.g. a ``div B`` check of an MHD run.
+    Derivatives as in :func:`gradient`: spectral around periodic angles; a flat direction (2-D
+    run) is left out. E.g. a ``div B`` check of an MHD run.
+
+    Parameters
+    ----------
+    vector : xarray.DataArray
+        The vector field, with a ``component`` dimension of size 3 and the dimensions ``eta1``,
+        ``eta2``, ``eta3``.
+    components : {"cartesian", "contravariant"}, optional
+        What the components are, as for the 3-D views: ``"cartesian"`` (default) ``(x, y, z)``,
+        or ``"contravariant"`` components, which are pushed forward first.
+    domain : struphy domain, optional
+        The mapping (``out.domain``), for the exact Jacobian. Default: from the ``X``, ``Y``,
+        ``Z`` coordinates.
+
+    Returns
+    -------
+    xarray.DataArray
+        The divergence, over the field's dimensions without ``component``, named
+        ``div_<name>``.
+
+    Raises
+    ------
+    ValueError
+        If ``vector`` has no ``component`` dimension of size 3, ``components`` is unknown, or as
+        for :func:`gradient`.
+
+    See Also
+    --------
+    gradient, curl
+
+    Examples
+    --------
+    >>> div_B = divergence(B)                       # should stay at round-off
+    >>> norm(div_B).struphy.plot.timeseries()
     """
     cartesian = _cartesian_vector(vector, components)
     jac = _jacobian_of_components(cartesian, domain)
@@ -786,8 +1391,40 @@ def divergence(vector: xr.DataArray, *, components: str = "cartesian", domain=No
 def curl(vector: xr.DataArray, *, components: str = "cartesian", domain=None) -> xr.DataArray:
     """The curl of a vector field on a mapped domain, in Cartesian components ``(x, y, z)``.
 
-    As :func:`divergence`. E.g. the current ``J = curl B``, or the vorticity of a flow; for a
-    2-D field in the ``x``-``y`` plane only the ``z`` component is non-zero.
+    Derivatives as for :func:`divergence`. E.g. the current ``J = ∇ × B``, or the vorticity of a
+    flow; for a 2-D field in the ``x``-``y`` plane only the ``z`` component is non-zero.
+
+    Parameters
+    ----------
+    vector : xarray.DataArray
+        The vector field, with a ``component`` dimension of size 3 and the dimensions ``eta1``,
+        ``eta2``, ``eta3``.
+    components : {"cartesian", "contravariant"}, optional
+        What the components are: ``"cartesian"`` (default) ``(x, y, z)``, or ``"contravariant"``
+        components, which are pushed forward first.
+    domain : struphy domain, optional
+        The mapping (``out.domain``), for the exact Jacobian. Default: from the ``X``, ``Y``,
+        ``Z`` coordinates.
+
+    Returns
+    -------
+    xarray.DataArray
+        The curl, with a ``component`` dimension ``(x, y, z)`` (coordinates 0, 1, 2) first,
+        named ``curl_<name>``.
+
+    Raises
+    ------
+    ValueError
+        As for :func:`divergence`.
+
+    See Also
+    --------
+    gradient, divergence
+
+    Examples
+    --------
+    >>> J = curl(B)                                 # the current, in Cartesian components
+    >>> vorticity = curl(u).sel(component=2)
     """
     cartesian = _cartesian_vector(vector, components)
     jac = _jacobian_of_components(cartesian, domain)
@@ -805,12 +1442,35 @@ def curl(vector: xr.DataArray, *, components: str = "cartesian", domain=None) ->
 def flux_function(vector: xr.DataArray) -> xr.DataArray:
     """The flux function (or stream function) ``A`` of a 2-D, divergence-free in-plane field.
 
-    For a magnetic field ``B_x = dA/dy``, ``B_y = -dA/dx`` (so ``B = grad A x z``); its contour
+    For a magnetic field ``B_x = ∂A/∂y``, ``B_y = −∂A/∂x`` (so ``B = ∇A × ẑ``); its contour
     lines are the field lines, e.g. drawn over the current with a slice's ``contours_of``. For a
-    velocity it is the stream function. The field must lie on a Cartesian grid in the ``x``-``y``
-    plane (physical ``X`` depending on one logical direction and ``Y`` on another, e.g. a slab
-    or periodic box); ``A`` is integrated along the grid lines (trapezoidal rule) and shifted to
-    zero mean, as a function of every other dimension.
+    velocity it is the stream function. ``A`` is integrated along the grid lines (trapezoidal
+    rule), ``A(x, y) = ∫ B_x(x₀, y′) dy′ − ∫ B_y(x′, y) dx′``, and shifted to zero mean.
+
+    Parameters
+    ----------
+    vector : xarray.DataArray
+        The field in Cartesian components, with a ``component`` dimension of size 3 (only
+        ``x`` and ``y`` are used). It must lie on a Cartesian grid in the ``x``-``y`` plane:
+        exactly two logical directions with more than one point, physical ``X`` depending on
+        one of them and ``Y`` on the other, e.g. a slab or periodic box.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``A``, named ``flux_function``, as a function of every dimension of ``vector`` except
+        ``component``.
+
+    Raises
+    ------
+    ValueError
+        If ``vector`` is not a 3-component field on such a grid.
+
+    Examples
+    --------
+    >>> A = flux_function(B.isel(t=-1))
+    >>> J = curl(B).isel(t=-1, component=2)
+    >>> J.struphy.plot.slice(overlays={"contours_of": A})
     """
     cartesian = _cartesian_vector(vector, "cartesian").isel(component=[0, 1])
     field = cartesian.squeeze(
@@ -869,8 +1529,35 @@ def _angles(data: xr.DataArray, R0: float = 0.0, Z0: float = 0.0):
 
 
 def cylindrical_components(vector: xr.DataArray) -> xr.DataArray:
-    """Cartesian components rotated to cylindrical ones ``(R, phi, Z)`` about the ``Z`` axis,
-    at every point of the field (needs its ``X``, ``Y``, ``Z`` coordinates)."""
+    """Cartesian components rotated to cylindrical ones ``(R, phi, Z)`` about the ``Z`` axis.
+
+    The rotation is by the toroidal angle ``φ = atan2(Y, X)`` at every point of the field.
+
+    Parameters
+    ----------
+    vector : xarray.DataArray
+        The field in Cartesian components, with a ``component`` dimension of size 3 and the
+        ``X``, ``Y``, ``Z`` coordinates.
+
+    Returns
+    -------
+    xarray.DataArray
+        The components ``v_R``, ``v_φ``, ``v_Z``, with ``component`` coordinates ``"R"``,
+        ``"phi"``, ``"Z"`` and the dimensions of ``vector``.
+
+    Raises
+    ------
+    ValueError
+        If ``vector`` has no ``component`` dimension of size 3.
+
+    See Also
+    --------
+    toroidal_components
+
+    Examples
+    --------
+    >>> E_R = cylindrical_components(-gradient(phi)).sel(component="R")
+    """
     cartesian = _cartesian_vector(vector, "cartesian")
     _, phi, _ = _angles(cartesian)
     vx, vy, vz = (cartesian.isel(component=i, drop=True) for i in range(3))
@@ -897,12 +1584,42 @@ def cylindrical_components(vector: xr.DataArray) -> xr.DataArray:
 
 
 def toroidal_components(vector: xr.DataArray, *, R0: float, Z0: float = 0.0) -> xr.DataArray:
-    """Cartesian components rotated to the local ``(radial, poloidal, toroidal)`` directions
-    about a circular magnetic axis at major radius ``R0`` (height ``Z0``), at every point.
+    """Cartesian components rotated to the local ``(radial, poloidal, toroidal)`` directions.
 
-    The radial direction points away from the axis in the poloidal plane, the poloidal one
-    along ``theta = atan2(Z - Z0, R - R0)``, the toroidal one along ``phi``: the natural
-    components for waves in a tokamak or torus.
+    The directions are those about a circular magnetic axis at major radius ``R0`` (height
+    ``Z0``), at every point. The radial direction points away from the axis in the poloidal
+    plane, the poloidal one along ``θ = atan2(Z − Z0, R − R0)``, the toroidal one along ``φ``:
+    the natural components for waves in a tokamak or torus.
+
+    Parameters
+    ----------
+    vector : xarray.DataArray
+        The field in Cartesian components, with a ``component`` dimension of size 3 and the
+        ``X``, ``Y``, ``Z`` coordinates.
+    R0 : float
+        The major radius of the magnetic axis.
+    Z0 : float, optional
+        The height of the magnetic axis. Default: 0.
+
+    Returns
+    -------
+    xarray.DataArray
+        The components, with ``component`` coordinates ``"radial"``, ``"poloidal"``,
+        ``"toroidal"`` and the dimensions of ``vector``.
+
+    Raises
+    ------
+    ValueError
+        If ``vector`` has no ``component`` dimension of size 3.
+
+    See Also
+    --------
+    cylindrical_components
+
+    Examples
+    --------
+    >>> local = toroidal_components(u, R0=3.0)
+    >>> local.sel(component="poloidal").isel(t=-1, eta3=0).struphy.plot.slice()
     """
     cartesian = _cartesian_vector(vector, "cartesian")
     _, phi, theta = _angles(cartesian, R0, Z0)
@@ -932,8 +1649,27 @@ def toroidal_components(vector: xr.DataArray, *, R0: float, Z0: float = 0.0) -> 
 
 
 def polar_coordinates(data: xr.DataArray, *, center=(0.0, 0.0)) -> xr.DataArray:
-    """``data`` with coordinates ``r`` and ``theta`` (radians, in ``(-pi, pi]``) of its points
-    in the ``X``-``Y`` plane about ``center``, e.g. for profiles against the radius."""
+    """Attach the polar coordinates ``r`` and ``theta`` of each point in the ``X``-``Y`` plane.
+
+    E.g. for profiles against the radius.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array, with the ``X`` and ``Y`` coordinates.
+    center : (float, float), optional
+        The origin ``(X, Y)`` of the polar coordinates. Default: ``(0.0, 0.0)``.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``data`` with the extra coordinates ``r`` and ``theta`` (radians, in ``(−π, π]``) of its
+        points about ``center``.
+
+    Examples
+    --------
+    >>> n_polar = polar_coordinates(n, center=(0.0, 0.0)).isel(t=-1, eta3=0)
+    """
     X, Y = data.coords["X"], data.coords["Y"]
     return data.assign_coords(
         r=np.hypot(X - center[0], Y - center[1]),
@@ -942,16 +1678,45 @@ def polar_coordinates(data: xr.DataArray, *, center=(0.0, 0.0)) -> xr.DataArray:
 
 
 def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
-    """Kinetic invariants of saved marker orbits, over ``(t, marker)``: whatever the saved
-    quantities allow.
+    """Kinetic invariants of saved marker orbits, over ``(t, marker)``.
+
+    Computes whatever the saved quantities allow:
 
     * ``speed`` ``|v|`` from ``v1``, ``v2``, ``v3`` (full orbits);
-    * with ``v_par``, ``mu`` and ``absB`` (a function ``|B|(x, y, z)`` of the physical positions,
-      e.g. ``lambda x, y, z: out.equil.absB0(*out.domain.inverse_map(x, y, z))``): the
-      guiding-centre ``energy`` ``v_par^2 / 2 + mu |B|`` and the ``pitch`` ``v_par / v``.
+    * with ``v_par``, ``mu``, the positions ``x``, ``y``, ``z`` and ``absB``: the guiding-centre
+      ``energy`` ``v_par² / 2 + mu |B|`` and the ``pitch`` ``v_par / v``, with
+      ``v = √(2 energy)``.
 
-    Their drift, e.g. ``relative_error()`` of the energy, measures the pusher's accuracy.
-    Samples where a marker has left the domain are NaN.
+    Their drift, e.g. :func:`relative_error` of the energy, measures the pusher's accuracy.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset
+        The orbits product, with variables over ``(t, marker)``.
+    absB : callable, optional
+        ``|B|(x, y, z)`` as a function of the physical positions (numpy arrays), e.g.
+        ``lambda x, y, z: out.equil.absB0(*out.domain.inverse_map(x, y, z))``. Needed for the
+        energy and the pitch.
+
+    Returns
+    -------
+    xarray.Dataset
+        The invariants that could be computed (``speed``, ``energy``, ``pitch``), over
+        ``(t, marker)``. Samples where a marker has left the domain are NaN.
+
+    Raises
+    ------
+    ValueError
+        If no invariant can be computed (need ``v1``..``v3``, or ``v_par``, ``mu`` and ``absB``).
+
+    See Also
+    --------
+    classify_orbits, bounce_period
+
+    Examples
+    --------
+    >>> invariants = orbit_invariants(orbits, absB=absB)
+    >>> relative_error(invariants.energy.isel(marker=0)).struphy.plot.timeseries()
     """
     from .plotting import _alive
 
@@ -980,8 +1745,32 @@ def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
 
 
 def bounce_period(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray:
-    """The bounce period of each trapped marker: twice the mean time between reversals of its
-    parallel velocity (NaN for markers with fewer than two reversals, e.g. passing ones).
+    """The bounce period of each trapped marker.
+
+    Twice the mean time between reversals of its parallel velocity; the reversal times are
+    interpolated linearly between the saved samples.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset
+        The orbits product, with variables over ``(t, marker)``.
+    v_par : str, optional
+        The name of the parallel-velocity variable. Default: ``"v_par"``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The period over ``marker``, named ``bounce_period``; NaN for markers with fewer than two
+        reversals, e.g. passing ones.
+
+    See Also
+    --------
+    classify_orbits
+
+    Examples
+    --------
+    >>> periods = bounce_period(orbits)
+    >>> periods.where(classify_orbits(orbits) == 1).mean()
     """
     velocity = orbits[v_par].transpose("t", "marker")
     t = np.asarray(orbits.t, dtype=float)

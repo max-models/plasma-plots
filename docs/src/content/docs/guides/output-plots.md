@@ -20,9 +20,9 @@ from struphy.post_processing.output import Output
 
 out = Output("path/to/run")
 
-out.struphy.plot.scalars(relative_to="initial", logy=True)
-out.struphy.plot.equilibrium()
-out.struphy.plot.equilibrium_3d(scalars="p0", cmap="viridis")
+out.plot.scalars(relative_to="initial", logy=True)
+out.plot.equilibrium()
+out.plot.equilibrium_3d(scalars="p0", cmap="viridis")
 ```
 
 - **`scalars(names=None, *, relative_to=None, logy=False)`** — plots every
@@ -68,7 +68,7 @@ out.struphy.plot.equilibrium_3d(scalars="p0", cmap="viridis")
 
   ![Wireframe of a toroidal mapping](../../../assets/figures/3d_domain.png)
 
-See the [Whole-run reference](/struphy-plots/reference/output/) for full
+See the [`out.plot` and `out.analysis` reference](/struphy-plots/reference/output/) for full
 signatures.
 
 ## Energies from fields

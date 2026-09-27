@@ -68,7 +68,18 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
 
 
 def is_flat(grid) -> bool:
-    """Whether a structured grid has a single point in one logical direction (a 2-D run or cut)."""
+    """Whether a structured grid has a single point in one logical direction (a 2-D run or cut).
+
+    Parameters
+    ----------
+    grid : pyvista.StructuredGrid
+        The grid, e.g. from :func:`structured_grid`.
+
+    Returns
+    -------
+    bool
+        ``True`` if any of the grid's dimensions is 1.
+    """
     return 1 in tuple(grid.dimensions)
 
 
@@ -109,6 +120,31 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
     a ``component`` dimension of three Cartesian components becomes point vectors ``name``, plus
     their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`struphy_plots.arrays.close_periodic`.
     The grid is useful directly for any PyVista filter.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A field with dims ``(eta1, eta2, eta3)`` (one of them may be selected away), or
+        ``(component, eta1, eta2, eta3)`` for a vector field, and physical coordinates ``X``,
+        ``Y``, ``Z``.
+    name : str, optional
+        The name of the point data. Default: the field's label.
+
+    Returns
+    -------
+    pyvista.StructuredGrid
+        The grid with the field as its active scalars or vectors.
+
+    Raises
+    ------
+    ValueError
+        If other dimensions remain, the physical coordinates are missing, fewer than two
+        logical dimensions are left, or a vector field doesn't have three components.
+
+    Examples
+    --------
+    >>> grid = structured_grid(phi.isel(t=-1))
+    >>> grid.contour([0.0]).plot()
     """
     pv = _pv()
     vector = "component" in data.dims
@@ -135,6 +171,28 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
     field is ``sum_i v^i dX/de_i``, with the Jacobian of the mapping differentiated numerically
     from the attached ``X``, ``Y``, ``Z`` coordinates, so every logical direction needs at least
     two points.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The vector field, dims ``(component, eta1, eta2, eta3)`` with three contravariant
+        components and physical coordinates ``X``, ``Y``, ``Z``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The Cartesian ``x``, ``y``, ``z`` components, same dims and coordinates, labeled
+        ``"<label> (Cartesian)"``.
+
+    Raises
+    ------
+    ValueError
+        If the field doesn't have three components or a logical direction has fewer than two
+        points.
+
+    Examples
+    --------
+    >>> B_xyz = push_forward(out.evaluate("em_fields/b_field", representation="v").isel(t=-1))
     """
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
@@ -176,12 +234,21 @@ def _face(points, axis, index):
 
 
 def boundary_keys(points: np.ndarray) -> list[tuple[int, int]]:
-    """``(axis, index)`` of the logical faces of a ``(n1, n2, n3, 3)`` point array that are real
-    boundaries; ``index`` is ``0`` or ``-1``.
+    """Find the logical faces of a ``(n1, n2, n3, 3)`` point array that are real boundaries.
 
     Faces that collapse to a line or point (a polar axis) and pairs of opposite faces that
     coincide (the seam of a periodic direction, e.g. ``phi = 0`` of a full torus) are dropped.
     A grid that is flat in one direction (a 2-D run) is its own single face.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Physical points, shape ``(n1, n2, n3, 3)``.
+
+    Returns
+    -------
+    list of (int, int)
+        ``(axis, index)`` of each boundary face; ``index`` is ``0`` or ``-1``.
     """
     flat = [axis for axis in range(3) if points.shape[axis] == 1]
     if flat:
@@ -200,7 +267,18 @@ def boundary_keys(points: np.ndarray) -> list[tuple[int, int]]:
 
 
 def boundary_faces(points: np.ndarray) -> list[np.ndarray]:
-    """The real boundary faces of a point array, see :func:`boundary_keys`."""
+    """Return the real boundary faces of a point array, see :func:`boundary_keys`.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Physical points, shape ``(n1, n2, n3, 3)``.
+
+    Returns
+    -------
+    list of numpy.ndarray
+        The points of each face, with a size-one axis in the face's logical direction.
+    """
     return [_face(points, axis, index) for axis, index in boundary_keys(points)]
 
 
@@ -261,6 +339,53 @@ def pyvista_isosurface(
     ``show_domain`` draws
     the domain's outer surface translucently for context. For a 2-D field (one logical
     direction with a single point) the levels are contour lines over the colored plane.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A scalar field with dims ``(eta1, eta2, eta3)`` (every other dimension selected; one
+        logical dimension may be selected away) and physical coordinates ``X``, ``Y``, ``Z``.
+    values : int or list of float, optional
+        The number of evenly spaced levels strictly between the color limits, or explicit
+        levels. Default: 5.
+    cmap : str or matplotlib colormap, optional
+        The colormap. Default: ``"viridis"``.
+    opacity : float, optional
+        Opacity of the surfaces (of the plane for a 2-D field). Default: 1.
+    clim : (float, float), optional
+        Color limits; default from the field's values, see ``symmetric`` and ``robust``.
+    show_domain : bool, optional
+        Draw the domain's outer surface translucently for context (3-D fields only).
+        Default: ``True``.
+    title : str, optional
+        Text in the scene's corner. Default: the field's label; ``""`` for none.
+    symmetric : bool, optional
+        Color limits symmetric about zero. Default: ``False``.
+    robust : bool, optional
+        Color limits from percentiles instead of the extremes, so outliers don't wash out the
+        colors. Default: ``False``.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the field when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If other dimensions remain or the physical coordinates are missing.
+
+    See Also
+    --------
+    pyvista_slices : The field on surfaces of constant logical coordinate.
+
+    Examples
+    --------
+    >>> pyvista_isosurface(phi.isel(t=-1), values=[-0.1, 0.1]).show()
+    >>> pyvista_isosurface(phi.isel(t=-1), symmetric=True, opacity=0.6).show()
     """
     grid = structured_grid(data)
     name = grid.active_scalars_name
@@ -306,10 +431,15 @@ def _cut_indices(data, cuts):
         chosen = []
         # not via numpy: a list like [0.0, -1] would turn the index -1 into the coordinate -1.0
         for position in positions if isinstance(positions, (list, tuple)) else [positions]:
-            if position in ("first", "last"):  # accepted, but integer indices are the documented form
+            if position in (
+                "first",
+                "last",
+            ):  # accepted, but integer indices are the documented form
                 chosen.append(0 if position == "first" else len(coordinate) - 1)
             elif isinstance(position, (bool, str)):
-                raise TypeError(f"cannot cut {dim} at {position!r}; use an integer index (e.g. -1) or a float coordinate")
+                raise TypeError(
+                    f"cannot cut {dim} at {position!r}; use an integer index (e.g. -1) or a float coordinate"
+                )
             elif isinstance(position, (int, np.integer)):
                 chosen.append(position % len(coordinate))
             else:
@@ -326,6 +456,26 @@ def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[x
     the middle of every dimension with more than one point, or for a 2-D field (one dimension
     with a single point) the whole plane. Each cut keeps its size-one dimension, so it still
     maps onto a surface in physical space.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A scalar field with dims ``(eta1, eta2, eta3)`` and physical coordinates ``X``, ``Y``,
+        ``Z``.
+    cuts : dict, optional
+        ``{dim: position or list of positions}`` along ``eta1``, ``eta2``, ``eta3``.
+
+    Returns
+    -------
+    list of xarray.DataArray
+        One array per cut, in the order of ``cuts``.
+
+    Raises
+    ------
+    ValueError
+        If a cut is along another dimension.
+    TypeError
+        If a position is neither an integer nor a float.
     """
     data = _spatial(data)
     if cuts is None:
@@ -352,6 +502,55 @@ def pyvista_slices(
     On a mapped domain these are the natural cuts: ``cuts={"eta3": [0, 0.25]}`` gives poloidal
     cross-sections of a torus, ``cuts={"eta1": 0.8}`` the field on one flux surface. See
     :func:`prepare_slices_3d` for ``cuts``; color limits are shared by every cut.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A scalar field with dims ``(eta1, eta2, eta3)`` (every other dimension selected; one
+        logical dimension may be selected away) and physical coordinates ``X``, ``Y``, ``Z``.
+    cuts : dict, optional
+        ``{dim: position or list of positions}`` along ``eta1``, ``eta2``, ``eta3``: a float is
+        the nearest logical coordinate, an integer a grid index (``-1`` the last). Default: the
+        middle of every dimension, or the whole plane of a 2-D field.
+    cmap : str or matplotlib colormap, optional
+        The colormap. Default: ``"viridis"``.
+    clim : (float, float), optional
+        Color limits, shared by every cut; default from the whole field's values, see
+        ``symmetric`` and ``robust``.
+    show_domain : bool, optional
+        Draw the domain's outer surface translucently for context. Not drawn when the whole plane of a
+        2-D field is shown. Default: ``True``.
+    title : str, optional
+        Text in the scene's corner. Default: the field's label; ``""`` for none.
+    symmetric : bool, optional
+        Color limits symmetric about zero. Default: ``False``.
+    robust : bool, optional
+        Color limits from percentiles instead of the extremes, so outliers don't wash out the
+        colors. Default: ``False``.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the field when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If other dimensions remain, the physical coordinates are missing, or a cut is along
+        another dimension.
+
+    See Also
+    --------
+    prepare_slices_3d : The cuts, without drawing them.
+    pyvista_isosurface : Contour surfaces of the field.
+
+    Examples
+    --------
+    >>> pyvista_slices(phi.isel(t=-1), cuts={"eta3": [0, 0.25]}).show()
+    >>> pyvista_slices(phi.isel(t=-1), cuts={"eta1": 0.8}, symmetric=True).show()
     """
     data = _spatial(data)
     pieces = prepare_slices_3d(data, cuts=cuts)
@@ -393,6 +592,50 @@ def pyvista_glyphs(
     ``"contravariant"`` for logical components, pushed forward by :func:`push_forward`.
     ``stride`` thins the grid in every direction; ``scale`` is the arrow length of the largest
     vector (default: a tenth of the domain size).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A vector field with dims ``(component, eta1, eta2, eta3)`` (three components, every
+        other dimension selected) and physical coordinates ``X``, ``Y``, ``Z``.
+    components : {"cartesian", "contravariant"}, optional
+        How to read the components: Cartesian x/y/z, or contravariant logical components,
+        pushed forward. Default: ``"cartesian"``.
+    stride : int, optional
+        Draw an arrow at every ``stride``-th point in every direction. Default: 2.
+    scale : float, optional
+        Arrow length of the largest vector, in physical units. Default: a tenth of the domain
+        size.
+    cmap : str or matplotlib colormap, optional
+        The colormap of the magnitude. Default: ``"viridis"``.
+    show_domain : bool, optional
+        Draw the domain's outer surface translucently for context. Default: ``True``.
+    title : str, optional
+        Text in the scene's corner. Default: the field's label; ``""`` for none.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the field when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If ``stride`` is less than 1, ``components`` is unknown, or the field isn't a
+        three-component field over the logical dimensions with physical coordinates.
+
+    See Also
+    --------
+    pyvista_streamlines : Field lines of the vector field.
+    push_forward : Cartesian components from contravariant ones.
+
+    Examples
+    --------
+    >>> pyvista_glyphs(B.isel(t=-1), stride=3).show()
+    >>> pyvista_glyphs(B.isel(t=-1), components="contravariant", scale=0.2).show()
     """
     if stride < 1:
         raise ValueError("stride must be positive")
@@ -439,6 +682,57 @@ def pyvista_streamlines(
     center default: the bounding-box center, which can lie outside a curved domain). For a 2-D
     field the lines stay on the plane (the out-of-plane component is ignored). See
     :func:`pyvista_glyphs` for ``components``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A vector field with dims ``(component, eta1, eta2, eta3)`` (three components, every
+        other dimension selected) and physical coordinates ``X``, ``Y``, ``Z``.
+    components : {"cartesian", "contravariant"}, optional
+        How to read the components: Cartesian x/y/z, or contravariant logical components,
+        pushed forward by :func:`push_forward`. Default: ``"cartesian"``.
+    n_points : int, optional
+        The number of seed points (at most the number of grid points when seeding on the grid).
+        Default: 100.
+    source_radius : float, optional
+        Seed in a sphere of this radius instead of at grid points. Default (when
+        ``source_center`` is given): a quarter of the domain size.
+    source_center : (float, float, float), optional
+        Seed in a sphere around this physical point instead of at grid points. Default (when
+        ``source_radius`` is given): the bounding-box center.
+    max_length : float, optional
+        Maximum length of each line. Default: four times the domain size.
+    tube_radius : float, optional
+        Draw the lines as tubes of this radius. Default: plain lines.
+    cmap : str or matplotlib colormap, optional
+        The colormap of the magnitude. Default: ``"viridis"``.
+    show_domain : bool, optional
+        Draw the domain's outer surface translucently for context. Default: ``True``.
+    title : str, optional
+        Text in the scene's corner. Default: ``"<label> field lines"``; ``""`` for none.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the field when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If ``components`` is unknown, or the field isn't a three-component field over the
+        logical dimensions with physical coordinates.
+
+    See Also
+    --------
+    pyvista_glyphs : Arrows of the vector field.
+
+    Examples
+    --------
+    >>> pyvista_streamlines(B.isel(t=-1)).show()
+    >>> pyvista_streamlines(B.isel(t=-1), source_center=(3.0, 0.0, 0.0), source_radius=0.5, tube_radius=0.01).show()
     """
     pv = _pv()
     name = _label(data)
@@ -499,6 +793,27 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     Samples where a marker is lost (every quantity zero) are dropped. ``color_by`` is ``"t"``,
     ``"classification"`` (see :func:`~struphy_plots.analysis.classify_orbits`), or the name of
     any ``(t, marker)`` variable, e.g. ``"v_par"`` or ``"weight"``.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset
+        Marker orbits with dims ``(t, marker)`` and physical positions ``x``, ``y``, ``z``.
+    color_by : str, optional
+        The point data to attach: ``"t"``, ``"classification"`` or a variable name.
+        Default: ``"t"``.
+    max_markers : int, optional
+        At most this many markers are used. Default: 200.
+
+    Returns
+    -------
+    pyvista.PolyData
+        One line per marker with at least two samples left, and point data ``color_by``;
+        empty if no marker has.
+
+    Raises
+    ------
+    ValueError
+        If ``color_by`` is neither ``"t"``, ``"classification"`` nor a variable of ``orbits``.
     """
     pv = _pv()
     from .plotting import prepare_orbits
@@ -550,6 +865,46 @@ def pyvista_orbits(
 
     ``domain`` is any field with physical coordinates whose outer surface is drawn translucently
     for context. See :func:`orbit_polylines` for ``color_by``.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset
+        Marker orbits with dims ``(t, marker)`` and physical positions ``x``, ``y``, ``z``.
+    color_by : str, optional
+        ``"t"``, ``"classification"`` (passing, trapped, lost, with a legend) or the name of
+        any ``(t, marker)`` variable, e.g. ``"v_par"``. Default: ``"t"``.
+    max_markers : int, optional
+        At most this many markers are drawn. Default: 200.
+    tube_radius : float, optional
+        Draw the orbits as tubes of this radius. Default: plain lines.
+    cmap : str or matplotlib colormap, optional
+        The colormap (not used for ``"classification"``). Default: ``"viridis"``.
+    domain : xarray.DataArray, optional
+        A field with physical coordinates whose outer surface is drawn translucently; other
+        than ``eta1``, ``eta2``, ``eta3``, its dimensions are taken at their first position.
+    title : str, optional
+        Text in the scene's corner. Default: ``"Marker orbits"``; ``""`` for none.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If ``color_by`` is neither ``"t"``, ``"classification"`` nor a variable of ``orbits``.
+
+    See Also
+    --------
+    orbit_polylines : The orbits as a ``pyvista.PolyData``, without drawing them.
+
+    Examples
+    --------
+    >>> pyvista_orbits(out.kinetic_ions.orbits, color_by="classification").show()
+    >>> pyvista_orbits(out.kinetic_ions.orbits, color_by="v_par", domain=phi, tube_radius=0.01).show()
     """
     lines = orbit_polylines(orbits, color_by=color_by, max_markers=max_markers)
     plotter = _plotter(plotter)
@@ -602,6 +957,41 @@ def pyvista_domain(
     ``resolution`` times finer so curved lines stay smooth. ``surface`` adds the translucent
     boundary. Useful to check the geometry (and its orientation) of a run; ``n3=1`` shows a
     2-D run's plane.
+
+    Parameters
+    ----------
+    domain : callable
+        A Struphy domain (mapping), e.g. ``out.domain``, called as
+        ``domain(eta1, eta2, eta3, squeeze_out=False)`` to give ``x``, ``y``, ``z``.
+    n1 : int, optional
+        Grid lines along ``eta1``. Default: 8.
+    n2 : int, optional
+        Grid lines along ``eta2``. Default: 32.
+    n3 : int, optional
+        Grid lines along ``eta3``. Default: 32.
+    resolution : int, optional
+        Samples per line spacing, so curved lines stay smooth. Default: 4.
+    color : str, optional
+        Color of the grid lines. Default: ``"black"``.
+    surface : bool, optional
+        Draw the translucent boundary surface. Default: ``True``.
+    cross_section : bool, optional
+        Also draw grid lines over the ``eta3 = 0`` face. Default: ``True``.
+    title : str, optional
+        Text in the scene's corner. Default: ``"Domain"``; ``""`` for none.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the domain when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Examples
+    --------
+    >>> pyvista_domain(out.domain).show()
+    >>> pyvista_domain(out.domain, n3=1, surface=False).show()
     """
     pv = _pv()
     fine = [np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)]
@@ -634,7 +1024,30 @@ def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
     ``.pvd`` collection that ParaView opens as a time series; without one, ``path`` is a single
     ``.vts`` file. Vector fields (``component``) become point vectors. Any array works, e.g. a
     :func:`~struphy_plots.spectral.filter_time` result, so filtered modes can be inspected in
-    ParaView too. Returns the written paths.
+    ParaView too.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A field over ``(eta1, eta2, eta3)`` (and optionally ``t`` and ``component``) with
+        physical coordinates ``X``, ``Y``, ``Z``; every other dimension selected.
+    path : str or pathlib.Path
+        The ``.vts`` file (the suffix is set to ``.vts``), or with a ``t`` dimension the
+        directory to write into (created if needed).
+    name : str, optional
+        The name of the point data, also the file stem in a time series. Default: the field's
+        label.
+
+    Returns
+    -------
+    list of str
+        The written paths: the ``.vts`` file, or the ``.pvd`` collection followed by one
+        ``.vts`` file per time.
+
+    Examples
+    --------
+    >>> save_vtk(phi, "vtk/phi")
+    >>> save_vtk(phi.isel(t=-1), "phi_last.vts")
     """
     from pathlib import Path as _Path
 
@@ -687,6 +1100,46 @@ def save_movie(
     ``kind`` picks the view and ``options`` are passed on to it. Scalar views share color
     limits over the whole sweep (override with ``clim``), and the camera is fixed after the
     first frame. GIFs need ``imageio``, videos ``imageio-ffmpeg``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A field with dimension ``sweep`` plus what the view ``kind`` needs (see
+        :func:`pyvista_slices`, :func:`pyvista_glyphs`, ...).
+    path : str or pathlib.Path
+        The output file: a GIF for ``.gif``, a video (e.g. ``.mp4``) for any other suffix.
+    kind : {"isosurface", "slices", "glyphs", "streamlines"}, optional
+        The view of each frame. Default: ``"slices"``.
+    sweep : str, optional
+        The dimension to step through, one frame per step. Default: ``"t"``.
+    step : int, optional
+        Use every ``step``-th position of ``sweep``. Default: 1.
+    framerate : int, optional
+        Frames per second. Default: 10.
+    clim : (float, float), optional
+        Color limits of the scalar views (``"isosurface"``, ``"slices"``). Default: from the
+        whole sweep, with the ``symmetric`` and ``robust`` options.
+    window_size : (int, int), optional
+        Frame size in pixels. Default: ``(1024, 768)``.
+    **options
+        Passed on to the view, e.g. ``cuts`` or ``cmap``. A ``title`` is prefixed to each
+        frame's ``"<sweep> = <value>"`` label (default: the field's label).
+
+    Returns
+    -------
+    str
+        The path of the written file.
+
+    Raises
+    ------
+    ValueError
+        If ``kind`` is unknown, ``step`` isn't a positive integer, or ``data`` has no ``sweep``
+        dimension.
+
+    Examples
+    --------
+    >>> save_movie(phi, "phi.gif", cuts={"eta3": 0}, symmetric=True)
+    >>> save_movie(B, "B.mp4", kind="glyphs", step=2)
     """
     pv = _pv()
     if kind not in RENDERERS:

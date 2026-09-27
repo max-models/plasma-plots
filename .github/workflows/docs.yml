@@ -142,6 +142,9 @@ jobs:
       - name: Generate example figures
         run: xvfb-run -a make figures
 
+      - name: Generate the API reference
+        run: make api
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22

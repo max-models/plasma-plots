@@ -21,6 +21,9 @@ docs/public/figures/
 docs/public/plotly/
 docs/public/pyvista/
 
+# The API reference, generated from the docstrings (`make api` / CI, not checked in)
+docs/src/content/docs/reference/
+
 # Editors / OS
 .DS_Store
 .vscode/

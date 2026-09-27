@@ -1,4 +1,4 @@
-.PHONY: install test lint figures docs-install docs-build docs-dev clean
+.PHONY: install test lint figures api docs-install docs-build docs-dev clean
 
 install:
 	pip install -e ".[dev]"
@@ -17,15 +17,20 @@ figures:
 	python3 scripts/generate_docs_figures.py
 	python3 scripts/generate_real_example_figures.py
 
+# Writes the API reference (docs/src/content/docs/reference/) from the docstrings.
+# Not checked into git either. Needs griffe (in the dev extra).
+api:
+	python3 scripts/generate_api_reference.py
+
 docs-install:
 	cd docs && npm ci
 
-docs-build: figures
+docs-build: figures api
 	cd docs && npm run build
 
-docs-dev: figures
+docs-dev: figures api
 	cd docs && npm run dev
 
 clean:
-	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista
+	rm -rf docs/dist docs/.astro docs/src/content/docs/reference docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista
 	find . -name '__pycache__' -not -path './docs/node_modules/*' -exec rm -rf {} +
