@@ -77,8 +77,10 @@ The API reference on the docs site is generated from the docstrings by
 drifts from the code. It runs griffe (through `uv` if it's on your `PATH`, else `python -m griffe`,
 which the `dev` extra installs), with the extension `scripts/griffe_extension.py`: that fills in
 inherited parameters (see below) and turns the Sphinx roles into links. The module pages live
-under `/api/struphy_plots/`; the accessor pages in `docs/src/content/docs/reference/` are short
-hand-written pages that embed the classes with `<Autodoc>`.
+under `/api/struphy_plots/`. The accessor pages (`docs/src/content/docs/reference/plot.mdx` and
+the others) embed one method per `<Autodoc>` block, in source order; `scripts/accessor_pages.py`
+writes them, so run it after adding or removing an accessor method (`tests/test_accessor_pages.py`
+fails until you do).
 
 Every public module, class, function and method (a name without a leading
 underscore) needs a [NumPy-style](https://numpydoc.readthedocs.io/en/latest/format.html)

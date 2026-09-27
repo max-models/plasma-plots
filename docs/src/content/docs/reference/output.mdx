@@ -5,11 +5,11 @@ sidebar:
   order: 5
 ---
 
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
 import { Autodoc } from 'starlight-pydocs/components';
 
-Plots and diagnostics of a whole run, on a Struphy `Output` object: `out.plot` (with `out.plot.profile` for timing data) and `out.analysis`.
-
-The methods are listed alphabetically below. For a contents list of every method, see the [`output_accessors` module page](/struphy-plots/api/struphy_plots/output_accessors/#struphy_plots.output_accessors.OutputPlots).
+Plots and diagnostics of a whole run, on a Struphy `Output` object. `out.plot()` on its own draws the scalar overview.
 
 :::note[Where the accessors come from]
 The examples use output of a Struphy `Output`, which loads struphy-plots and its
@@ -17,9 +17,74 @@ The examples use output of a Struphy `Output`, which loads struphy-plots and its
 [Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
 :::
 
-<Autodoc name="struphy_plots.output_accessors.OutputPlots" package="struphy_plots" />
+## out.plot
 
-<Autodoc name="struphy_plots.output_accessors.ProfilePlots" package="struphy_plots" />
+Plots of a whole run, as `out.plot.<kind>(...)`, constructed as `OutputPlots(out)`.
 
-<Autodoc name="struphy_plots.output_accessors.OutputAnalysis" package="struphy_plots" />
+### `scalars`
 
+<Autodoc name="struphy_plots.output_accessors.OutputPlots.scalars" package="struphy_plots" headingLevel={3} />
+
+### `energies`
+
+<Autodoc name="struphy_plots.output_accessors.OutputPlots.energies" package="struphy_plots" headingLevel={3} />
+
+### `equilibrium`
+
+<Autodoc name="struphy_plots.output_accessors.OutputPlots.equilibrium" package="struphy_plots" headingLevel={3} />
+
+### `equilibrium_3d`
+
+<Autodoc name="struphy_plots.output_accessors.OutputPlots.equilibrium_3d" package="struphy_plots" headingLevel={3} />
+
+### `domain_3d`
+
+<Autodoc name="struphy_plots.output_accessors.OutputPlots.domain_3d" package="struphy_plots" headingLevel={3} />
+
+### `profile`
+
+<Autodoc name="struphy_plots.output_accessors.OutputPlots.profile" package="struphy_plots" headingLevel={3} />
+
+## out.plot.profile
+
+Plots of one run's timing regions (`out.profile.results`), as `out.plot.profile.<kind>(...)`.
+
+### `gantt`
+
+<Autodoc name="struphy_plots.output_accessors.ProfilePlots.gantt" package="struphy_plots" headingLevel={3} />
+
+### `flame`
+
+<Autodoc name="struphy_plots.output_accessors.ProfilePlots.flame" package="struphy_plots" headingLevel={3} />
+
+### `callgraph`
+
+<Autodoc name="struphy_plots.output_accessors.ProfilePlots.callgraph" package="struphy_plots" headingLevel={3} />
+
+## out.analysis
+
+Spectral diagnostics of a run's products, as `out.analysis.<kind>(product, ...)`.
+
+### `fft`
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis.fft" package="struphy_plots" headingLevel={3} />
+
+### `time_fft`
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis.time_fft" package="struphy_plots" headingLevel={3} />
+
+### `filter_time`
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis.filter_time" package="struphy_plots" headingLevel={3} />
+
+### `linear_mhd_energies`
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis.linear_mhd_energies" package="struphy_plots" headingLevel={3} />
+
+### `quadrature_grid`
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis.quadrature_grid" package="struphy_plots" headingLevel={3} />
+
+### `mode_spectrum`
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis.mode_spectrum" package="struphy_plots" headingLevel={3} />

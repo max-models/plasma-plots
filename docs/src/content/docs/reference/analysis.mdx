@@ -5,11 +5,11 @@ sidebar:
   order: 2
 ---
 
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
 import { Autodoc } from 'starlight-pydocs/components';
 
 Numerical diagnostics of one labeled `xarray.DataArray`, as `array.struphy.analysis.<method>(...)`. They return labeled arrays and Datasets, so their results can be plotted with `.struphy.plot` in turn.
-
-The methods are listed alphabetically below. For a contents list of every method, see the [`accessors` module page](/struphy-plots/api/struphy_plots/accessors/#struphy_plots.accessors.ArrayAnalysis).
 
 :::note[Where the accessors come from]
 The examples use output of a Struphy `Output`, which loads struphy-plots and its
@@ -17,5 +17,134 @@ The examples use output of a Struphy `Output`, which loads struphy-plots and its
 [Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
 :::
 
-<Autodoc name="struphy_plots.accessors.ArrayAnalysis" package="struphy_plots" />
+## array.struphy.analysis
 
+Quantitative diagnostics of one array, as `array.struphy.analysis.<quantity>(...)`.
+
+### `growth_rate`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.growth_rate" package="struphy_plots" headingLevel={3} />
+
+### `damping_rate`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.damping_rate" package="struphy_plots" headingLevel={3} />
+
+### `envelope`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.envelope" package="struphy_plots" headingLevel={3} />
+
+### `norm`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.norm" package="struphy_plots" headingLevel={3} />
+
+### `drift`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.drift" package="struphy_plots" headingLevel={3} />
+
+### `relative_error`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.relative_error" package="struphy_plots" headingLevel={3} />
+
+### `spatial_average`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.spatial_average" package="struphy_plots" headingLevel={3} />
+
+### `velocity_moments`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.velocity_moments" package="struphy_plots" headingLevel={3} />
+
+### `dispersion`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.dispersion" package="struphy_plots" headingLevel={3} />
+
+### `fit_branches`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.fit_branches" package="struphy_plots" headingLevel={3} />
+
+### `fft`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.fft" package="struphy_plots" headingLevel={3} />
+
+### `time_fft`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.time_fft" package="struphy_plots" headingLevel={3} />
+
+### `filter_time`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.filter_time" package="struphy_plots" headingLevel={3} />
+
+### `band_filter`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.band_filter" package="struphy_plots" headingLevel={3} />
+
+### `spectral_peaks`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.spectral_peaks" package="struphy_plots" headingLevel={3} />
+
+### `spectrogram`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.spectrogram" package="struphy_plots" headingLevel={3} />
+
+### `mode_spectrum`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.mode_spectrum" package="struphy_plots" headingLevel={3} />
+
+### `mode_amplitudes`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.mode_amplitudes" package="struphy_plots" headingLevel={3} />
+
+### `mode_structure`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.mode_structure" package="struphy_plots" headingLevel={3} />
+
+### `cross_spectrum`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.cross_spectrum" package="struphy_plots" headingLevel={3} />
+
+### `matrix_pencil`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.matrix_pencil" package="struphy_plots" headingLevel={3} />
+
+### `gradient`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.gradient" package="struphy_plots" headingLevel={3} />
+
+### `error`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.error" package="struphy_plots" headingLevel={3} />
+
+### `project_mode`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.project_mode" package="struphy_plots" headingLevel={3} />
+
+### `divergence`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.divergence" package="struphy_plots" headingLevel={3} />
+
+### `curl`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.curl" package="struphy_plots" headingLevel={3} />
+
+### `flux_function`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.flux_function" package="struphy_plots" headingLevel={3} />
+
+### `cylindrical_components`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.cylindrical_components" package="struphy_plots" headingLevel={3} />
+
+### `toroidal_components`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.toroidal_components" package="struphy_plots" headingLevel={3} />
+
+### `polar_coordinates`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.polar_coordinates" package="struphy_plots" headingLevel={3} />
+
+### `trace_branch`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.trace_branch" package="struphy_plots" headingLevel={3} />
+
+### `drop_periodic_endpoint`
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis.drop_periodic_endpoint" package="struphy_plots" headingLevel={3} />

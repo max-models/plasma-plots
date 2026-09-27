@@ -5,11 +5,11 @@ sidebar:
   order: 4
 ---
 
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
 import { Autodoc } from 'starlight-pydocs/components';
 
-Plots, diagnostics and data of an `xarray.Dataset` with per-marker variables, such as an orbits product: `dataset.struphy.plot`, `dataset.struphy.analysis` and `dataset.struphy.data`.
-
-The methods are listed alphabetically below. For a contents list of every method, see the [`accessors` module page](/struphy-plots/api/struphy_plots/accessors/#struphy_plots.accessors.DatasetPlots).
+Plots, diagnostics and data of an `xarray.Dataset` with per-marker variables, such as an orbits product.
 
 :::note[Where the accessors come from]
 The examples use output of a Struphy `Output`, which loads struphy-plots and its
@@ -17,9 +17,82 @@ The examples use output of a Struphy `Output`, which loads struphy-plots and its
 [Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
 :::
 
-<Autodoc name="struphy_plots.accessors.DatasetPlots" package="struphy_plots" />
+## dataset.struphy.plot
 
-<Autodoc name="struphy_plots.accessors.DatasetAnalysis" package="struphy_plots" />
+Plots of one dataset, as `dataset.struphy.plot.<kind>(...)`.
 
-<Autodoc name="struphy_plots.accessors.DatasetData" package="struphy_plots" />
+### `power_spectrum`
 
+<Autodoc name="struphy_plots.accessors.DatasetPlots.power_spectrum" package="struphy_plots" headingLevel={3} />
+
+### `cross_spectrum`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.cross_spectrum" package="struphy_plots" headingLevel={3} />
+
+### `trajectories`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.trajectories" package="struphy_plots" headingLevel={3} />
+
+### `scatter`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.scatter" package="struphy_plots" headingLevel={3} />
+
+### `orbit_classification`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.orbit_classification" package="struphy_plots" headingLevel={3} />
+
+### `animation`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.animation" package="struphy_plots" headingLevel={3} />
+
+### `paths`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.paths" package="struphy_plots" headingLevel={3} />
+
+### `poloidal`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.poloidal" package="struphy_plots" headingLevel={3} />
+
+### `orbit_grid`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.orbit_grid" package="struphy_plots" headingLevel={3} />
+
+### `quantities`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.quantities" package="struphy_plots" headingLevel={3} />
+
+### `orbits_3d`
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots.orbits_3d" package="struphy_plots" headingLevel={3} />
+
+## dataset.struphy.analysis
+
+Quantitative diagnostics of one dataset, as `dataset.struphy.analysis.<quantity>(...)`.
+
+### `classify_orbits`
+
+<Autodoc name="struphy_plots.accessors.DatasetAnalysis.classify_orbits" package="struphy_plots" headingLevel={3} />
+
+### `orbit_invariants`
+
+<Autodoc name="struphy_plots.accessors.DatasetAnalysis.orbit_invariants" package="struphy_plots" headingLevel={3} />
+
+### `bounce_period`
+
+<Autodoc name="struphy_plots.accessors.DatasetAnalysis.bounce_period" package="struphy_plots" headingLevel={3} />
+
+## dataset.struphy.data
+
+The data behind each plot in :class:`DatasetPlots`, without rendering it.
+
+### `trajectories`
+
+<Autodoc name="struphy_plots.accessors.DatasetData.trajectories" package="struphy_plots" headingLevel={3} />
+
+### `scatter`
+
+<Autodoc name="struphy_plots.accessors.DatasetData.scatter" package="struphy_plots" headingLevel={3} />
+
+### `orbit_classification`
+
+<Autodoc name="struphy_plots.accessors.DatasetData.orbit_classification" package="struphy_plots" headingLevel={3} />

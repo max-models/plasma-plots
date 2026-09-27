@@ -52,11 +52,11 @@ export default defineConfig({
 						'- The Reference pages list every accessor method and function with all parameters (also as plain text at /api/struphy_plots/llms.txt); the Guides show them with figures.',
 					].join('\n'),
 					promote: ['guides/getting-started', 'guides/data', 'reference', 'reference/**'],
-					customSets: [
+					optionalLinks: [
 						{
 							label: 'API reference',
-							description: 'every accessor method and function, with all parameters',
-							paths: ['reference', 'reference/**'],
+							url: 'https://struphy-hub.github.io/struphy-plots/api/struphy_plots/llms.txt',
+							description: 'every module, class and function of struphy_plots with all parameters, as plain text',
 						},
 					],
 				}),

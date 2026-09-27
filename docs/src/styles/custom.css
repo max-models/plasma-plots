@@ -49,6 +49,21 @@
 	--sl-color-gray-4: #8b9aa0;
 }
 
+/* API reference accessor pages (scripts/accessor_pages.py): a Markdown heading above each
+   <Autodoc> block gives Starlight's "On this page" panel an entry; the block shows its own heading,
+   so the Markdown one is hidden visually (but stays in the page, as the panel's scroll target). */
+.sl-markdown-content .sl-heading-wrapper:has(+ section.pyd-member) {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+.sl-markdown-content .sl-heading-wrapper:has(+ section.pyd-member) > :is(h2, h3) {
+	scroll-margin-top: calc(var(--sl-nav-height) - 1rem); /* land with the block's heading just below the header */
+}
+
 /* A crisper, less "pill-shaped" look for hero buttons, matching the
    reference site's rectangular, low-radius UI elements. */
 .sl-link-button {
