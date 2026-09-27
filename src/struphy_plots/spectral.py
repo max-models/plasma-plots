@@ -6,10 +6,11 @@ filters, spectral peaks, spectrograms, poloidal/toroidal mode decomposition, mod
 frequency, cross-spectra and matrix-pencil fits of complex frequencies.
 
 Conventions: every transform divides by the sample count ``N`` (numpy's ``norm="forward"``).
-Frequencies are angular, ``omega = 2*pi*f``, in units inverse to the coordinate. The forward
-kernel is numpy's ``exp(-i omega t)``, so ``exp(+i omega t)`` appears at positive ``omega`` and a
-mode ``exp(2*pi*i*m*eta2)`` at ``m``. The dominant-band filter follows the TAE_example_Shrut
-workflow, with xarray coordinates replacing dictionaries of post-processed snapshots.
+Frequencies are angular, ω = 2π f, in units inverse to the coordinate. The forward kernel is
+numpy's ``exp(-i ω t)``, so ``exp(+i ω t)`` appears at positive ω and a mode
+``exp(2π i m eta2)`` at ``m``. A right-moving wave ``exp(i (k x - ω t))`` therefore sits at
+``(k, -ω)``. The dominant-band filter follows the TAE_example_Shrut workflow, with xarray
+coordinates replacing dictionaries of post-processed snapshots.
 """
 
 from __future__ import annotations
@@ -46,7 +47,21 @@ def _samples(data, dim, *, real=False):
 
 
 def hann(n: int) -> np.ndarray:
-    """The periodic Hann window of length ``n`` (``scipy.signal.windows.hann(n, sym=False)``)."""
+    """Return the periodic Hann window of length ``n``.
+
+    The same as ``scipy.signal.windows.hann(n, sym=False)``: ``0.5 - 0.5 cos(2π j / n)`` for
+    ``j = 0, ..., n - 1``.
+
+    Parameters
+    ----------
+    n : int
+        The number of samples.
+
+    Returns
+    -------
+    numpy.ndarray
+        The window, of length ``n``, starting at 0.
+    """
     return 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(n) / n)
 
 
@@ -93,16 +108,56 @@ def _coefficients(data, values, dim, frequency_dim, frequencies, spacing, detren
 
 
 def fft(data: xr.DataArray, *, dim: str, detrend: bool = False, window: str | None = None) -> xr.DataArray:
-    """Two-sided, shifted FFT along a named uniform coordinate, normalized by N.
+    """Compute the two-sided, shifted FFT along a named uniform coordinate, normalized by N.
 
-    Returns complex coefficients with ``dim`` replaced by ``omega`` for time or
-    ``k_<dim>`` otherwise. Frequencies are angular (2*pi times cycles per unit
-    of the supplied coordinate). Remove duplicate endpoints of periodic spatial
-    grids before calling this function (see :func:`drop_periodic_endpoint`); no
-    endpoint is dropped automatically. A mean subtraction and a periodic Hann
-    window are optional. Windowed powers refer to the windowed signal, without
-    amplitude/energy compensation. Coefficient phases are relative to the first
-    sample, recorded as ``sample_origin``.
+    Frequencies are angular (2π times cycles per unit of the supplied coordinate) and run from
+    negative to positive (``fftshift``). With numpy's kernel ``exp(-i ω t)``, a right-moving wave
+    ``exp(i (k x - ω t))`` sits at ``(k, -ω)``. Remove duplicate endpoints of periodic spatial
+    grids before calling this function (see :func:`drop_periodic_endpoint`); no endpoint is
+    dropped automatically. Windowed powers refer to the windowed signal, without
+    amplitude/energy compensation. Coefficient phases are relative to the first sample,
+    recorded as ``sample_origin``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The signal, real or complex, with finite values. ``dim`` must be a dimension with a
+        strictly increasing, uniformly spaced one-dimensional coordinate.
+    dim : str
+        The dimension to transform.
+    detrend : bool, optional
+        Subtract the mean along ``dim`` first. Default: False.
+    window : {None, "hann"}, optional
+        Multiply by a periodic Hann window (see :func:`hann`) first. Default: None (boxcar).
+
+    Returns
+    -------
+    xarray.DataArray
+        Complex coefficients named ``coefficients``, ``fft(data) / N``, with ``dim`` replaced by
+        ``omega`` (for ``dim="t"``) or ``k_<dim>`` (otherwise). Coordinates that depend on
+        ``dim`` are dropped. The input's attrs are kept and extended by ``transform_dim``,
+        ``n_samples``, ``sample_spacing``, ``sample_origin``, ``frequency_resolution``
+        (2π / (N dt)), ``nyquist_frequency`` (π / dt), ``normalization`` (``"forward"``),
+        ``window``, ``detrend`` and ``label``.
+
+    Raises
+    ------
+    TypeError
+        If ``data`` is not a DataArray.
+    ValueError
+        If ``dim`` has no uniform, increasing numeric coordinate with at least two samples, the
+        values are not finite, the frequency coordinate already exists, or ``detrend``/``window``
+        are invalid.
+
+    See Also
+    --------
+    time_fft : The one-sided transform of a real signal in time, with power.
+    drop_periodic_endpoint : Remove a duplicate periodic endpoint first.
+
+    Examples
+    --------
+    >>> coefficients = fft(phi.isel(t=-1, eta2=0, eta3=0), dim="eta1")
+    >>> power = abs(coefficients) ** 2
     """
     values, spacing, axis = _samples(data, dim)
     values = _prepare(values, axis, detrend, window)
@@ -121,19 +176,54 @@ def fft(data: xr.DataArray, *, dim: str, detrend: bool = False, window: str | No
 
 
 def time_fft(data: xr.DataArray, *, detrend: bool = False, window: str | None = None) -> xr.Dataset:
-    """One-sided time FFT with complex coefficients and mean-square power per bin.
+    """Compute the one-sided time FFT, with complex coefficients and mean-square power per bin.
 
-    Replaces ``t`` by ``omega`` and preserves other dimensions and coordinates.
-    ``coefficients = rfft(data) / N``. ``power`` doubles the positive-frequency
-    bins, except the even-N Nyquist bin. Its sum over omega equals the temporal
-    mean square of the input (after any mean subtraction/windowing), not a PSD
-    per unit frequency. The DC and Nyquist amplitudes are never doubled.
+    Replaces ``t`` by ``omega`` (ω ≥ 0) and preserves other dimensions and coordinates.
+    ``coefficients = rfft(data) / N``. ``power`` doubles the positive-frequency bins, except the
+    even-N Nyquist bin: the DC and Nyquist amplitudes are never doubled. Its sum over ω equals
+    the temporal mean square of the input (after any mean subtraction/windowing), not a PSD per
+    unit frequency. A Hann window is not compensated for.
 
-    Sampling uses the saved times, including their units, not the simulation dt.
-    Bin spacing is 2*pi/(N*dt); padding is not used to claim extra resolution.
-    Coordinates depending on t are dropped; time-independent mapped coordinates
-    and provenance are retained. Computation eagerly loads the selected array.
-    Phases are relative to the first saved time, recorded as ``sample_origin``.
+    Sampling uses the saved times, including their units, not the simulation dt. Bin spacing is
+    2π / (N dt); padding is not used to claim extra resolution. Coordinates depending on ``t``
+    are dropped; time-independent mapped coordinates and provenance are retained. Computation
+    eagerly loads the selected array. Phases are relative to the first saved time, recorded as
+    ``sample_origin``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A real signal with a ``t`` dimension, uniformly spaced in time (select a uniform interval
+        first if the saved times are not).
+    detrend : bool, optional
+        Subtract the temporal mean first. Default: False.
+    window : {None, "hann"}, optional
+        Multiply by a periodic Hann window (see :func:`hann`) first. Default: None (boxcar).
+
+    Returns
+    -------
+    xarray.Dataset
+        ``coefficients`` (complex) and ``power`` (real, with ``units`` the square of the
+        input's), both over ``omega`` and the other dimensions of ``data``. The attrs are
+        those of the coefficients (see :func:`fft`): ``n_samples``, ``sample_spacing``,
+        ``sample_origin``, ``frequency_resolution``, ``nyquist_frequency``, ``window``, ...
+
+    Raises
+    ------
+    ValueError
+        If the signal is complex (use :func:`fft`), not finite, or ``t`` is not uniformly
+        spaced.
+
+    See Also
+    --------
+    fft : The two-sided transform along any dimension.
+    inverse_time_fft : Back from the coefficients to a signal.
+    spectral_peaks : The strongest peaks of the power.
+
+    Examples
+    --------
+    >>> spectrum = time_fft(phi.isel(eta2=0, eta3=0), detrend=True)
+    >>> spectrum.power.sum("eta1").plot()
     """
     values, spacing, axis = _samples(data, "t", real=True)
     values = _prepare(values, axis, detrend, window)
@@ -161,11 +251,31 @@ def time_fft(data: xr.DataArray, *, detrend: bool = False, window: str | None = 
 
 
 def inverse_time_fft(coefficients: xr.DataArray, template: xr.DataArray) -> xr.DataArray:
-    """Invert forward-normalized rFFT coefficients, using template's length and coordinates.
+    """Invert forward-normalized rFFT coefficients, using a template's length and coordinates.
 
-    The original length is required to distinguish odd and even sample counts.
-    For windowed/detrended coefficients this reconstructs the processed signal;
-    it does not undo the window or add the mean back.
+    The original length is required to distinguish odd and even sample counts. For
+    windowed/detrended coefficients this reconstructs the processed signal; it does not undo the
+    window or add the mean back.
+
+    Parameters
+    ----------
+    coefficients : xarray.DataArray
+        One-sided coefficients as from :func:`time_fft` (``rfft / N``), over ``omega`` and the
+        template's other dimensions, in any order. Possibly modified, e.g. with bins set to zero.
+    template : xarray.DataArray
+        A real signal on the original time grid, which gives the sample count, the times, the
+        other coordinates and the attrs of the result.
+
+    Returns
+    -------
+    xarray.DataArray
+        A copy of ``template`` with the reconstructed real values.
+
+    Raises
+    ------
+    ValueError
+        If the dimensions, the frequency grid or another coordinate do not match the template,
+        or the coefficients are not finite.
     """
     _, spacing, _ = _samples(template, "t", real=True)
     expected_dims = tuple("omega" if dim == "t" else dim for dim in template.dims)
@@ -196,7 +306,34 @@ def inverse_time_fft(coefficients: xr.DataArray, template: xr.DataArray) -> xr.D
 
 
 def fwhm_window(power, idx_peak: int, idx_min: int = 0, pad_bins: int = 0):
-    """Inclusive contiguous half-power band about a peak, padded and clamped to valid bins."""
+    """Find the inclusive, contiguous half-power band about a peak, padded and clamped.
+
+    Starting at ``idx_peak``, the band grows to each side while the power stays at or above half
+    the peak power, never below ``idx_min``; it is then widened by ``pad_bins`` on each side and
+    clamped to ``[idx_min, len(power) - 1]``.
+
+    Parameters
+    ----------
+    power : array_like
+        A finite, nonnegative one-dimensional power spectrum.
+    idx_peak : int
+        The bin of the peak; its power must be positive.
+    idx_min : int, optional
+        The lowest bin the band may include, at most ``idx_peak``. Default: 0.
+    pad_bins : int, optional
+        Nonnegative number of extra bins on each side. Default: 0.
+
+    Returns
+    -------
+    (int, int)
+        The first and last bin of the band, both included.
+
+    Raises
+    ------
+    ValueError
+        If ``power`` is not a finite, nonnegative 1-D array, the indices are not integers, or
+        the peak, minimum bin or padding are invalid.
+    """
     power = np.asarray(power)
     if power.ndim != 1 or not np.isfinite(power).all() or np.any(power < 0):
         raise ValueError("power must be a finite, nonnegative one-dimensional array")
@@ -217,11 +354,21 @@ def fwhm_window(power, idx_peak: int, idx_min: int = 0, pad_bins: int = 0):
 
 @dataclass(frozen=True)
 class TimeFilterResult:
-    """Filtered field and reduced spectrum with the selected band for each retained dimension.
+    """The result of :func:`filter_time`: filtered field and reduced spectrum with the band.
 
-    ``spectrum`` contains power, dominant_frequency, idx_dominant, idx_lo/hi,
-    omega_lo/hi and has_peak. A zero/constant signal has no oscillatory peak:
-    has_peak=False, indices=-1, frequencies=NaN, and a zero filtered signal.
+    A zero/constant signal has no oscillatory peak: ``has_peak=False``, indices -1, frequencies
+    NaN, and a zero filtered signal.
+
+    Attributes
+    ----------
+    filtered : xarray.DataArray
+        The real signal reconstructed from the selected band, on the input's grid, with attrs
+        ``time_filter``, ``omega_min`` and ``pad_bins`` added.
+    spectrum : xarray.Dataset
+        The selected band for each retained dimension: ``power`` (summed over the reduced
+        dimensions, over ``omega``), ``dominant_frequency``, ``idx_dominant``, ``idx_lo``,
+        ``idx_hi``, ``omega_lo``, ``omega_hi`` and ``has_peak``. Its attrs record
+        ``omega_min``, ``pad_bins`` and ``power_reduction_dims``.
     """
 
     filtered: xr.DataArray
@@ -231,13 +378,48 @@ class TimeFilterResult:
 def filter_time(data: xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0) -> TimeFilterResult:
     """Keep the dominant peak's FWHM frequency band and reconstruct the real signal.
 
-    Sum power over ``dims`` to select a shared band (default: all dimensions
-    except t and component). Each remaining component gets its own band, which
-    is applied at every spatial point. The sum is unweighted, not a physical
-    energy integral. Pass dims=() for independent filtering at each point.
-    Frequencies below positive ``omega_min`` (including DC) are always removed,
-    even with padding. This rectangular-bin filter uses no taper; finite records
-    can exhibit spectral leakage and edge ringing. Source data is not mutated.
+    The :func:`time_fft` power is summed over ``dims`` to select a shared band. Each remaining
+    coordinate (e.g. each component) gets its own band, which is applied at every spatial
+    point. The sum is unweighted, not a physical energy integral. The band is the half-power
+    band of the strongest bin at ``omega >= omega_min`` (see :func:`fwhm_window`). Frequencies
+    below ``omega_min`` (including DC) are always removed, even with padding. This
+    rectangular-bin filter uses no taper; finite records can exhibit spectral leakage and edge
+    ringing. Source data is not mutated.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A real signal with a uniformly spaced ``t`` dimension.
+    dims : str or sequence of str, optional
+        Non-time dimensions to sum the power over before choosing the band. Default: all
+        dimensions except ``t`` and ``component``. Pass ``dims=()`` for independent filtering at
+        each point.
+    omega_min : float, optional
+        Finite, positive lowest frequency considered, which excludes DC. Default: 1e-8.
+    pad_bins : int, optional
+        Nonnegative number of extra bins on each side of the band. Default: 0.
+
+    Returns
+    -------
+    TimeFilterResult
+        The ``filtered`` signal and the ``spectrum`` with the selected band.
+
+    Raises
+    ------
+    ValueError
+        If ``omega_min`` is not finite and positive or exceeds every bin, ``pad_bins`` is not a
+        nonnegative integer, or ``dims`` does not name distinct non-time dimensions.
+
+    See Also
+    --------
+    band_filter : Keep an explicit frequency band instead.
+    struphy_plots.spectral_plots.plot_filtered : Compare the signal with its reconstruction.
+
+    Examples
+    --------
+    >>> result = filter_time(phi, pad_bins=1)
+    >>> result.spectrum.dominant_frequency.item()
+    >>> result.filtered.isel(t=-1)
     """
     if not np.isfinite(omega_min) or omega_min <= 0:
         raise ValueError("omega_min must be finite and positive to exclude DC")
@@ -298,11 +480,35 @@ def filter_time(data: xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_b
 
 
 def drop_periodic_endpoint(data: xr.DataArray, dim: str, *, period: float = 1.0) -> xr.DataArray:
-    """``data`` without the last sample along ``dim`` if it repeats the first one period later.
+    """Drop the last sample along ``dim`` if it repeats the first one period later.
 
     Struphy's logical grids often include both ends of a periodic direction (``eta2 = 0`` and
     ``eta2 = 1``); a Fourier transform must see each point once. Arrays without a duplicate come
     back unchanged.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array.
+    dim : str
+        The periodic dimension.
+    period : float, optional
+        The period in the coordinate of ``dim``. Default: 1.0.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``data`` without its last sample along ``dim`` if the last coordinate equals the first
+        plus ``period``, otherwise ``data`` itself.
+
+    Raises
+    ------
+    ValueError
+        If ``dim`` is not a dimension of ``data``.
+
+    Examples
+    --------
+    >>> fft(drop_periodic_endpoint(phi.isel(t=-1, eta1=0, eta3=0), "eta2"), dim="eta2")
     """
     if dim not in data.dims:
         raise ValueError(f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}")
@@ -318,6 +524,37 @@ def band_filter(data: xr.DataArray, omega_lo: float, omega_hi: float, *, detrend
     The explicit counterpart of :func:`filter_time`, e.g. to separate two known modes, or to
     keep a gap frequency read off a continuum plot. A rectangular band: finite records can
     show leakage and edge ringing.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A real signal with a uniformly spaced ``t`` dimension.
+    omega_lo : float
+        The lowest angular frequency kept.
+    omega_hi : float
+        The highest angular frequency kept, at least ``omega_lo``.
+    detrend : bool, optional
+        Subtract the temporal mean first; the result then has zero mean even if the band
+        includes DC. Default: False.
+
+    Returns
+    -------
+    xarray.DataArray
+        The filtered signal on the grid of ``data``, with attrs ``time_filter="band"``,
+        ``omega_lo`` and ``omega_hi`` added.
+
+    Raises
+    ------
+    ValueError
+        If ``omega_lo`` exceeds ``omega_hi``.
+
+    See Also
+    --------
+    filter_time : Keep the dominant peak's band automatically.
+
+    Examples
+    --------
+    >>> slow = band_filter(phi, 0.5, 1.5)
     """
     if not omega_lo <= omega_hi:
         raise ValueError("omega_lo must not exceed omega_hi")
@@ -372,21 +609,59 @@ def spectral_peaks(
     detrend: bool = True,
     window: str | None = None,
 ) -> xr.Dataset:
-    """The ``n_peaks`` strongest local maxima of a power spectrum, with sub-bin frequencies.
+    """Find the ``n_peaks`` strongest local maxima of a power spectrum, with sub-bin frequencies.
 
-    ``data`` is a time series (transformed with ``detrend``/``window``), a :func:`time_fft`
-    Dataset, or a power array over ``omega``; power is summed over ``dims`` (default: every
-    dimension but ``omega``). Returns a Dataset along ``peak``, strongest first:
+    Only maxima at ``omega >= omega_min`` and above ``rel_height`` times the largest of them
+    count; a rising last bin counts as a peak at the Nyquist edge. Each peak's frequency is
+    refined below the bin spacing by a parabolic fit to the log power of the peak and its two
+    neighbors, which locates an off-bin frequency to a fraction of a bin (the shift is clipped
+    to half a bin).
 
-    * ``omega``: the peak bin, ``omega_refined``: a parabolic fit to the log power of the
-      peak and its neighbors, which locates an off-bin frequency to a fraction of a bin;
-    * ``power``, and the half-power band ``omega_lo``/``omega_hi`` (see :func:`fwhm_window`).
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        A time series with a ``t`` dimension (transformed by :func:`time_fft` with ``detrend``
+        and ``window``), a :func:`time_fft` Dataset (its ``power`` is used), or an array over
+        ``omega``: power, or complex coefficients whose squared magnitude is used.
+    n_peaks : int, optional
+        The number of peaks to return at most. Default: 3.
+    dims : str or sequence of str, optional
+        Dimensions to sum the power over. Default: every dimension but ``omega``. Only
+        ``omega`` may remain.
+    omega_min : float, optional
+        The lowest frequency a peak may have, which excludes DC. Default: 1e-8.
+    rel_height : float, optional
+        The weakest peak kept, relative to the strongest. Default: 1e-3.
+    detrend : bool or int, optional
+        For a time series: ``True`` subtracts the mean, ``False`` nothing, and an integer is the
+        degree of a least-squares polynomial in ``t`` removed at every point first. An energy
+        such as LinearMHD's ``en_U`` oscillates at twice the wave frequency around a slow trend,
+        so its peaks with ``detrend=2`` sit at ``2 * omega``. Ignored for spectra.
+        Default: True.
+    window : {None, "hann"}, optional
+        Window applied before transforming a time series. Default: None.
 
-    ``detrend`` may also be a polynomial degree removed in ``t`` first: an energy such as
-    LinearMHD's ``en_U`` oscillates at twice the wave frequency around a slow trend, so its
-    peaks with ``detrend=2`` sit at ``2 * omega``.
+    Returns
+    -------
+    xarray.Dataset
+        Along ``peak``, strongest first: ``omega`` (the peak bin), ``omega_refined`` (the
+        sub-bin frequency), ``power``, and the half-power band ``omega_lo``/``omega_hi`` (see
+        :func:`fwhm_window`). The attrs hold the ``frequency_resolution`` (bin spacing).
 
-    Only maxima above ``rel_height`` times the largest one and at ``omega >= omega_min`` count.
+    Raises
+    ------
+    ValueError
+        If dimensions other than ``omega`` remain after the sum over ``dims``.
+
+    See Also
+    --------
+    matrix_pencil : Frequencies and growth rates beyond the bin resolution.
+    mode_structure : The eigenfunction at a peak's frequency.
+
+    Examples
+    --------
+    >>> peaks = spectral_peaks(phi.isel(eta2=0, eta3=0), n_peaks=2)
+    >>> peaks.omega_refined.values
     """
     power = _power_1d(data, dims=dims, detrend=detrend, window=window)
     values = np.asarray(power, dtype=float)
@@ -441,12 +716,45 @@ def spectrogram(
     detrend: bool = True,
     window: str | None = "hann",
 ) -> xr.DataArray:
-    """Short-time power spectra: :func:`time_fft` power in sliding windows along ``t``.
+    """Compute short-time power spectra: :func:`time_fft` power in sliding windows along ``t``.
 
-    ``length`` and ``step`` are sample counts (integers) or time spans (floats); ``step``
-    defaults to a quarter of ``length``. Returns power over ``(t, omega, ...)``, where ``t`` is
-    each window's center, for following a frequency that drifts (a chirping mode), or telling a
-    persistent oscillation from an initial transient. Resolution is ``2*pi / length``.
+    For following a frequency that drifts (a chirping mode), or telling a persistent
+    oscillation from an initial transient. The frequency resolution is 2π / ``length``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A real signal with a uniformly spaced ``t`` dimension.
+    length : int or float
+        The window length: a sample count (integer, 4 to the number of samples) or a time span
+        (float).
+    step : int or float, optional
+        The shift between windows: a sample count (integer) or a time span (float). Default: a
+        quarter of ``length``.
+    detrend : bool, optional
+        Subtract each window's mean. Default: True.
+    window : {"hann", None}, optional
+        The taper of each window, not compensated for. Default: ``"hann"``.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``power`` over ``(t, omega, ...)``, where ``t`` is each window's center and ``...`` the
+        other dimensions of ``data``. The attrs hold ``label``, ``window_length``,
+        ``window_step`` (both in time units) and ``frequency_resolution``.
+
+    Raises
+    ------
+    ValueError
+        If ``length`` spans fewer than 4 or more than all samples, or ``step`` less than one.
+
+    See Also
+    --------
+    struphy_plots.spectral_plots.plot_spectrogram : Draw the result.
+
+    Examples
+    --------
+    >>> power = spectrogram(phi.isel(eta1=8, eta2=0, eta3=0), length=10.0)
     """
     _, spacing, _ = _samples(data, "t", real=True)
 
@@ -488,18 +796,56 @@ def mode_spectrum(
     periods=1.0,
     scale=1,
 ) -> xr.DataArray:
-    """Complex Fourier amplitudes over integer mode numbers along periodic directions.
+    """Compute complex Fourier amplitudes over integer mode numbers along periodic directions.
 
-    For a torus with ``theta = 2*pi*eta2`` and ``phi = 2*pi*eta3``, the default gives
-    coefficients over poloidal ``m`` and toroidal ``n``, as functions of every remaining
-    dimension, e.g. ``(t, eta1, m, n)``. A duplicate periodic endpoint is dropped first. The mode
-    ``exp(2*pi*i*(m*eta2 + n*eta3))`` appears at ``(m, n)``, so a real field ``cos(...)`` of
-    amplitude ``A`` has ``A/2`` at ``(m, n)`` and at ``(-m, -n)``; see :func:`mode_amplitudes`.
-    A sector of the torus (``tor_period`` in Struphy) counts ``n`` per sector; multiply by the
-    number of sectors for the full-torus mode number. ``periods`` is each direction's period
-    in its coordinate (one number for all, or one per dimension). ``scale`` multiplies the mode
-    numbers (one number, or one per dimension), e.g. ``scale=(1, 6)`` labels a sixth of a torus
-    (Struphy's ``tor_period=6``) with full-torus toroidal mode numbers.
+    For a torus with θ = 2π eta2 and φ = 2π eta3, the default gives coefficients over poloidal
+    ``m`` and toroidal ``n``, as functions of every remaining dimension, e.g.
+    ``(t, eta1, m, n)``. A duplicate periodic endpoint is dropped first (see
+    :func:`drop_periodic_endpoint`), and each transform is normalized by N (see :func:`fft`).
+    The mode ``exp(2π i (m eta2 + n eta3))`` appears at ``(m, n)``, so a real field ``cos(...)``
+    of amplitude ``A`` has ``A/2`` at ``(m, n)`` and at ``(-m, -n)``; see
+    :func:`mode_amplitudes`. A sector of the torus (``tor_period`` in Struphy) counts ``n`` per
+    sector; multiply by the number of sectors (or use ``scale``) for the full-torus mode number.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, sampled uniformly over one full period along each of ``dims``.
+    dims : str or sequence of str, optional
+        The periodic dimensions to transform. Default: ``("eta2", "eta3")``.
+    names : str or sequence of str, optional
+        The name of the mode number of each dimension, one per dimension.
+        Default: ``("m", "n")``.
+    periods : float or sequence of float, optional
+        Each direction's period in its coordinate: one number for all, or one per dimension.
+        Default: 1.0.
+    scale : int or sequence of int, optional
+        Multiplies the mode numbers (one number, or one per dimension; cast to integers), e.g.
+        ``scale=(1, 6)`` labels a sixth of a torus (Struphy's ``tor_period=6``) with full-torus
+        toroidal mode numbers. Default: 1.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``modes``: complex amplitudes with each of ``dims`` replaced by its integer mode number
+        (``names``). The attrs hold ``label``, ``mode_dims``, ``mode_names`` and the run's
+        provenance.
+
+    Raises
+    ------
+    ValueError
+        If ``dims``, ``names``, ``periods`` and ``scale`` differ in length, or a dimension does
+        not sample one full period uniformly.
+
+    See Also
+    --------
+    mode_amplitudes : Real amplitudes of the modes along one ``mode`` dimension.
+    mode_structure : Transform the complex amplitude at one frequency for its harmonics.
+
+    Examples
+    --------
+    >>> modes = mode_spectrum(phi)
+    >>> abs(modes.sel(m=2, n=-1)).isel(t=-1).plot()
     """
     dims = [dims] if isinstance(dims, str) else list(dims)
     names = [names] if isinstance(names, str) else list(names)
@@ -538,16 +884,45 @@ def mode_amplitudes(
     real: bool = True,
     relative: bool = False,
 ) -> xr.DataArray:
-    """Mode amplitudes from :func:`mode_spectrum`, stacked along one labeled ``mode`` dimension.
+    """Stack the mode amplitudes from :func:`mode_spectrum` along one labeled ``mode`` dimension.
 
-    With ``real=True`` (a real field), each ``(m, n)`` is combined with its conjugate
-    ``(-m, -n)``: only the half with the first nonzero mode number positive is kept, and its
-    amplitude doubled, so a field ``A*cos(...)`` gives ``A``. A mode without a twin on the grid
-    (the Nyquist mode of an even grid) is kept as it is. ``top`` keeps the modes with the
-    largest peak amplitude over every other dimension. Coordinates on ``mode`` give each mode's
-    numbers and a label such as ``"(10, -1)"``. ``relative=True`` divides by the amplitude of the
-    mean (the mode with all numbers zero), which is then left out: e.g. density perturbations
-    relative to the background density, as growth plots of an instability often show.
+    Parameters
+    ----------
+    modes : xarray.DataArray
+        The output of :func:`mode_spectrum` (complex, with ``mode_names`` in its attrs, or with
+        ``m``/``n`` dimensions).
+    top : int, optional
+        Keep only the ``top`` modes with the largest peak amplitude over every other dimension,
+        strongest first. Default: all modes.
+    real : bool, optional
+        The field is real: each ``(m, n)`` is combined with its conjugate ``(-m, -n)``. Only the
+        half with the first nonzero mode number positive is kept, and its amplitude doubled, so
+        a field ``A cos(...)`` gives ``A``. A mode without a twin on the grid (the mean, or the
+        Nyquist mode of an even grid) is kept as it is. Default: True.
+    relative : bool, optional
+        Divide by the amplitude of the mean (the mode with all numbers zero), which is then left
+        out: e.g. density perturbations relative to the background density, as growth plots of
+        an instability often show. NaN where the mean vanishes. Default: False.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``amplitude``: the real amplitudes over ``mode`` and the remaining dimensions (e.g.
+        ``t``). Coordinates on ``mode`` give each mode's numbers (``m``, ``n``) and a label such
+        as ``"(10, -1)"``. The attrs hold ``label`` and ``mode_names``.
+
+    Raises
+    ------
+    ValueError
+        If ``modes`` has no mode numbers, or ``relative=True`` and there is no mean mode.
+
+    See Also
+    --------
+    struphy_plots.spectral_plots.plot_mode_amplitudes : Amplitudes over time, with growth rates.
+
+    Examples
+    --------
+    >>> amplitudes = mode_amplitudes(mode_spectrum(phi.isel(eta1=8)), top=4)
     """
     names = modes.attrs.get("mode_names") or [d for d in modes.dims if d in ("m", "n")]
     if not names:
@@ -594,16 +969,50 @@ def mode_structure(
     window: str | None = "hann",
     detrend: bool = True,
 ) -> xr.DataArray:
-    """Complex amplitude of the oscillation at an exact frequency ``omega``, at every point.
+    """Compute the complex amplitude of the oscillation at an exact frequency ``omega``, everywhere.
 
-    ``A(x) = 2 * sum_t w(t) f(t, x) exp(-i*omega*(t - t0)) / sum_t w(t)``, so a field
-    ``a(x) cos(omega t + phi(x))`` gives ``a * exp(i*phi)``: ``abs()`` is the eigenfunction's
-    amplitude and ``np.angle()`` its phase, e.g. at a frequency from :func:`spectral_peaks`
-    (``omega_refined``), not limited to FFT bins. The Hann window (default) suppresses leakage
-    from other frequencies; the record should still span a few periods of their difference.
-    For the radial profile of each poloidal harmonic, transform the result over the angles:
+    ``A(x) = 2 Σ_t w(t) f(t, x) exp(-i ω (t - t0)) / Σ_t w(t)``, so a field
+    ``a(x) cos(ω t + φ(x))`` gives ``a exp(i φ)``: ``abs()`` is the eigenfunction's amplitude
+    and ``np.angle()`` its phase, e.g. at a frequency from :func:`spectral_peaks`
+    (``omega_refined``), not limited to FFT bins. The Hann window suppresses leakage from other
+    frequencies; the record should still span a few periods of their difference. For the radial
+    profile of each poloidal harmonic, transform the result over the angles:
     ``mode_spectrum(mode_structure(field, omega))``. With the numpy sign convention, a wave
-    ``cos(m*theta + n*phi - omega*t)`` then appears at ``(-m, -n)``.
+    ``cos(m θ + n φ - ω t)`` then appears at ``(-m, -n)``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A real field with a uniformly spaced ``t`` dimension.
+    omega : float
+        The angular frequency ω.
+    window : {"hann", None}, optional
+        The weights ``w(t)``: a periodic Hann window, or ``None`` for uniform weights.
+        Default: ``"hann"``.
+    detrend : bool, optional
+        Subtract the temporal mean at every point first. Default: True.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``mode_structure``: the complex amplitude over every dimension of ``data`` but ``t``.
+        The attrs hold ``label``, ``omega`` and ``sample_origin`` (``t0``, the first time,
+        which the phases refer to).
+
+    Raises
+    ------
+    ValueError
+        If ``data`` is complex (apply this before :func:`mode_spectrum`), ``t`` is not uniform,
+        or ``window`` is invalid.
+
+    See Also
+    --------
+    struphy_plots.spectral_plots.plot_mode_profiles : Draw the harmonics' radial profiles.
+
+    Examples
+    --------
+    >>> omega = float(spectral_peaks(phi.isel(eta1=8, eta2=0, eta3=0)).omega_refined[0])
+    >>> harmonics = mode_spectrum(mode_structure(phi, omega))
     """
     if np.iscomplexobj(data.values):
         raise ValueError(
@@ -646,16 +1055,51 @@ def cross_spectrum(
     detrend: bool = True,
     window: str | None = None,
 ) -> xr.Dataset:
-    """Cross-spectrum of two real signals on the same time grid, with phase and coherence.
+    """Compute the cross-spectrum of two real signals on the same time grid, with phase and coherence.
 
-    ``cross = conj(F1) * F2`` of their one-sided :func:`time_fft` coefficients, so ``phase``
-    (radians) is how far ``second`` leads ``first`` at each frequency: ``+pi/2`` for
-    ``second = -sin(omega t)`` against ``first = cos(omega t)``. With ``dims`` (e.g. every spatial
-    point as an ensemble) the cross-spectrum is summed over them first, and the phase
-    ``coherence = |sum cross| / sum |cross|`` measures, between 0 and 1, how consistently the
-    two signals keep one phase across the ensemble, whatever their amplitude profiles (1: the
-    same phase everywhere, near 0: random phases, as for noise). Without averaging it would be
-    1 by construction, and is left out.
+    ``cross = conj(F1) F2`` of their one-sided :func:`time_fft` coefficients, so ``phase``
+    (radians) is how far ``second`` leads ``first`` at each frequency: +π/2 for
+    ``second = -sin(ω t)`` against ``first = cos(ω t)``. With ``dims`` (e.g. every spatial point
+    as an ensemble) the cross-spectrum is summed over them first, and the phase coherence
+    ``|Σ cross| / Σ |cross|`` measures, between 0 and 1, how consistently the two signals keep
+    one phase across the ensemble, whatever their amplitude profiles (1: the same phase
+    everywhere, near 0: random phases, as for noise). Without averaging it would be 1 by
+    construction, and is left out.
+
+    Parameters
+    ----------
+    first : xarray.DataArray
+        The reference signal, real, with a uniformly spaced ``t`` dimension.
+    second : xarray.DataArray
+        The other real signal, on exactly the same coordinates.
+    dims : str or sequence of str, optional
+        Dimensions to sum the cross-spectrum over, as an ensemble. Default: none (no
+        ``coherence``).
+    detrend : bool, optional
+        Subtract each signal's temporal mean first. Default: True.
+    window : {None, "hann"}, optional
+        Window applied to both signals before transforming. Default: None.
+
+    Returns
+    -------
+    xarray.Dataset
+        Over ``omega`` and the dimensions not summed: ``cross`` (complex), ``magnitude``,
+        ``phase`` (in rad) and, with ``dims``, ``coherence`` (NaN where both signals vanish).
+
+    Raises
+    ------
+    ValueError
+        If the coordinates of the two signals differ, or either is complex or non-uniform in
+        time.
+
+    See Also
+    --------
+    struphy_plots.spectral_plots.plot_cross_spectrum : Draw magnitude, coherence and phase.
+
+    Examples
+    --------
+    >>> cross = cross_spectrum(phi, density, dims=["eta1", "eta2", "eta3"])
+    >>> cross.phase.sel(omega=1.0, method="nearest")
     """
     a = time_fft(first, detrend=detrend, window=window).coefficients
     b = time_fft(second, detrend=detrend, window=window).coefficients
@@ -685,21 +1129,57 @@ def matrix_pencil(
     pencil: int | None = None,
     detrend: bool = False,
 ) -> xr.Dataset:
-    """Frequencies and growth rates of a sum of exponentially growing or damped oscillations.
+    """Fit frequencies and growth rates of a sum of exponentially growing or damped oscillations.
 
-    Fits ``f(t) = sum_j a_j exp((gamma_j + i omega_j)(t - t0))`` with the matrix-pencil method
-    (Hua & Sarkar, 1990): an SVD of the Hankel matrix of the samples, whose signal subspace
-    shifts by one sample as multiplication by ``exp((gamma + i omega) dt)``. Unlike an FFT peak,
-    this is not limited to the bin spacing ``2*pi/T``: a clean record shorter than one period
-    can still give the frequency, together with the growth (``gamma > 0``) or damping rate.
+    Fits ``f(t) = Σ_j a_j exp((γ_j + i ω_j)(t - t0))`` with the matrix-pencil method (Hua &
+    Sarkar, 1990): an SVD of the Hankel matrix of the samples, whose signal subspace shifts by
+    one sample as multiplication by ``exp((γ + i ω) dt)``. Unlike an FFT peak, this is not
+    limited to the bin spacing 2π/T: a clean record shorter than one period can still give the
+    frequency, together with the growth (γ > 0) or damping rate.
 
-    ``data`` is a ``(t,)`` series. For a real signal, ``n_modes`` counts real oscillations
-    (each a conjugate pair), and one extra real exponential is fitted to absorb an offset or
-    slow trend; oscillations are returned first, then a non-oscillating component if there are
-    fewer than ``n_modes`` oscillations. Returns a Dataset along ``mode``, strongest first: ``omega`` (>= 0 for real input), ``gamma``, the real
-    ``amplitude`` (``2|a|`` for a conjugate pair) and ``phase`` at ``t0``, with the relative
-    rms ``residual`` of the reconstruction in ``attrs``. ``pencil`` (default ``N // 2``) trades
-    noise robustness against resolution; the fit needs well over ``2 * n_modes`` samples.
+    For a real signal, ``n_modes`` counts real oscillations (each a conjugate pair), and one
+    extra real exponential is fitted to absorb an offset or slow trend; oscillations are
+    returned first, then a non-oscillating component if there are fewer than ``n_modes``
+    oscillations.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A ``(t,)`` series, real or complex, uniformly spaced in time.
+    n_modes : int, optional
+        The number of modes to fit and return: real oscillations for a real signal, complex
+        exponentials for a complex one. The fit needs well over ``2 * n_modes`` samples.
+        Default: 1.
+    pencil : int, optional
+        The pencil parameter (Hankel matrix width minus one), which trades noise robustness
+        against resolution. Default: ``N // 2``.
+    detrend : bool, optional
+        Subtract the mean first. Default: False.
+
+    Returns
+    -------
+    xarray.Dataset
+        Along ``mode``, strongest first (oscillations first for real input): ``omega`` (≥ 0 for
+        real input), ``gamma``, the real ``amplitude`` (``2|a|`` for a conjugate pair) and
+        ``phase`` (rad) at ``t0``. The attrs hold ``label``, ``sample_origin`` (``t0``, the
+        first time), the relative rms ``residual`` of the reconstruction, ``pencil`` and the
+        leading ``singular_values``.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` is not a ``(t,)`` series, or has too few samples for ``n_modes`` with this
+        ``pencil``.
+
+    See Also
+    --------
+    pencil_reconstruction : The fitted signal at any times.
+    struphy_plots.spectral_plots.plot_pencil_fit : Draw the fit and the complex frequencies.
+
+    Examples
+    --------
+    >>> fit = matrix_pencil(energy.sel(t=slice(0.0, 5.0)), n_modes=2)
+    >>> fit.omega.values, fit.gamma.values
     """
     if data.dims != ("t",):
         raise ValueError(f"matrix_pencil needs a (t,) series; got dims {data.dims}")
@@ -766,7 +1246,22 @@ def matrix_pencil(
 
 
 def pencil_reconstruction(fit: xr.Dataset, t) -> xr.DataArray:
-    """The real signal described by a :func:`matrix_pencil` fit of a real series, at times ``t``."""
+    """Evaluate the real signal described by a :func:`matrix_pencil` fit of a real series.
+
+    The sum over modes of ``amplitude exp(gamma (t - t0)) cos(omega (t - t0) + phase)``.
+
+    Parameters
+    ----------
+    fit : xarray.Dataset
+        The result of :func:`matrix_pencil` for a real series.
+    t : array_like
+        The times to evaluate at.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``fit`` over ``t``.
+    """
     t = np.asarray(t, dtype=float)
     shifted = t - fit.attrs.get("sample_origin", 0.0)
     total = np.zeros_like(shifted)
@@ -794,18 +1289,47 @@ def trace_branch(
     k_range: tuple[float, float] | None = None,
     threshold: float = 1e-3,
 ) -> xr.Dataset:
-    """The measured frequency of a dispersion branch near a theory curve, at every ``k``.
+    """Measure the frequency of a dispersion branch near a theory curve, at every ``k``.
 
-    ``spectrum`` is an ``(omega, k)`` power spectrum (``array.struphy.analysis.dispersion()``),
-    ``theory`` a function ``omega(k)``. At each non-negative ``k`` (in ``k_range``) the power of
-    waves travelling either way (at ``+k`` and ``-k``) is searched for its maximum within
-    ``omega_theory * (1 +- window)`` at positive ``omega``, and
-    the peak refined below the bin spacing with a parabola through its log power. Unlike
+    At each non-negative ``k`` (in ``k_range``) the power of waves travelling either way is
+    searched for its maximum within ``omega_theory (1 ± window)`` at positive ω, and the peak
+    refined below the bin spacing with a parabola through its log power. With numpy's sign
+    convention a right-moving wave sits at ``(k, -ω)``, i.e. mirrored at ``(-k, +ω)``, so the
+    power at ``-k`` is added to the power at ``+k``. Unlike
     :func:`~struphy_plots.analysis.fit_dispersion_branches`, the branch may be curved (e.g. a
-    whistler or Bohm-Gross branch). Returns a Dataset over ``k`` with ``omega``,
-    ``omega_theory`` and ``relative_error``. A ``k`` is NaN where the window holds no local
-    maximum (only the flank of a peak outside it), or where that maximum is weaker than
-    ``threshold`` times the strongest one found (no wave at that ``k``).
+    whistler or Bohm-Gross branch).
+
+    Parameters
+    ----------
+    spectrum : xarray.DataArray
+        An ``(omega, k)`` power spectrum, e.g. from ``array.struphy.analysis.dispersion()``.
+    theory : callable
+        The expected branch ``omega(k)``, applied to an array of ``k``.
+    window : float, optional
+        The relative half-width of the search window about the theory. Default: 0.2.
+    k_range : (float, float), optional
+        The ``k`` interval to trace (negative ``k`` are never traced). Default: every
+        ``k >= 0``.
+    threshold : float, optional
+        Maxima weaker than this times the strongest one found count as no wave. Default: 1e-3.
+
+    Returns
+    -------
+    xarray.Dataset
+        Over ``k``: ``omega`` (measured), ``omega_theory`` and ``relative_error``. A ``k`` is
+        NaN where the window holds no local maximum (only the flank of a peak outside it), or
+        where that maximum is weaker than ``threshold`` times the strongest one found (no wave
+        at that ``k``). The attrs hold ``window`` and ``frequency_resolution``.
+
+    Raises
+    ------
+    ValueError
+        If ``spectrum`` lacks an ``omega`` or ``k`` dimension.
+
+    Examples
+    --------
+    >>> branch = trace_branch(spectrum, lambda k: np.sqrt(1 + 3 * k**2), k_range=(0.0, 2.0))
+    >>> branch.relative_error.plot()
     """
     if not {"omega", "k"} <= set(spectrum.dims):
         raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")

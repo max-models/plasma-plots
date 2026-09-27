@@ -30,7 +30,7 @@ Every method here is a thin pass-through: it returns exactly what scope-profiler
 ## Gantt chart
 
 ```python
-out.struphy.plot.profile.gantt()
+out.plot.profile.gantt()
 ```
 
 A timeline of every recorded region, one row per rank — the first thing to look at for "where did
@@ -42,7 +42,7 @@ the time go":
 <summary>The same plot with Plotly</summary>
 
 ```python
-out.struphy.plot.profile.gantt(backend="plotly")
+out.plot.profile.gantt(backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_profile_gantt.json" />
@@ -52,7 +52,7 @@ out.struphy.plot.profile.gantt(backend="plotly")
 ## Flame chart
 
 ```python
-out.struphy.plot.profile.flame()
+out.plot.profile.flame()
 ```
 
 Reconstructs the call stack from region timings, one column per call, stacked by nesting depth —
@@ -63,7 +63,7 @@ good for spotting which specific call of a hot region was slow, not just the reg
 ## Call graph
 
 ```python
-out.struphy.plot.profile.callgraph(compact=True)
+out.plot.profile.callgraph(compact=True)
 ```
 
 The explicit call graph — which region calls which — without timings. `compact=True` collapses

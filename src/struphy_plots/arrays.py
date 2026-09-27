@@ -33,6 +33,27 @@ SCALARS_EXCLUDE = ("time",)
 
 
 def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> xr.DataArray:
+    """Check that ``data`` is an xarray.DataArray with the required dimensions.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array to check.
+    required_dims : sequence of str, optional
+        Dimensions ``data`` must have. Default: none.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``data`` itself, unchanged.
+
+    Raises
+    ------
+    TypeError
+        If ``data`` is not an xarray.DataArray.
+    ValueError
+        If one of ``required_dims`` is missing.
+    """
     if not isinstance(data, xr.DataArray):
         raise TypeError(f"expected xarray.DataArray, got {type(data).__name__}")
     missing = tuple(dim for dim in required_dims if dim not in data.dims)
@@ -42,6 +63,28 @@ def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> 
 
 
 def axis_label(data: xr.DataArray, dim: str) -> str:
+    """The axis label of a dimension, with its units.
+
+    The label is the coordinate's ``long_name`` attribute, else a default for the known
+    dimensions (matplotlib mathtext such as ``$\\eta_1$`` for ``eta1``), else the dimension name.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array.
+    dim : str
+        One of its dimensions.
+
+    Returns
+    -------
+    str
+        The label, followed by ``[units]`` when the coordinate has a ``units`` attribute.
+
+    Raises
+    ------
+    KeyError
+        If ``dim`` is not a dimension of ``data``.
+    """
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")
     coord = data.coords.get(dim)
@@ -51,12 +94,47 @@ def axis_label(data: xr.DataArray, dim: str) -> str:
 
 
 def value_label(data: xr.DataArray) -> str:
+    """The label of an array's values, with their units.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The array. The label is its ``label`` attribute, else ``long_name``, else its name.
+
+    Returns
+    -------
+    str
+        ``"label [units]"``, with the ``units`` attribute or ``a.u.``; only ``"[units]"`` when
+        there is no label.
+    """
     label = data.attrs.get("label") or data.attrs.get("long_name") or data.name or ""
     unit = data.attrs.get("units", "") or "a.u."
     return f"{label} [{unit}]" if label else f"[{unit}]"
 
 
 def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE) -> list[str]:
+    """The names of the scalar time series to use from a collection.
+
+    Parameters
+    ----------
+    scalars : xarray.Dataset or mapping
+        The scalars, e.g. ``out.scalars``.
+    names : sequence of str, optional
+        Explicit names, which must all be present; ``exclude`` then does not apply. Default:
+        every variable not in ``exclude``.
+    exclude : sequence of str, optional
+        Names left out when ``names`` is not given. Default: ``("time",)``.
+
+    Returns
+    -------
+    list of str
+        The selected names, in order.
+
+    Raises
+    ------
+    KeyError
+        If one of ``names`` is not in ``scalars``.
+    """
     available = tuple(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys())
     if names is not None:
         missing = [name for name in names if name not in available]
@@ -74,6 +152,41 @@ def save_scalars(
     exclude=SCALARS_EXCLUDE,
     fmt=None,
 ) -> str:
+    """Save scalar time series to a CSV or NPZ file.
+
+    Parameters
+    ----------
+    scalars : xarray.Dataset or mapping
+        The scalars, e.g. ``out.scalars``. Each selected one must have ``t`` as its only
+        dimension, with identical time coordinates.
+    path : str
+        The file to write.
+    names : sequence of str, optional
+        The scalars to save. Default: every one not in ``exclude``; see :func:`scalar_names`.
+    exclude : sequence of str, optional
+        Names left out when ``names`` is not given. Default: ``("time",)``.
+    fmt : {"csv", "npz"}, optional
+        The file format. Default: from the extension of ``path``, else ``"csv"``. A CSV has a
+        header line ``t,<names>`` and one row per time; an NPZ has the arrays ``t`` and one per
+        name.
+
+    Returns
+    -------
+    str
+        ``path``.
+
+    Raises
+    ------
+    ValueError
+        If a scalar has dimensions other than ``t``, the time coordinates differ, or the format
+        is unknown.
+    KeyError
+        If one of ``names`` is not in ``scalars``.
+
+    Examples
+    --------
+    >>> save_scalars(out.scalars, "scalars.csv", names=["en_E", "en_tot"])
+    """
     selected = scalar_names(scalars, names=names, exclude=exclude)
     arrays = [scalars[name] for name in selected]
     for array in arrays:
@@ -103,10 +216,26 @@ def save_scalars(
 
 
 def periodicity(points: np.ndarray, axis: int) -> str | None:
-    """How a direction of a ``(..., 3)`` array of physical points wraps around, if it does:
-    ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of the
-    seam, as on Struphy's cell centers), or ``None`` (not periodic, e.g. a radius or the ends of a
-    torus sector)."""
+    """How a direction of a ``(..., 3)`` array of physical points wraps around, if it does.
+
+    The direction is ``"closed"`` when its last slice coincides with its first (to 1e-9 of the
+    median step), and ``"open"`` when the seam between them is at most 1.5 times the last grid
+    step everywhere.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Physical points, with the Cartesian coordinates ``(X, Y, Z)`` along the last axis.
+    axis : int
+        The axis of ``points`` to examine; it needs at least three points to be periodic.
+
+    Returns
+    -------
+    {"closed", "open", None}
+        ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of
+        the seam, as on Struphy's cell centers), or ``None`` (not periodic, e.g. a radius or the
+        ends of a torus sector).
+    """
     n = points.shape[axis]
     if n < 3:
         return None
@@ -124,14 +253,27 @@ def periodicity(points: np.ndarray, axis: int) -> str | None:
 
 
 def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
-    """``data`` with the first slice repeated at the end of every direction in ``dims`` that
-    wraps around in physical space (default: those of ``eta1``, ``eta2``, ``eta3`` it has).
+    """Repeat the first slice at the end of every direction that wraps around in physical space.
 
     Struphy evaluates fields at cell centers, which leave out the seam of a periodic direction
     (e.g. the poloidal angle), so a surface or pcolormesh drawn through the points has a gap
     there. A direction counts as periodic when its last slice lies about one grid step from its
-    first one; a radius, or the ends of a torus sector, do not. Needs the physical ``X``, ``Y``,
-    ``Z`` coordinates; without them ``data`` comes back unchanged.
+    first one (``"open"`` in :func:`periodicity`); a radius, or the ends of a torus sector, do
+    not. The repeated slice gets the logical coordinate one step past the last.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with the physical ``X``, ``Y``, ``Z`` coordinates; without them ``data``
+        comes back unchanged.
+    dims : sequence of str, optional
+        The directions to close, if periodic. Default: those of ``eta1``, ``eta2``, ``eta3``
+        that ``data`` has.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``data``, one point longer along each periodic direction in ``dims``.
     """
     dims = [d for d in (dims or ("eta1", "eta2", "eta3")) if d in data.dims]
     if not dims or any(name not in data.coords for name in ("X", "Y", "Z")):
@@ -164,12 +306,30 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
 
 
 def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None) -> np.ndarray:
-    """d values / d coordinate along ``axis``.
+    """The derivative ``∂ values / ∂ coordinate`` along ``axis``.
 
     Around a periodic direction on a uniform grid (``kind`` ``"open"`` or ``"closed"``, see
     :func:`periodicity`) the derivative is spectral (an FFT), which is exact for the smooth,
-    periodic angles of Struphy's mappings; elsewhere numpy's second-order differences (one-sided
-    at the ends).
+    periodic angles of Struphy's mappings; the Nyquist mode of an even number of points is
+    dropped. Elsewhere numpy's second-order differences (one-sided at the ends; first order with
+    only two points).
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        The values to differentiate.
+    coordinate : numpy.ndarray
+        The coordinate along ``axis``, one value per point.
+    axis : int
+        The axis of ``values`` to differentiate along.
+    kind : {"open", "closed", None}
+        How the direction wraps around, from :func:`periodicity`: ``"open"`` (the seam is left
+        out), ``"closed"`` (the last point repeats the first) or ``None`` (not periodic).
+
+    Returns
+    -------
+    numpy.ndarray
+        The derivative, of the same shape as ``values``.
     """
     spacing = np.diff(coordinate)
     uniform = len(spacing) > 0 and np.allclose(spacing, spacing[0])
@@ -189,11 +349,29 @@ def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, ki
 
 
 def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
-    """The Jacobian ``J[a, i] = dX_a / de_i`` of the mapping, shape ``(3, 3, n1, n2, n3)``.
+    """The Jacobian ``J[a, i] = ∂X_a / ∂η_i`` of the mapping, shape ``(3, 3, n1, n2, n3)``.
 
     Differentiated numerically from the ``X``, ``Y``, ``Z`` coordinates of ``data`` on its
     ``(eta1, eta2, eta3)`` grid: spectrally around periodic directions (see :func:`periodicity`),
-    second order elsewhere, so every direction needs at least two points.
+    second order elsewhere (see :func:`logical_derivative`).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        An array with the dimensions ``eta1``, ``eta2``, ``eta3``, each with at least two
+        points, and the ``X``, ``Y``, ``Z`` coordinates over them.
+
+    Returns
+    -------
+    numpy.ndarray
+        ``J`` of shape ``(3, 3, n1, n2, n3)``: the Cartesian component ``a`` first, the logical
+        direction ``i`` second.
+
+    Raises
+    ------
+    ValueError
+        If a logical dimension is missing or has fewer than two points (pass a struphy domain to
+        the calling function instead).
     """
     spatial = ("eta1", "eta2", "eta3")
     missing = [d for d in spatial if d not in data.dims]

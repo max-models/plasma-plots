@@ -66,16 +66,64 @@ def plot_power_spectrum(
     ax=None,
     title: str | None = None,
 ):
-    """Power per frequency bin, averaged over ``dims``, one line per remaining coordinate.
+    """Plot the power per frequency bin, averaged over ``dims``, one line per remaining coordinate.
 
-    ``data`` is a signal with a ``t`` dimension (transformed by
-    :func:`~struphy_plots.spectral.time_fft` with ``detrend``/``window``), a ``time_fft``
-    Dataset, or a power array over ``omega``. ``dims`` defaults to every dimension but ``omega``
-    and ``component``. ``peaks`` marks and labels the strongest peaks of a single line (with
-    sub-bin frequencies, see :func:`~struphy_plots.spectral.spectral_peaks`); ``band`` shades a
-    frequency band, e.g. a :func:`~struphy_plots.spectral.filter_time` result; ``frequencies``
-    draws named reference frequencies (e.g. a continuum-gap estimate). With ``logy``, the axis
-    spans ``dynamic_range`` decades below the peak (a removed mean leaves a near-zero DC bin).
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        A real signal with a ``t`` dimension (transformed by
+        :func:`~struphy_plots.spectral.time_fft` with ``detrend`` and ``window``), a
+        ``time_fft`` Dataset (its ``power`` is drawn), or an array over ``omega``: power, or
+        complex coefficients (e.g. a two-sided :func:`~struphy_plots.spectral.fft`), drawn as
+        their squared magnitude.
+    dims : str or sequence of str, optional
+        Dimensions to average the power over. At most one other dimension may remain, which
+        gives one line per coordinate value. Default: every dimension but ``omega`` and
+        ``component``.
+    detrend : bool, optional
+        Subtract the signal's mean before transforming. Default: True.
+    window : {None, "hann"}, optional
+        Window applied before transforming a signal. Default: None.
+    peaks : int, optional
+        Mark and label this many of the strongest peaks of a single line, with sub-bin
+        frequencies (see :func:`~struphy_plots.spectral.spectral_peaks`). Default: none.
+    band : TimeFilterResult, xarray.Dataset or (float, float), optional
+        A frequency band to shade: a :func:`~struphy_plots.spectral.filter_time` result or its
+        ``spectrum`` (with one band selected), or an ``(omega_lo, omega_hi)`` pair.
+    frequencies : dict, optional
+        Named reference frequencies drawn as vertical dotted lines, e.g.
+        ``{"gap": 0.8}`` for a continuum-gap estimate.
+    logy : bool, optional
+        Logarithmic power axis. Default: True.
+    dynamic_range : float, optional
+        With ``logy``, the number of decades shown below the peak (a removed mean leaves a
+        near-zero DC bin). ``None`` for Matplotlib's limits. Default: 8.0.
+    omega_max : float, optional
+        The highest frequency shown. Default: all.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: the power's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn artists; ``data`` holds the plotted ``power`` and
+        the ``peaks`` Dataset (``None`` without ``peaks``).
+
+    Raises
+    ------
+    ValueError
+        If more than one dimension besides ``omega`` remains, or ``peaks`` is given for several
+        lines.
+
+    See Also
+    --------
+    struphy_plots.spectral.time_fft : The transform behind the plot.
+
+    Examples
+    --------
+    >>> plot_power_spectrum(phi.isel(eta2=0, eta3=0), peaks=2, frequencies={"theory": 1.2})
     """
     if isinstance(data, xr.Dataset):
         power = data["power"]
@@ -142,11 +190,39 @@ def plot_power_spectrum(
 
 
 def plot_filtered(data: xr.DataArray, result, *, ax=None, **selection):
-    """A probe of the signal (minus its mean) against its filtered reconstruction.
+    """Plot a probe of the signal (minus its mean) against its filtered reconstruction.
 
-    ``result`` is a :class:`~struphy_plots.spectral.TimeFilterResult` or a filtered array (e.g.
-    from :func:`~struphy_plots.spectral.band_filter`). Every dimension but ``t`` is selected by
-    keyword: an integer is a position (``-1`` the last), a float the nearest value.
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The original signal, with a ``t`` dimension.
+    result : TimeFilterResult or xarray.DataArray
+        A :class:`~struphy_plots.spectral.TimeFilterResult` or a filtered array (e.g. from
+        :func:`~struphy_plots.spectral.band_filter`) on the grid of ``data``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    **selection
+        Every dimension but ``t``, selected by keyword: an integer is a position (``-1`` the
+        last), a float the nearest coordinate value.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the two lines (signal minus mean, filtered).
+
+    Raises
+    ------
+    ValueError
+        If a dimension other than ``t`` remains after the selection.
+
+    See Also
+    --------
+    struphy_plots.spectral.filter_time : The dominant-band filter.
+
+    Examples
+    --------
+    >>> result = filter_time(phi)
+    >>> plot_filtered(phi, result, eta1=0.5, eta2=0, eta3=0)
     """
     filtered = result.filtered if isinstance(result, spectral.TimeFilterResult) else result
     probe = resolve_marker_selection(data, selection)
@@ -186,8 +262,41 @@ def plot_spectrogram(
     ax=None,
     title: str | None = None,
 ):
-    """A ``(t, omega)`` spectrogram from :func:`~struphy_plots.spectral.spectrogram` (average
-    any further dimensions away first). With ``log``, colors span ``dynamic_range`` decades.
+    """Plot a ``(t, omega)`` spectrogram from :func:`~struphy_plots.spectral.spectrogram`.
+
+    Parameters
+    ----------
+    power : xarray.DataArray
+        The spectrogram, reduced to ``(t, omega)``: average any further dimensions away first.
+    log : bool, optional
+        Color by ``log10(power)``. Default: True.
+    dynamic_range : float, optional
+        With ``log``, the number of decades the colors span below the maximum. Default: 4.0.
+    omega_max : float, optional
+        The highest frequency shown. Default: all.
+    frequencies : dict, optional
+        Named reference frequencies drawn as horizontal dotted lines.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"magma"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: the spectrogram's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the mesh and the reference lines; ``data`` holds the plotted
+        ``spectrogram``.
+
+    Raises
+    ------
+    ValueError
+        If ``power`` has dimensions other than ``t`` and ``omega``.
+
+    Examples
+    --------
+    >>> plot_spectrogram(spectrogram(phi.isel(eta1=8, eta2=0, eta3=0), length=10.0))
     """
     if set(power.dims) != {"t", "omega"}:
         raise ValueError(f"expected a (t, omega) spectrogram; got {power.dims}")
@@ -224,12 +333,42 @@ def plot_mode_amplitudes(
     ax=None,
     title: str = "Mode amplitudes",
 ):
-    """Amplitude of the strongest ``(m, n)`` modes over time, optionally with growth-rate fits.
+    """Plot the amplitude of the strongest ``(m, n)`` modes over time, optionally with growth fits.
 
-    ``modes`` is :func:`~struphy_plots.spectral.mode_spectrum` output (complex) or
-    :func:`~struphy_plots.spectral.mode_amplitudes` output, reduced to ``(t, mode)`` or
-    ``(t, m, n)``: average or select other dimensions (e.g. ``eta1``) first. ``fit`` is a time
-    window ``(t0, t1)``, or ``True`` for the whole record; rates go to ``result.fit_results``.
+    Parameters
+    ----------
+    modes : xarray.DataArray
+        :func:`~struphy_plots.spectral.mode_spectrum` output (complex, turned into real
+        amplitudes by :func:`~struphy_plots.spectral.mode_amplitudes`) or ``mode_amplitudes``
+        output, reduced to ``(t, m, n)`` or ``(t, mode)``: average or select other dimensions
+        (e.g. ``eta1``) first.
+    top : int, optional
+        The number of modes drawn, those with the largest peak amplitude. Default: 6.
+    fit : (float, float) or bool, optional
+        Fit an exponential growth rate γ to each mode: a time window ``(t0, t1)``, or ``True``
+        for the whole record. Default: no fit.
+    logy : bool, optional
+        Logarithmic amplitude axis. Default: True.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: ``"Mode amplitudes"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn lines. ``fit_results`` holds one growth fit per
+        drawn mode (``None`` without ``fit``); ``data`` holds the plotted ``amplitudes``.
+
+    Raises
+    ------
+    ValueError
+        If dimensions other than ``t`` and the mode numbers remain.
+
+    Examples
+    --------
+    >>> modes = mode_spectrum(phi).max("eta1")
+    >>> plot_mode_amplitudes(modes, top=4, fit=(0.0, 20.0)).fit_results[0].rate
     """
     amplitudes = modes if "mode" in modes.dims else spectral.mode_amplitudes(modes)
     others = [d for d in amplitudes.dims if d not in ("t", "mode")]
@@ -272,8 +411,39 @@ def plot_mode_map(
     ax=None,
     title: str | None = None,
 ):
-    """``|amplitude|`` over the ``(m, n)`` plane, from :func:`~struphy_plots.spectral.mode_spectrum`
-    reduced to ``(m, n)`` (select a time and average or select everything else first).
+    """Plot ``|amplitude|`` over the ``(m, n)`` plane of a mode spectrum.
+
+    Parameters
+    ----------
+    modes : xarray.DataArray
+        :func:`~struphy_plots.spectral.mode_spectrum` output reduced to ``(m, n)``: select a
+        time and average or select everything else first.
+    m_range : (int, int), optional
+        The range of ``m`` shown, both ends included. Default: all.
+    n_range : (int, int), optional
+        The range of ``n`` shown, both ends included. Default: all.
+    log : bool, optional
+        Color by ``log10(|amplitude|)``, clipped at 4 decades below the maximum. Default: True.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"viridis"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: the spectrum's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the mesh; ``data`` holds the plotted ``amplitude``.
+
+    Raises
+    ------
+    ValueError
+        If ``modes`` has dimensions other than ``m`` and ``n``.
+
+    Examples
+    --------
+    >>> plot_mode_map(mode_spectrum(phi).isel(t=-1).sel(eta1=0.5, method="nearest"), m_range=(-8, 8))
     """
     if set(modes.dims) != {"m", "n"}:
         raise ValueError(f"reduce the mode spectrum to (m, n) first; got {modes.dims}")
@@ -317,16 +487,57 @@ def plot_radial_power(
     ax=None,
     title: str | None = None,
 ):
-    """Where each frequency lives: power over ``(omega, x)``, e.g. radius, with continua on top.
+    """Plot where each frequency lives: power over ``(omega, x)``, e.g. radius, with continua.
 
-    ``power`` is a :func:`~struphy_plots.spectral.time_fft` Dataset or power array reduced to
-    ``(omega, x)`` (average the angles away first). ``x_of`` maps the ``x`` coordinate to the
-    plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1`` for the minor radius of a hollow torus.
-    ``continuum`` overlays continuous spectra: a ``(spectrum, modes)`` pair as for
-    :func:`~struphy_plots.plotting.plot_continuous_spectrum`, evaluated on the plotted axis, or
-    a ``(mode, branch, x)`` array from :func:`~struphy_plots.plotting.prepare_continuous_spectrum`.
     A global eigenmode shows as a horizontal ridge in a continuum gap; a continuum-damped
     oscillation follows the continuum curves.
+
+    Parameters
+    ----------
+    power : xarray.DataArray or xarray.Dataset
+        A :func:`~struphy_plots.spectral.time_fft` Dataset or power array reduced to
+        ``(omega, x)``: average the angles away first.
+    x : str, optional
+        The spatial dimension. Default: ``"eta1"``.
+    x_of : callable, optional
+        Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1``
+        for the minor radius of a hollow torus. The axis is then labeled ``r``.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's label, or ``r`` with ``x_of``.
+    continuum : tuple or xarray.DataArray, optional
+        Continuous spectra overlaid as curves: a ``(spectrum, modes)`` pair as for
+        :func:`~struphy_plots.plotting.plot_continuous_spectrum`, evaluated on the plotted
+        axis, or a ``(mode, branch, x)`` array from
+        :func:`~struphy_plots.plotting.prepare_continuous_spectrum`.
+    log : bool, optional
+        Color by ``log10(power)``, clipped at ``dynamic_range`` decades below the maximum.
+        Default: True.
+    dynamic_range : float, optional
+        With ``log``, the number of decades shown. Default: 3.0.
+    omega_max : float, optional
+        The highest frequency shown. Default: all.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"magma"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: ``"Radial power"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the mesh and the continuum curves; ``data`` holds the plotted
+        ``power``.
+
+    Raises
+    ------
+    ValueError
+        If ``power`` has dimensions other than ``omega`` and ``x``.
+
+    Examples
+    --------
+    >>> power = time_fft(phi, detrend=True).power.mean(["eta2", "eta3"])
+    >>> plot_radial_power(power, x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=2.0)
     """
     power = power["power"] if isinstance(power, xr.Dataset) else power
     if set(power.dims) != {"omega", x}:
@@ -382,15 +593,53 @@ def plot_mode_profiles(
     phase: bool = True,
     title: str | None = None,
 ):
-    """Radial eigenfunction of each harmonic: ``|amplitude|`` (and phase) against ``x``.
+    """Plot the radial eigenfunction of each harmonic: ``|amplitude|`` (and phase) against ``x``.
 
-    Phases are drawn only where a harmonic has at least 5% of its peak amplitude.
-    ``structure`` is complex over ``(x, m, n)``: typically
-    ``mode_spectrum(mode_structure(field, omega))``, the complex amplitude of each poloidal
-    harmonic at one frequency; or real over ``(x, mode)``, e.g. ``mode_amplitudes`` of one
-    snapshot's mode spectrum, which has no phase panel. ``top`` keeps the strongest harmonics; ``(m, n)`` and
-    ``(-m, -n)`` count as one. The phase panel shows whether the harmonics oscillate together, as
-    the coupled harmonics of a global eigenmode do.
+    The phase panel (unwrapped, in radians) shows whether the harmonics oscillate together, as
+    the coupled harmonics of a global eigenmode do. Phases are drawn only where a harmonic has
+    at least 5% of its peak amplitude.
+
+    Parameters
+    ----------
+    structure : xarray.DataArray
+        Complex over ``(x, m, n)``: typically ``mode_spectrum(mode_structure(field, omega))``,
+        the complex amplitude of each poloidal harmonic at one frequency. Or real over
+        ``(x, mode)``, e.g. ``mode_amplitudes`` of one snapshot's mode spectrum, which has no
+        phase panel.
+    x : str, optional
+        The radial dimension. Default: ``"eta1"``.
+    x_of : callable, optional
+        Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1``.
+        The axis is then labeled ``r``.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's label, or ``r`` with ``x_of``.
+    top : int, optional
+        The number of strongest harmonics drawn; ``(m, n)`` and ``(-m, -n)`` count as one (the
+        stronger is drawn, labeled by the half whose first nonzero number is positive).
+        Default: 4.
+    phase : bool, optional
+        Add the phase panel (only for complex ``structure``). Default: True.
+    title : str, optional
+        The title. Default: the structure's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the array of axes (amplitude, then phase) and the drawn lines; ``data``
+        holds the plotted ``profiles``.
+
+    Raises
+    ------
+    ValueError
+        If ``structure`` has dimensions other than ``x`` and the mode numbers.
+
+    See Also
+    --------
+    struphy_plots.spectral.mode_structure : The complex amplitude at one frequency.
+
+    Examples
+    --------
+    >>> plot_mode_profiles(mode_spectrum(mode_structure(phi, 0.42)).isel(n=0), top=3)
     """
     names = [d for d in ("m", "n") if d in structure.dims]
     stacked = structure.stack(mode=names) if names else structure
@@ -451,8 +700,37 @@ def plot_mode_profiles(
 
 
 def plot_cross_spectrum(cross: xr.Dataset, *, omega_max: float | None = None, title: str | None = None):
-    """Magnitude (and coherence, if present) and phase of a
-    :func:`~struphy_plots.spectral.cross_spectrum`, reduced to ``omega`` only."""
+    """Plot the magnitude (and coherence, if present) and phase of a cross-spectrum.
+
+    The top panel shows the magnitude on a log axis spanning 6 decades, with the coherence on a
+    second axis; the bottom panel the phase in degrees at bins with at least 1e-3 of the peak
+    magnitude (elsewhere the phase is noise), with the phase at the peak marked.
+
+    Parameters
+    ----------
+    cross : xarray.Dataset
+        A :func:`~struphy_plots.spectral.cross_spectrum` result reduced to ``omega`` only (e.g.
+        summed over ``dims``).
+    omega_max : float, optional
+        The highest frequency shown. Default: all.
+    title : str, optional
+        The title. Default: the phase's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the two axes and the drawn lines; ``data`` holds ``peak_omega`` and
+        ``peak_phase_deg``, the frequency and phase (in degrees) of the strongest bin.
+
+    Raises
+    ------
+    ValueError
+        If dimensions other than ``omega`` remain.
+
+    Examples
+    --------
+    >>> plot_cross_spectrum(cross_spectrum(phi, density, dims=["eta1", "eta2", "eta3"]), omega_max=3.0)
+    """
     if cross.magnitude.dims != ("omega",):
         raise ValueError(f"reduce the cross-spectrum to omega only; got {cross.magnitude.dims}")
     if omega_max is not None:
@@ -500,9 +778,32 @@ def plot_cross_spectrum(cross: xr.Dataset, *, omega_max: float | None = None, ti
 
 
 def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = None):
-    """A :func:`~struphy_plots.spectral.matrix_pencil` fit: the signal against its
-    reconstruction, and the fitted modes in the complex-frequency plane (``omega`` against
-    ``gamma``; above zero grows, below is damped), sized by amplitude."""
+    """Plot a :func:`~struphy_plots.spectral.matrix_pencil` fit and its complex frequencies.
+
+    The left panel shows the signal against its reconstruction; the right panel the fitted
+    modes in the complex-frequency plane (ω against γ; above zero grows, below is damped),
+    sized by amplitude.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The real ``(t,)`` series that was fitted.
+    fit : xarray.Dataset
+        Its :func:`~struphy_plots.spectral.matrix_pencil` fit.
+    title : str, optional
+        The title of the signal panel. Default: the array's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the two axes and the drawn artists; ``data`` holds the ``fit`` and the
+        reconstructed ``model``.
+
+    Examples
+    --------
+    >>> series = energy.sel(t=slice(0.0, 5.0))
+    >>> plot_pencil_fit(series, matrix_pencil(series, n_modes=2))
+    """
     with plt.rc_context(STRUPHY_STYLE):
         fig, axes = plt.subplots(
             1,

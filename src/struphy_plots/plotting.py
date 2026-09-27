@@ -1,7 +1,14 @@
 """Small, composable plotting functions for labeled Struphy output.
 
-They remain importable for plotting arbitrary labeled arrays. The optional xarray
-accessor exposes them as ``array.struphy.plot.*``.
+Every function takes labeled ``xarray`` objects (fields with dimensions ``t``, ``eta1``, ``eta2``,
+``eta3``, ..., time series, marker datasets) and returns a :class:`PlotResult` or, for animations, a
+``matplotlib.animation.FuncAnimation``. They remain importable for plotting arbitrary labeled
+arrays. The optional xarray accessor exposes them as ``array.struphy.plot.*``.
+
+Slices of N-dimensional fields are described by a :class:`View`: which dimensions to select, which
+two to draw and whether in logical or physical coordinates. The slice functions
+(:func:`plot_slice`, :func:`plot_panels`, :func:`animate_slices`, :func:`save_frames`,
+:class:`InteractiveSliceViewer`) share the same rendering options.
 """
 
 from __future__ import annotations
@@ -51,7 +58,35 @@ PLANES = {
 
 @dataclass(frozen=True)
 class View:
-    """A reusable selection and rendering recipe for an N-dimensional product."""
+    """A reusable selection and rendering recipe for an N-dimensional product.
+
+    Attributes
+    ----------
+    x : str or None
+        The dimension along the horizontal axis. Default: the first of the two dimensions left
+        after the selection.
+    y : str or None
+        The dimension along the vertical axis. Default: the second of the two dimensions left.
+    sweep : str
+        The dimension that panels, animations, exported frames and sliders run over. Default:
+        ``"t"``.
+    select : dict of str to float
+        Dimensions to select by coordinate value (nearest), e.g. ``{"eta3": 0.5}``.
+    isel : dict of str to int
+        Dimensions to select by integer position, e.g. ``{"eta3": 0}``. A dimension cannot appear
+        in both ``select`` and ``isel``.
+    coordinates : {"logical", "physical"}
+        Draw over the logical coordinates (``eta1``, ...) or over the physical ``X``, ``Y``, ``Z``
+        coordinates attached to the field. Default: ``"logical"``.
+    plane : {"XY", "XZ", "YZ", "RZ"}
+        The physical plane drawn with ``coordinates="physical"``; ``"RZ"`` uses
+        ``R = √(X² + Y²)``. Default: ``"XY"``.
+
+    Examples
+    --------
+    >>> view = View(x="eta1", y="eta2", isel={"eta3": 0}, coordinates="physical")
+    >>> plot_slice(phi.isel(t=-1), view=view)
+    """
 
     x: str | None = None
     y: str | None = None
@@ -83,8 +118,28 @@ def _display_figure(fig):
 class PlotResult:
     """Already-rendered Matplotlib objects; saving never redraws them.
 
-    As the last expression of a notebook cell it displays its figure once; there is no need
-    to write ``.fig``.
+    Every plotting function returns one. As the last expression of a notebook cell it displays
+    its figure once; there is no need to write ``.fig``.
+
+    Attributes
+    ----------
+    fig : matplotlib.figure.Figure
+        The figure.
+    ax : matplotlib.axes.Axes or array of matplotlib.axes.Axes
+        The axes drawn into; an array (or list) of axes for multi-panel plots.
+    artists : list
+        The drawn artists (lines, meshes, scatter collections, ...).
+    fit_results : list of FitResult or None
+        The growth-rate fits of :func:`plot_timeseries`, one per series (``None`` where no fit
+        was made); empty for other plots.
+    data : dict
+        Extra results of the plot, e.g. ``"counts"`` of :func:`plot_orbit_classification` or
+        ``"markers"`` of :func:`plot_marker_paths`.
+
+    Examples
+    --------
+    >>> result = plot_lineout(phi.isel(t=-1, eta2=0, eta3=0))
+    >>> result.save("phi.png", dpi=200)
     """
 
     fig: object
@@ -95,6 +150,23 @@ class PlotResult:
     _shown: bool = field(default=False, init=False, repr=False, compare=False)
 
     def save(self, path, *, close=False, **kwargs):
+        """Save the figure to a file, as drawn.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            The file to write; its extension picks the format.
+        close : bool, optional
+            Close the figure afterwards, to free its memory. Default: ``False``.
+        **kwargs
+            Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``);
+            ``bbox_inches="tight"`` unless given.
+
+        Returns
+        -------
+        str
+            The path written.
+        """
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
         if close:
@@ -102,6 +174,15 @@ class PlotResult:
         return str(path)
 
     def show(self):
+        """Show the figure with ``matplotlib.pyplot.show``.
+
+        Afterwards a notebook no longer displays the result again as a cell result.
+
+        Returns
+        -------
+        PlotResult
+            This result.
+        """
         plt.show()
         self._shown = True
         return self
@@ -134,6 +215,19 @@ def shared_run_label(data, default="") -> str:
     """The run description shared by all arrays (``attrs["run"]``), or ``default``.
 
     Arrays loaded from a :class:`~struphy.Output` carry it; arrays from different runs share none.
+
+    Parameters
+    ----------
+    data : xarray.DataArray, xarray.Dataset or sequence of these
+        The arrays.
+    default : str, optional
+        Returned when no array has a run description. Default: ``""``.
+
+    Returns
+    -------
+    str
+        The shared run description; ``""`` if the arrays come from different runs, ``default``
+        if none has one.
     """
     runs = {item.attrs.get("run") for item in _items(data)}
     if len(runs - {None, ""}) > 1:
@@ -166,7 +260,27 @@ def _select(data: xr.DataArray, view: View, *, keep_sweep=True):
 
 
 def logical_grids(data: xr.DataArray, *, x=None, y=None):
-    """Return 2-D logical coordinate grids and their labels."""
+    """Return 2-D logical coordinate grids and their labels.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A slice with exactly the dimensions ``x`` and ``y``.
+    x : str, optional
+        The first dimension. Default (with ``y``): the first dimension of a 2-D ``data``.
+    y : str, optional
+        The second dimension. Default (with ``x``): the second dimension of a 2-D ``data``.
+
+    Returns
+    -------
+    tuple
+        ``(xgrid, ygrid, xlabel, ylabel)``: two 2-D arrays (``indexing="ij"``) and the axis labels.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` does not have exactly the dimensions ``x`` and ``y``.
+    """
     if x is None or y is None:
         if data.ndim != 2:
             raise ValueError(f"x and y are required unless data is two-dimensional; got {data.dims}")
@@ -178,7 +292,25 @@ def logical_grids(data: xr.DataArray, *, x=None, y=None):
 
 
 def physical_grids(data: xr.DataArray, *, plane="XY"):
-    """Return physical auxiliary coordinates already attached to a selected field."""
+    """Return physical auxiliary coordinates already attached to a selected field.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A 2-D slice with the coordinates ``X``, ``Y`` and ``Z`` attached.
+    plane : {"XY", "XZ", "YZ", "RZ"}, optional
+        The physical plane; ``"RZ"`` uses ``R = √(X² + Y²)``. Default: ``"XY"``.
+
+    Returns
+    -------
+    tuple
+        ``(xgrid, ygrid, xlabel, ylabel)``: two 2-D arrays and the axis labels.
+
+    Raises
+    ------
+    ValueError
+        If ``plane`` is unknown, a physical coordinate is missing, or the coordinates are not 2-D.
+    """
     if plane not in PLANES:
         raise ValueError(f"unknown plane {plane!r}; expected one of {tuple(PLANES)}")
     xname, yname, xlabel, ylabel = PLANES[plane]
@@ -266,11 +398,47 @@ def plot_timeseries(
     run_label=None,
     reference=None,
 ):
-    """Plot one or more time series, each on its own time grid; series of different runs are labeled by run.
+    """Plot one or more time series, each on its own time grid.
 
-    ``reference`` overlays exact or expected curves (dashed, black): a function of ``t``, a
-    ``(t,)`` array, a ``(t, values)`` pair, or a mapping of labels to these, e.g.
-    ``{"exact": lambda t: A * np.exp(-gamma * t)}`` or an envelope ``{"+e^(-γt)": ..., "−e^(-γt)": ...}``.
+    Series of different runs (``attrs["run_name"]``) are labeled by run.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or sequence of xarray.DataArray
+        The time series, each with the only dimension ``t``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    logy : bool, optional
+        Use a logarithmic value axis. Default: ``True``.
+    fit : GrowthFit, optional
+        Fit an exponential growth rate to each series (see
+        :func:`struphy_plots.analysis.growth_rate`) and draw it dashed, with the fit window shaded.
+        Default: no fit.
+    title : str, optional
+        The axes title. Default: the first series' label.
+    run_label : str, optional
+        A run description shown as the figure's suptitle (only for a new figure). Default: the run
+        shared by all series (see :func:`shared_run_label`); ``""`` for none.
+    reference : callable, array, (t, values) pair or dict, optional
+        Exact or expected curves, drawn dashed in black: a function of ``t``, a 1-D
+        ``xarray.DataArray`` over ``t``, a ``(t, values)`` pair, or a dict of labels to these, e.g.
+        ``{"exact": lambda t: A * np.exp(-gamma * t)}`` or an envelope
+        ``{"+e^(-γt)": ..., "−e^(-γt)": ...}``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the drawn lines, and in ``fit_results`` one
+        :class:`~struphy_plots.analysis.FitResult` (or ``None``) per series.
+
+    Raises
+    ------
+    ValueError
+        If there is no series, or a series has dimensions other than ``t``.
+
+    Examples
+    --------
+    >>> plot_timeseries(out.scalars.en_E, fit=GrowthFit(window=(5.0, 20.0)))
     """
     series = _items(data)
     if not series:
@@ -341,12 +509,44 @@ def plot_lineout(
     x_of=None,
     xlabel=None,
 ):
-    """Plot a selected one-dimensional profile using one named coordinate.
+    """Plot a one-dimensional profile along its one remaining coordinate.
 
-    ``x_of`` maps the coordinate to the plotted axis (e.g. ``lambda eta1: L * eta1``).
-    ``reference`` overlays exact or expected profiles (dashed, black): a function of the
-    plotted ``x`` (or of ``x`` and ``t``, taking the profile's time), an array, an ``(x, y)``
-    pair, or a mapping of labels to these.
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The profile: every dimension but one already selected.
+    x : str, optional
+        The remaining dimension, as a check. Default: whichever it is.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: the array's label.
+    reference : callable, array, (x, y) pair or dict, optional
+        Exact or expected profiles, drawn dashed: a function of the plotted ``x`` (or of ``x``
+        and ``t``, taking the profile's time), a 1-D ``xarray.DataArray`` (drawn over its own
+        coordinate), an ``(x, y)`` pair, or a dict of labels to these.
+    x_of : callable, optional
+        Maps the coordinate to the plotted axis, e.g. ``lambda eta1: L * eta1``.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn lines.
+
+    Raises
+    ------
+    ValueError
+        If more or fewer than one dimension remains, or ``x`` is not the remaining one.
+
+    See Also
+    --------
+    plot_profiles : Several profiles in one axes.
+
+    Examples
+    --------
+    >>> plot_lineout(phi.isel(t=-1, eta2=0, eta3=0), reference=lambda x: np.sin(np.pi * x))
     """
     validate_array(data)
     if data.ndim != 1:
@@ -390,6 +590,31 @@ def prepare_vector(
 
     Used by :func:`plot_vector`; also available directly, e.g. to hand the same
     strided data to a different plotting library.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The vector field, with exactly the dimensions ``component_dim``, ``x`` and ``y``.
+    x : str
+        The first spatial dimension.
+    y : str
+        The second spatial dimension.
+    components : (int, int), optional
+        The positions along ``component_dim`` of the two components. Default: ``(0, 1)``.
+    component_dim : str, optional
+        The dimension holding the components. Default: ``"component"``.
+    stride : int, optional
+        Keep every ``stride``-th point along ``x`` and ``y``. Default: ``1``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The two components, with dimensions ``(component_dim, x, y)``.
+
+    Raises
+    ------
+    ValueError
+        If other dimensions remain, or ``stride`` is not positive.
     """
     validate_array(data, required_dims=(component_dim, x, y))
     if set(data.dims) != {component_dim, x, y}:
@@ -416,7 +641,48 @@ def plot_vector(
     stride: int = 1,
     coordinates: Literal["logical", "physical"] = "logical",
 ):
-    """Render two components of a selected vector field with Matplotlib quivers."""
+    """Render two components of a selected vector field with Matplotlib quivers.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The vector field, with exactly the dimensions ``component_dim``, ``x`` and ``y``.
+    x : str
+        The dimension along the horizontal axis.
+    y : str
+        The dimension along the vertical axis.
+    components : (int, int), optional
+        The positions along ``component_dim`` of the two components drawn. Default: ``(0, 1)``.
+    component_dim : str, optional
+        The dimension holding the components. Default: ``"component"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    stride : int, optional
+        Draw every ``stride``-th arrow along ``x`` and ``y``. Default: ``1``.
+    coordinates : {"logical", "physical"}, optional
+        Place the arrows at the logical coordinates, or at the attached physical ``X``, ``Y``,
+        ``Z`` (then ``x`` and ``y`` must be two of ``eta1``, ``eta2``, ``eta3``, and the axes
+        have equal scales). Default: ``"logical"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the quiver.
+
+    Raises
+    ------
+    ValueError
+        If other dimensions remain, or physical coordinates are requested for non-spatial ``x``
+        and ``y``.
+
+    See Also
+    --------
+    prepare_vector : The same selection, without plotting.
+
+    Examples
+    --------
+    >>> plot_vector(b_field.isel(t=-1, eta3=0), x="eta1", y="eta2", stride=4)
+    """
     vector = prepare_vector(
         data,
         x=x,
@@ -452,8 +718,26 @@ def plot_vector(
 def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None) -> dict[str, xr.DataArray]:
     """Three orthogonal midpoint (or chosen-index) planes through a scalar volume.
 
-    Returns a dict keyed by the dimension held fixed for each plane (``"eta3"``, ``"eta2"``,
-    ``"eta1"``), each a 2-D ``xr.DataArray``. Used by :func:`plot_volume_slices`.
+    Used by :func:`plot_volume_slices`.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The volume, with exactly the dimensions ``eta1``, ``eta2`` and ``eta3``.
+    indices : dict of str to int, optional
+        The index at which each dimension is held fixed, e.g. ``{"eta3": 0}``. Default: the
+        middle index of every dimension.
+
+    Returns
+    -------
+    dict of str to xarray.DataArray
+        One 2-D plane per dimension held fixed, keyed by that dimension (``"eta3"``, ``"eta2"``,
+        ``"eta1"``); each has the fixed index in ``attrs["fixed_index"]``.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has other dimensions.
     """
     validate_array(data, required_dims=("eta1", "eta2", "eta3"))
     if set(data.dims) != {"eta1", "eta2", "eta3"}:
@@ -468,7 +752,31 @@ def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None 
 
 
 def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
-    """Show three orthogonal midpoint slices of a selected scalar volume."""
+    """Show three orthogonal midpoint slices of a selected scalar volume.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The volume, with exactly the dimensions ``eta1``, ``eta2`` and ``eta3``.
+    indices : dict of str to int, optional
+        The index at which each dimension is held fixed, e.g. ``{"eta3": 0}``. Default: the
+        middle index of every dimension.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: Matplotlib's default.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the three axes and their meshes.
+
+    See Also
+    --------
+    prepare_volume_slices : The three planes, without plotting.
+
+    Examples
+    --------
+    >>> plot_volume_slices(phi.isel(t=-1), indices={"eta3": 0})
+    """
     planes = prepare_volume_slices(data, indices=indices)
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.6), layout="constrained")
     artists = []
@@ -496,6 +804,21 @@ def prepare_compare(
     """Align two arrays and compute their difference or ratio, without rendering it.
 
     Used by :func:`plot_compare`.
+
+    Parameters
+    ----------
+    first : xarray.DataArray
+        The first array.
+    second : xarray.DataArray
+        The second array; only coordinates both share are kept.
+    mode : {"difference", "ratio"}, optional
+        ``first - second``, or ``first / second`` (NaN where ``second`` is zero). Default:
+        ``"difference"``.
+
+    Returns
+    -------
+    xarray.DataArray
+        The difference or ratio, named after the first array's label and ``mode``.
     """
     first, second = xr.align(first, second, join="inner")
     result = first - second if mode == "difference" else xr.where(second != 0, first / second, np.nan)
@@ -510,7 +833,34 @@ def plot_compare(
     mode: Literal["difference", "ratio"] = "difference",
     ax=None,
 ):
-    """Plot a one-dimensional aligned difference or ratio of two arrays."""
+    """Plot a one-dimensional aligned difference or ratio of two arrays.
+
+    Parameters
+    ----------
+    first : xarray.DataArray
+        The first array, one-dimensional.
+    second : xarray.DataArray
+        The second array, one-dimensional; only coordinates both share are kept.
+    mode : {"difference", "ratio"}, optional
+        ``first - second``, or ``first / second`` (NaN where ``second`` is zero). Default:
+        ``"difference"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn line.
+
+    See Also
+    --------
+    prepare_compare : The difference or ratio, without plotting.
+    plot_lineout : Draws the result.
+
+    Examples
+    --------
+    >>> plot_compare(phi.isel(t=-1, eta2=0, eta3=0), phi.isel(t=0, eta2=0, eta3=0))
+    """
     return plot_lineout(prepare_compare(first, second, mode=mode), ax=ax)
 
 
@@ -519,6 +869,33 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
 
     The returned plotter is not shown automatically; call ``plotter.show()`` in an
     interactive session or use PyVista's off-screen rendering options in batch jobs.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with exactly the dimensions ``eta1``, ``eta2`` and ``eta3`` and the mapped
+        coordinates ``X``, ``Y`` and ``Z``.
+    name : str, optional
+        The name of the scalars in the PyVista grid. Default: the array's label, else
+        ``"value"``.
+    cmap : str, optional
+        The colormap. Default: ``"viridis"``.
+    opacity : str or sequence of float, optional
+        PyVista's opacity transfer function. Default: ``"linear"``.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The plotter with the volume and axes added, not yet shown.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has other dimensions or lacks ``X``, ``Y`` or ``Z``.
+
+    Examples
+    --------
+    >>> pyvista_volume(phi.isel(t=-1)).show()
     """
     import pyvista as pv
 
@@ -553,11 +930,35 @@ def show_equilibrium(
 ):
     """A PyVista cutaway view of a fluid equilibrium's scalar field over its domain.
 
-    ``equil`` is a :class:`~struphy.fields_background.base.FluidEquilibrium` (e.g. from
-    ``out.equil``) and ``domain`` its mapping (``out.domain``); ``scalars`` names one of
-    ``equil``'s profile methods (``"p0"``, ``"n0"``, ...). ``clip`` cuts away half the domain
-    (normal to the physical X axis) to reveal the profile's interior, since the outer surface
-    alone is often close to uniform (e.g. the plasma edge).
+    Parameters
+    ----------
+    equil : struphy.fields_background.base.FluidEquilibrium
+        The equilibrium, e.g. from ``out.equil``.
+    domain : struphy.geometry.base.Domain
+        Its mapping (``out.domain``), called as ``domain(eta1, eta2, eta3, squeeze_out=False)``.
+    scalars : str, optional
+        One of ``equil``'s profile methods (``"p0"``, ``"n0"``, ...). Default: ``"p0"``.
+    cmap : str, optional
+        The colormap. Default: ``"viridis"``.
+    n1 : int, optional
+        Number of evaluation points along ``eta1``. Default: ``40``.
+    n2 : int, optional
+        Number of evaluation points along ``eta2``. Default: ``48``.
+    n3 : int, optional
+        Number of evaluation points along ``eta3``. Default: ``10``.
+    clip : bool, optional
+        Cut away half the domain (normal to the physical X axis) to reveal the profile's
+        interior, since the outer surface alone is often close to uniform (e.g. the plasma
+        edge). Default: ``True``.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The plotter with the mesh and axes added, not yet shown; call ``plotter.show()``.
+
+    Examples
+    --------
+    >>> show_equilibrium(out.equil, out.domain, scalars="n0").show()
     """
     import pyvista as pv
 
@@ -582,9 +983,27 @@ def show_equilibrium(
 def color_limits(data, *, symmetric: bool = False, robust: bool = False) -> tuple[float, float]:
     """Color limits of the finite values of ``data``.
 
-    ``robust`` uses the 1st and 99th percentiles instead of the extremes, so a few outliers do
-    not wash out the rest; ``symmetric`` centers the limits on zero (``-v, v``), as a diverging
-    colormap for a perturbation needs.
+    Parameters
+    ----------
+    data : array_like or xarray.DataArray
+        The values.
+    symmetric : bool, optional
+        Center the color limits on zero (``-v, v``), as a diverging colormap for a perturbation
+        needs. Default: ``False``.
+    robust : bool, optional
+        Take the color limits from the 1st and 99th percentiles instead of the extremes, so a few
+        outliers do not wash out the rest. Default: ``False``. With ``symmetric``, ``v`` is the
+        99th percentile of the absolute values.
+
+    Returns
+    -------
+    (float, float)
+        The lower and upper limit.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has no finite values.
     """
     values = np.asarray(data, dtype=float)
     finite = values[np.isfinite(values)]
@@ -828,7 +1247,90 @@ def plot_slice(
     fill=True,
     overlays=None,
 ):
-    """Render one selected two-dimensional slice."""
+    """Render one selected two-dimensional slice.
+
+    Every dimension but the two drawn must be selected, by the data itself or by ``view``; a
+    sweep dimension (``t``) left over must be selected too, or be drawn as ``x`` or ``y``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field; dimensions not drawn are selected by ``view``.
+    view : View, optional
+        Which dimensions to select, which two to draw and in which coordinates (see :class:`View`).
+        Default: ``View()``, the two remaining dimensions in logical coordinates.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    vmin : float, optional
+        The lower color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    vmax : float, optional
+        The upper color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: ``True`` in physical coordinates, ``False`` in
+        logical ones.
+    title : str, optional
+        The axes title. Default: the array's label.
+    run_label : str, optional
+        A run description shown as the figure's suptitle (only for a new figure). Default: the
+        run shared by the data (see :func:`shared_run_label`); ``""`` for none.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"viridis"``.
+    shared_clim : bool, optional
+        Take the color limits once from all the selected data (every value of the sweep), so that
+        every slice shares them; ``False`` gives each slice its own. Default: ``True``.
+    symmetric : bool, optional
+        Center the color limits on zero (``-v, v``), as a diverging colormap for a perturbation
+        needs. Default: ``False``.
+    robust : bool, optional
+        Take the color limits from the 1st and 99th percentiles instead of the extremes, so a few
+        outliers do not wash out the rest. Default: ``False``.
+    levels : int or sequence of float, optional
+        Contour lines of the slice: a number of levels spaced evenly between the color limits, or
+        the levels themselves. Drawn in black over the colors, or in the colormap's colors with
+        ``fill=False``. Default: no contour lines.
+    fill : bool, optional
+        Fill the slice with colors; ``False`` leaves it transparent, e.g. to show only the contour
+        lines of ``levels``. Default: ``True``.
+    overlays : dict, optional
+        What to draw on top of the slice, by key (other keys raise a ``ValueError``):
+
+        - ``"contours_of"``: another field (``xarray.DataArray``) whose contour lines are drawn,
+          at the slice's sweep value and other selected coordinates (nearest);
+        - ``"contour_levels"``: their number or levels (default ``10``);
+        - ``"contour_color"``: their color (default black);
+        - ``"boundary"``: ``True`` draws the edges of the grid, leaving out collapsed edges and
+          closed periodic seams;
+        - ``"boundary_color"``: its color (default black);
+        - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
+          pair, drawn in dashed styles;
+        - ``"line_color"``: their color (default white);
+        - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
+        - ``"point_color"``: their color (default white).
+
+        Lines and points do not widen the axes and are listed in a legend.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the mesh.
+
+    Raises
+    ------
+    ValueError
+        If more or other dimensions than the two drawn remain, or ``overlays`` has unknown keys.
+
+    See Also
+    --------
+    plot_panels : Several slices over the sweep.
+    animate_slices : The slices as an animation.
+    InteractiveSliceViewer : The slices with sliders.
+
+    Examples
+    --------
+    >>> plot_slice(phi.isel(t=-1, eta3=0), symmetric=True, cmap="RdBu_r")
+    >>> plot_slice(phi.isel(t=0), view=View(isel={"eta3": 0}, coordinates="physical"), levels=10)
+    """
     renderer = _SliceRenderer(
         data,
         view or View(),
@@ -874,7 +1376,93 @@ def plot_panels(
     fill=True,
     overlays=None,
 ):
-    """Plot snapshots with common color limits over the entire selected sweep by default."""
+    """Plot snapshots with common color limits over the entire selected sweep by default.
+
+    The ``nrows * ncols`` panels show evenly spaced values of the sweep dimension, from its
+    first to its last value.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with the sweep dimension; other dimensions not drawn are selected by
+        ``view``.
+    view : View, optional
+        Which dimensions to select, which two to draw, in which coordinates, and the sweep
+        dimension (``view.sweep``, default ``t``) to run over (see :class:`View`). Default:
+        ``View()``.
+    nrows : int, optional
+        The number of rows of panels. Default: ``3``.
+    ncols : int, optional
+        The number of columns of panels. Default: ``4``.
+    shared_clim : bool, optional
+        Take the color limits once from all the selected data (every value of the sweep), so that
+        every slice shares them; ``False`` gives each slice its own. Default: ``True``.
+    title : str, optional
+        The figure title, above the panels. Default: the array's label.
+    run_label : str, optional
+        A run description shown after the title. Default: the run shared by the data (see
+        :func:`shared_run_label`); ``""`` for none.
+    vmin : float, optional
+        The lower color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    vmax : float, optional
+        The upper color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"viridis"``.
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: ``True`` in physical coordinates, ``False`` in
+        logical ones.
+    symmetric : bool, optional
+        Center the color limits on zero (``-v, v``), as a diverging colormap for a perturbation
+        needs. Default: ``False``.
+    robust : bool, optional
+        Take the color limits from the 1st and 99th percentiles instead of the extremes, so a few
+        outliers do not wash out the rest. Default: ``False``.
+    levels : int or sequence of float, optional
+        Contour lines of the slice: a number of levels spaced evenly between the color limits, or
+        the levels themselves. Drawn in black over the colors, or in the colormap's colors with
+        ``fill=False``. Default: no contour lines.
+    fill : bool, optional
+        Fill the slice with colors; ``False`` leaves it transparent, e.g. to show only the contour
+        lines of ``levels``. Default: ``True``.
+    overlays : dict, optional
+        What to draw on top of the slice, by key (other keys raise a ``ValueError``):
+
+        - ``"contours_of"``: another field (``xarray.DataArray``) whose contour lines are drawn,
+          at the slice's sweep value and other selected coordinates (nearest);
+        - ``"contour_levels"``: their number or levels (default ``10``);
+        - ``"contour_color"``: their color (default black);
+        - ``"boundary"``: ``True`` draws the edges of the grid, leaving out collapsed edges and
+          closed periodic seams;
+        - ``"boundary_color"``: its color (default black);
+        - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
+          pair, drawn in dashed styles;
+        - ``"line_color"``: their color (default white);
+        - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
+        - ``"point_color"``: their color (default white).
+
+        Lines and points do not widen the axes and are listed in a legend.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the 2-D array of axes and the meshes.
+
+    Raises
+    ------
+    ValueError
+        If the sweep dimension is missing or empty, ``nrows`` or ``ncols`` is not positive, or
+        ``overlays`` has unknown keys.
+
+    See Also
+    --------
+    plot_slice : One slice.
+    animate_slices : The slices as an animation.
+
+    Examples
+    --------
+    >>> plot_panels(phi.isel(eta3=0), nrows=2, ncols=3, symmetric=True)
+    """
     renderer = _SliceRenderer(
         data,
         view or View(),
@@ -920,7 +1508,76 @@ def plot_panels(
 
 
 class InteractiveSliceViewer:
-    """Slider view with the same rendering options as static and exported slices."""
+    """Slider view with the same rendering options as static and exported slices.
+
+    It draws on first display (or :meth:`draw`, :meth:`show`): ``view.x`` and ``view.y`` default
+    to the first two dimensions other than the sweep, and every other remaining dimension (the
+    sweep included) gets a slider over its positions, except dimensions of length one.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field; dimensions not drawn and not selected by ``view`` get sliders.
+    view : View, optional
+        Which dimensions to select, which two to draw and in which coordinates (see :class:`View`).
+        Default: ``View()``, the two remaining dimensions in logical coordinates.
+    vmin : float, optional
+        The lower color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    vmax : float, optional
+        The upper color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    run_label : str, optional
+        A run description shown as the figure's suptitle. Default: the run shared by the
+        data (see :func:`shared_run_label`); ``""`` for none.
+    shared_clim : bool, optional
+        Take the color limits once from all the selected data (every value of the sweep), so that
+        every slice shares them; ``False`` gives each slice its own. Default: ``True``.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"viridis"``.
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: ``True`` in physical coordinates, ``False`` in
+        logical ones.
+    title : str, optional
+        The axes title. Default: the array's label, followed by the slider values.
+    symmetric : bool, optional
+        Center the color limits on zero (``-v, v``), as a diverging colormap for a perturbation
+        needs. Default: ``False``.
+    robust : bool, optional
+        Take the color limits from the 1st and 99th percentiles instead of the extremes, so a few
+        outliers do not wash out the rest. Default: ``False``.
+    levels : int or sequence of float, optional
+        Contour lines of the slice: a number of levels spaced evenly between the color limits, or
+        the levels themselves. Drawn in black over the colors, or in the colormap's colors with
+        ``fill=False``. Default: no contour lines.
+    fill : bool, optional
+        Fill the slice with colors; ``False`` leaves it transparent, e.g. to show only the contour
+        lines of ``levels``. Default: ``True``.
+    overlays : dict, optional
+        What to draw on top of the slice, by key (other keys raise a ``ValueError``):
+
+        - ``"contours_of"``: another field (``xarray.DataArray``) whose contour lines are drawn,
+          at the slice's sweep value and other selected coordinates (nearest);
+        - ``"contour_levels"``: their number or levels (default ``10``);
+        - ``"contour_color"``: their color (default black);
+        - ``"boundary"``: ``True`` draws the edges of the grid, leaving out collapsed edges and
+          closed periodic seams;
+        - ``"boundary_color"``: its color (default black);
+        - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
+          pair, drawn in dashed styles;
+        - ``"line_color"``: their color (default white);
+        - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
+        - ``"point_color"``: their color (default white).
+
+        Lines and points do not widen the axes and are listed in a legend.
+
+    See Also
+    --------
+    plot_slice : One static slice.
+
+    Examples
+    --------
+    >>> InteractiveSliceViewer(phi, view=View(x="eta1", y="eta2"), symmetric=True).show()
+    """
 
     def __init__(
         self,
@@ -960,6 +1617,13 @@ class InteractiveSliceViewer:
         self.sliders = {}
 
     def show(self):
+        """Draw the viewer if needed and show it with ``matplotlib.pyplot.show``.
+
+        Returns
+        -------
+        InteractiveSliceViewer
+            This viewer.
+        """
         (self.result or self.draw()).show()
         return self
 
@@ -967,6 +1631,19 @@ class InteractiveSliceViewer:
         (self.result or self.draw())._ipython_display_()
 
     def draw(self):
+        """Draw the slice and its sliders, once; later calls return the same result.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the current mesh; ``data["viewer"]`` holds this viewer, which
+            keeps the slider callbacks alive.
+
+        Raises
+        ------
+        ValueError
+            If fewer than two dimensions other than the sweep remain to draw.
+        """
         if self.result is not None:
             return self.result
         renderer = _SliceRenderer(self.data, self.view, **self.options)
@@ -1030,7 +1707,91 @@ def animate_slices(
     fill=True,
     overlays=None,
 ):
-    """Animate slices with fixed color limits over the selected sweep by default."""
+    """Animate slices with fixed color limits over the selected sweep by default.
+
+    Retain the returned animation, e.g. in a variable, or it stops.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with the sweep dimension; other dimensions not drawn are selected by
+        ``view``.
+    view : View, optional
+        Which dimensions to select, which two to draw, in which coordinates, and the sweep
+        dimension (``view.sweep``, default ``t``) to run over (see :class:`View`). Default:
+        ``View()``.
+    interval : int, optional
+        The delay between frames, in milliseconds. Default: ``100``.
+    step : int, optional
+        Use every ``step``-th value of the sweep. Default: ``1``.
+    vmin : float, optional
+        The lower color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    vmax : float, optional
+        The upper color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    shared_clim : bool, optional
+        Take the color limits once from all the selected data (every value of the sweep), so that
+        every slice shares them; ``False`` gives each slice its own. Default: ``True``.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"viridis"``.
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: ``True`` in physical coordinates, ``False`` in
+        logical ones.
+    title : str, optional
+        The title, followed in each frame by the sweep value. Default: the array's label.
+    symmetric : bool, optional
+        Center the color limits on zero (``-v, v``), as a diverging colormap for a perturbation
+        needs. Default: ``False``.
+    robust : bool, optional
+        Take the color limits from the 1st and 99th percentiles instead of the extremes, so a few
+        outliers do not wash out the rest. Default: ``False``.
+    levels : int or sequence of float, optional
+        Contour lines of the slice: a number of levels spaced evenly between the color limits, or
+        the levels themselves. Drawn in black over the colors, or in the colormap's colors with
+        ``fill=False``. Default: no contour lines.
+    fill : bool, optional
+        Fill the slice with colors; ``False`` leaves it transparent, e.g. to show only the contour
+        lines of ``levels``. Default: ``True``.
+    overlays : dict, optional
+        What to draw on top of the slice, by key (other keys raise a ``ValueError``):
+
+        - ``"contours_of"``: another field (``xarray.DataArray``) whose contour lines are drawn,
+          at the slice's sweep value and other selected coordinates (nearest);
+        - ``"contour_levels"``: their number or levels (default ``10``);
+        - ``"contour_color"``: their color (default black);
+        - ``"boundary"``: ``True`` draws the edges of the grid, leaving out collapsed edges and
+          closed periodic seams;
+        - ``"boundary_color"``: its color (default black);
+        - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
+          pair, drawn in dashed styles;
+        - ``"line_color"``: their color (default white);
+        - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
+        - ``"point_color"``: their color (default white).
+
+        Lines and points do not widen the axes and are listed in a legend.
+
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation, one frame per used sweep value; save it with ``.save("phi.mp4")`` or show
+        it with ``.to_jshtml()``.
+
+    Raises
+    ------
+    ValueError
+        If ``step`` is not a positive integer, the sweep dimension is missing or empty, or
+        ``overlays`` has unknown keys.
+
+    See Also
+    --------
+    animate_fields : Several fields side by side.
+    save_frames : The frames as PNG files.
+
+    Examples
+    --------
+    >>> animation = animate_slices(phi.isel(eta3=0), step=2, symmetric=True)
+    >>> animation.save("phi.mp4")
+    """
     from matplotlib.animation import FuncAnimation
 
     renderer = _SliceRenderer(
@@ -1080,10 +1841,46 @@ def animate_fields(
 ):
     """Animate several fields side by side, frame by frame in sync over the same sweep.
 
-    ``fields`` are arrays with the same dimensions and sweep coordinate (e.g. the vorticity and
-    density of a Hasegawa-Wakatani run). ``view`` and ``options`` (``cmap``, ``symmetric``,
-    ``robust``, ``levels``, ...) apply to every field as in :func:`animate_slices`; each field
-    keeps its own color limits and color bar. ``titles`` default to the fields' labels.
+    Each field keeps its own color limits and color bar. Retain the returned animation, e.g. in
+    a variable, or it stops.
+
+    Parameters
+    ----------
+    fields : sequence of xarray.DataArray
+        Two or more arrays with the same dimensions and sweep coordinate (e.g. the vorticity and
+        density of a Hasegawa-Wakatani run).
+    view : View, optional
+        Which dimensions to select, which two to draw, in which coordinates, and the sweep
+        dimension (``view.sweep``, default ``t``) to run over, for every field (see
+        :class:`View`). Default: ``View()``.
+    interval : int, optional
+        The delay between frames, in milliseconds. Default: ``100``.
+    step : int, optional
+        Use every ``step``-th value of the sweep. Default: ``1``.
+    titles : sequence of str, optional
+        One axes title per field. Default: the fields' labels.
+    **options
+        Rendering options applied to every field as in :func:`animate_slices`: ``vmin``,
+        ``vmax``, ``shared_clim``, ``cmap``, ``equal_aspect``, ``symmetric``, ``robust``,
+        ``levels``, ``fill``, ``overlays``.
+
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation, one frame per used sweep value.
+
+    Raises
+    ------
+    ValueError
+        If there are fewer than two fields, or they have different numbers of sweep values.
+
+    See Also
+    --------
+    animate_slices : One field.
+
+    Examples
+    --------
+    >>> animation = animate_fields([vorticity.isel(eta3=0), density.isel(eta3=0)], symmetric=True)
     """
     from matplotlib.animation import FuncAnimation
 
@@ -1151,7 +1948,93 @@ def save_frames(
     fill=True,
     overlays=None,
 ):
-    """Export the configured sweep as PNGs, sharing color limits by default."""
+    """Export the configured sweep as PNGs, sharing color limits by default.
+
+    The files are named ``{prefix}_0000.png``, ``{prefix}_0001.png``, ... in ``directory``,
+    which is created if needed.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with the sweep dimension; other dimensions not drawn are selected by
+        ``view``.
+    directory : str or pathlib.Path
+        The directory to write into.
+    view : View, optional
+        Which dimensions to select, which two to draw, in which coordinates, and the sweep
+        dimension (``view.sweep``, default ``t``) to run over (see :class:`View`). Default:
+        ``View()``.
+    step : int, optional
+        Use every ``step``-th value of the sweep. Default: ``1``.
+    prefix : str, optional
+        The start of each file name. Default: ``"frame"``.
+    dpi : int, optional
+        The resolution of the PNGs. Default: ``110``.
+    vmin : float, optional
+        The lower color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    vmax : float, optional
+        The upper color limit. Default: from the data (see ``symmetric`` and ``robust``).
+    shared_clim : bool, optional
+        Take the color limits once from all the selected data (every value of the sweep), so that
+        every slice shares them; ``False`` gives each slice its own. Default: ``True``.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"viridis"``.
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: ``True`` in physical coordinates, ``False`` in
+        logical ones.
+    title : str, optional
+        The title, followed in each frame by the sweep value. Default: the array's label.
+    symmetric : bool, optional
+        Center the color limits on zero (``-v, v``), as a diverging colormap for a perturbation
+        needs. Default: ``False``.
+    robust : bool, optional
+        Take the color limits from the 1st and 99th percentiles instead of the extremes, so a few
+        outliers do not wash out the rest. Default: ``False``.
+    levels : int or sequence of float, optional
+        Contour lines of the slice: a number of levels spaced evenly between the color limits, or
+        the levels themselves. Drawn in black over the colors, or in the colormap's colors with
+        ``fill=False``. Default: no contour lines.
+    fill : bool, optional
+        Fill the slice with colors; ``False`` leaves it transparent, e.g. to show only the contour
+        lines of ``levels``. Default: ``True``.
+    overlays : dict, optional
+        What to draw on top of the slice, by key (other keys raise a ``ValueError``):
+
+        - ``"contours_of"``: another field (``xarray.DataArray``) whose contour lines are drawn,
+          at the slice's sweep value and other selected coordinates (nearest);
+        - ``"contour_levels"``: their number or levels (default ``10``);
+        - ``"contour_color"``: their color (default black);
+        - ``"boundary"``: ``True`` draws the edges of the grid, leaving out collapsed edges and
+          closed periodic seams;
+        - ``"boundary_color"``: its color (default black);
+        - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
+          pair, drawn in dashed styles;
+        - ``"line_color"``: their color (default white);
+        - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
+        - ``"point_color"``: their color (default white).
+
+        Lines and points do not widen the axes and are listed in a legend.
+
+    Returns
+    -------
+    list of str
+        The paths of the written files, in order.
+
+    Raises
+    ------
+    ValueError
+        If ``step`` is not a positive integer, the sweep dimension is missing or empty, or
+        ``overlays`` has unknown keys.
+
+    See Also
+    --------
+    animate_slices : The same frames as an animation.
+
+    Examples
+    --------
+    >>> save_frames(phi.isel(eta3=0), "frames", step=5, symmetric=True)
+    """
     renderer = _SliceRenderer(
         data,
         view or View(),
@@ -1200,7 +2083,45 @@ def plot_scalars(
     logy=False,
     run_label=None,
 ):
-    """Plot every scalar time series in one axes."""
+    """Plot every scalar time series in one axes.
+
+    Parameters
+    ----------
+    scalars : xarray.Dataset or mapping of str to xarray.DataArray
+        The time series (e.g. ``out.scalars``), each with the dimension ``t``.
+    names : sequence of str, optional
+        The scalars to plot. Default: all but ``exclude``.
+    exclude : sequence of str, optional
+        Scalars left out when ``names`` is not given. Default: ``("time",)``.
+    relative_to : str, optional
+        The name of a scalar to divide every series by. Default: none.
+    logy : bool, optional
+        Use a logarithmic value axis. Default: ``False``.
+    run_label : str, optional
+        A run description shown as the figure's suptitle. Default: the run shared by the
+        scalars (see :func:`shared_run_label`); ``""`` for none.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and one line per scalar.
+
+    Raises
+    ------
+    ValueError
+        If there are no scalars to plot.
+    KeyError
+        If a name in ``names`` is not a scalar.
+
+    See Also
+    --------
+    plot_energy_budget : The energies and their conservation.
+    save_all_scalars : A table and figures of all scalars, written to files.
+
+    Examples
+    --------
+    >>> plot_scalars(out.scalars, names=["en_E", "en_B"], logy=True)
+    """
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected:
         raise ValueError("no scalars to plot")
@@ -1232,9 +2153,34 @@ def plot_convergence(
 ):
     """Log-log plot of an error norm against resolution or step size, e.g. from a convergence study.
 
-    With ``order=None`` (default), fits and draws the observed order via :func:`convergence_order`.
-    Pass an explicit ``order`` (e.g. ``2`` for second-order) to draw a reference slope through the
-    first point instead of fitting one.
+    Parameters
+    ----------
+    sizes : array_like
+        The resolutions or step sizes.
+    errors : array_like
+        The error norm at each size.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    order : float, optional
+        With ``None`` (default), fits and draws the observed order via
+        :func:`struphy_plots.analysis.convergence_order`. Pass an explicit ``order`` (e.g. ``2``
+        for second-order) to draw a reference slope through the first point instead of fitting
+        one.
+    label : str, optional
+        The legend label of the errors. Default: none.
+    xlabel : str, optional
+        The horizontal axis label. Default: ``"resolution"``.
+    title : str, optional
+        The axes title. Default: ``"Convergence"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the error line and the fitted or reference line.
+
+    Examples
+    --------
+    >>> plot_convergence([16, 32, 64, 128], errors, order=2)
     """
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     (line,) = ax.loglog(sizes, errors, "o-", label=label)
@@ -1282,17 +2228,66 @@ def plot_dispersion(
     """The space-time power spectrum of a ``(t, dim)`` field, as a dispersion-relation plot.
 
     Shows only non-negative frequencies (a real signal's spectrum is symmetric under
-    ``(k, omega) -> (-k, -omega)``, so every branch already appears on both sides of ``k = 0``).
-    ``branches`` optionally overlays named theoretical curves to compare against, as a mapping of
-    label to either a callable ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays.
-    ``frequencies`` draws labeled horizontal lines (e.g. cutoffs or resonances), and ``points``
-    marks measured points: a mapping of label to a ``(k, omega)`` pair or a
-    :func:`~struphy_plots.spectral.trace_branch` result.
+    ``(k, ω) → (-k, -ω)``, so every branch already appears on both sides of ``k = 0``).
 
     A dispersion relation's power spans many orders of magnitude (the ridge against a mostly-empty
     plane), so with ``log=True`` (default), color limits default to the top ``dynamic_range``
-    decades below the peak, rather than the full range down to numerical noise -- override with
+    decades below the peak, rather than the full range down to numerical noise; override with
     ``vmin``/``vmax`` if the ridge still looks washed out or overly clipped.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, with the dimensions ``t`` and ``dim`` (select the rest first).
+    dim : str, optional
+        The spatial dimension to transform. Default: the one besides ``t`` (see
+        :func:`struphy_plots.analysis.power_spectrum`).
+    detrend : bool, optional
+        Remove the time-mean at each point of ``dim`` first, which otherwise dominates the
+        spectrum as a spurious zero-frequency line. Default: ``True``.
+    branches : dict, optional
+        Named theoretical curves to compare against: a dict of labels to either a callable
+        ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays, drawn dashed.
+    log : bool, optional
+        Color by ``log10`` of the power. Default: ``True``.
+    dynamic_range : float, optional
+        With ``log``, the number of decades below the peak that the default color limits cover.
+        Default: ``6.0``.
+    kmax : float, optional
+        Show only ``|k| <= kmax``. Default: all ``k``.
+    omega_max : float, optional
+        Show only ``ω <= omega_max``. Default: all non-negative ``ω``.
+    vmin : float, optional
+        The lower color limit (in ``log10`` of the power with ``log``). Default: the peak minus
+        ``dynamic_range`` with ``log``, else the minimum.
+    vmax : float, optional
+        The upper color limit (in ``log10`` of the power with ``log``). Default: the peak.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: Matplotlib's default.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: ``"Dispersion relation of <label>"``.
+    frequencies : dict of str to float, optional
+        Labeled horizontal lines, e.g. cutoffs or resonances.
+    points : dict, optional
+        Measured points to mark: a dict of labels to a ``(k, omega)`` pair or a
+        :func:`~struphy_plots.spectral.trace_branch` result (an ``xarray.Dataset`` with ``k`` and
+        ``omega``).
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the mesh and the drawn lines and points.
+
+    See Also
+    --------
+    struphy_plots.analysis.power_spectrum : The spectrum, without plotting.
+    plot_continuous_spectrum : Continuum frequencies to compare a measured frequency with.
+
+    Examples
+    --------
+    >>> plot_dispersion(e_field.isel(eta2=0, eta3=0), branches={"Langmuir": lambda k: np.sqrt(1 + 3 * k**2)})
     """
     spectrum = power_spectrum(data, dim=dim, detrend=detrend)
     values = np.asarray(spectrum)
@@ -1353,7 +2348,44 @@ def save_all_scalars(
     file_format="png",
     dpi=110,
 ):
-    """Write a table, scalar overview and one figure per scalar."""
+    """Write a table, scalar overview and one figure per scalar.
+
+    Writes ``scalars.<table>``, the overview ``scalars.<file_format>`` of :func:`plot_scalars`
+    and ``<name>.<file_format>`` from :func:`plot_timeseries` for each scalar into
+    ``directory``, which is created if needed.
+
+    Parameters
+    ----------
+    scalars : xarray.Dataset or mapping of str to xarray.DataArray
+        The time series (e.g. ``out.scalars``), each with the only dimension ``t``.
+    directory : str or pathlib.Path
+        The directory to write into.
+    names : sequence of str, optional
+        The scalars to write. Default: all but ``exclude``.
+    exclude : sequence of str, optional
+        Scalars left out when ``names`` is not given. Default: ``("time",)``.
+    logy : bool, optional
+        Use logarithmic value axes. Default: ``False``.
+    run_label : str, optional
+        A run description shown as each figure's suptitle. Default: the run shared by the
+        scalars (see :func:`shared_run_label`); ``""`` for none.
+    table : str, optional
+        The table format, ``"csv"`` or ``"npz"``; ``None`` or ``""`` writes no table. Default:
+        ``"csv"``.
+    file_format : str, optional
+        The figure format. Default: ``"png"``.
+    dpi : int, optional
+        The figure resolution. Default: ``110``.
+
+    Returns
+    -------
+    list of str
+        The written paths; empty if there are no scalars.
+
+    Examples
+    --------
+    >>> save_all_scalars(out.scalars, "scalars", logy=True)
+    """
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected:
         return []
@@ -1381,6 +2413,25 @@ def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset
     produced by recent Struphy), or, for backward compatibility, a single
     ``(t, marker, quantity)`` ``xarray.DataArray``. Used by :func:`plot_marker_trajectories` and
     :func:`plot_field_with_orbits`; also available directly to get the same data without a plot.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        The orbits product.
+    max_markers : int, optional
+        Keep only the first ``max_markers`` markers. Default: ``200``.
+    required : sequence of str, optional
+        Quantities that must be present, e.g. ``("x", "y", "z")``. Default: none.
+
+    Returns
+    -------
+    xarray.Dataset
+        The orbits, one variable per quantity, with at most ``max_markers`` markers.
+
+    Raises
+    ------
+    ValueError
+        If a required quantity or the ``marker`` dimension is missing.
     """
     if isinstance(orbits, xr.DataArray):
         orbits = orbits.to_dataset(dim="quantity")
@@ -1394,11 +2445,32 @@ def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset
 
 
 def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=None):
-    """Plot a static 3-D trajectory overview; interactive marker UI is intentionally separate.
+    """Plot a static 3-D trajectory overview.
 
-    ``orbits`` is an orbits product: an ``xarray.Dataset`` with one ``(t, marker)`` variable per
-    saved quantity (as produced by recent Struphy), or, for backward compatibility, a single
-    ``(t, marker, quantity)`` ``xarray.DataArray``.
+    Interactive marker UI is intentionally separate. The last positions are marked with dots.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product with the quantities ``x``, ``y`` and ``z``: an ``xarray.Dataset`` with
+        one ``(t, marker)`` variable per saved quantity (as produced by recent Struphy), or, for
+        backward compatibility, a single ``(t, marker, quantity)`` ``xarray.DataArray``.
+    ax : mpl_toolkits.mplot3d.Axes3D, optional
+        A 3-D axes to draw into. Default: a new figure.
+    max_markers : int, optional
+        Draw only the first ``max_markers`` markers. Default: ``200``.
+    show_paths : bool, optional
+        Draw each marker's path, not only its last position. Default: ``True`` for up to 200
+        markers.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the paths and the scatter of last positions.
+
+    Examples
+    --------
+    >>> plot_marker_trajectories(out.orbits["ions"], max_markers=50)
     """
     subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z"))
     count = subset.sizes["marker"]
@@ -1416,6 +2488,25 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
 
 
 def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset:
+    """Select dimensions of a Dataset: an integer is a position, a float the nearest value.
+
+    Parameters
+    ----------
+    dataset : xarray.Dataset
+        The data, e.g. an orbits product.
+    selection : dict
+        Dimension names to an integer position (``t=-1`` the last) or a float coordinate value.
+
+    Returns
+    -------
+    xarray.Dataset
+        The selected data.
+
+    Raises
+    ------
+    TypeError
+        If a name is not a dimension of ``dataset``, or a value is neither an integer nor a float.
+    """
     selected = dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
@@ -1483,17 +2574,61 @@ def plot_marker_scatter(
 ):
     """Scatter marker positions from a Dataset (an orbits product, or any per-marker data).
 
-    ``x``, ``y`` and ``color`` name data variables (e.g. positions ``"x"``/``"y"``, or a
-    Lagrangian tracer/weight/density for ``color``); remaining dimensions such as ``t`` are
-    selected by keyword, exactly like :meth:`ArrayPlots.lineout`. Useful for checking a marker
-    loading scheme, or visualizing an SPH particle cloud colored by density or a tracer.
+    Useful for checking a marker loading scheme, or visualizing an SPH particle cloud colored by
+    density or a tracer.
 
-    ``color_at`` takes the colors at another time (an integer position such as ``0``, or a
-    float value), e.g. each marker's initial position, to follow where fluid parcels go.
-    ``background`` is a field drawn behind the markers at the same time (select its other
-    dimensions first), in logical or physical coordinates to match ``x``/``y``;
-    ``background_options`` are passed to :func:`plot_slice` (e.g. ``cmap``, ``levels``,
-    ``fill=False``).
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        The per-marker data, with a ``marker`` dimension.
+    x : str
+        The data variable along the horizontal axis, e.g. the position ``"x"``.
+    y : str
+        The data variable along the vertical axis, e.g. the position ``"y"``.
+    color : str, optional
+        A data variable to color the markers by, e.g. a Lagrangian tracer, weight or density,
+        with a color bar. Default: one color.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap for ``color``. Default: ``"viridis"``.
+    s : int, optional
+        The marker size, in points². Default: ``8``.
+    color_at : int or float, optional
+        Take the colors at another time (an integer position such as ``0``, or a float value),
+        e.g. each marker's initial position, to follow where fluid parcels go. Default: the
+        selected time.
+    background : xarray.DataArray, optional
+        A field drawn behind the markers at the same time (select its other dimensions first),
+        in logical coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the
+        physical plane of ``x``/``y`` (``x``, ``y``, ``z``; the field then needs its ``X``,
+        ``Y``, ``Z`` coordinates).
+    background_options : dict, optional
+        Passed to :func:`plot_slice` for the background (e.g. ``cmap``, ``levels``,
+        ``fill=False``).
+    **selection
+        The remaining dimensions, such as ``t``, exactly like :meth:`ArrayPlots.lineout`: an
+        integer is a position (``t=-1`` the last), a float the nearest coordinate value.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the background mesh (if any) and the scatter.
+
+    Raises
+    ------
+    ValueError
+        If ``x`` or ``y`` is not a data variable, or dimensions other than ``marker`` remain.
+    TypeError
+        If a selected name is not a dimension, or its value is neither an integer nor a float.
+
+    See Also
+    --------
+    animate_markers : The markers over time.
+
+    Examples
+    --------
+    >>> plot_marker_scatter(out.orbits["ions"], x="x", y="y", color="weights", t=-1)
     """
     missing = [name for name in (x, y) if name not in markers.data_vars]
     if missing:
@@ -1554,12 +2689,56 @@ def animate_markers(
 ):
     """Animate marker positions over time, optionally over a field animated in sync.
 
-    ``color`` names a variable to color by: per frame, or fixed at the time ``color_at``
-    (e.g. ``0`` for the initial position, to follow fluid parcels). ``background`` is a
-    field with a ``t`` dimension (other dimensions selected), drawn at the nearest time of each
-    frame with shared color limits; ``background_options`` go to its renderer (``cmap``,
-    ``symmetric``, ``levels``, ...). Markers that have left the domain are hidden. The axes
-    limits stay fixed over the whole animation. Retain the returned animation.
+    Markers that have left the domain are hidden. The axes limits stay fixed over the whole
+    animation. Retain the returned animation, e.g. in a variable, or it stops.
+
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        The per-marker data over ``(t, marker)``, e.g. an orbits product.
+    x : str
+        The data variable along the horizontal axis, e.g. the position ``"x"``.
+    y : str
+        The data variable along the vertical axis, e.g. the position ``"y"``.
+    color : str, optional
+        A variable to color by: per frame, or fixed at the time ``color_at``. Default: one color.
+    color_at : int or float, optional
+        Fix the colors at this time (an integer position, e.g. ``0`` for the initial position,
+        to follow fluid parcels, or a float value). Default: the colors of each frame.
+    background : xarray.DataArray, optional
+        A field with a ``t`` dimension (other dimensions selected), drawn at the nearest time of
+        each frame with shared color limits, in logical coordinates if ``x``/``y`` are
+        ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field then
+        needs its ``X``, ``Y``, ``Z`` coordinates).
+    background_options : dict, optional
+        Rendering options for the background, as for :func:`plot_slice` (``cmap``,
+        ``symmetric``, ``levels``, ...).
+    step : int, optional
+        Use every ``step``-th time. Default: ``1``.
+    interval : int, optional
+        The delay between frames, in milliseconds. Default: ``100``.
+    s : int, optional
+        The marker size, in points². Default: ``8``.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap for ``color``. Default: ``"viridis"``.
+
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation, one frame per used time.
+
+    Raises
+    ------
+    ValueError
+        If ``step`` is not a positive integer.
+
+    See Also
+    --------
+    plot_marker_scatter : The markers at one time.
+
+    Examples
+    --------
+    >>> animation = animate_markers(out.orbits["ions"], x="x", y="y", color="x", color_at=0)
     """
     from matplotlib.animation import FuncAnimation
 
@@ -1652,12 +2831,46 @@ def plot_marker_paths(
 ):
     """Paths of a few markers in a plane, with their start (circle) and end (cross).
 
-    ``markers`` is a number (spread evenly over the saved markers) or a list of marker indices;
-    ``near`` picks instead the marker starting closest to each of a list of ``(x, y)`` points,
-    e.g. a row across the domain. Samples after a marker leaves the domain are dropped.
-    ``background`` is a field drawn behind the paths at the time ``t`` (default: the first),
-    with ``background_options`` for :func:`plot_slice`, e.g. ``dict(levels=12, fill=False)`` for
-    the contour lines of a stream function.
+    Samples after a marker leaves the domain are dropped.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product with the quantities ``x`` and ``y`` (see :func:`prepare_orbits`).
+    x : str, optional
+        The quantity along the horizontal axis. Default: ``"x"``.
+    y : str, optional
+        The quantity along the vertical axis. Default: ``"y"``.
+    markers : int or sequence of int, optional
+        A number of markers (spread evenly over the saved markers) or a list of marker indices.
+        Default: ``6``.
+    near : sequence of (float, float), optional
+        Picks instead the marker starting closest to each of a list of ``(x, y)`` points, e.g. a
+        row across the domain.
+    background : xarray.DataArray, optional
+        A field drawn behind the paths at the time ``t``, in logical coordinates if ``x``/``y``
+        are ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field
+        then needs its ``X``, ``Y``, ``Z`` coordinates).
+    background_options : dict, optional
+        Passed to :func:`plot_slice` for the background, e.g. ``dict(levels=12, fill=False)``
+        for the contour lines of a stream function.
+    t : int or float, optional
+        The time of the background: an integer position or a float value. Default: ``0``, the
+        first.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap the path colors are taken from. Default: ``"viridis"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the background mesh (if any), the paths and the start and end
+        markers; ``data["markers"]`` lists the chosen marker indices.
+
+    Examples
+    --------
+    >>> plot_marker_paths(out.orbits["ions"], near=[(0.2, 0.5), (0.5, 0.5), (0.8, 0.5)], background=psi)
     """
     subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=(x, y)).transpose("t", "marker", ...)
     xs, ys = np.asarray(subset[x]), np.asarray(subset[y])
@@ -1734,11 +2947,35 @@ def plot_field_with_orbits(
     ax=None,
     cmap=None,
 ):
-    """A 2-D field slice with marker orbit paths overlaid: a Poincare-style diagnostic for
-    checking particle confinement or orbit topology against a background field.
+    """A 2-D field slice with marker orbit paths overlaid.
 
-    ``orbits`` must have position variables named after ``view.x`` and ``view.y`` (e.g. its
-    logical coordinates, to overlay directly on a logical-coordinates slice).
+    A Poincaré-style diagnostic for checking particle confinement or orbit topology against a
+    background field.
+
+    Parameters
+    ----------
+    field : xarray.DataArray
+        The field, drawn with :func:`plot_slice`.
+    view : View
+        The slice of ``field`` (see :class:`View`); ``view.x`` and ``view.y`` must be given.
+    orbits : xarray.Dataset
+        An orbits product with position variables named after ``view.x`` and ``view.y`` (e.g.
+        its logical coordinates, to overlay directly on a logical-coordinates slice).
+    max_markers : int, optional
+        Draw only the first ``max_markers`` markers. Default: ``200``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap of the field. Default: ``"viridis"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the mesh and the orbit paths.
+
+    Examples
+    --------
+    >>> plot_field_with_orbits(phi.isel(t=-1), View(x="eta1", y="eta2", isel={"eta3": 0}), out.orbits["ions"])
     """
     x, y = view.x, view.y
     subset = prepare_orbits(orbits, max_markers=max_markers, required=(x, y))
@@ -1760,10 +2997,34 @@ def prepare_orbit_classification(
 ) -> xr.Dataset:
     """Each marker's ``x`` and ``y`` at time ``t`` together with its orbit class.
 
-    ``y`` defaults to the magnetic moment ``mu`` (Particles5D), or ``v_perp`` if there is no
-    ``mu`` (Particles5Dvperp). ``t`` is selected like any other dimension: an integer position
-    (default ``0``, the initial phase-space position, before any marker is lost; ``-1`` the
-    last), or a float nearest value. Used by :func:`plot_orbit_classification`.
+    Used by :func:`plot_orbit_classification`.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product (see :func:`prepare_orbits`).
+    x : str, optional
+        The first quantity. Default: ``"v_par"``.
+    y : str, optional
+        The second quantity. Default: the magnetic moment ``mu`` (Particles5D), or ``v_perp`` if
+        there is no ``mu`` (Particles5Dvperp).
+    v_par : str, optional
+        The parallel velocity the classification uses. Default: ``"v_par"``.
+    t : int or float, optional
+        The time, selected like any other dimension: an integer position (default ``0``, the
+        initial phase-space position, before any marker is lost; ``-1`` the last), or a float
+        nearest value.
+
+    Returns
+    -------
+    xarray.Dataset
+        ``x`` and ``y`` over ``marker``, and ``classification`` from
+        :func:`struphy_plots.analysis.classify_orbits` (0 passing, 1 trapped, -1 lost).
+
+    Raises
+    ------
+    ValueError
+        If ``x`` or ``y`` is not a data variable.
     """
     if isinstance(orbits, xr.DataArray):
         orbits = orbits.to_dataset(dim="quantity")
@@ -1793,7 +3054,43 @@ def plot_orbit_classification(
     ``v_par`` reversing sign means trapped, a zeroed marker means lost). The default plane, initial
     ``v_par`` against ``mu``, shows the trapped-passing boundary directly; ``x="p_phi"`` gives the
     usual canonical-momentum diagram when ``p_phi`` was saved. The legend gives each class's
-    marker count and fraction; ``result.data["counts"]`` holds the counts.
+    marker count and fraction.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product with ``v_par`` and the quantities ``x`` and ``y`` (see
+        :func:`prepare_orbits`).
+    x : str, optional
+        The quantity along the horizontal axis. Default: ``"v_par"``.
+    y : str, optional
+        The quantity along the vertical axis. Default: the magnetic moment ``mu``
+        (Particles5D), or ``v_perp`` if there is no ``mu`` (Particles5Dvperp).
+    v_par : str, optional
+        The parallel velocity the classification uses. Default: ``"v_par"``.
+    t : int or float, optional
+        The time of the plotted values: an integer position (default ``0``, the initial
+        phase-space position, before any marker is lost; ``-1`` the last), or a float nearest
+        value.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    s : int, optional
+        The marker size, in points². Default: ``8``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and one scatter per class present; ``data["counts"]`` holds the
+        number of markers per class (``"passing"``, ``"trapped"``, ``"lost"``).
+
+    See Also
+    --------
+    prepare_orbit_classification : The same values, without plotting.
+    plot_orbit_poloidal : The orbits in the poloidal plane, colored by class.
+
+    Examples
+    --------
+    >>> plot_orbit_classification(out.orbits["ions"], x="p_phi")
     """
     selected = prepare_orbit_classification(orbits, x=x, y=y, v_par=v_par, t=t)
     x, y = (name for name in selected.data_vars if name != "classification")
@@ -1829,11 +3126,29 @@ def plot_orbit_classification(
 def prepare_continuous_spectrum(spectrum, x, modes) -> xr.DataArray:
     """Evaluate a continuous spectrum ``omega(x)`` for each mode, as a ``(mode, branch, x)`` array.
 
-    ``spectrum`` is called as ``spectrum(x, *mode)`` and must return a mapping of branch name to
-    ``omega(x)`` -- e.g. Struphy's ``MhdContinousSpectraShearedSlab`` or
-    ``MhdContinousSpectraCylinder`` from ``struphy.dispersion_relations.analytic``, whose modes
-    are ``(m, n)`` pairs. ``modes`` is a sequence of such tuples (a bare number is a 1-tuple).
     Used by :func:`plot_continuous_spectrum`.
+
+    Parameters
+    ----------
+    spectrum : callable
+        Called as ``spectrum(x, *mode)``; must return a mapping of branch name to ``omega(x)``,
+        e.g. Struphy's ``MhdContinousSpectraShearedSlab`` or ``MhdContinousSpectraCylinder`` from
+        ``struphy.dispersion_relations.analytic``, whose modes are ``(m, n)`` pairs.
+    x : array_like
+        The points to evaluate at.
+    modes : sequence of tuple
+        The modes, each a tuple of mode numbers (a bare number is a 1-tuple).
+
+    Returns
+    -------
+    xarray.DataArray
+        ``omega``, over ``(mode, branch, x)``; the ``mode`` labels are the mode numbers joined by
+        commas (``"1, 2"``).
+
+    Raises
+    ------
+    ValueError
+        If ``modes`` is empty.
     """
     x = np.asarray(x, dtype=float)
     modes = [tuple(np.atleast_1d(mode).tolist()) for mode in modes]
@@ -1863,13 +3178,49 @@ def plot_continuous_spectrum(
     ax=None,
     title: str = "Continuous spectrum",
 ):
-    """Continuum frequencies ``omega(x)`` of each mode, one color per mode and one line style per
-    branch (e.g. shear Alfvén solid, slow sound dashed).
+    """Plot the continuum frequencies ``omega(x)`` of each mode.
 
-    See :func:`prepare_continuous_spectrum` for ``spectrum``, ``x`` and ``modes``.
-    ``frequencies`` optionally marks measured frequencies as horizontal lines (a mapping of label
-    to omega, e.g. a peak read off :func:`plot_dispersion`), to see whether a mode lies in a
-    continuum gap or crosses a continuum, where it is damped.
+    One color per mode and one line style per branch (e.g. shear Alfvén solid, slow sound
+    dashed).
+
+    Parameters
+    ----------
+    spectrum : callable
+        Called as ``spectrum(x, *mode)``; must return a mapping of branch name to ``omega(x)``,
+        e.g. Struphy's ``MhdContinousSpectraShearedSlab`` or ``MhdContinousSpectraCylinder`` from
+        ``struphy.dispersion_relations.analytic``, whose modes are ``(m, n)`` pairs (see
+        :func:`prepare_continuous_spectrum`).
+    x : array_like
+        The points to evaluate at.
+    modes : sequence of tuple
+        The modes, each a tuple of mode numbers (a bare number is a 1-tuple).
+    frequencies : dict of str to float, optional
+        Measured frequencies to mark as horizontal lines (a mapping of label to omega, e.g. a
+        peak read off :func:`plot_dispersion`), to see whether a mode lies in a continuum gap or
+        crosses a continuum, where it is damped.
+    mode_label : str, optional
+        How modes are named in the legend. Default: ``"(m, n)"``.
+    xlabel : str, optional
+        The horizontal axis label. Default: ``"x"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: ``"Continuous spectrum"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn lines; ``data["spectrum"]`` holds the evaluated
+        spectrum from :func:`prepare_continuous_spectrum`.
+
+    Raises
+    ------
+    ValueError
+        If ``modes`` is empty.
+
+    Examples
+    --------
+    >>> plot_continuous_spectrum(spectrum, np.linspace(0, 1, 200), [(1, 1), (2, 1)], frequencies={"measured": 0.42})
     """
     data = prepare_continuous_spectrum(spectrum, x, modes)
     styles = ["-", "--", ":", "-."]
@@ -1895,9 +3246,28 @@ def plot_continuous_spectrum(
 def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):
     """Plot radial profiles of a fluid equilibrium along ``eta1`` (at ``eta2 = eta3 = 0``).
 
-    ``equil`` is a :class:`~struphy.fields_background.base.FluidEquilibrium` (e.g. from
-    ``out.equil``) and ``domain`` its mapping (``out.domain``). Plots ``p0``, and ``n0`` and
-    ``T0 = p0 / n0`` if ``equil`` has a density profile too.
+    Plots ``p0``, and ``n0`` and ``T0 = p0 / n0`` if ``equil`` has a density profile too,
+    against ``R = √(x² + y²)``.
+
+    Parameters
+    ----------
+    equil : struphy.fields_background.base.FluidEquilibrium
+        The equilibrium, e.g. from ``out.equil``.
+    domain : struphy.geometry.base.Domain
+        Its mapping (``out.domain``).
+    n_points : int, optional
+        Number of points along ``eta1``. Default: ``100``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the profile lines.
+
+    Examples
+    --------
+    >>> plot_equilibrium_profile(out.equil, out.domain)
     """
     eta1 = np.linspace(0.0, 1.0, n_points)
     eta2 = eta3 = np.zeros(1)
@@ -1934,13 +3304,45 @@ def plot_energy_budget(
 ):
     """An energy budget: the energy parts, the relative drift of the total, and exchanges.
 
-    ``scalars`` is a Dataset of time series (``out.scalars``) or a mapping. ``parts`` are drawn
-    in the first panel (default: every ``en_*`` except ``total`` and ``*_eq``/``*_tot``), with
-    the total in black. The second panel is ``(total - total(0)) / total(0)``, which should stay
-    flat for a conservative scheme. ``groups`` maps a label to the names it sums, e.g.
-    ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}``: a third panel
-    then shows each group's change since ``t = 0``, and for two groups also minus the second
-    one's (dashed), so that the curves overlap where energy only moves between them.
+    The first panel shows the parts, with the total in black. The second panel is
+    ``(total - total(0)) / total(0)``, which should stay flat for a conservative scheme. With
+    ``groups``, a third panel shows each group's change since ``t = 0``, and for two groups also
+    minus the second one's (dashed), so that the curves overlap where energy only moves between
+    them.
+
+    Parameters
+    ----------
+    scalars : xarray.Dataset or mapping of str to xarray.DataArray
+        The time series (``out.scalars``), each with the only dimension ``t``.
+    parts : sequence of str, optional
+        The energies drawn in the first panel. Default: every ``en_*`` except ``total`` and
+        ``*_eq``/``*_tot``.
+    total : str or None, optional
+        The total energy; the second panel is left out if it is ``None`` or not among the
+        scalars. Default: ``"en_tot"``.
+    groups : dict of str to list of str, optional
+        A label to the names it sums, e.g.
+        ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}``. Default:
+        no exchange panel.
+    logy : bool, optional
+        Use a logarithmic value axis in the first panel. Default: ``False``.
+    run_label : str, optional
+        A run description shown as the figure's suptitle. Default: the run shared by the parts
+        (see :func:`shared_run_label`); ``""`` for none.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the list of axes (one per panel) and the drawn lines.
+
+    Raises
+    ------
+    ValueError
+        If a used scalar is not a time series with the only dimension ``t``.
+
+    Examples
+    --------
+    >>> plot_energy_budget(out.scalars, groups={"wave": ["en_U", "en_B", "en_p"], "ions": ["en_fv"]})
     """
     names = list(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars)
     if total is not None and total not in names:
@@ -2014,10 +3416,51 @@ def plot_profiles(
 ):
     """Several one-dimensional profiles along ``x`` in one axes, one per value of ``over``.
 
-    ``data`` has exactly the dimensions ``x`` and ``over`` (select the rest first). ``at`` picks
-    the values of ``over``: integers are positions, floats nearest values; the default is four
-    evenly spaced positions. ``x_of`` maps the ``x`` coordinate to the plotted axis, e.g.
-    ``lambda eta1: 0.1 + 0.9 * eta1`` for the minor radius of a hollow torus.
+    The profiles are colored from dark to light along the ``viridis`` colormap.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The profiles, with exactly the dimensions ``x`` and ``over`` (select the rest first).
+    x : str
+        The dimension along the horizontal axis.
+    over : str, optional
+        The dimension to draw one profile per value of. Default: ``"t"``.
+    at : int, float or sequence of these, optional
+        The values of ``over``: integers are positions, floats nearest values. Default: four
+        evenly spaced positions.
+    x_of : callable, optional
+        Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1``
+        for the minor radius of a hollow torus.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's label, or ``"r"`` with ``x_of``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The axes title. Default: the array's label.
+    reference : callable, array, (x, y) pair or dict, optional
+        Exact or expected profiles, drawn in each profile's color in dashed styles: a function
+        of the plotted ``x`` (or of ``x`` and the value of ``over``), a 1-D ``xarray.DataArray``
+        (drawn over its own coordinate), an ``(x, y)`` pair, or a dict of labels to these.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn lines.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``x`` and ``over``.
+
+    See Also
+    --------
+    plot_lineout : One profile.
+    animate_lines : The profiles as an animation.
+
+    Examples
+    --------
+    >>> plot_profiles(phi.isel(eta2=0, eta3=0), x="eta1", at=[0, 0.5, -1])
     """
     validate_array(data, required_dims=(x, over))
     if set(data.dims) != {x, over}:
@@ -2084,13 +3527,40 @@ def plot_orbit_poloidal(
     boundary: xr.DataArray | None = None,
     ax=None,
 ):
-    """Marker orbits projected onto the poloidal plane, ``R = sqrt(x^2 + y^2)`` against ``z``.
+    """Marker orbits projected onto the poloidal plane, ``R = √(x² + y²)`` against ``z``.
 
-    Passing orbits circle the magnetic axis, trapped ones trace bananas. ``color_by`` is
-    ``"classification"`` (needs ``v_par``, see :func:`~struphy_plots.analysis.classify_orbits`)
-    or ``None`` for one color per marker. Samples where a marker is lost are dropped.
-    ``boundary`` is any field with physical coordinates, whose outer (last ``eta1``) surface is
-    drawn at its first ``eta3`` as the domain boundary.
+    Passing orbits circle the magnetic axis, trapped ones trace bananas. Samples where a marker
+    is lost are dropped.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product with the quantities ``x``, ``y`` and ``z`` (see
+        :func:`prepare_orbits`).
+    color_by : str or None, optional
+        ``"classification"`` colors by orbit class (needs ``v_par``, see
+        :func:`~struphy_plots.analysis.classify_orbits`); ``None`` (or any other value) gives
+        one color per marker. Default: ``"classification"``.
+    max_markers : int, optional
+        Draw only the first ``max_markers`` markers. Default: ``200``.
+    boundary : xarray.DataArray, optional
+        Any field with physical coordinates, whose outer (last ``eta1``) surface is drawn at its
+        first ``eta3`` as the domain boundary.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the drawn lines.
+
+    See Also
+    --------
+    plot_orbit_grid : One panel per marker.
+
+    Examples
+    --------
+    >>> plot_orbit_poloidal(out.orbits["ions"], boundary=phi)
     """
     subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z")).transpose("t", "marker", ...)
     alive = _alive(subset)
@@ -2138,10 +3608,30 @@ def plot_orbit_quantities(
 ):
     """Saved orbit quantities over time, one panel per quantity and one line per marker.
 
-    ``markers`` is a number of markers (spread over the classes if ``v_par`` is saved, so
-    passing and trapped ones both show) or a list of marker indices. ``drift_of`` lists the
-    quantities shown as their change since ``t = 0`` (default ``mu``, an invariant of
-    guiding-center motion, so its drift measures the pusher's accuracy); ``True`` for all.
+    Samples where a marker is lost are dropped.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product with the ``quantities`` (see :func:`prepare_orbits`).
+    quantities : sequence of str, optional
+        The quantities, one panel each. Default: ``("v_par", "mu")``.
+    markers : int or sequence of int, optional
+        A number of markers (spread over the classes if ``v_par`` is saved, so passing and
+        trapped ones both show) or a list of marker indices. Default: ``6``.
+    drift_of : bool or sequence of str, optional
+        The quantities shown as their change since ``t = 0`` (default ``("mu",)``, an invariant
+        of guiding-center motion, so its drift measures the pusher's accuracy); ``True`` for
+        all, ``False`` for none.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the array of axes (one per quantity) and the drawn lines.
+
+    Examples
+    --------
+    >>> plot_orbit_quantities(out.orbits["ions"], quantities=("v_par", "mu", "p_phi"), markers=[0, 5, 9])
     """
     subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=tuple(quantities))
     subset = subset.transpose("t", "marker", ...)
@@ -2205,14 +3695,56 @@ def animate_lines(
     interval: int = 100,
     title: str | None = None,
 ):
-    """Animate a one-dimensional profile over ``sweep`` (default ``t``), optionally with the
-    exact profile of each frame.
+    """Animate a one-dimensional profile over ``sweep``, optionally with its exact profile.
 
-    ``data`` has the dimensions ``x`` and ``sweep`` (select the rest first). ``reference`` is a
-    function of the plotted ``x`` and of the sweep value (``lambda x, t: ...``), an ``(x, y)``
-    pair, or a mapping of labels to these, drawn dashed. The value axis is fixed over the
-    whole animation (``ylim``, or the range of the data and references). ``x_of`` maps ``x`` to
-    the plotted axis. Retain the returned animation.
+    The value axis is fixed over the whole animation. Retain the returned animation, e.g. in a
+    variable, or it stops.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The profiles, with the dimensions ``x`` and ``sweep`` (select the rest first).
+    x : str, optional
+        The dimension along the horizontal axis. Default: the one besides ``sweep``.
+    sweep : str, optional
+        The dimension to animate over. Default: ``"t"``.
+    reference : callable, (x, y) pair or dict, optional
+        The exact profile of each frame, drawn dashed in black: a function of the plotted ``x``
+        and of the sweep value (``lambda x, t: ...``; a function of ``x`` alone is fixed), an
+        ``(x, y)`` pair, a 1-D ``xarray.DataArray`` (drawn over its own coordinate), or a dict of
+        labels to these.
+    x_of : callable, optional
+        Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: L * eta1``.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's label, or ``"x"`` with ``x_of``.
+    ylim : (float, float), optional
+        The fixed value axis limits. Default: the range of the data and references, padded by
+        5 %.
+    step : int, optional
+        Use every ``step``-th value of the sweep. Default: ``1``.
+    interval : int, optional
+        The delay between frames, in milliseconds. Default: ``100``.
+    title : str, optional
+        The title, followed in each frame by the sweep value. Default: the array's label.
+
+    Returns
+    -------
+    matplotlib.animation.FuncAnimation
+        The animation, one frame per used sweep value.
+
+    Raises
+    ------
+    ValueError
+        If ``sweep`` is missing, more than one other dimension remains, or ``step`` is not a
+        positive integer.
+
+    See Also
+    --------
+    plot_profiles : Several profiles in one axes.
+
+    Examples
+    --------
+    >>> animation = animate_lines(phi.isel(eta2=0, eta3=0), reference=lambda x, t: np.cos(t) * np.sin(np.pi * x))
     """
     from matplotlib.animation import FuncAnimation
 
@@ -2295,12 +3827,43 @@ def plot_measured_vs_theory(
 ):
     """Measured values against a theory curve over a parameter, with their relative error.
 
-    ``measured`` is a 1-D array over the parameter (e.g. ``trace_branch(...).omega`` over
-    ``k``, growth rates over mode numbers), an ``(x, y)`` pair, or a mapping of labels to these
-    (e.g. several runs or methods). ``theory`` is a function of the parameter, an ``(x, y)``
-    pair, or a mapping of labels to these, drawn as lines over the measured range. With
-    ``show_error`` a second panel shows ``(measured - theory) / theory`` against the first
-    theory function, for every measured series.
+    Parameters
+    ----------
+    measured : xarray.DataArray, (x, y) pair or dict
+        A 1-D array over the parameter (e.g. ``trace_branch(...).omega`` over ``k``, growth
+        rates over mode numbers), an ``(x, y)`` pair, or a dict of labels to these (e.g. several
+        runs or methods), drawn as markers.
+    theory : callable, (x, y) pair or dict, optional
+        A function of the parameter, an ``(x, y)`` pair, or a dict of labels to these, drawn as
+        lines over the measured range.
+    show_error : bool, optional
+        Add a second panel with ``(measured - theory) / theory`` against the first theory, for
+        every measured series; only if the first theory is a function. Default: ``True``.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate label of the first measured array.
+    ylabel : str, optional
+        The value axis label. Default: the value label of the first measured array.
+    title : str, optional
+        The title. Default: ``"Measured against theory"``.
+    logx : bool, optional
+        Use a logarithmic parameter axis. Default: ``False``.
+    logy : bool, optional
+        Use a logarithmic value axis. Default: ``False``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes (an array of two with the error panel), and the drawn lines and
+        markers.
+
+    Raises
+    ------
+    ValueError
+        If there are no measured values, or a measured array is not one-dimensional.
+
+    Examples
+    --------
+    >>> plot_measured_vs_theory(branch.omega, theory=lambda k: np.sqrt(1 + 3 * k**2), xlabel="k")
     """
     series = []
     for label, item in _references(measured, default=None):
@@ -2397,11 +3960,42 @@ def plot_orbit_grid(
     boundary: xr.DataArray | None = None,
     color_by: str | None = "classification",
 ):
-    """One small poloidal panel (``R`` against ``z``) per marker, sharing axes, colored by orbit
-    class: for looking at individual orbits (bananas, passing, lost) side by side.
+    """One small poloidal panel (``R`` against ``z``) per marker, sharing axes.
 
-    ``markers`` is a number (spread over the classes when ``v_par`` is saved) or a list of
-    marker indices; ``boundary`` is a field whose outer surface is drawn in every panel.
+    Colored by orbit class, for looking at individual orbits (bananas, passing, lost) side by
+    side. Samples where a marker is lost are dropped.
+
+    Parameters
+    ----------
+    orbits : xarray.Dataset or xarray.DataArray
+        An orbits product with the quantities ``x``, ``y`` and ``z`` (see
+        :func:`prepare_orbits`).
+    markers : int or sequence of int, optional
+        A number of markers (spread over the classes when ``v_par`` is saved) or a list of marker
+        indices. Default: ``8``.
+    ncols : int, optional
+        The number of panels per row. Default: ``4``.
+    boundary : xarray.DataArray, optional
+        A field with physical coordinates whose outer (last ``eta1``) surface is drawn in every
+        panel, at its first ``eta3``.
+    color_by : str or None, optional
+        ``"classification"`` colors by orbit class and names it in the panel titles (when
+        ``v_par`` is saved); ``None`` (or any other value) draws every orbit in one color.
+        Default: ``"classification"``.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the 2-D array of axes and the drawn lines; ``data["markers"]`` lists the
+        marker indices shown.
+
+    See Also
+    --------
+    plot_orbit_poloidal : All orbits in one axes.
+
+    Examples
+    --------
+    >>> plot_orbit_grid(out.orbits["ions"], markers=12, boundary=phi)
     """
     subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=("x", "y", "z")).transpose(
         "t", "marker", ...
