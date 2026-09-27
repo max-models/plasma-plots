@@ -36,3 +36,8 @@ The accessor provides time-series, lineout, slice, panel, vector, comparison,
 animation, and marker-trajectory plots. For three-dimensional scalar fields,
 install the optional PyVista dependency (`pip install struphy-plots[pyvista]`) and
 use `field.struphy.plot.volume(t=-1)`, then call `show()` on the returned plotter.
+
+Every Matplotlib plot can also be an interactive Plotly figure, with hover values, zoom and,
+for animations, a slider: `pip install struphy-plots[plotly]` and pass `backend="plotly"`
+(`field.struphy.plot.slice(t=-1, backend="plotly")`), or call
+`struphy_plots.set_backend("plotly")` once.

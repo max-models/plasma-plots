@@ -28,8 +28,11 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 
+from .plotly_backend import with_backend
+
 Coordinates = Literal["logical", "physical"]
 Plane = Literal["XY", "XZ", "YZ", "RZ"]
+Backend = Literal["matplotlib", "plotly"]
 
 
 class _ArrayAccessor:
@@ -88,6 +91,7 @@ class ArrayPlots(_ArrayAccessor):
     >>> phi.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
     """
 
+    @with_backend
     def timeseries(
         self,
         *others,
@@ -97,6 +101,7 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         ax=None,
         reference=None,
+        backend: Backend | None = None,
     ):
         """Plot this time series, and any others given, in one axes.
 
@@ -114,6 +119,10 @@ class ArrayPlots(_ArrayAccessor):
         reference : callable, array, (t, values) pair or dict, optional
             Exact or expected curves, drawn dashed: a function of ``t``, an array, a
             ``(t, values)`` pair, or a mapping of labels to these.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -148,6 +157,7 @@ class ArrayPlots(_ArrayAccessor):
             reference=reference,
         )
 
+    @with_backend
     def lineout(
         self,
         *,
@@ -157,6 +167,7 @@ class ArrayPlots(_ArrayAccessor):
         reference=None,
         x_of=None,
         xlabel: str | None = None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot a one-dimensional profile after selecting every other dimension.
@@ -168,6 +179,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             The other dimensions: an integer is a position (``t=-1`` the last), a float the
             nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -197,6 +212,7 @@ class ArrayPlots(_ArrayAccessor):
             xlabel=xlabel,
         )
 
+    @with_backend
     def line_animation(
         self,
         *,
@@ -209,6 +225,7 @@ class ArrayPlots(_ArrayAccessor):
         step: int = 1,
         interval: int = 100,
         title: str | None = None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Animate a one-dimensional profile over ``sweep``.
@@ -221,11 +238,16 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but ``x`` and ``sweep``: an integer is a position (``eta2=0``), a
             float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
+            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
+            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
-        matplotlib.animation.FuncAnimation
-            The animation, one frame per step along ``sweep``.
+        matplotlib.animation.FuncAnimation or PlotResult
+            The animation, one frame per step along ``sweep``; with ``backend="plotly"`` a result
+            whose Plotly figure has a slider and Play/Pause buttons.
 
         See Also
         --------
@@ -252,6 +274,7 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
         )
 
+    @with_backend
     def against_theory(
         self,
         theory=None,
@@ -262,11 +285,19 @@ class ArrayPlots(_ArrayAccessor):
         title=None,
         logx: bool = False,
         logy: bool = False,
+        backend: Backend | None = None,
     ):
         """Plot these measured values as points against a ``theory`` function.
 
         The array is 1-D, over a parameter (e.g. the wavenumber); the relative error is shown
         too.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -296,6 +327,7 @@ class ArrayPlots(_ArrayAccessor):
             logy=logy,
         )
 
+    @with_backend
     def vector(
         self,
         *,
@@ -305,6 +337,7 @@ class ArrayPlots(_ArrayAccessor):
         stride: int = 1,
         coordinates: Coordinates = "logical",
         ax=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot two vector components after selecting time and remaining dimensions.
@@ -314,6 +347,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but ``x``, ``y`` and the component dimension, e.g. ``t=-1, eta3=0``:
             an integer is a position, a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -342,7 +379,15 @@ class ArrayPlots(_ArrayAccessor):
             ax=ax,
         )
 
-    def volume_slices(self, *, indices: dict[str, int] | None = None, cmap=None, **selection):
+    @with_backend
+    def volume_slices(
+        self,
+        *,
+        indices: dict[str, int] | None = None,
+        cmap=None,
+        backend: Backend | None = None,
+        **selection,
+    ):
         """Render three orthogonal slices of a selected scalar volume.
 
         Parameters
@@ -350,6 +395,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but the three of the volume, e.g. ``t=-1``: an integer is a
             position, a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -656,12 +705,14 @@ class ArrayPlots(_ArrayAccessor):
             **options,
         )
 
+    @with_backend
     def compare(
         self,
         other: xr.DataArray,
         *,
         mode: Literal["difference", "ratio"] = "difference",
         ax=None,
+        backend: Backend | None = None,
     ):
         """Plot a one-dimensional aligned difference or ratio against another array.
 
@@ -669,6 +720,10 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         other : xarray.DataArray
             The array to compare with, e.g. a reference run; aligned with this one first.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -688,6 +743,7 @@ class ArrayPlots(_ArrayAccessor):
 
         return plot_compare(self._array, other, mode=mode, ax=ax)
 
+    @with_backend
     def overlay_orbits(
         self,
         orbits: xr.Dataset,
@@ -697,6 +753,7 @@ class ArrayPlots(_ArrayAccessor):
         max_markers: int = 200,
         ax=None,
         cmap=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot this field's slice with marker orbit paths from ``orbits`` overlaid.
@@ -715,6 +772,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every other dimension of this field, e.g. ``t=-1``: an integer is a position, a
             float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -735,6 +796,7 @@ class ArrayPlots(_ArrayAccessor):
         view = self._view(x, y, "t", "logical", "XY", selection)
         return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
 
+    @with_backend
     def dispersion(
         self,
         *,
@@ -743,6 +805,7 @@ class ArrayPlots(_ArrayAccessor):
         branches: dict | None = None,
         log: bool = True,
         dynamic_range: float = 6.0,
+        kmin: float | None = None,
         kmax: float | None = None,
         omega_max: float | None = None,
         vmin: float | None = None,
@@ -752,6 +815,8 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         frequencies: dict | None = None,
         points: dict | None = None,
+        fits=(),
+        backend: Backend | None = None,
     ):
         """Plot the space-time power spectrum of this ``(t, dim)`` field as a dispersion relation.
 
@@ -760,6 +825,13 @@ class ArrayPlots(_ArrayAccessor):
         ``{"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)}``. ``frequencies`` draws labeled
         horizontal lines (cutoffs), ``points`` measured points (``(k, omega)`` pairs or
         :func:`struphy_plots.spectral.trace_branch` results).
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -774,6 +846,9 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> E.struphy.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
+        >>> spectrum = E.struphy.analysis.dispersion(dim="eta1")          # or pass the spectrum itself
+        >>> fits = spectrum.struphy.analysis.fit_branches(n_branches=1)
+        >>> spectrum.struphy.plot.dispersion(kmin=0, fits=fits, dynamic_range=15, backend="plotly")
         """
         from .plotting import plot_dispersion
 
@@ -784,6 +859,7 @@ class ArrayPlots(_ArrayAccessor):
             branches=branches,
             log=log,
             dynamic_range=dynamic_range,
+            kmin=kmin,
             kmax=kmax,
             omega_max=omega_max,
             vmin=vmin,
@@ -793,6 +869,7 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
             frequencies=frequencies,
             points=points,
+            fits=fits,
         )
 
     # Spectral plots: every dimension but t (and those a plot keeps) can be selected by keyword.
@@ -802,6 +879,7 @@ class ArrayPlots(_ArrayAccessor):
 
         return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
 
+    @with_backend
     def power_spectrum(
         self,
         *,
@@ -815,6 +893,7 @@ class ArrayPlots(_ArrayAccessor):
         omega_max: float | None = None,
         ax=None,
         title: str | None = None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot the power per frequency bin, averaged over ``dims``.
@@ -827,6 +906,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions other than ``t`` to select first (e.g. a probe point ``eta1=0.4``): an
             integer is a position, a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -861,11 +944,19 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
         )
 
-    def filtered(self, result, *, ax=None, **selection):
+    @with_backend
+    def filtered(self, result, *, ax=None, backend: Backend | None = None, **selection):
         """Plot a probe of this signal against a filtered reconstruction.
 
         ``result`` is a :meth:`ArrayAnalysis.filter_time` result or a filtered array; the probe
         is selected by keyword.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -887,6 +978,7 @@ class ArrayPlots(_ArrayAccessor):
 
         return plot_filtered(self._array, result, ax=ax, **selection)
 
+    @with_backend
     def spectrogram(
         self,
         *,
@@ -899,6 +991,7 @@ class ArrayPlots(_ArrayAccessor):
         omega_max: float | None = None,
         frequencies: dict | None = None,
         ax=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot short-time power spectra over ``(t, omega)``.
@@ -918,6 +1011,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions other than ``t`` to select first: an integer is a position, a float the
             nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -955,6 +1052,7 @@ class ArrayPlots(_ArrayAccessor):
             ax=ax,
         )
 
+    @with_backend
     def mode_amplitudes(
         self,
         *,
@@ -967,6 +1065,7 @@ class ArrayPlots(_ArrayAccessor):
         relative: bool = False,
         logy: bool = True,
         ax=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot the amplitude of the strongest ``(m, n)`` modes of this field over time.
@@ -990,6 +1089,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions other than ``t`` to select first: an integer is a position, a float the
             nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1019,6 +1122,7 @@ class ArrayPlots(_ArrayAccessor):
             amplitudes = getattr(amplitudes, reduce)(others, keep_attrs=True)
         return plot_mode_amplitudes(amplitudes, top=top, fit=fit, logy=logy, ax=ax)
 
+    @with_backend
     def mode_map(
         self,
         *,
@@ -1029,6 +1133,7 @@ class ArrayPlots(_ArrayAccessor):
         scale=1,
         log: bool = True,
         ax=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot ``|amplitude|`` over the ``(m, n)`` plane at one time.
@@ -1048,6 +1153,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             The time and any other dimensions to select first, e.g. ``t=-1``: an integer is a
             position, a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1072,6 +1181,7 @@ class ArrayPlots(_ArrayAccessor):
             modes = getattr(modes, reduce)(others, keep_attrs=True)
         return plot_mode_map(modes, m_range=m_range, n_range=n_range, log=log, ax=ax)
 
+    @with_backend
     def radial_power(
         self,
         *,
@@ -1085,6 +1195,7 @@ class ArrayPlots(_ArrayAccessor):
         dynamic_range: float = 3.0,
         omega_max: float | None = None,
         ax=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot the time-power over ``(omega, x)``, averaged over the other dimensions.
@@ -1100,6 +1211,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions to select first: an integer is a position, a float the nearest
             coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1133,6 +1248,7 @@ class ArrayPlots(_ArrayAccessor):
             ax=ax,
         )
 
+    @with_backend
     def mode_profiles(
         self,
         omega: float | None = None,
@@ -1144,6 +1260,7 @@ class ArrayPlots(_ArrayAccessor):
         top: int = 4,
         phase: bool = True,
         scale=1,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot the radial profile of each ``(m, n)`` harmonic of this field.
@@ -1162,6 +1279,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions to select first (without ``omega``, the time): an integer is a position,
             a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1199,6 +1320,7 @@ class ArrayPlots(_ArrayAccessor):
             title = f"Harmonics of {name} at omega = {omega:.4g}"
         return plot_mode_profiles(structure, x=x, x_of=x_of, xlabel=xlabel, top=top, phase=phase, title=title)
 
+    @with_backend
     def profiles(
         self,
         *,
@@ -1210,6 +1332,7 @@ class ArrayPlots(_ArrayAccessor):
         ax=None,
         title: str | None = None,
         reference=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot profiles along ``x`` at several values of ``over`` in one axes.
@@ -1224,6 +1347,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every other dimension, e.g. ``eta2=0.125, eta3=0``: an integer is a position, a
             float the nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1254,6 +1381,7 @@ class ArrayPlots(_ArrayAccessor):
             reference=reference,
         )
 
+    @with_backend
     def cross_spectrum(
         self,
         other: xr.DataArray,
@@ -1262,6 +1390,7 @@ class ArrayPlots(_ArrayAccessor):
         detrend: bool = True,
         window=None,
         omega_max=None,
+        backend: Backend | None = None,
     ):
         """Plot the magnitude, coherence and phase of ``other`` relative to this signal.
 
@@ -1273,6 +1402,10 @@ class ArrayPlots(_ArrayAccessor):
             The second signal, on the same time grid; its phase is relative to this one.
         omega_max : float, optional
             The largest angular frequency shown. Default: all.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1298,12 +1431,14 @@ class ArrayPlots(_ArrayAccessor):
             omega_max=omega_max,
         )
 
+    @with_backend
     def pencil_fit(
         self,
         *,
         n_modes: int = 1,
         pencil: int | None = None,
         detrend: bool = False,
+        backend: Backend | None = None,
         **selection,
     ):
         """Plot a matrix-pencil fit of this ``(t,)`` series.
@@ -1315,6 +1450,10 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but ``t``, e.g. a probe point: an integer is a position, a float the
             nearest coordinate value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1456,6 +1595,7 @@ class ArrayPlots(_ArrayAccessor):
             ),
         )
 
+    @with_backend
     def slice(
         self,
         *,
@@ -1476,6 +1616,7 @@ class ArrayPlots(_ArrayAccessor):
         fill: bool = True,
         overlays: dict | None = None,
         ax=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Render one 2-D slice.
@@ -1486,6 +1627,10 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         ax : matplotlib.axes.Axes, optional
             The axes to draw into. Default: a new figure.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1523,6 +1668,7 @@ class ArrayPlots(_ArrayAccessor):
             **selection,
         ).slice(ax=ax)
 
+    @with_backend
     def panels(
         self,
         *,
@@ -1544,6 +1690,7 @@ class ArrayPlots(_ArrayAccessor):
         overlays: dict | None = None,
         nrows: int = 3,
         ncols: int = 4,
+        backend: Backend | None = None,
         **selection,
     ):
         """Render evenly spaced snapshots along the sweep.
@@ -1557,6 +1704,10 @@ class ArrayPlots(_ArrayAccessor):
             The number of panel rows. Default: 3.
         ncols : int, optional
             The number of panel columns. Default: 4.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1592,6 +1743,7 @@ class ArrayPlots(_ArrayAccessor):
             **selection,
         ).panels(nrows=nrows, ncols=ncols)
 
+    @with_backend
     def viewer(
         self,
         *,
@@ -1611,16 +1763,25 @@ class ArrayPlots(_ArrayAccessor):
         levels=None,
         fill: bool = True,
         overlays: dict | None = None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Create an interactive slider view; keep a reference to the returned viewer.
 
         The same as ``plot.view(...).viewer()``; see :meth:`view` for the shared options.
 
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
+            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
+            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+
         Returns
         -------
-        struphy_plots.plotting.InteractiveSliceViewer
-            The viewer, with sliders for the unselected dimensions.
+        struphy_plots.plotting.InteractiveSliceViewer or PlotResult
+            The viewer, with sliders for the unselected dimensions; with ``backend="plotly"`` a
+            result whose Plotly figure has one slider (one unselected dimension at most).
 
         See Also
         --------
@@ -1651,6 +1812,7 @@ class ArrayPlots(_ArrayAccessor):
             **selection,
         ).viewer()
 
+    @with_backend
     def animation(
         self,
         *,
@@ -1673,6 +1835,7 @@ class ArrayPlots(_ArrayAccessor):
         interval: int = 100,
         step: int = 1,
         alongside=None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Animate the sweep; keep a reference to the returned Matplotlib animation.
@@ -1689,11 +1852,16 @@ class ArrayPlots(_ArrayAccessor):
             Further arrays with the same dimensions (e.g. the density next to the vorticity),
             animated side by side in sync, each with its own color limits and the same selection
             and options.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
+            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
+            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
-        matplotlib.animation.FuncAnimation
-            The animation.
+        matplotlib.animation.FuncAnimation or PlotResult
+            The animation; with ``backend="plotly"`` a result whose Plotly figure has a slider
+            and Play/Pause buttons.
 
         See Also
         --------
@@ -1802,8 +1970,23 @@ class ArrayPlots(_ArrayAccessor):
             **selection,
         ).save_frames(directory, step=step, prefix=prefix, dpi=dpi)
 
-    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
+    @with_backend
+    def trajectories(
+        self,
+        *,
+        max_markers: int = 200,
+        show_paths: bool | None = None,
+        ax=None,
+        backend: Backend | None = None,
+    ):
         """Plot the three-dimensional paths of saved markers, for an orbit product.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -2986,84 +3169,9 @@ class ArrayAnalysis(_ArrayAccessor):
         return drop_periodic_endpoint(self._array, dim, period=period)
 
 
-class ArrayPlotly(_ArrayAccessor):
-    """Interactive Plotly figures of one array, as ``array.struphy.plotly.<kind>(...)``.
-
-    Each method returns a ``plotly.graph_objects.Figure``; call ``.show()`` on it. They need
-    Plotly (``pip install "struphy-plots[plotly]"``).
-    """
-
-    def space_time(
-        self,
-        *,
-        space: str | None = None,
-        title: str | None = None,
-        colorbar_title: str | None = None,
-        colorscale: str = "RdBu",
-    ):
-        """Draw this ``(t, space)`` field as a space-time map: space along x, time up.
-
-        Returns
-        -------
-        plotly.graph_objects.Figure
-            The heatmap.
-
-        See Also
-        --------
-        struphy_plots.plotly_plots.space_time : The function behind this method.
-
-        Examples
-        --------
-        >>> e_x.struphy.plotly.space_time(title="E_x(z, t)").show()
-        """
-        from .plotly_plots import space_time
-
-        return space_time(self._array, space=space, title=title, colorbar_title=colorbar_title, colorscale=colorscale)
-
-    def dispersion(
-        self,
-        *,
-        branches=None,
-        fits=(),
-        dynamic_range: float = 15.0,
-        kmax: float | None = None,
-        omega_max: float | None = None,
-        title: str | None = None,
-        colorscale: str = "Plasma",
-    ):
-        """Draw this ``(omega, k)`` power spectrum as a dispersion relation, for ``omega, k >= 0``.
-
-        Returns
-        -------
-        plotly.graph_objects.Figure
-            The heatmap with its overlays.
-
-        See Also
-        --------
-        struphy_plots.plotly_plots.dispersion : The function behind this method.
-
-        Examples
-        --------
-        >>> spectrum = power_spectrum(e_x, dim="z")
-        >>> spectrum.struphy.plotly.dispersion(branches={"light wave": lambda k: k}).show()
-        """
-        from .plotly_plots import dispersion
-
-        return dispersion(
-            self._array,
-            branches=branches,
-            fits=fits,
-            dynamic_range=dynamic_range,
-            kmax=kmax,
-            omega_max=omega_max,
-            title=title,
-            colorscale=colorscale,
-        )
-
-
 @xr.register_dataarray_accessor("struphy")
 class StruphyAccessor:
-    """Struphy diagnostics of one array: ``array.struphy.plot``, ``.plotly``, ``.analysis`` and ``.data``.
+    """Struphy diagnostics of one array: ``array.struphy.plot``, ``.analysis`` and ``.data``.
 
     Registered on every ``xarray.DataArray`` when ``struphy_plots`` is imported.
 
@@ -3080,11 +3188,6 @@ class StruphyAccessor:
     def plot(self) -> "ArrayPlots":
         """Plots of this array, e.g. ``array.struphy.plot.slice(x="eta1", y="v1", t=-1)``."""
         return ArrayPlots(self._array)
-
-    @property
-    def plotly(self) -> "ArrayPlotly":
-        """Interactive Plotly figures of this array, e.g. ``array.struphy.plotly.space_time()``."""
-        return ArrayPlotly(self._array)
 
     @property
     def analysis(self) -> "ArrayAnalysis":
@@ -3191,7 +3294,8 @@ class DatasetPlots:
     def __init__(self, dataset: xr.Dataset):
         self._dataset = dataset
 
-    def power_spectrum(self, **options):
+    @with_backend
+    def power_spectrum(self, *, backend: Backend | None = None, **options):
         """Plot the power of a ``time_fft`` Dataset.
 
         Parameters
@@ -3199,6 +3303,10 @@ class DatasetPlots:
         **options
             The keyword options of :func:`struphy_plots.spectral_plots.plot_power_spectrum`,
             e.g. ``peaks=2``.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3219,8 +3327,16 @@ class DatasetPlots:
 
         return plot_power_spectrum(self._dataset, **options)
 
-    def cross_spectrum(self, *, omega_max: float | None = None):
+    @with_backend
+    def cross_spectrum(self, *, omega_max: float | None = None, backend: Backend | None = None):
         """Plot the magnitude, coherence and phase of a ``cross_spectrum`` Dataset.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3241,8 +3357,23 @@ class DatasetPlots:
 
         return plot_cross_spectrum(self._dataset, omega_max=omega_max)
 
-    def trajectories(self, *, max_markers: int = 200, show_paths: bool | None = None, ax=None):
+    @with_backend
+    def trajectories(
+        self,
+        *,
+        max_markers: int = 200,
+        show_paths: bool | None = None,
+        ax=None,
+        backend: Backend | None = None,
+    ):
         """Plot the three-dimensional paths of saved markers, for an ``orbits`` product.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3263,6 +3394,7 @@ class DatasetPlots:
 
         return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
+    @with_backend
     def scatter(
         self,
         *,
@@ -3275,6 +3407,7 @@ class DatasetPlots:
         color_at=None,
         background: xr.DataArray | None = None,
         background_options: dict | None = None,
+        backend: Backend | None = None,
         **selection,
     ):
         """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
@@ -3283,6 +3416,13 @@ class DatasetPlots:
         :meth:`ArrayPlots.lineout`: an integer is a position (``-1`` the last), and a float is the
         nearest coordinate value. ``color_at`` colors by the values at another time (e.g. ``0``,
         the initial positions); ``background`` draws a field behind the markers.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3316,6 +3456,7 @@ class DatasetPlots:
             **selection,
         )
 
+    @with_backend
     def orbit_classification(
         self,
         *,
@@ -3325,10 +3466,18 @@ class DatasetPlots:
         t=0,
         ax=None,
         s: int = 8,
+        backend: Backend | None = None,
     ):
         """Plot markers in a phase-space plane, colored as passing, trapped or lost.
 
         By default initial ``v_par`` against ``mu``; for a guiding-center orbits product.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3351,6 +3500,7 @@ class DatasetPlots:
 
         return plot_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s)
 
+    @with_backend
     def animation(
         self,
         *,
@@ -3364,15 +3514,24 @@ class DatasetPlots:
         interval: int = 100,
         s: int = 8,
         cmap=None,
+        backend: Backend | None = None,
     ):
         """Animate the markers moving over time, optionally over a field animated in sync.
 
         E.g. over an SPH density. Keep a reference to the returned animation.
 
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
+            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
+            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+
         Returns
         -------
-        matplotlib.animation.FuncAnimation
-            The animation.
+        matplotlib.animation.FuncAnimation or PlotResult
+            The animation; with ``backend="plotly"`` a result whose Plotly figure has a slider
+            and Play/Pause buttons.
 
         See Also
         --------
@@ -3399,6 +3558,7 @@ class DatasetPlots:
             cmap=cmap,
         )
 
+    @with_backend
     def paths(
         self,
         *,
@@ -3410,10 +3570,18 @@ class DatasetPlots:
         background_options: dict | None = None,
         t=0,
         ax=None,
+        backend: Backend | None = None,
     ):
         """Plot the paths of a few markers in a plane, with start and end markers.
 
         Optionally over a field (e.g. stream-function contour lines).
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3443,6 +3611,7 @@ class DatasetPlots:
             ax=ax,
         )
 
+    @with_backend
     def poloidal(
         self,
         *,
@@ -3450,10 +3619,18 @@ class DatasetPlots:
         max_markers: int = 200,
         boundary: xr.DataArray | None = None,
         ax=None,
+        backend: Backend | None = None,
     ):
         """Plot orbits projected onto the poloidal plane (``R`` against ``z``).
 
         By default colored as passing, trapped or lost.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3479,8 +3656,23 @@ class DatasetPlots:
             ax=ax,
         )
 
-    def orbit_grid(self, *, markers=8, ncols: int = 4, boundary: xr.DataArray | None = None):
+    @with_backend
+    def orbit_grid(
+        self,
+        *,
+        markers=8,
+        ncols: int = 4,
+        boundary: xr.DataArray | None = None,
+        backend: Backend | None = None,
+    ):
         """Plot one small poloidal panel per marker, colored by orbit class.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3502,10 +3694,25 @@ class DatasetPlots:
 
         return plot_orbit_grid(self._dataset, markers=markers, ncols=ncols, boundary=boundary)
 
-    def quantities(self, *, quantities=("v_par", "mu"), markers=6, drift_of=("mu",)):
+    @with_backend
+    def quantities(
+        self,
+        *,
+        quantities=("v_par", "mu"),
+        markers=6,
+        drift_of=("mu",),
+        backend: Backend | None = None,
+    ):
         """Plot saved orbit quantities over time for a few markers.
 
         E.g. ``v_par`` bouncing, or the drift of the invariant ``mu``.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3706,7 +3913,8 @@ class SliceView:
     def _view(self, **selection):
         return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
 
-    def slice(self, *, ax=None, **selection):
+    @with_backend
+    def slice(self, *, ax=None, backend: Backend | None = None, **selection):
         """Draw a snapshot, e.g. ``view.slice(t=-1)``.
 
         With ``shared_clim``, the color limits come from all of the view's data, so the snapshot
@@ -3718,6 +3926,10 @@ class SliceView:
             Further dimensions to select, e.g. ``t=-1``, in addition to (or overriding) the
             view's own selection: an integer is a position, a float the nearest coordinate
             value.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3746,8 +3958,16 @@ class SliceView:
             options.update(zip(("vmin", "vmax"), renderer.limits))
         return plot_slice(self._array, view=self._view(**selection), ax=ax, **options)
 
-    def panels(self, *, nrows=3, ncols=4):
+    @with_backend
+    def panels(self, *, nrows=3, ncols=4, backend: Backend | None = None):
         """Draw snapshots spread evenly along the sweep.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3766,15 +3986,24 @@ class SliceView:
 
         return plot_panels(self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options)
 
-    def viewer(self):
+    @with_backend
+    def viewer(self, *, backend: Backend | None = None):
         """Create a viewer with sliders for the unselected dimensions.
 
         Keep a reference to the returned viewer.
 
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
+            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
+            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+
         Returns
         -------
-        struphy_plots.plotting.InteractiveSliceViewer
-            The viewer, with this view's rendering options.
+        struphy_plots.plotting.InteractiveSliceViewer or PlotResult
+            The viewer, with this view's rendering options; with ``backend="plotly"`` a result
+            whose Plotly figure has one slider (one unselected dimension at most).
 
         See Also
         --------
@@ -3784,7 +4013,8 @@ class SliceView:
 
         return InteractiveSliceViewer(self._array, view=self._view(), **self._options)
 
-    def animation(self, *, interval=100, step=1, alongside=None):
+    @with_backend
+    def animation(self, *, interval=100, step=1, alongside=None, backend: Backend | None = None):
         """Create a Matplotlib animation using this view's rendering options.
 
         Keep a reference to the returned animation.
@@ -3794,11 +4024,16 @@ class SliceView:
         alongside : list of xarray.DataArray, optional
             Further arrays with the same dimensions, animated side by side in sync, each with
             its own color limits.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
+            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
+            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
-        matplotlib.animation.FuncAnimation
-            The animation.
+        matplotlib.animation.FuncAnimation or PlotResult
+            The animation; with ``backend="plotly"`` a result whose Plotly figure has a slider
+            and Play/Pause buttons.
 
         See Also
         --------
@@ -3865,7 +4100,6 @@ def _complete_docstrings():
         ArrayPlots,
         ArrayAnalysis,
         ArrayData,
-        ArrayPlotly,
         SliceView,
         DatasetPlots,
         DatasetAnalysis,

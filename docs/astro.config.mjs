@@ -74,6 +74,7 @@ export default defineConfig({
 						{ label: 'Getting started', slug: 'guides/getting-started' },
 						{ label: 'Selecting data', slug: 'guides/data' },
 						{ label: 'Field plots', slug: 'guides/field-plots' },
+						{ label: 'Interactive plots (Plotly)', slug: 'guides/plotly' },
 						{ label: '3-D views', slug: 'guides/3d-views' },
 						{ label: 'Time series & comparisons', slug: 'guides/timeseries' },
 						{ label: 'Diagnostics', slug: 'guides/analysis' },

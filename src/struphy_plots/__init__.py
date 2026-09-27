@@ -75,6 +75,12 @@ Plots return a ``PlotResult`` (``.fig``, ``.ax``, ``.save(path)``, ``.show()``);
 views a ``pyvista.Plotter`` (``.show()``, ``.screenshot(path)``; ``pyvista.OFF_SCREEN = True`` in
 scripts). Analysis methods return labeled xarray objects, which have ``.struphy`` in turn.
 
+Every Matplotlib plot also draws as an interactive Plotly figure (``pip install
+"struphy-plots[plotly]"``): ``phi.struphy.plot.slice(t=-1, eta3=0, backend="plotly")``, or
+``struphy_plots.set_backend("plotly")`` for all of them. The result is a ``PlotResult`` too
+(``.save("phi.html")``); animations and viewers get a slider. See
+:mod:`struphy_plots.plotly_backend`.
+
 Under MPI (``mpirun -n 4 python script.py``), plots are drawn and saved on rank 0 only; the other
 ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchanged in serial and
 in parallel. Analysis runs on every rank. See :mod:`struphy_plots.mpi`.
@@ -112,5 +118,6 @@ Runs as is, on synthetic data:
 from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import StruphyAccessor
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
+from .plotly_backend import get_backend, set_backend
 
-__all__ = ["SkippedPlot", "StruphyAccessor", "is_plotting_rank", "mpi_rank"]
+__all__ = ["SkippedPlot", "StruphyAccessor", "get_backend", "is_plotting_rank", "mpi_rank", "set_backend"]

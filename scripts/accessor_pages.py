@@ -37,14 +37,6 @@ PAGES = {
         "value), draws, and returns a `PlotResult` (or an animation or a PyVista plotter).",
         [("accessors.ArrayPlots", "array.struphy.plot"), ("accessors.SliceView", "SliceView, returned by plot.view()")],
     ),
-    "plotly": (
-        "array.struphy.plotly",
-        "Interactive Plotly figures of one labeled array: space-time maps, dispersion relations.",
-        "Interactive Plotly figures of one labeled `xarray.DataArray`, as `array.struphy.plotly.<method>(...)`, "
-        "for web pages and notebooks. Each method returns a `plotly.graph_objects.Figure`; call `.show()` on it. "
-        'They need Plotly (`pip install "struphy-plots[plotly]"`).',
-        [("accessors.ArrayPlotly", "array.struphy.plotly")],
-    ),
     "analysis": (
         "array.struphy.analysis",
         "Diagnostics of one labeled array: fits, norms, errors, spectra, vector calculus.",

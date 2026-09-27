@@ -17,7 +17,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import accessors  # noqa: F401  (registers array.struphy)
+from .accessors import Backend
 from .mpi import rank_zero
+from .plotly_backend import with_backend
 
 if TYPE_CHECKING:
     from struphy.post_processing.output import Output
@@ -173,7 +175,15 @@ class OutputPlots:
     def __init__(self, output: "Output"):
         self._output = output
 
-    def scalars(self, names=None, *, relative_to: str | None = None, logy: bool = False):
+    @with_backend
+    def scalars(
+        self,
+        names=None,
+        *,
+        relative_to: str | None = None,
+        logy: bool = False,
+        backend: Backend | None = None,
+    ):
         """Overview of the scalar time series in one axes.
 
         Parameters
@@ -184,6 +194,10 @@ class OutputPlots:
             Show every scalar divided by this one.
         logy : bool, optional
             Logarithmic value axis.
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -209,6 +223,7 @@ class OutputPlots:
             run_label=self._output.label,
         )
 
+    @with_backend
     def energies(
         self,
         *,
@@ -216,12 +231,20 @@ class OutputPlots:
         total: str | None = "en_tot",
         groups: dict | None = None,
         logy: bool = False,
+        backend: Backend | None = None,
     ):
         """Plot the run's energy budget from its ``en_*`` scalars.
 
         Shows the ``en_*`` scalars, the relative drift of ``total``, and, with ``groups``
         (e.g. ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}``), the
         energy exchanged between them.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -248,8 +271,16 @@ class OutputPlots:
             run_label=self._output.label,
         )
 
-    def equilibrium(self, ax=None):
+    @with_backend
+    def equilibrium(self, ax=None, *, backend: Backend | None = None):
         """Plot radial profiles of this run's fluid equilibrium (``out.equil``, ``out.domain``).
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly"}, optional
+            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
+            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
+            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------

@@ -117,19 +117,23 @@ def _display_figure(fig):
 
 @dataclass
 class PlotResult:
-    """Already-rendered Matplotlib objects; saving never redraws them.
+    """An already-drawn figure and what was drawn; saving never redraws it.
 
     Every plotting function returns one. As the last expression of a notebook cell it displays
-    its figure once; there is no need to write ``.fig``.
+    its figure once; there is no need to write ``.fig``. With ``backend="plotly"`` (see
+    :mod:`struphy_plots.plotly_backend`) the figure is a Plotly figure instead, with the same
+    ``fit_results`` and ``data``.
 
     Attributes
     ----------
-    fig : matplotlib.figure.Figure
+    fig : matplotlib.figure.Figure or plotly.graph_objects.Figure
         The figure.
-    ax : matplotlib.axes.Axes or array of matplotlib.axes.Axes
-        The axes drawn into; an array (or list) of axes for multi-panel plots.
+    ax : matplotlib.axes.Axes, array of matplotlib.axes.Axes or None
+        The axes drawn into; an array (or list) of axes for multi-panel plots; ``None`` for a
+        Plotly figure.
     artists : list
-        The drawn artists (lines, meshes, scatter collections, ...).
+        The drawn artists (lines, meshes, scatter collections, ...); for a Plotly figure its
+        traces.
     fit_results : list of FitResult or None
         The growth-rate fits of :func:`plot_timeseries`, one per series (``None`` where no fit
         was made); empty for other plots.
@@ -150,24 +154,43 @@ class PlotResult:
     data: dict = field(default_factory=dict)
     _shown: bool = field(default=False, init=False, repr=False, compare=False)
 
+    @property
+    def _plotly(self) -> bool:
+        return type(self.fig).__module__.startswith("plotly")
+
     def save(self, path, *, close=False, **kwargs):
         """Save the figure to a file, as drawn.
 
         Parameters
         ----------
         path : str or pathlib.Path
-            The file to write; its extension picks the format.
+            The file to write; its extension picks the format. A Plotly figure is written as a
+            standalone page (``.html``), as figure JSON (``.json``), or as an image through kaleido
+            (``.png``, ``.svg``, ``.pdf``, ...).
         close : bool, optional
-            Close the figure afterwards, to free its memory. Default: ``False``.
+            Close the Matplotlib figure afterwards, to free its memory. Default: ``False``.
         **kwargs
-            Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``);
-            ``bbox_inches="tight"`` unless given.
+            Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``;
+            ``bbox_inches="tight"`` unless given), or to Plotly's ``write_html``, ``write_json``
+            or ``write_image`` (``dpi`` then sets the image's ``scale``, 100 dpi per unit).
 
         Returns
         -------
         str
             The path written.
         """
+        if self._plotly:
+            suffix = Path(path).suffix.lower()
+            if suffix in (".html", ".htm"):
+                self.fig.write_html(path, **kwargs)
+            elif suffix == ".json":
+                self.fig.write_json(path, **kwargs)
+            else:
+                if "dpi" in kwargs:
+                    kwargs["scale"] = kwargs.pop("dpi") / 100.0
+                kwargs.pop("bbox_inches", None)
+                self.fig.write_image(path, **kwargs)
+            return str(path)
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
         if close:
@@ -175,7 +198,7 @@ class PlotResult:
         return str(path)
 
     def show(self):
-        """Show the figure with ``matplotlib.pyplot.show``.
+        """Show the figure with ``matplotlib.pyplot.show``, or a Plotly figure with its ``show``.
 
         Afterwards a notebook no longer displays the result again as a cell result.
 
@@ -184,12 +207,55 @@ class PlotResult:
         PlotResult
             This result.
         """
-        plt.show()
+        if self._plotly:
+            self.fig.show()
+        else:
+            plt.show()
         self._shown = True
         return self
 
+    def to_plotly(self, *, close: bool = False) -> "PlotResult":
+        """The same result with the figure converted to an interactive Plotly figure.
+
+        For the plotting functions, whose results are Matplotlib figures; the accessor methods
+        take ``backend="plotly"`` instead.
+
+        Parameters
+        ----------
+        close : bool, optional
+            Close the Matplotlib figure afterwards. Default: ``False``.
+
+        Returns
+        -------
+        PlotResult
+            A new result: the Plotly figure, its traces as ``artists``, and this result's
+            ``fit_results`` and ``data``.
+
+        See Also
+        --------
+        struphy_plots.plotly_backend.to_plotly : The conversion.
+
+        Examples
+        --------
+        >>> plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")
+        """
+        from .plotly_backend import _plotly_result, to_plotly
+
+        if self._plotly:
+            return self
+        result = _plotly_result(to_plotly(self.fig), self)
+        if close:
+            plt.close(self.fig)
+        return result
+
     def _ipython_display_(self):
-        if not self._shown:
+        if self._shown:
+            return
+        if self._plotly:
+            from IPython.display import display
+
+            display(self.fig)
+        else:
             _display_figure(self.fig)
 
     def __repr__(self):
@@ -1907,8 +1973,14 @@ def animate_slices(
         return (mesh,)
 
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, sweep, renderer.data[sweep].values[list(frames)])
     _detach_figure(fig)
     return animation
+
+
+def _label_frames(animation, sweep, values):
+    """Record the sweep values of an animation's frames, the slider labels of its Plotly version."""
+    animation._struphy_sweep = (sweep, [float(v) for v in np.asarray(values, dtype=float)])
 
 
 @rank_zero
@@ -2006,6 +2078,7 @@ def animate_fields(
 
     update(frames[0])
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, sweep, renderers[0].data[sweep].values[list(frames)])
     _detach_figure(fig)
     return animation
 
@@ -2339,6 +2412,7 @@ def plot_dispersion(
     branches: dict | None = None,
     log: bool = True,
     dynamic_range: float = 6.0,
+    kmin: float | None = None,
     kmax: float | None = None,
     omega_max: float | None = None,
     vmin: float | None = None,
@@ -2348,10 +2422,12 @@ def plot_dispersion(
     title: str | None = None,
     frequencies: dict | None = None,
     points: dict | None = None,
+    fits=(),
 ):
     """The space-time power spectrum of a ``(t, dim)`` field, as a dispersion-relation plot.
 
-    Shows only non-negative frequencies (a real signal's spectrum is symmetric under
+    The spectrum may also be given directly, e.g. from :func:`~struphy_plots.analysis.power_spectrum`
+    (then ``dim`` and ``detrend`` are not used). Shows only non-negative frequencies (a real signal's spectrum is symmetric under
     ``(k, ω) → (-k, -ω)``, so every branch already appears on both sides of ``k = 0``).
 
     A dispersion relation's power spans many orders of magnitude (the ridge against a mostly-empty
@@ -2362,7 +2438,8 @@ def plot_dispersion(
     Parameters
     ----------
     data : xarray.DataArray
-        The field, with the dimensions ``t`` and ``dim`` (select the rest first).
+        The field, with the dimensions ``t`` and ``dim`` (select the rest first), or its power
+        spectrum, with the dimensions ``omega`` and ``k``.
     dim : str, optional
         The spatial dimension to transform. Default: the one besides ``t`` (see
         :func:`struphy_plots.analysis.power_spectrum`).
@@ -2381,6 +2458,8 @@ def plot_dispersion(
     dynamic_range : float, optional
         With ``log``, the number of decades below the peak that the default color limits cover.
         Default: ``6.0``.
+    kmin : float, optional
+        Show only ``k >= kmin``, e.g. ``0`` for the positive quadrant. Default: all ``k``.
     kmax : float, optional
         Show only ``|k| <= kmax``. Default: all ``k``.
     omega_max : float, optional
@@ -2402,6 +2481,9 @@ def plot_dispersion(
         Measured points to mark: a dict of labels to a ``(k, omega)`` pair or a
         :func:`~struphy_plots.spectral.trace_branch` result (an ``xarray.Dataset`` with ``k`` and
         ``omega``).
+    fits : sequence of BranchFit, optional
+        Fitted straight branches from :func:`~struphy_plots.analysis.fit_dispersion_branches`,
+        drawn dotted as ``omega = velocity * k`` over the shown ``k >= 0``. Default: none.
 
     Returns
     -------
@@ -2411,13 +2493,15 @@ def plot_dispersion(
     See Also
     --------
     struphy_plots.analysis.power_spectrum : The spectrum, without plotting.
+    struphy_plots.analysis.fit_dispersion_branches : Straight branches fitted to it, for ``fits``.
     plot_continuous_spectrum : Continuum frequencies to compare a measured frequency with.
 
     Examples
     --------
     >>> plot_dispersion(e_field.isel(eta2=0, eta3=0), branches={"Langmuir": lambda k: np.sqrt(1 + 3 * k**2)})
     """
-    spectrum = power_spectrum(data, dim=dim, detrend=detrend)
+    given = {"omega", "k"} <= set(data.dims)
+    spectrum = data.transpose("omega", "k") if given else power_spectrum(data, dim=dim, detrend=detrend)
     values = np.asarray(spectrum)
     if log:
         values = np.log10(values + np.finfo(float).tiny)
@@ -2430,6 +2514,8 @@ def plot_dispersion(
     if omega_max is not None:
         omega_mask &= omega <= omega_max
     k_mask = np.abs(k) <= kmax if kmax is not None else np.ones_like(k, dtype=bool)
+    if kmin is not None:
+        k_mask &= k >= kmin
 
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     mesh = ax.pcolormesh(
@@ -2450,18 +2536,23 @@ def plot_dispersion(
             artists.append(line)
         ax.set_xlim(*limits[0])  # theory curves beyond the spectrum do not widen the axes
         ax.set_ylim(*limits[1])
+    if len(fits):
+        limits = ax.get_xlim(), ax.get_ylim()
+        shown = k[k_mask]
+        k_line = np.linspace(max(float(shown.min()), 0.0), float(shown.max()), 200)
+        for fit in fits:
+            artists += ax.plot(k_line, fit.velocity * k_line, ":", lw=2, label=f"fit, v = {fit.velocity:.4g}")
+        ax.set_xlim(*limits[0])
+        ax.set_ylim(*limits[1])
     for i, (label, omega_value) in enumerate((frequencies or {}).items()):
         artists.append(ax.axhline(omega_value, color="w", lw=1, ls=(0, (1, 2 + i)), label=label))
     for label, point in (points or {}).items():
         k_points, omega_points = (point.k, point.omega) if isinstance(point, xr.Dataset) else point
         artists.append(ax.plot(k_points, omega_points, "o", ms=4, mfc="none", mew=1.2, label=label)[0])
-    if branches is not None or frequencies or points:
+    if branches is not None or frequencies or points or len(fits):
         ax.legend(fontsize="small")
-    ax.set(
-        xlabel="k",
-        ylabel=r"$\omega$",
-        title=title if title is not None else f"Dispersion relation of {_label(data)}",
-    )
+    default_title = (_label(data) or "Dispersion relation") if given else f"Dispersion relation of {_label(data)}"
+    ax.set(xlabel="k", ylabel=r"$\omega$", title=title if title is not None else default_title)
     return PlotResult(fig, ax, artists)
 
 
@@ -3007,6 +3098,7 @@ def animate_markers(
 
     update(0)
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, "t", times[list(frames)])
     _detach_figure(fig)
     return animation
 
@@ -4062,6 +4154,7 @@ def animate_lines(
 
     update(0)
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, sweep, sweeps[list(frames)])
     _detach_figure(fig)
     return animation
 
