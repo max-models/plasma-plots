@@ -72,13 +72,28 @@ def _writes_files() -> bool:
     return mpi is None or mpi.COMM_WORLD.Get_rank() == 0
 
 
-def save_figure(figure, name: str, *, width: int = 1100, height: int = 650, scale: float = 2.0) -> list[Path]:
+def save_figure(
+    figure,
+    name: str,
+    *,
+    width: int = 1100,
+    height: int = 650,
+    scale: float = 2.0,
+    show: bool = False,
+    still_frame: int | None = None,
+    still_data=None,
+    still_z=None,
+    still_active: int | None = None,
+) -> list[Path]:
     """Save a figure as ``<name>.html``, ``<name>.png`` and ``<name>.plotly.json``.
 
     The HTML is the interactive figure as a standalone page (Plotly's JavaScript from a CDN), the
     PNG a static image (it needs Kaleido and a Chrome install, see ``plotly_get_chrome``), and the
     JSON the figure itself, to load again with ``plotly.io.read_json``. Under MPI only rank 0
     writes, so a script run on several ranks can call this on every rank.
+
+    An animation that starts from a featureless state can still have an informative PNG: the
+    ``still_*`` options change what the PNG shows, while the HTML and JSON keep the animation.
 
     Parameters
     ----------
@@ -93,6 +108,16 @@ def save_figure(figure, name: str, *, width: int = 1100, height: int = 650, scal
         Height of the PNG in layout pixels. Default: 650.
     scale : float, optional
         Resolution factor of the PNG. Default: 2.
+    show : bool, optional
+        Show the figure (``figure.show()``) before saving it. Default: False.
+    still_frame : int, optional
+        The PNG shows this frame of the animation, with its slider there.
+    still_data : list of plotly traces, optional
+        The PNG shows these traces, with the figure's layout.
+    still_z : array, optional
+        The PNG shows this array as the heatmap of the first trace.
+    still_active : int, optional
+        The slider position the PNG shows, with ``still_data`` or ``still_z``.
 
     Returns
     -------
@@ -101,20 +126,49 @@ def save_figure(figure, name: str, *, width: int = 1100, height: int = 650, scal
 
     Examples
     --------
-    >>> figure = e_x.struphy.plotly.space_time()
-    >>> save_figure(figure, "space-time")
+    >>> save_figure(e_x.struphy.plotly.space_time(), "space-time", show=True)
+    >>> movie = f.struphy.plotly.animation(x="eta1", y="v1")
+    >>> save_figure(movie, "phase-space", still_frame=len(movie.frames) // 2)
     """
+    if show:
+        figure.show()
     if not _writes_files():
         return []
+    go = _go()
     base = Path(name)
     base.parent.mkdir(parents=True, exist_ok=True)
     html, png, json = (base.with_name(base.name + suffix) for suffix in (".html", ".png", ".plotly.json"))
+    image = {"width": width, "height": height, "scale": scale}
+    if still_frame is not None:
+        still_data, still_active = figure.frames[still_frame].data, still_frame
+    if still_data is not None:
+        still = go.Figure(data=still_data, layout=figure.layout)
+        if still_active is not None and still.layout.sliders:
+            still.layout.sliders[0].active = still_active
+        still.write_image(png, **image)
+    elif still_z is not None:
+        initial_z = figure.data[0].z
+        initial_active = figure.layout.sliders[0].active if figure.layout.sliders else None
+        figure.data[0].z = still_z
+        if still_active is not None and figure.layout.sliders:
+            figure.layout.sliders[0].active = still_active
+        figure.write_image(png, **image)
+        figure.data[0].z = initial_z
+        if figure.layout.sliders:
+            figure.layout.sliders[0].active = initial_active
+    else:
+        figure.write_image(png, **image)
     figure.write_html(html, include_plotlyjs="cdn", full_html=True, auto_play=False, config={"responsive": True})
-    figure.write_image(png, width=width, height=height, scale=scale)
     figure.write_json(json, pretty=False)
     for path in (html, png, json):
         print(f"Saved {path.resolve()}")
     return [html, png, json]
+
+
+def _two_dims(data: xr.DataArray, x: str, y: str, sweep: str | None = None) -> None:
+    wanted = {x, y} | ({sweep} if sweep else set())
+    if set(data.dims) != wanted:
+        raise ValueError(f"select every dimension except {sorted(wanted)} first; got {data.dims}")
 
 
 def space_time(
@@ -124,11 +178,14 @@ def space_time(
     title: str | None = None,
     colorbar_title: str | None = None,
     colorscale: str = "RdBu",
+    xaxis_title: str | None = None,
+    yaxis_title: str | None = None,
 ):
     """Draw a field over one spatial coordinate and time: space along x, time up.
 
     The colors are symmetric about zero, so waves show as alternating stripes whose slope is
-    their speed.
+    their speed. To draw a logical coordinate in physical length, replace its values first, e.g.
+    ``data.assign_coords(eta1=data.eta1 * length)``.
 
     Parameters
     ----------
@@ -142,6 +199,10 @@ def space_time(
         Title of the color bar. Default: the array's name.
     colorscale : str, optional
         Plotly color scale. Default: ``"RdBu"``.
+    xaxis_title : str, optional
+        Title of the horizontal axis. Default: the name of ``space`` and its units.
+    yaxis_title : str, optional
+        Title of the vertical axis. Default: ``"t"`` and its units.
 
     Returns
     -------
@@ -185,7 +246,212 @@ def space_time(
             },
         )
     )
-    return _layout(figure, title if title is not None else name, _axis_title(data, space), _axis_title(data, "t"))
+    return _layout(
+        figure,
+        title if title is not None else name,
+        xaxis_title if xaxis_title is not None else _axis_title(data, space),
+        yaxis_title if yaxis_title is not None else _axis_title(data, "t"),
+    )
+
+
+def heatmap(
+    data: xr.DataArray,
+    *,
+    x: str,
+    y: str,
+    title: str | None = None,
+    xaxis_title: str | None = None,
+    yaxis_title: str | None = None,
+    colorbar_title: str | None = None,
+    colorscale: str = "Viridis",
+    zmin: float | None = None,
+    zmax: float | None = None,
+):
+    """Draw a two-dimensional array as a heatmap.
+
+    To draw a logical coordinate in physical length, replace its values first, e.g.
+    ``data.assign_coords(eta1=data.eta1 * length)``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The values, with exactly the two dimensions ``x`` and ``y``; select the others first.
+    x : str
+        The dimension along the horizontal axis.
+    y : str
+        The dimension along the vertical axis.
+    title : str, optional
+        Title of the figure. Default: the array's label or name.
+    xaxis_title : str, optional
+        Title of the horizontal axis. Default: the name of ``x`` and its units.
+    yaxis_title : str, optional
+        Title of the vertical axis. Default: the name of ``y`` and its units.
+    colorbar_title : str, optional
+        Title of the color bar. Default: the array's name.
+    colorscale : str, optional
+        Plotly color scale. Default: ``"Viridis"``.
+    zmin : float, optional
+        Lower end of the color scale. Default: the data's minimum.
+    zmax : float, optional
+        Upper end of the color scale. Default: the data's maximum.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The heatmap.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``x`` and ``y``.
+
+    Examples
+    --------
+    >>> heatmap(f.struphy.analysis.spatial_average(), x="t", y="v1", title="f(v, t)").show()
+    """
+    _two_dims(data, x, y)
+    go = _go()
+    figure = go.Figure(
+        go.Heatmap(
+            x=np.asarray(data[x]),
+            y=np.asarray(data[y]),
+            z=data.transpose(y, x).values,
+            colorscale=colorscale,
+            zmin=zmin,
+            zmax=zmax,
+            colorbar={
+                "title": {"text": colorbar_title if colorbar_title is not None else str(data.name or "")},
+                "exponentformat": "power",
+            },
+        )
+    )
+    return _layout(
+        figure,
+        title if title is not None else (data.attrs.get("label") or data.name or ""),
+        xaxis_title if xaxis_title is not None else _axis_title(data, x),
+        yaxis_title if yaxis_title is not None else _axis_title(data, y),
+    )
+
+
+def animation(
+    data: xr.DataArray,
+    *,
+    x: str,
+    y: str,
+    sweep: str = "t",
+    title: str | None = None,
+    xaxis_title: str | None = None,
+    yaxis_title: str | None = None,
+    colorbar_title: str | None = None,
+    colorscale: str = "Viridis",
+    zmin: float | None = 0.0,
+    zmax: float | None = None,
+    max_frames: int = 150,
+):
+    """Animate a three-dimensional array as a heatmap, one frame per value of ``sweep``.
+
+    A frame per saved step would make the figure tens of megabytes, so at most ``max_frames``
+    evenly spaced frames are kept. The figure has a play button and a slider. Its first frame is
+    often featureless; ``save_figure(movie, name, still_frame=len(movie.frames) // 2)`` gives it a
+    PNG of a developed frame.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The values, with exactly the dimensions ``x``, ``y`` and ``sweep``.
+    x : str
+        The dimension along the horizontal axis.
+    y : str
+        The dimension along the vertical axis.
+    sweep : str, optional
+        The dimension the frames run over. Default: ``"t"``.
+    title : str, optional
+        Title of the figure. Default: the array's label or name.
+    xaxis_title : str, optional
+        Title of the horizontal axis. Default: the name of ``x`` and its units.
+    yaxis_title : str, optional
+        Title of the vertical axis. Default: the name of ``y`` and its units.
+    colorbar_title : str, optional
+        Title of the color bar. Default: the array's name.
+    colorscale : str, optional
+        Plotly color scale. Default: ``"Viridis"``.
+    zmin : float or None, optional
+        Lower end of the color scale. Default: 0.
+    zmax : float, optional
+        Upper end of the color scale. Default: each frame's maximum.
+    max_frames : int, optional
+        The most frames kept. Default: 150.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The animated heatmap.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``x``, ``y`` and ``sweep``.
+
+    Examples
+    --------
+    >>> f = out.evaluate("kinetic_ions/e1_v1_density/f")
+    >>> movie = animation(f, x="eta1", y="v1", title="f(x, v)")
+    >>> save_figure(movie, "phase-space", still_frame=len(movie.frames) // 2)
+    """
+    _two_dims(data, x, y, sweep)
+    go = _go()
+    x_values, y_values = np.asarray(data[x]), np.asarray(data[y])
+    frames_data = data.transpose(sweep, y, x).values
+    labels = np.asarray(data[sweep])
+    picks = np.linspace(0, len(labels) - 1, min(max_frames, len(labels)), dtype=int)
+
+    def trace(z, **extra):
+        return go.Heatmap(z=z, x=x_values, y=y_values, colorscale=colorscale, zmin=zmin, zmax=zmax, **extra)
+
+    frames = [go.Frame(name=f"{labels[i]:.1f}", data=[trace(frames_data[i])]) for i in picks]
+    colorbar = {
+        "title": {"text": colorbar_title if colorbar_title is not None else str(data.name or "")},
+        "exponentformat": "power",
+    }
+    figure = go.Figure(data=[trace(frames_data[0], colorbar=colorbar)], frames=frames)
+    _layout(
+        figure,
+        title if title is not None else (data.attrs.get("label") or data.name or ""),
+        xaxis_title if xaxis_title is not None else _axis_title(data, x),
+        yaxis_title if yaxis_title is not None else _axis_title(data, y),
+    )
+    play = {"frame": {"duration": 30, "redraw": True}, "fromcurrent": True}
+    figure.update_layout(
+        margin={"l": 70, "r": 30, "t": 80, "b": 130},
+        updatemenus=[
+            {
+                "type": "buttons",
+                "showactive": False,
+                "x": 0.0,
+                "xanchor": "left",
+                "y": -0.28,
+                "yanchor": "top",
+                "buttons": [{"label": "Play", "method": "animate", "args": [None, play]}],
+            }
+        ],
+        sliders=[
+            {
+                "steps": [
+                    {
+                        "args": [[frame.name], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                        "label": frame.name,
+                        "method": "animate",
+                    }
+                    for frame in frames
+                ],
+                "x": 0.12,
+                "len": 0.88,
+                "y": -0.18,
+                "currentvalue": {"prefix": f"{sweep} = "},
+            }
+        ],
+    )
+    return figure
 
 
 def dispersion(

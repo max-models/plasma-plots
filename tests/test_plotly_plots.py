@@ -92,3 +92,55 @@ def test_save_figure_writes_only_on_mpi_rank_0(waves, tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "mpi4py.MPI", rank_1)
     assert save_figure(space_time(waves), str(tmp_path / "space-time")) == []
     assert not list(tmp_path.iterdir())
+
+
+@pytest.fixture
+def f():
+    t = np.linspace(0.0, 2.0, 7)
+    eta1 = np.linspace(0.0, 1.0, 8)
+    v1 = np.linspace(-3.0, 3.0, 6)
+    values = np.random.default_rng(1).random((t.size, eta1.size, v1.size))
+    return xr.DataArray(values, dims=("t", "eta1", "v1"), coords={"t": t, "eta1": eta1, "v1": v1}, name="f")
+
+
+def test_heatmap_draws_x_across_and_y_up(f):
+    from struphy_plots.plotly_plots import heatmap
+
+    figure = heatmap(f.mean("eta1"), x="t", y="v1", zmin=0.0)
+    assert np.asarray(figure.data[0].z).shape == (f.sizes["v1"], f.sizes["t"])
+    assert figure.layout.xaxis.title.text == "t" and figure.layout.yaxis.title.text == "v₁"
+    assert figure.data[0].zmin == 0.0
+    with pytest.raises(ValueError, match="select every dimension"):
+        heatmap(f, x="t", y="v1")
+
+
+def test_animation_keeps_at_most_max_frames(f):
+    from struphy_plots.plotly_plots import animation
+
+    movie = f.struphy.plotly.animation(x="eta1", y="v1", max_frames=3, xaxis_title="x")
+    assert len(movie.frames) == len(movie.layout.sliders[0].steps) == 3
+    assert movie.layout.xaxis.title.text == "x"
+    np.testing.assert_array_equal(movie.frames[-1].data[0].z, f.isel(t=-1).transpose("v1", "eta1").values)
+    assert movie.to_dict() == animation(f, x="eta1", y="v1", max_frames=3, xaxis_title="x").to_dict()
+
+
+def test_save_figure_can_show_and_give_an_animation_a_still(f, tmp_path, monkeypatch):
+    import plotly.graph_objects as go
+
+    pngs, shown = [], []
+
+    def write_image(self, path, **kwargs):
+        pngs.append((np.asarray(self.data[0].z), self.layout.sliders[0].active))
+        open(path, "wb").close()
+
+    monkeypatch.setattr(go.Figure, "write_image", write_image)
+    monkeypatch.setattr(go.Figure, "show", lambda self: shown.append(self))
+    movie = f.struphy.plotly.animation(x="eta1", y="v1", max_frames=3)
+    initial = np.asarray(movie.data[0].z).copy()
+    save_figure(movie, str(tmp_path / "movie"), show=True, still_frame=1)
+    assert shown == [movie]
+    np.testing.assert_array_equal(pngs[-1][0], movie.frames[1].data[0].z)
+    assert pngs[-1][1] == 1
+    save_figure(movie, str(tmp_path / "movie"), still_z=initial * 0 + 7, still_active=2)
+    assert np.all(pngs[-1][0] == 7) and pngs[-1][1] == 2
+    np.testing.assert_array_equal(np.asarray(movie.data[0].z), initial)  # the animation itself is unchanged

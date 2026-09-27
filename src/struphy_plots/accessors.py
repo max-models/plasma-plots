@@ -3000,6 +3000,8 @@ class ArrayPlotly(_ArrayAccessor):
         title: str | None = None,
         colorbar_title: str | None = None,
         colorscale: str = "RdBu",
+        xaxis_title: str | None = None,
+        yaxis_title: str | None = None,
     ):
         """Draw this ``(t, space)`` field as a space-time map: space along x, time up.
 
@@ -3018,7 +3020,105 @@ class ArrayPlotly(_ArrayAccessor):
         """
         from .plotly_plots import space_time
 
-        return space_time(self._array, space=space, title=title, colorbar_title=colorbar_title, colorscale=colorscale)
+        return space_time(
+            self._array,
+            space=space,
+            title=title,
+            colorbar_title=colorbar_title,
+            colorscale=colorscale,
+            xaxis_title=xaxis_title,
+            yaxis_title=yaxis_title,
+        )
+
+    def heatmap(
+        self,
+        *,
+        x: str,
+        y: str,
+        title: str | None = None,
+        xaxis_title: str | None = None,
+        yaxis_title: str | None = None,
+        colorbar_title: str | None = None,
+        colorscale: str = "Viridis",
+        zmin: float | None = None,
+        zmax: float | None = None,
+    ):
+        """Draw this two-dimensional array as a heatmap.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            The heatmap.
+
+        See Also
+        --------
+        struphy_plots.plotly_plots.heatmap : The function behind this method.
+
+        Examples
+        --------
+        >>> f.struphy.analysis.spatial_average().struphy.plotly.heatmap(x="t", y="v1").show()
+        """
+        from .plotly_plots import heatmap
+
+        return heatmap(
+            self._array,
+            x=x,
+            y=y,
+            title=title,
+            xaxis_title=xaxis_title,
+            yaxis_title=yaxis_title,
+            colorbar_title=colorbar_title,
+            colorscale=colorscale,
+            zmin=zmin,
+            zmax=zmax,
+        )
+
+    def animation(
+        self,
+        *,
+        x: str,
+        y: str,
+        sweep: str = "t",
+        title: str | None = None,
+        xaxis_title: str | None = None,
+        yaxis_title: str | None = None,
+        colorbar_title: str | None = None,
+        colorscale: str = "Viridis",
+        zmin: float | None = 0.0,
+        zmax: float | None = None,
+        max_frames: int = 150,
+    ):
+        """Animate this three-dimensional array as a heatmap, one frame per value of ``sweep``.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            The animated heatmap.
+
+        See Also
+        --------
+        struphy_plots.plotly_plots.animation : The function behind this method.
+
+        Examples
+        --------
+        >>> f.struphy.plotly.animation(x="eta1", y="v1").show()
+        """
+        from .plotly_plots import animation
+
+        return animation(
+            self._array,
+            x=x,
+            y=y,
+            sweep=sweep,
+            title=title,
+            xaxis_title=xaxis_title,
+            yaxis_title=yaxis_title,
+            colorbar_title=colorbar_title,
+            colorscale=colorscale,
+            zmin=zmin,
+            zmax=zmax,
+            max_frames=max_frames,
+        )
 
     def dispersion(
         self,

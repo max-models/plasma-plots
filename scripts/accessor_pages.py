@@ -39,7 +39,7 @@ PAGES = {
     ),
     "plotly": (
         "array.struphy.plotly",
-        "Interactive Plotly figures of one labeled array: space-time maps, dispersion relations.",
+        "Interactive Plotly figures of one labeled array: heatmaps, animations, space-time maps, dispersion relations.",
         "Interactive Plotly figures of one labeled `xarray.DataArray`, as `array.struphy.plotly.<method>(...)`, "
         "for web pages and notebooks. Each method returns a `plotly.graph_objects.Figure`; call `.show()` on it. "
         'They need Plotly (`pip install "struphy-plots[plotly]"`).',
