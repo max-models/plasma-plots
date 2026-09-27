@@ -63,6 +63,12 @@ What is where
   ``out.plot.profile``; ``out.analysis.linear_mhd_energies``, ``out.analysis.time_fft``,
   ``out.analysis.mode_spectrum``.
 * Integrals: ``struphy_plots.analysis.volume_integral`` and ``field_energy``.
+* Analytic theory to compare with (plain functions, not accessors): ``struphy_plots.theory.kinetic``
+  (Landau damping, beam instabilities, Weibel), ``.waves`` (MHD, Hall-MHD and cold-plasma waves,
+  drift waves, continua), ``.parameters`` (plasma parameters, Struphy's units), ``.orbits``,
+  ``.exact`` (Riemann problem, dam break, diffusion, ...) and ``.numerics`` (time-integrator and
+  discretization errors). Their functions go straight into ``branches=``, ``reference=`` and
+  ``theory=``, e.g. ``phi.struphy.plot.dispersion(branches={"kinetic": kinetic.langmuir})``.
 
 Plots return a ``PlotResult`` (``.fig``, ``.ax``, ``.save(path)``, ``.show()``); animations a
 ``matplotlib.animation.FuncAnimation`` (keep a reference; ``.save("a.gif", writer="pillow")``); 3-D

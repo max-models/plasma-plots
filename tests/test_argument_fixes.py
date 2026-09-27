@@ -121,3 +121,33 @@ def test_orbit_plots_color_by_a_quantity_and_reject_unknown_values():
         plot_orbit_poloidal(paths, color_by="speed")
     with pytest.raises(ValueError, match="color_by must be"):
         plot_orbit_grid(paths, color_by="classificaton")
+
+
+def test_dispersion_takes_theory_dicts_complex_branches_and_struphy_style_objects():
+    from struphy_plots.plotting import plot_dispersion
+
+    t = np.linspace(0, 40, 200)
+    x = np.linspace(0, 2 * np.pi, 64, endpoint=False)
+    field = xr.DataArray(np.cos(2 * x[None] - 2 * t[:, None]), dims=("t", "eta1"), coords={"t": t, "eta1": x})
+
+    def waves(k):  # like the theory functions: a dict of complex branches
+        return {"fast": 1.0 * k + 0.01j, "slow": 0.5 * k}
+
+    class StruphyLike:  # like struphy.dispersion_relations objects: callable, returns a dict
+        def __call__(self, k):
+            return {"light wave": k}
+
+    for branches, labels in ((waves, {"fast", "slow"}), ({"MHD": waves}, {"MHD: fast", "MHD: slow"}),
+                             (StruphyLike(), {"light wave"}), ({"c": lambda k: k + 0j}, {"c"})):
+        result = plot_dispersion(field, branches=branches)
+        shown = {text.get_text() for text in result.ax.get_legend().get_texts()}
+        assert labels <= shown
+        for line in result.ax.lines:
+            assert np.isrealobj(line.get_ydata())
+    from struphy_plots.spectral import trace_branch
+    from struphy_plots.analysis import power_spectrum
+
+    traced = trace_branch(power_spectrum(field), lambda k: 1.0 * k + 0.05j, k_range=(1.5, 2.5)).dropna("k")
+    assert traced.k.values.tolist() == [2.0]
+    result = plot_measured_vs_theory(traced.omega, lambda k: k + 0.2j)
+    np.testing.assert_allclose(result.ax[1].lines[0].get_ydata(), traced.relative_error, atol=1e-12)

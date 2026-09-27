@@ -150,6 +150,11 @@ The rules:
 - **Selections** in examples use integer positions (`t=-1`, `t=0`) or float
   values (`t=0.35`).
 
+Code in `struphy_plots.theory` is plain numpy (no scipy, no Struphy), follows the conventions
+in its package docstring (complex frequencies, branch dicts, normalized units), cites its
+sources under `References`, and is tested against literature values or independent numerical
+solutions. Its docstring examples must run: `tests/test_theory_doctests.py` runs them.
+
 `python scripts/generate_api_reference.py --check` lists every docstring that
 breaks these rules, and `tests/test_docstrings.py` runs the same check in CI.
 

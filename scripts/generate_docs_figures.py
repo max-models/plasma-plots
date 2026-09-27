@@ -1111,6 +1111,161 @@ save_fig(fig, "data_selection.png")
 
 
 # =============================================================================
+# Theory: struphy_plots.theory, the analytic results to compare runs against
+# =============================================================================
+from struphy_plots.theory import exact, kinetic, numerics, orbits, waves  # noqa: E402
+
+# Landau damping of Langmuir waves: the kinetic root against Bohm-Gross and the weak-damping formula
+k_th = np.linspace(0.1, 0.6, 101)
+root = kinetic.langmuir(k_th)
+weak = kinetic.landau_damping_weak(k_th)
+fig, (ax_w, ax_g) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
+ax_w.plot(k_th, root.real, label="kinetic root, langmuir()")
+ax_w.plot(k_th, kinetic.bohm_gross(k_th).real, "--", label="Bohm–Gross")
+ax_w.set(xlabel=r"$k\lambda_D$", ylabel=r"$\omega/\omega_p$", title="Frequency")
+ax_g.semilogy(k_th, -root.imag, label="kinetic root")
+ax_g.semilogy(k_th, -weak.imag, "--", label="weak-damping formula")
+ax_g.set(xlabel=r"$k\lambda_D$", ylabel=r"$-\gamma/\omega_p$", title="Landau damping rate", ylim=(1e-8, 1))
+for ax in (ax_w, ax_g):
+    ax.legend(fontsize="small")
+save_fig(fig, "theory_landau.png")
+
+# The workflow: theory functions as branches= of a measured dispersion diagram (a synthetic field
+# of damped Langmuir waves at a few wavenumbers)
+L_th, n_th = 20 * np.pi, 256
+x_th = np.linspace(0, L_th, n_th, endpoint=False)
+t_th = np.linspace(0, 80, 800)
+langmuir_field = np.zeros((t_th.size, n_th))
+for mode in range(1, 11):  # k = 0.1 ... 1
+    k_mode = 2 * np.pi * mode / L_th
+    w_mode = kinetic.langmuir(k_mode)
+    langmuir_field += np.exp(w_mode.imag * t_th)[:, None] * np.cos(k_mode * x_th[None] - w_mode.real * t_th[:, None])
+e_th = field_array("e1", "$E_x$", "a.u.", langmuir_field, ("t", "eta1"), {"t": t_th, "eta1": x_th})
+save(
+    e_th.struphy.plot.dispersion(
+        branches={"kinetic": kinetic.langmuir, "Bohm–Gross": kinetic.bohm_gross}, kmax=1.1, omega_max=2.5,
+        title="Theory as branches=: Langmuir waves",
+    ),
+    "theory_dispersion.png",
+)
+
+# Instabilities: bump-on-tail and two-stream growth rates, and the Weibel instability
+k_bot = np.linspace(0.05, 0.5, 120)
+k_ts = np.linspace(0.05, 1.2, 120)
+fig, (ax_e, ax_m) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
+ax_e.plot(k_bot, kinetic.bump_on_tail(k_bot).imag, label="bump-on-tail ($n_b$ = 0.1, $v_b$ = 4.5)")
+ax_e.plot(k_ts, kinetic.two_stream(k_ts, beam_speed=1.0, thermal_speed=0.1).imag, label="two-stream, warm")
+ax_e.plot(k_ts, kinetic.two_stream_cold(k_ts, beam_speed=1.0).imag, "--", label="two-stream, cold")
+ax_e.axhline(0, color="k", lw=0.8)
+ax_e.set(xlabel=r"$k\lambda_D$", ylabel=r"$\gamma/\omega_p$", title="Electrostatic instabilities", ylim=(-0.05, 0.4))
+k_wb = np.linspace(0.05, 2.2, 120)
+for anisotropy in (2.0, 4.0, 6.0):
+    ax_m.plot(k_wb, kinetic.weibel(k_wb, anisotropy=anisotropy, parallel_thermal_speed=0.1).imag,
+              label=rf"$T_\perp/T_\parallel$ = {anisotropy:g}")
+ax_m.axhline(0, color="k", lw=0.8)
+ax_m.set(xlabel=r"$kc/\omega_p$", ylabel=r"$\gamma/\omega_p$", title="Weibel instability", ylim=(-0.02, None))
+for ax in (ax_e, ax_m):
+    ax.legend(fontsize="small")
+save_fig(fig, "theory_instabilities.png")
+
+# MHD and cold-plasma waves: the Friedrichs diagram, and cold-plasma branches at 45°
+theta_f = np.linspace(0, 2 * np.pi, 361)
+speeds = waves.magnetosonic_speeds(theta_f, alfven_speed=1.0, sound_speed=0.6)
+fig = plt.figure(figsize=(10, 4), layout="constrained")
+ax_f = fig.add_subplot(1, 2, 1, projection="polar")
+for name, style in (("fast", "-"), ("shear Alfvén", "--"), ("slow", ":")):
+    ax_f.plot(theta_f, np.abs(speeds[name]), style, label=name)
+ax_f.set_title(r"Phase speeds, $c_s/v_A$ = 0.6 ($\mathbf{B}$ along 0°)")
+ax_f.legend(fontsize="small", loc="lower left", bbox_to_anchor=(-0.15, -0.12))
+ax_c = fig.add_subplot(1, 2, 2)
+plasma = waves.electron_ion(plasma_frequency=1.0, cyclotron_frequency=0.6, mass_ratio=25)
+k_cp = np.linspace(0.01, 4, 300)
+for name, omega in waves.cold_plasma_waves(k_cp, np.pi / 4, plasma).items():
+    ax_c.plot(k_cp, omega.real, label=name)
+ax_c.plot(k_cp, k_cp, "k:", lw=0.8, label=r"$\omega = ck$")
+ax_c.set(xlabel=r"$kc/\omega_{pe}$", ylabel=r"$\omega/\omega_{pe}$", ylim=(0, 3),
+         title=r"Cold plasma at 45°, $m_i/m_e$ = 25")
+ax_c.legend(fontsize="x-small", ncol=2)
+save_fig(fig, "theory_waves.png")
+
+# Hall MHD along B, and the toroidal Alfvén continuum with its TAE gap
+fig, (ax_h, ax_t) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
+k_h = np.linspace(0.01, 4, 200)
+for name, omega in waves.hall_mhd_parallel(k_h, alfven_speed=1.0, ion_inertial_length=1.0).items():
+    ax_h.plot(k_h, omega.real, label=name)
+ax_h.plot(k_h, k_h, "k:", lw=0.8, label=r"ideal MHD, $\omega = kv_A$")
+ax_h.set(xlabel=r"$k d_i$", ylabel=r"$\omega/\Omega_i$", ylim=(0, 6), title="Hall MHD along B")
+ax_h.legend(fontsize="small")
+r_t = np.linspace(0.05, 1.0, 400)
+R0_t = 5.0
+q_t = lambda r: 1.0 + r**2  # noqa: E731
+for coupling, style in ((0.0, ":"), (lambda r: 2.5 * r / R0_t, "-")):
+    branches_t = waves.toroidal_alfven_continuum(r_t, m=1, n=-1, q=q_t, major_radius=R0_t, coupling=coupling)
+    for name, omega in branches_t.items():
+        ax_t.plot(r_t, omega.real * R0_t, style, color="C0" if name == "lower" else "C1",
+                  label=f"{name}" + (" (uncoupled)" if coupling == 0.0 else ""))
+ax_t.axhline(waves.tae_frequency(1.5, major_radius=R0_t) * R0_t, color="k", lw=0.8, ls="--", label="TAE frequency at q = 1.5")
+ax_t.set(xlabel="r/a", ylabel=r"$\omega R_0/v_A$", ylim=(0, 0.8), title="Alfvén continuum, m = 1, 2, n = −1")
+ax_t.legend(fontsize="x-small")
+save_fig(fig, "theory_continuum.png")
+
+# Drift waves: Hasegawa-Wakatani growth rates
+ky_hw = np.linspace(0.05, 3, 200)
+fig, ax = plt.subplots(figsize=(6.5, 3.8), layout="constrained")
+for alpha in (0.1, 1.0, 5.0):
+    ax.plot(ky_hw, waves.hasegawa_wakatani(ky_hw, adiabaticity=alpha, gradient=1.0)["drift wave"].imag,
+            label=rf"$\alpha$ = {alpha:g}")
+ax.set(xlabel=r"$k_y\rho_s$", ylabel=r"$\gamma/\Omega_i$", title=r"Hasegawa–Wakatani drift waves, $\kappa$ = 1")
+ax.legend(fontsize="small")
+save_fig(fig, "theory_drift_waves.png")
+
+# Orbits in a large-aspect-ratio tokamak: trapped fraction and bounce frequency
+fig, (ax_ft, ax_b) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
+eps_t = np.linspace(0.0, 0.5, 101)
+for approximation, style in (("exact", "-"), ("lin-liu", "--"), ("sqrt", ":")):
+    ax_ft.plot(eps_t, orbits.trapped_fraction(eps_t, approximation=approximation), style, label=approximation)
+ax_ft.set(xlabel=r"$\varepsilon = r/R_0$", ylabel="trapped fraction", title="Trapped particles")
+ax_ft.legend(fontsize="small")
+kappa2 = np.linspace(0.0, 0.999, 300)
+deep = orbits.bounce_frequency(1.0, 0.0, 0.1, 2.0, 1.0)
+ax_b.plot(kappa2, orbits.bounce_frequency(1.0, kappa2, 0.1, 2.0, 1.0) / deep)
+ax_b.set(xlabel=r"$\kappa^2$ (0: deeply trapped, 1: trapped-passing boundary)", ylabel=r"$\omega_b/\omega_b(\kappa^2=0)$",
+         title="Bounce frequency")
+save_fig(fig, "theory_orbits.png")
+
+# Exact solutions: the Sod shock tube and a dam break
+x_ex = np.linspace(0, 1, 800)
+sod = exact.sod_shock_tube(x_ex, 0.2)
+fig, (ax_s, ax_d) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
+ax_s.plot(x_ex, sod.density, label="density")
+ax_s.plot(x_ex, sod.velocity, label="velocity")
+ax_s.plot(x_ex, sod.pressure, label="pressure")
+ax_s.set(xlabel="x", title="Sod shock tube at t = 0.2 (riemann_euler)")
+ax_s.legend(fontsize="small")
+x_db = np.linspace(-2, 3, 800)
+for t_value in (0.0, 0.3, 0.6, 0.9):
+    ax_d.plot(x_db, exact.dam_break(x_db, t_value).depth, label=f"t = {t_value:g}")
+ax_d.set(xlabel="x", ylabel="depth", title="Dam break on a dry bed (Ritter)")
+ax_d.legend(fontsize="small")
+save_fig(fig, "theory_exact.png")
+
+# Numerics: phase errors of time integrators, and the dispersion of spline finite elements
+fig, (ax_p, ax_sp) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
+wdt = np.logspace(-2, 0, 100)
+for method in ("explicit_euler", "implicit_midpoint", "stormer_verlet", "rk2", "rk4"):
+    ax_p.loglog(wdt, np.abs(numerics.phase_error(wdt, method)), label=method)
+ax_p.set(xlabel=r"$\omega\,\Delta t$", ylabel="|relative frequency error|", title="Time integrators")
+ax_p.legend(fontsize="small")
+kdx = np.linspace(0.01, np.pi, 200)
+for degree in (1, 2, 3, 4):
+    ax_sp.plot(kdx, numerics.spline_galerkin_dispersion(kdx, 1.0, degree).real / kdx, label=f"degree {degree}")
+ax_sp.plot(kdx, numerics.yee_dispersion(kdx, 1.0, 0.5).real / kdx, "k--", label=r"Yee, $c\Delta t/\Delta x$ = 0.5")
+ax_sp.set(xlabel=r"$k\Delta x$", ylabel=r"$\omega_{num}/(ck)$", title="Numerical dispersion of the wave equation")
+ax_sp.legend(fontsize="small")
+save_fig(fig, "theory_numerics.png")
+
+
+# =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
 #
 # plot_equilibrium_profile/show_equilibrium take a struphy-shaped equilibrium

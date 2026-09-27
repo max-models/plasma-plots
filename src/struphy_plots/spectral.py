@@ -1304,7 +1304,8 @@ def trace_branch(
     spectrum : xarray.DataArray
         An ``(omega, k)`` power spectrum, e.g. from ``array.struphy.analysis.dispersion()``.
     theory : callable
-        The expected branch ``omega(k)``, applied to an array of ``k``.
+        The expected branch ``omega(k)``, applied to an array of ``k``; of a complex frequency (as
+        :mod:`struphy_plots.theory` returns), the real part is used.
     window : float, optional
         The relative half-width of the search window about the theory. Default: 0.2.
     k_range : (float, float), optional
@@ -1344,7 +1345,7 @@ def trace_branch(
     mirror = np.array([np.argmin(np.abs(k + kv)) for kv in ks])
     values = full[:, keep] + np.where(np.isclose(k[mirror], -ks)[None, :] & (ks > 0)[None, :], full[:, mirror], 0.0)
     step = omega[1] - omega[0]
-    expected = np.asarray(theory(ks), dtype=float) * np.ones_like(ks)
+    expected = np.real(np.asarray(theory(ks))).astype(float) * np.ones_like(ks)  # of a complex theory
     measured, strength = np.full(ks.size, np.nan), np.zeros(ks.size)
     for j, target in enumerate(expected):
         inside = np.flatnonzero((omega > 0) & (omega >= target * (1 - window)) & (omega <= target * (1 + window)))
