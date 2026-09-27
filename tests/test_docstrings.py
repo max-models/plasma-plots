@@ -9,11 +9,12 @@ import pytest
 
 pytest.importorskip("griffe")
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "generate_api_reference.py"
+SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+SCRIPT = SCRIPTS / "check_docstrings.py"
 
 
 def load_generator():
-    spec = importlib.util.spec_from_file_location("generate_api_reference", SCRIPT)
+    spec = importlib.util.spec_from_file_location("check_docstrings", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -28,17 +29,26 @@ def test_every_public_docstring_follows_the_rules():
         for obj in generator.walk(package)
         for problem in generator.check_object(package, obj)
     ]
-    assert not problems, "docstrings break the rules (python scripts/generate_api_reference.py --check):\n" + "\n".join(problems)
+    assert not problems, "docstrings break the rules (python scripts/check_docstrings.py):\n" + "\n".join(problems)
 
 
-def test_the_reference_renders_every_page(tmp_path, monkeypatch):
+def test_the_reference_shows_every_parameter_of_every_function():
+    """The griffe extension behind the API reference fills in inherited parameters: every function and
+    method then documents every parameter of its signature."""
+    import griffe
+
+    package = griffe.load("struphy_plots", search_paths=[str(SCRIPTS.parent / "src")], docstring_parser="numpy",
+                          extensions=griffe.load_extensions(str(SCRIPTS / "griffe_extension.py")))
     generator = load_generator()
-    monkeypatch.setattr(generator, "OUT", tmp_path / "reference")
-    generator.write_pages()
-    pages = sorted(p.relative_to(tmp_path / "reference").as_posix() for p in (tmp_path / "reference").rglob("*.mdx"))
-    assert "index.mdx" in pages and "plot.mdx" in pages and "functions/spectral.mdx" in pages
-    assert "## `slice`" in (tmp_path / "reference" / "plot.mdx").read_text() or \
-        "### `slice`" in (tmp_path / "reference" / "plot.mdx").read_text()
+    missing = []
+    for obj in generator.walk(package):
+        if not obj.is_function:
+            continue
+        documented = {p.name.lstrip("*") for s in obj.docstring.parsed if s.kind.value == "parameters" for p in s.value}
+        signature = {p.name for p in obj.parameters if p.name not in ("self", "cls")}
+        if signature - documented:
+            missing.append(f"{obj.path}: {sorted(signature - documented)}")
+    assert not missing, "the reference would miss parameters:\n" + "\n".join(missing)
 
 
 def test_help_shows_every_parameter_of_every_accessor_method():

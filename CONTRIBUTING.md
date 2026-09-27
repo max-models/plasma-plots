@@ -72,10 +72,15 @@ to `devel`, before deploying to GitHub Pages.
 
 ## Docstrings and the API reference
 
-The API reference on the docs site (`docs/src/content/docs/reference/`) is
-generated from the docstrings by `scripts/generate_api_reference.py`, so it
-never drifts from the code. `make api` regenerates it, and `make docs-build`
-runs it. The generated pages aren't checked into git.
+The API reference on the docs site is generated from the docstrings by
+[starlight-pydocs](https://github.com/ewels/starlight-pydocs) when the site builds, so it never
+drifts from the code. It runs griffe (through `uv` if it's on your `PATH`, else `python -m griffe`,
+which the `dev` extra installs), with the extension `scripts/griffe_extension.py`: that fills in
+inherited parameters (see below) and turns the Sphinx roles into links. The module pages live
+under `/api/struphy_plots/`. The accessor pages (`docs/src/content/docs/reference/plot.mdx` and
+the others) embed one method per `<Autodoc>` block, in source order; `scripts/accessor_pages.py`
+writes them, so run it after adding or removing an accessor method (`tests/test_accessor_pages.py`
+fails until you do).
 
 Every public module, class, function and method (a name without a leading
 underscore) needs a [NumPy-style](https://numpydoc.readthedocs.io/en/latest/format.html)
@@ -155,8 +160,9 @@ in its package docstring (complex frequencies, branch dicts, normalized units), 
 sources under `References`, and is tested against literature values or independent numerical
 solutions. Its docstring examples must run: `tests/test_theory_doctests.py` runs them.
 
-`python scripts/generate_api_reference.py --check` lists every docstring that
-breaks these rules, and `tests/test_docstrings.py` runs the same check in CI.
+`python scripts/check_docstrings.py` lists every docstring that breaks these rules, and
+`tests/test_docstrings.py` runs the same check in CI, together with a check that the reference
+shows every parameter of every function.
 
 ## Branches and releases
 

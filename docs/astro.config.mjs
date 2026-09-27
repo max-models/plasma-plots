@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLlmsTxt from 'starlight-llms-txt';
+import starlightPydocs, { pydocsSidebarGroup } from 'starlight-pydocs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,9 +12,31 @@ export default defineConfig({
 		starlight({
 			title: 'struphy-plots',
 			description: 'Optional plotting and diagnostics layer for Struphy output',
-			customCss: ['./src/styles/custom.css', './src/styles/api.css'],
+			customCss: ['./src/styles/custom.css'],
 			// /llms.txt, /llms-full.txt and /llms-small.txt: the docs for language models
 			plugins: [
+				// the API reference: one page per module under /api/struphy_plots/, from the docstrings
+				starlightPydocs({
+					packages: [
+						{
+							name: 'struphy_plots',
+							label: 'All modules',
+							search: ['../src'],
+							docstringStyle: 'numpy',
+							// accessor methods get the parameter docs of the functions they wrap
+							extensions: ['../scripts/griffe_extension.py'],
+							sourceLink: { host: 'github', repo: 'struphy-hub/struphy-plots', ref: 'devel', root: '..' },
+							sidebar: { collapsed: true },
+						},
+					],
+					inventories: [
+						'python',
+						{ url: 'https://numpy.org/doc/stable/objects.inv' },
+						{ url: 'https://docs.xarray.dev/en/stable/objects.inv' },
+						{ url: 'https://matplotlib.org/stable/objects.inv' },
+						{ url: 'https://docs.pyvista.org/objects.inv' },
+					],
+				}),
 				starlightLlmsTxt({
 					projectName: 'struphy-plots',
 					description:
@@ -26,14 +49,14 @@ export default defineConfig({
 						'- Select every dimension a plot does not draw by keyword: an integer is a position (`t=-1` the last), a float the nearest coordinate value.',
 						'- In Python, `import struphy_plots; help(struphy_plots)` (or `python -m struphy_plots`) gives an overview, printing an accessor (e.g. `print(phi.struphy.plot)`) lists its methods, and `help()` on a method shows every parameter.',
 						'- `struphy_plots.theory` has analytic results to compare runs with: kinetic, fluid, MHD and cold-plasma dispersion relations and growth rates (complex ω), plasma parameters and Struphy units, orbits, exact solutions, and the errors of the numerical schemes. Plain numpy; its functions work directly as `branches=`, `reference=` and `theory=` of the plots.',
-						'- The Reference pages list every accessor method and function with all parameters; the Guides show them with figures.',
+						'- The Reference pages list every accessor method and function with all parameters (also as plain text at /api/struphy_plots/llms.txt); the Guides show them with figures.',
 					].join('\n'),
 					promote: ['guides/getting-started', 'guides/data', 'reference', 'reference/**'],
-					customSets: [
+					optionalLinks: [
 						{
 							label: 'API reference',
-							description: 'every accessor method and function, with all parameters',
-							paths: ['reference', 'reference/**'],
+							url: 'https://struphy-hub.github.io/struphy-plots/api/struphy_plots/llms.txt',
+							description: 'every module, class and function of struphy_plots with all parameters, as plain text',
 						},
 					],
 				}),
@@ -72,16 +95,7 @@ export default defineConfig({
 						{ label: 'array.struphy.data', slug: 'reference/data' },
 						{ label: 'dataset.struphy', slug: 'reference/dataset' },
 						{ label: 'out.plot, out.analysis', slug: 'reference/output' },
-						{
-							label: 'Functions',
-							collapsed: true,
-							items: [{ autogenerate: { directory: 'reference/functions' } }],
-						},
-						{
-							label: 'Theory',
-							collapsed: true,
-							items: [{ autogenerate: { directory: 'reference/theory' } }],
-						},
+						pydocsSidebarGroup,
 					],
 				},
 			],

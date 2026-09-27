@@ -142,7 +142,7 @@ here is the full-torus |n| = 6.
 radius. `x_of` maps the logical `eta1` to the minor radius, and `continuum`
 draws the continuous spectra on top: any function `omega(r, m, n)`, or
 Struphy's `MhdContinousSpectraCylinder`, as for the
-[continuous-spectrum plot](/struphy-plots/reference/functions/plotting/#plot_continuous_spectrum):
+[continuous-spectrum plot](/struphy-plots/api/struphy_plots/plotting/#struphy_plots.plotting.plot_continuous_spectrum):
 
 ```python
 phi.struphy.plot.radial_power(
@@ -297,6 +297,6 @@ out.analysis.filter_time(field, dims=("eta1", "eta2"), pad_bins=2)
 out.analysis.mode_spectrum("mhd/velocity")
 ```
 
-See [`struphy_plots.spectral`](/struphy-plots/reference/functions/spectral/) and
-[`struphy_plots.spectral_plots`](/struphy-plots/reference/functions/spectral-plots/) for every
+See [`struphy_plots.spectral`](/struphy-plots/api/struphy_plots/spectral/) and
+[`struphy_plots.spectral_plots`](/struphy-plots/api/struphy_plots/spectral_plots/) for every
 function and option.
