@@ -25,6 +25,7 @@ export default defineConfig({
 						'- Creating a Struphy `Output` loads it, so Struphy output needs no import. For xarray data from elsewhere, run `import struphy_plots` first, or `.struphy` raises an AttributeError.',
 						'- Select every dimension a plot does not draw by keyword: an integer is a position (`t=-1` the last), a float the nearest coordinate value.',
 						'- In Python, `import struphy_plots; help(struphy_plots)` (or `python -m struphy_plots`) gives an overview, printing an accessor (e.g. `print(phi.struphy.plot)`) lists its methods, and `help()` on a method shows every parameter.',
+						'- `struphy_plots.theory` has analytic results to compare runs with: kinetic, fluid, MHD and cold-plasma dispersion relations and growth rates (complex ω), plasma parameters and Struphy units, orbits, exact solutions, and the errors of the numerical schemes. Plain numpy; its functions work directly as `branches=`, `reference=` and `theory=` of the plots.',
 						'- The Reference pages list every accessor method and function with all parameters; the Guides show them with figures.',
 					].join('\n'),
 					promote: ['guides/getting-started', 'guides/data', 'reference', 'reference/**'],
@@ -59,6 +60,7 @@ export default defineConfig({
 						{ label: 'Profiling', slug: 'guides/profiling' },
 						{ label: 'Recipes', slug: 'guides/recipes' },
 						{ label: 'MHD slab waves', slug: 'guides/real-example' },
+						{ label: 'Theory toolbox', slug: 'guides/theory' },
 					],
 				},
 				{
@@ -74,6 +76,11 @@ export default defineConfig({
 							label: 'Functions',
 							collapsed: true,
 							items: [{ autogenerate: { directory: 'reference/functions' } }],
+						},
+						{
+							label: 'Theory',
+							collapsed: true,
+							items: [{ autogenerate: { directory: 'reference/theory' } }],
 						},
 					],
 				},

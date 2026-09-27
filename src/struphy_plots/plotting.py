@@ -424,7 +424,7 @@ def _reference_curve(spec, x_fine, t=None):
     """
     if callable(spec):
         values = spec(x_fine, t) if t is not None and _takes_time(spec) else spec(x_fine)
-        return x_fine, np.asarray(values, dtype=float) * np.ones_like(x_fine)
+        return x_fine, np.real(np.asarray(values)).astype(float) * np.ones_like(x_fine)
     if isinstance(spec, xr.DataArray):
         if spec.ndim != 1:
             raise ValueError(f"a reference array must be one-dimensional; got {spec.dims}")
@@ -2276,6 +2276,44 @@ def plot_convergence(
     return PlotResult(fig, ax, artists)
 
 
+def _branch_curves(branches, k):
+    """``(label, k, real ω)`` for every theoretical branch of a ``branches`` spec (see
+    :func:`plot_dispersion`)."""
+    items = list(branches.items()) if isinstance(branches, dict) else [(None, branches)]
+    curves = []
+    for label, branch in items:
+        if callable(branch):
+            values = branch(k)
+            if isinstance(values, dict):
+                for name, omega in values.items():
+                    shown = name if label is None else f"{label}: {name}"
+                    curves.append(
+                        (
+                            shown,
+                            k,
+                            np.real(np.broadcast_to(np.asarray(omega), np.shape(k))),
+                        )
+                    )
+                continue
+            curves.append(
+                (
+                    label or "theory",
+                    k,
+                    np.real(np.broadcast_to(np.asarray(values), np.shape(k))),
+                )
+            )
+        else:
+            k_branch, omega_branch = branch
+            curves.append(
+                (
+                    label or "theory",
+                    np.asarray(k_branch),
+                    np.real(np.asarray(omega_branch)),
+                )
+            )
+    return curves
+
+
 def plot_dispersion(
     data: xr.DataArray,
     *,
@@ -2314,9 +2352,13 @@ def plot_dispersion(
     detrend : bool, optional
         Remove the time-mean at each point of ``dim`` first, which otherwise dominates the
         spectrum as a spurious zero-frequency line. Default: ``True``.
-    branches : dict, optional
-        Named theoretical curves to compare against: a dict of labels to either a callable
-        ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays, drawn dashed.
+    branches : dict or callable, optional
+        Theoretical curves to compare against, drawn dashed: a dict of labels to a callable
+        ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays; or one callable that returns a
+        dict of branch names to frequencies, such as the dispersion relations of
+        :mod:`struphy_plots.theory` or Struphy's ``struphy.dispersion_relations`` objects (a
+        callable in the dict may return such a dict too). Complex frequencies are drawn by their
+        real part.
     log : bool, optional
         Color by ``log10`` of the power. Default: ``True``.
     dynamic_range : float, optional
@@ -2384,18 +2426,19 @@ def plot_dispersion(
     )
     fig.colorbar(mesh, ax=ax, label="log10(power)" if log else "power")
     artists = [mesh]
-    if branches:
-        k_line = k[k_mask]
-        for label, branch in branches.items():
-            k_branch, omega_branch = (k_line, branch(k_line)) if callable(branch) else branch
+    if branches is not None:
+        limits = ax.get_xlim(), ax.get_ylim()
+        for label, k_branch, omega_branch in _branch_curves(branches, k[k_mask]):
             (line,) = ax.plot(k_branch, omega_branch, "--", label=label)
             artists.append(line)
+        ax.set_xlim(*limits[0])  # theory curves beyond the spectrum do not widen the axes
+        ax.set_ylim(*limits[1])
     for i, (label, omega_value) in enumerate((frequencies or {}).items()):
         artists.append(ax.axhline(omega_value, color="w", lw=1, ls=(0, (1, 2 + i)), label=label))
     for label, point in (points or {}).items():
         k_points, omega_points = (point.k, point.omega) if isinstance(point, xr.Dataset) else point
         artists.append(ax.plot(k_points, omega_points, "o", ms=4, mfc="none", mew=1.2, label=label)[0])
-    if branches or frequencies or points:
+    if branches is not None or frequencies or points:
         ax.legend(fontsize="small")
     ax.set(
         xlabel="k",
@@ -2619,7 +2662,13 @@ def _at_time(data, t):
 
 
 def prepare_marker_scatter(
-    markers: xr.Dataset, *, x: str, y: str, color: str | None = None, color_at=None, **selection
+    markers: xr.Dataset,
+    *,
+    x: str,
+    y: str,
+    color: str | None = None,
+    color_at=None,
+    **selection,
 ) -> xr.Dataset:
     """The per-marker positions and colors :func:`plot_marker_scatter` draws.
 
@@ -3641,12 +3690,20 @@ def _orbit_values(subset, color_by):
     if color_by in ("classification", None):
         return None, None
     if color_by == "t":
-        values = np.broadcast_to(np.asarray(subset.t, dtype=float)[:, None], (subset.sizes["t"], subset.sizes["marker"]))
+        values = np.broadcast_to(
+            np.asarray(subset.t, dtype=float)[:, None],
+            (subset.sizes["t"], subset.sizes["marker"]),
+        )
         return values, "t"
     if color_by in subset.data_vars and set(subset[color_by].dims) == {"t", "marker"}:
-        return np.asarray(subset[color_by].transpose("t", "marker"), dtype=float), _label(subset[color_by]) or color_by
+        return (
+            np.asarray(subset[color_by].transpose("t", "marker"), dtype=float),
+            _label(subset[color_by]) or color_by,
+        )
     variables = [n for n, v in subset.data_vars.items() if set(v.dims) == {"t", "marker"}]
-    raise ValueError(f'color_by must be "classification", None, "t" or a (t, marker) variable {variables}; got {color_by!r}')
+    raise ValueError(
+        f'color_by must be "classification", None, "t" or a (t, marker) variable {variables}; got {color_by!r}'
+    )
 
 
 def _colored_path(ax, xs, ys, values, norm, cmap):
@@ -3724,8 +3781,16 @@ def plot_orbit_poloidal(
         if keep.sum() < 2:
             continue
         if values is not None:
-            artists.append(_colored_path(ax, R[keep, marker], Z[keep, marker], values[keep, marker], norm,
-                                         STRUPHY_STYLE["image.cmap"]))
+            artists.append(
+                _colored_path(
+                    ax,
+                    R[keep, marker],
+                    Z[keep, marker],
+                    values[keep, marker],
+                    norm,
+                    STRUPHY_STYLE["image.cmap"],
+                )
+            )
             continue
         if codes is not None:
             name = ORBIT_CLASSES[int(codes[marker])]
@@ -3974,7 +4039,7 @@ def _theory_at(spec, xs):
     """A theory at the measured parameters: evaluated if it is a function, else interpolated
     linearly between its points (NaN outside them)."""
     if callable(spec):
-        return np.asarray(spec(xs), dtype=float) * np.ones_like(xs, dtype=float)
+        return np.real(np.asarray(spec(xs))).astype(float) * np.ones_like(xs, dtype=float)
     tx, ty = (np.asarray(v, dtype=float) for v in _reference_curve(spec, xs))
     order = np.argsort(tx)
     return np.interp(xs, tx[order], ty[order], left=np.nan, right=np.nan)
@@ -4001,7 +4066,9 @@ def plot_measured_vs_theory(
         runs or methods), drawn as markers.
     theory : callable, (x, y) pair or dict, optional
         A function of the parameter, an ``(x, y)`` pair, or a dict of labels to these, drawn as
-        lines over the measured range.
+        lines over the measured range. Complex values (e.g. from :mod:`struphy_plots.theory`)
+        are compared by their real part; for growth or damping rates pass
+        ``lambda k: f(k).imag``.
     show_error : bool, optional
         Add a second panel with ``(measured - theory) / theory`` against the first theory, for
         every measured series. A theory given as points is interpolated linearly between them
@@ -4209,8 +4276,16 @@ def plot_orbit_grid(
         keep = alive[:, marker]
         name = ORBIT_CLASSES[int(codes[marker])] if codes is not None else None
         if values is not None:
-            artists.append(_colored_path(ax, R[keep, marker], Z[keep, marker], values[keep, marker], norm,
-                                         STRUPHY_STYLE["image.cmap"]))
+            artists.append(
+                _colored_path(
+                    ax,
+                    R[keep, marker],
+                    Z[keep, marker],
+                    values[keep, marker],
+                    norm,
+                    STRUPHY_STYLE["image.cmap"],
+                )
+            )
             ax.autoscale_view()
         else:
             color = ORBIT_CLASS_COLORS[name] if (name and color_by == "classification") else "C0"

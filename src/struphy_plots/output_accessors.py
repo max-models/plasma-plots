@@ -685,7 +685,6 @@ def _register_output_plot_property():
             setattr(Output, name, property(accessor))
 
 
-
 def _complete_docstrings():
     """Give every method the parameter docs it inherits, so ``help()`` shows them all."""
     from ._docs import add_menu, complete_class

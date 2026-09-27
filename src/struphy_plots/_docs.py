@@ -20,8 +20,12 @@ def _sections(doc: str) -> list[tuple[str | None, list[str]]]:
     lines = doc.splitlines()
     sections, title, body, i = [], None, [], 0
     while i < len(lines):
-        if i + 1 < len(lines) and lines[i].strip() and _UNDERLINE.match(lines[i + 1].strip()) \
-                and not lines[i].startswith(" "):
+        if (
+            i + 1 < len(lines)
+            and lines[i].strip()
+            and _UNDERLINE.match(lines[i + 1].strip())
+            and not lines[i].startswith(" ")
+        ):
             sections.append((title, body))
             title, body, i = lines[i].strip(), [], i + 2
             continue
@@ -117,7 +121,8 @@ def parameter_docs(function, owner=None, _seen=None) -> dict[str, list[str]]:
 
 def complete_docstring(function, owner) -> None:
     """Rewrite the Parameters section of ``function`` to cover every parameter of its signature,
-    in signature order, with the inherited ones filled in. Leaves it alone if nothing is missing."""
+    in signature order, with the inherited ones filled in. Leaves it alone if nothing is missing.
+    """
     doc = inspect.getdoc(function)
     if not doc:  # e.g. python -OO
         return
@@ -158,18 +163,28 @@ def complete_class(cls) -> None:
 REFERENCE = "https://struphy-hub.github.io/struphy-plots/reference"
 # class name -> (how users reach it, reference page)
 MENUS = {
-    "ArrayPlots": ("array.struphy.plot", "plot"), "ArrayAnalysis": ("array.struphy.analysis", "analysis"),
-    "ArrayData": ("array.struphy.data", "data"), "SliceView": ("array.struphy.plot.view(...)", "plot"),
-    "DatasetPlots": ("dataset.struphy.plot", "dataset"), "DatasetAnalysis": ("dataset.struphy.analysis", "dataset"),
-    "DatasetData": ("dataset.struphy.data", "dataset"), "OutputPlots": ("out.plot", "output"),
-    "OutputAnalysis": ("out.analysis", "output"), "ProfilePlots": ("out.plot.profile", "output"),
-    "StruphyAccessor": ("array.struphy", ""), "StruphyDatasetAccessor": ("dataset.struphy", ""),
+    "ArrayPlots": ("array.struphy.plot", "plot"),
+    "ArrayAnalysis": ("array.struphy.analysis", "analysis"),
+    "ArrayData": ("array.struphy.data", "data"),
+    "SliceView": ("array.struphy.plot.view(...)", "plot"),
+    "DatasetPlots": ("dataset.struphy.plot", "dataset"),
+    "DatasetAnalysis": ("dataset.struphy.analysis", "dataset"),
+    "DatasetData": ("dataset.struphy.data", "dataset"),
+    "OutputPlots": ("out.plot", "output"),
+    "OutputAnalysis": ("out.analysis", "output"),
+    "ProfilePlots": ("out.plot.profile", "output"),
+    "StruphyAccessor": ("array.struphy", ""),
+    "StruphyDatasetAccessor": ("dataset.struphy", ""),
 }
 
 
 def plain(text: str) -> str:
     """reST markup to plain text: ``code`` and :role:`~a.b` become code and b."""
-    text = re.sub(r":\w+:`~?([^`]+)`", lambda m: m.group(1).rsplit(".", 1)[-1] if "~" in m.group(0) else m.group(1), text)
+    text = re.sub(
+        r":\w+:`~?([^`]+)`",
+        lambda m: m.group(1).rsplit(".", 1)[-1] if "~" in m.group(0) else m.group(1),
+        text,
+    )
     return text.replace("``", "")
 
 
@@ -212,10 +227,12 @@ def menu(accessor) -> str:
     data = getattr(accessor, "_array", getattr(accessor, "_dataset", None))
     name = getattr(data, "name", None)
     if isinstance(name, str) and name.isidentifier() and example.startswith(("phi.", "orbits.")):
-        example = name + example[example.index("."):]  # the array's own name, e.g. b_field.struphy.plot
+        example = name + example[example.index(".") :]  # the array's own name, e.g. b_field.struphy.plot
     first = next((n for n, _ in rows if n != "()"), None)
     if not page:  # array.struphy / dataset.struphy: the sub-accessors
-        lines.append(f"{example}.plot, .analysis and .data list their methods; python -m struphy_plots prints an overview.")
+        lines.append(
+            f"{example}.plot, .analysis and .data list their methods; python -m struphy_plots prints an overview."
+        )
     elif first:
         lines.append(f"help({example}.{first}) shows the parameters; reference: {REFERENCE}/{page}/")
     return "\n".join(lines)
