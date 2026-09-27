@@ -304,12 +304,13 @@ def _cut_indices(data, cuts):
             raise ValueError(f"cuts are along eta1, eta2 or eta3; got {dim!r}")
         coordinate = np.asarray(data[dim], dtype=float)
         chosen = []
-        for position in np.atleast_1d(positions).tolist():
-            if position == "first":
-                chosen.append(0)
-            elif position == "last":
-                chosen.append(len(coordinate) - 1)
-            elif isinstance(position, int):
+        # not via numpy: a list like [0.0, -1] would turn the index -1 into the coordinate -1.0
+        for position in positions if isinstance(positions, (list, tuple)) else [positions]:
+            if position in ("first", "last"):  # accepted, but integer indices are the documented form
+                chosen.append(0 if position == "first" else len(coordinate) - 1)
+            elif isinstance(position, (bool, str)):
+                raise TypeError(f"cannot cut {dim} at {position!r}; use an integer index (e.g. -1) or a float coordinate")
+            elif isinstance(position, (int, np.integer)):
                 chosen.append(position % len(coordinate))
             else:
                 chosen.append(int(np.abs(coordinate - float(position)).argmin()))
@@ -321,7 +322,7 @@ def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[x
     """The logical cuts of a scalar ``(eta1, eta2, eta3)`` field that :func:`pyvista_slices` draws.
 
     ``cuts`` maps ``eta1``/``eta2``/``eta3`` to one position or a list: a float is the nearest
-    logical coordinate, an integer a grid index, ``"first"``/``"last"`` an end. The default is
+    logical coordinate, an integer a grid index (``-1`` the last). The default is
     the middle of every dimension with more than one point, or for a 2-D field (one dimension
     with a single point) the whole plane. Each cut keeps its size-one dimension, so it still
     maps onto a surface in physical space.

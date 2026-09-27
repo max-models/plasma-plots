@@ -75,7 +75,7 @@ def run_simulation() -> Output:
         env=EnvironmentOptions(sim_folder="mhd_slab_waves"),
         time_opts=Time(dt=0.15, Tend=180.0),
         domain=domains.Cuboid(r3=60.0),
-        grid=grids.TensorProductGrid(num_elements=(1, 1, 256)),
+        grid=grids.TensorProductGrid(num_elements=(1, 1, 64)),
         derham_opts=DerhamOptions(degree=(1, 1, 3)),
         equil=equil,
     )

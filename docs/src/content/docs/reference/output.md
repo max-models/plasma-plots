@@ -3,6 +3,12 @@ title: OutputPlots
 description: API reference for whole-run plots.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 `struphy_plots.output_accessors.OutputPlots`, accessed as
 `output.struphy.plot` on a Struphy `Output` object (not a `DataArray`).
 

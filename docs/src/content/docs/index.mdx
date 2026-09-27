@@ -26,11 +26,22 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 `struphy-plots` registers a `.struphy` accessor on `xarray.DataArray` and adds
 whole-run helpers for [Struphy](https://github.com/struphy-hub/struphy)
-output, so you can go from a saved simulation to a figure in one line:
+output, so you can go from a saved simulation to a figure in one line, once
+`struphy_plots` is imported:
 
 ```python
-out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t="last")
+import struphy_plots  # required: registers .struphy on every DataArray
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
+out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
+
+:::caution[Always `import struphy_plots` first]
+Struphy's output does not load struphy-plots by itself. Without the import,
+`.struphy` does not exist and you get
+`AttributeError: 'DataArray' object has no attribute 'struphy'`.
+:::
 
 <CardGrid stagger>
 	<Card title="Field plots" icon="seti:image">

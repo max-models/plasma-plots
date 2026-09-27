@@ -5,6 +5,12 @@ description: Growth/damping rates, envelopes, norms, drift, and error.
 
 import PlotlyChart from '../../../components/PlotlyChart.astro';
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 These live on `array.struphy.analysis`, next to plotting on the same
 accessor, and return plain `xarray` objects or fit results rather than
 figures — plot them however you like. Full signatures are in the
@@ -136,7 +142,7 @@ figures.
 
 ```python
 E = -phi.struphy.analysis.gradient()                 # Cartesian components (x, y, z), over time
-E.struphy.plot.vector(x="eta1", y="eta2", t="last", eta3=0)
+E.struphy.plot.vector(x="eta1", y="eta2", t=-1, eta3=0)
 ```
 
 `gradient()` returns the Cartesian gradient `J⁻ᵀ ∂f/∂η` of a scalar field,
@@ -258,7 +264,9 @@ returns just the `(omega, k)` power spectrum, an `xarray.DataArray`, without
 plotting it — see `struphy_plots.analysis.power_spectrum` for the exact
 definition (a detrended 2-D FFT).
 
-:::tip[Plot it with Plotly instead]
+<details>
+<summary>The same plot with Plotly</summary>
+
 ```python
 import plotly.graph_objects as go
 
@@ -269,9 +277,10 @@ fig = go.Figure(go.Heatmap(
     x=spectrum.k.values, y=spectrum.omega.values[positive],
 ))
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_dispersion.json" />
+
+</details>
 
 ### Tracing a branch
 

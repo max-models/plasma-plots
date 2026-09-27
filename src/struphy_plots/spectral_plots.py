@@ -146,7 +146,7 @@ def plot_filtered(data: xr.DataArray, result, *, ax=None, **selection):
 
     ``result`` is a :class:`~struphy_plots.spectral.TimeFilterResult` or a filtered array (e.g.
     from :func:`~struphy_plots.spectral.band_filter`). Every dimension but ``t`` is selected by
-    keyword: an integer is a position, ``"first"``/``"last"`` an end, a float the nearest value.
+    keyword: an integer is a position (``-1`` the last), a float the nearest value.
     """
     filtered = result.filtered if isinstance(result, spectral.TimeFilterResult) else result
     probe = resolve_marker_selection(data, selection)

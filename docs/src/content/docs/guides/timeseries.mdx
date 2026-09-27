@@ -5,6 +5,12 @@ description: Growth-rate fits and comparing scalars between runs.
 
 import PlotlyChart from '../../../components/PlotlyChart.astro';
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 ## Time series with a growth-rate fit
 
 ```python
@@ -17,22 +23,23 @@ the damping-rate variant (fit the envelope of an oscillating signal instead).
 
 ![A time series with an exponential growth-rate fit overlaid](../../../assets/figures/timeseries_growth.png)
 
-:::tip[Plot it with Plotly instead]
-`.data.timeseries(*others)` returns the exact list of series
-`.plot.timeseries(*others)` would draw (the fit itself is a separate step —
-call `.struphy.analysis.growth_rate()` if you want the fitted line too):
+The data behind this plot: `energy.struphy.data.timeseries(other_run_energy)` returns the validated list of series; the fit is `.struphy.analysis.growth_rate()` (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
 
 ```python
 import plotly.graph_objects as go
 
 fig = go.Figure()
 for series in energy.struphy.data.timeseries(other_run_energy):
-    fig.add_trace(go.Scatter(x=series.t, y=series, mode="lines", name=series.attrs.get("label", series.name)))
+    fig.add_trace(go.Scatter(x=series.t, y=series, mode="lines", name=series.name))   # the LaTeX label needs MathJax in Plotly
 fig.update_layout(yaxis_type="log")
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_timeseries.json" />
+
+</details>
 
 ## Several series in one axes
 
@@ -98,10 +105,10 @@ useful for a convergence study or comparing a run against a reference.
 
 ![Ratio of a diagnostic between two runs](../../../assets/figures/compare_ratio.png)
 
-:::tip[Plot it with Plotly instead]
-`.data.compare(...)` returns the aligned difference/ratio as a plain 1-D
-array — the same `plot_lineout(...)` builds `.plot.compare(...)`'s figure
-from:
+The data behind this plot: `field.struphy.data.compare(reference_field, mode="ratio")` returns the aligned difference or ratio as a 1-D array (see [Selecting data](/struphy-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
 
 ```python
 import plotly.express as px
@@ -109,6 +116,7 @@ import plotly.express as px
 result = field.struphy.data.compare(reference_field, mode="ratio")
 px.line(x=result.t, y=result, labels={"x": "t", "y": result.name})
 ```
-:::
 
 <PlotlyChart src="/plotly/plotly_compare.json" />
+
+</details>

@@ -112,7 +112,7 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
     product = distribution(run)
-    assert product.struphy.plot.slice(x="eta1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert product.struphy.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
     assert len(product.struphy.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
     viewer = run.evaluate("em_fields/E").struphy.plot.viewer(x="eta1", y="eta2", component=0)
     viewer.draw()
@@ -148,19 +148,17 @@ def test_dispersion_needs_an_explicit_dim_for_a_multi_dimensional_field(run):
     assert set(spectrum.dims) == {"omega", "k"}
 
 
-def test_selection_keywords_take_positions_values_and_ends(run):
+def test_selection_keywords_take_positions_and_values(run):
     product = distribution(run)
     times = product.t.values
 
     by_position = product.struphy.plot.slice(x="eta1", y="v1", t=-1)
     by_value = product.struphy.plot.slice(x="eta1", y="v1", t=float(times[-1]))
-    by_end = product.struphy.plot.slice(x="eta1", y="v1", t="last")
-    for result in (by_value, by_end):
-        np.testing.assert_allclose(result.artists[0].get_array(), by_position.artists[0].get_array())
+    np.testing.assert_allclose(by_value.artists[0].get_array(), by_position.artists[0].get_array())
 
     with pytest.raises(TypeError, match="not a dimension"):
         product.struphy.plot.slice(x="eta1", y="v1", time=-1)
-    with pytest.raises(TypeError, match="use a number"):
+    with pytest.raises(TypeError, match="integer position"):
         product.struphy.plot.slice(x="eta1", y="v1", t="final")
 
 
@@ -192,7 +190,7 @@ def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
 
 def test_arrays_plot_themselves(run):
     phase_space = run.kinetic_ions.e1_v1_density.f
-    assert phase_space.struphy.plot.slice(x="eta1", y="v1", t="last").ax.get_xlabel() == r"$\eta_1$"
+    assert phase_space.struphy.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
     assert len(phase_space.struphy.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
     assert set(phase_space.struphy.plot.viewer(x="eta1", y="v1").sliders) == set()
     assert run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=2).ax.name == "3d"
@@ -206,8 +204,8 @@ def test_the_accessor_works_on_derived_arrays(run):
 
 
 def test_products_by_name_and_by_attribute_agree(run):
-    by_output = distribution(run).struphy.plot.slice(x="eta1", y="v1", t="last")
-    by_attribute = run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="eta1", y="v1", t="last")
+    by_output = distribution(run).struphy.plot.slice(x="eta1", y="v1", t=-1)
+    by_attribute = run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="eta1", y="v1", t=-1)
     np.testing.assert_allclose(by_output.artists[0].get_array(), by_attribute.artists[0].get_array())
     assert by_output.fig._suptitle.get_text() == by_attribute.fig._suptitle.get_text() == run.label
 

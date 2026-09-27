@@ -256,3 +256,20 @@ def test_slice_overlays_second_field_boundary_grid_lines_and_points():
     assert sum(type(c).__name__ == "QuadContourSet" for c in ax.collections) == 1
     with pytest.raises(ValueError, match="unknown overlays"):
         J.struphy.plot.slice(coords="physical", plane="XY", eta3=0, overlays={"contour": A})
+
+
+def test_positions_values_and_the_undocumented_end_names():
+    t = np.linspace(0, 1, 5)
+    series = xr.DataArray(np.arange(10.0).reshape(5, 2), dims=("t", "eta1"), coords={"t": t, "eta1": [0.0, 1.0]}, name="u")
+    assert series.struphy.data.lineout(x="eta1", t=-1).t == 1.0
+    assert series.struphy.data.lineout(x="eta1", t=0).t == 0.0
+    assert series.struphy.data.lineout(x="eta1", t=0.3).t == 0.25
+    assert series.struphy.data.lineout(x="eta1", t="last").t == 1.0     # still accepted
+    assert series.struphy.data.lineout(x="eta1", t="first").t == 0.0
+    with pytest.raises(TypeError, match=r"t=-1"):
+        series.struphy.data.lineout(x="eta1", t="final")
+    markers = xr.Dataset({"x": (("t", "marker"), np.zeros((5, 2))), "y": (("t", "marker"), np.zeros((5, 2)))},
+                         coords={"t": t, "marker": [0, 1]})
+    assert markers.struphy.plot.scatter(x="x", y="y", t="last").ax is not None
+    with pytest.raises(TypeError, match=r"t=-1"):
+        markers.struphy.plot.scatter(x="x", y="y", t="final")

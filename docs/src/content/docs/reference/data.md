@@ -3,12 +3,18 @@ title: struphy.data
 description: API reference for array.struphy.data and dataset.struphy.data.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 The data behind each plot, without rendering it — every method here mirrors
 one on [`array.struphy.plot`](/struphy-plots/reference/plot/) (or
 `dataset.struphy.plot`) and returns the same already-selected `xarray`
-object it would have drawn, useful to hand to a different plotting library
-(Plotly, bokeh, ...) or to inspect directly. See
-[Getting the data instead of a plot](/struphy-plots/guides/getting-started/#getting-the-data-instead-of-a-plot)
+object it would have drawn, for your own analysis, a different plotting library (Plotly, bokeh, ...) or
+an export. See
+[Selecting data](/struphy-plots/guides/data/)
 for examples. Backed by `struphy_plots.accessors.ArrayData` and
 `DatasetData`.
 

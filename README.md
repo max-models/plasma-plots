@@ -7,9 +7,21 @@ independently of the Struphy runtime.
 Full documentation: https://struphy-hub.github.io/struphy-plots
 
 For development, install it with `pip install -e .`.
-Import `struphy_plots` after installing it to register the optional
-`xarray.DataArray.struphy` accessor on Struphy output arrays. For example,
-`out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t="last")`.
+
+> [!IMPORTANT]
+> Always `import struphy_plots` first. The import registers the `.struphy`
+> accessor on every `xarray.DataArray` and `Dataset` (and `out.plot` on
+> Struphy's `Output`); Struphy does not load it by itself. Without it you get
+> `AttributeError: 'DataArray' object has no attribute 'struphy'`.
+
+```python
+import struphy_plots  # required: registers DataArray.struphy
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
+out.evaluate("em_fields/phi").struphy.plot.slice(x="eta1", y="eta2", t=-1)
+```
+
 Direct plotting functions are available from
 `struphy_plots.plotting`; analysis functions are in `struphy_plots.analysis`.
 

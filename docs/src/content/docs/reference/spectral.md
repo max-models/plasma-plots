@@ -3,6 +3,12 @@ title: struphy_plots.spectral
 description: API reference for the spectral diagnostics and their plots.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 Fourier and spectral diagnostics in `struphy_plots.spectral`, their plots in
 `struphy_plots.spectral_plots`, and the matching accessor methods. See the
 [Spectral analysis guide](/struphy-plots/guides/spectral/) for the conventions
@@ -130,7 +136,7 @@ or `True`. Accessor: `plot.mode_amplitudes(top=..., fit=..., reduce="max")`.
 
 ### `plot_mode_map(modes, *, m_range=None, n_range=None, log=True)`
 The absolute amplitude over the `(m, n)` plane. Accessor:
-`plot.mode_map(t="last", ...)`.
+`plot.mode_map(t=-1, ...)`.
 
 ### `plot_radial_power(power, *, x="eta1", x_of=None, continuum=None, log=True, dynamic_range=3.0, omega_max=None)`
 Power over `(omega, radius)`. `x_of` maps the coordinate to the plotted axis,
