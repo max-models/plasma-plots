@@ -1,0 +1,21 @@
+---
+title: "array.struphy.analysis"
+description: "Diagnostics of one labeled array: fits, norms, errors, spectra, vector calculus."
+sidebar:
+  order: 2
+---
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Numerical diagnostics of one labeled `xarray.DataArray`, as `array.struphy.analysis.<method>(...)`. They return labeled arrays and Datasets, so their results can be plotted with `.struphy.plot` in turn.
+
+The methods are listed alphabetically below. For a contents list of every method, see the [`accessors` module page](/struphy-plots/api/struphy_plots/accessors/#struphy_plots.accessors.ArrayAnalysis).
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads struphy-plots and its
+`.struphy` accessors. For other xarray data, run `import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+<Autodoc name="struphy_plots.accessors.ArrayAnalysis" package="struphy_plots" />
+

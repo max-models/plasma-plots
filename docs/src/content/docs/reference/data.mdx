@@ -1,0 +1,21 @@
+---
+title: "array.struphy.data"
+description: "The selected data behind every plot, without drawing it."
+sidebar:
+  order: 3
+---
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Every plot on `array.struphy.plot` has a twin here, as `array.struphy.data.<method>(...)`, that does the same selection and returns the labeled `xarray` object instead of a figure. See the [Selecting data](/struphy-plots/guides/data/) guide.
+
+The methods are listed alphabetically below. For a contents list of every method, see the [`accessors` module page](/struphy-plots/api/struphy_plots/accessors/#struphy_plots.accessors.ArrayData).
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads struphy-plots and its
+`.struphy` accessors. For other xarray data, run `import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+<Autodoc name="struphy_plots.accessors.ArrayData" package="struphy_plots" />
+

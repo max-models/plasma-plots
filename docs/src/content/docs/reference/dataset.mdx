@@ -1,0 +1,25 @@
+---
+title: "dataset.struphy"
+description: "Plots, diagnostics and data of marker Datasets such as orbits."
+sidebar:
+  order: 4
+---
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Plots, diagnostics and data of an `xarray.Dataset` with per-marker variables, such as an orbits product: `dataset.struphy.plot`, `dataset.struphy.analysis` and `dataset.struphy.data`.
+
+The methods are listed alphabetically below. For a contents list of every method, see the [`accessors` module page](/struphy-plots/api/struphy_plots/accessors/#struphy_plots.accessors.DatasetPlots).
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads struphy-plots and its
+`.struphy` accessors. For other xarray data, run `import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+<Autodoc name="struphy_plots.accessors.DatasetPlots" package="struphy_plots" />
+
+<Autodoc name="struphy_plots.accessors.DatasetAnalysis" package="struphy_plots" />
+
+<Autodoc name="struphy_plots.accessors.DatasetData" package="struphy_plots" />
+

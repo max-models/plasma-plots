@@ -1,0 +1,23 @@
+---
+title: "array.struphy.plot"
+description: "Plots of one labeled array: time series, slices, animations, spectra, 3-D views."
+sidebar:
+  order: 1
+---
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Plots of one labeled `xarray.DataArray`, as `array.struphy.plot.<method>(...)`. Each method selects the dimensions it doesn't draw by keyword, draws, and returns a `PlotResult` (or an animation or a PyVista plotter). `plot.view(...)` returns a `SliceView`, whose methods are listed below the plots.
+
+The methods are listed alphabetically below. For a contents list of every method, see the [`accessors` module page](/struphy-plots/api/struphy_plots/accessors/#struphy_plots.accessors.ArrayPlots).
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads struphy-plots and its
+`.struphy` accessors. For other xarray data, run `import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+<Autodoc name="struphy_plots.accessors.ArrayPlots" package="struphy_plots" />
+
+<Autodoc name="struphy_plots.accessors.SliceView" package="struphy_plots" />
+

@@ -1,0 +1,25 @@
+---
+title: "out.plot and out.analysis"
+description: "Whole-run plots and diagnostics of a Struphy Output."
+sidebar:
+  order: 5
+---
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Plots and diagnostics of a whole run, on a Struphy `Output` object: `out.plot` (with `out.plot.profile` for timing data) and `out.analysis`.
+
+The methods are listed alphabetically below. For a contents list of every method, see the [`output_accessors` module page](/struphy-plots/api/struphy_plots/output_accessors/#struphy_plots.output_accessors.OutputPlots).
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads struphy-plots and its
+`.struphy` accessors. For other xarray data, run `import struphy_plots` first (see
+[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+:::
+
+<Autodoc name="struphy_plots.output_accessors.OutputPlots" package="struphy_plots" />
+
+<Autodoc name="struphy_plots.output_accessors.ProfilePlots" package="struphy_plots" />
+
+<Autodoc name="struphy_plots.output_accessors.OutputAnalysis" package="struphy_plots" />
+
