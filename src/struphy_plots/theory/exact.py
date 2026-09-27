@@ -112,7 +112,13 @@ class RiemannSolution:
     @property
     def momentum(self):
         """The momentum density ρu (zero in a vacuum)."""
-        return _out(np.where(np.asarray(self.density) > 0, np.asarray(self.density) * self.velocity, 0.0))
+        return _out(
+            np.where(
+                np.asarray(self.density) > 0,
+                np.asarray(self.density) * self.velocity,
+                0.0,
+            )
+        )
 
     @property
     def energy(self):
@@ -126,7 +132,13 @@ class RiemannSolution:
         """The sound speed a = √(γ p/ρ); ``nan`` in a vacuum."""
         rho = np.asarray(self.density)
         with np.errstate(divide="ignore", invalid="ignore"):
-            return _out(np.where(rho > 0, np.sqrt(self.gamma * np.asarray(self.pressure) / rho), np.nan))
+            return _out(
+                np.where(
+                    rho > 0,
+                    np.sqrt(self.gamma * np.asarray(self.pressure) / rho),
+                    np.nan,
+                )
+            )
 
 
 def _check_state(state, side):
@@ -134,8 +146,9 @@ def _check_state(state, side):
     if rho < 0 or p < 0:
         raise ValueError(f"the {side} density and pressure must be non-negative; got {state!r}")
     if (rho == 0) != (p == 0):
-        raise ValueError(f"the {side} state must have both density and pressure zero (a vacuum) or both positive; "
-                         f"got {state!r}")
+        raise ValueError(
+            f"the {side} state must have both density and pressure zero (a vacuum) or both positive; got {state!r}"
+        )
     return rho, u, p
 
 
@@ -240,8 +253,15 @@ def star_state(left, right, gamma=1.4):
     rl, ul, pl = _check_state(left, "left")
     rr, ur, pr = _check_state(right, "right")
     if rl == 0 or rr == 0:
-        return StarState(0.0, np.nan, 0.0, 0.0, "none" if rl == 0 else "rarefaction",
-                         "none" if rr == 0 else "rarefaction", True)
+        return StarState(
+            0.0,
+            np.nan,
+            0.0,
+            0.0,
+            "none" if rl == 0 else "rarefaction",
+            "none" if rr == 0 else "rarefaction",
+            True,
+        )
     al, ar = np.sqrt(gamma * pl / rl), np.sqrt(gamma * pr / rr)
     if 2 * (al + ar) / (gamma - 1) <= ur - ul:
         return StarState(0.0, np.nan, 0.0, 0.0, "rarefaction", "rarefaction", True)
@@ -253,8 +273,15 @@ def star_state(left, right, gamma=1.4):
             return rho * (p / pk + g6) / (g6 * p / pk + 1)
         return rho * (p / pk) ** (1 / gamma)
 
-    return StarState(float(p), float(u), float(density(rl, pl)), float(density(rr, pr)),
-                     "shock" if p > pl else "rarefaction", "shock" if p > pr else "rarefaction", False)
+    return StarState(
+        float(p),
+        float(u),
+        float(density(rl, pl)),
+        float(density(rr, pr)),
+        "shock" if p > pl else "rarefaction",
+        "shock" if p > pr else "rarefaction",
+        False,
+    )
 
 
 def _left_wave(s, rho, u, p, p_star, u_star, gamma):
@@ -265,17 +292,26 @@ def _left_wave(s, rho, u, p, p_star, u_star, gamma):
         rho_star = rho * (p_star / p + g6) / (g6 * p_star / p + 1)
         speed = u - a * np.sqrt((gamma + 1) / (2 * gamma) * p_star / p + (gamma - 1) / (2 * gamma))
         ahead = s < speed
-        return (np.where(ahead, rho, rho_star), np.where(ahead, u, u_star), np.where(ahead, p, p_star))
+        return (
+            np.where(ahead, rho, rho_star),
+            np.where(ahead, u, u_star),
+            np.where(ahead, p, p_star),
+        )
     ratio = p_star / p
     rho_star = rho * ratio ** (1 / gamma)
     head, tail = u - a, u_star - a * ratio ** ((gamma - 1) / (2 * gamma))
     with np.errstate(invalid="ignore", over="ignore"):
         base = np.clip(2 / (gamma + 1) + (gamma - 1) / ((gamma + 1) * a) * (u - s), 0.0, None)
-        fan = (rho * base ** (2 / (gamma - 1)), 2 / (gamma + 1) * (a + 0.5 * (gamma - 1) * u + s),
-               p * base ** (2 * gamma / (gamma - 1)))
+        fan = (
+            rho * base ** (2 / (gamma - 1)),
+            2 / (gamma + 1) * (a + 0.5 * (gamma - 1) * u + s),
+            p * base ** (2 * gamma / (gamma - 1)),
+        )
     ahead, behind = s < head, s > tail
-    return tuple(np.where(ahead, w, np.where(behind, w_star, w_fan))
-                 for w, w_star, w_fan in zip((rho, u, p), (rho_star, u_star, p_star), fan))
+    return tuple(
+        np.where(ahead, w, np.where(behind, w_star, w_fan))
+        for w, w_star, w_fan in zip((rho, u, p), (rho_star, u_star, p_star), fan)
+    )
 
 
 def _right_wave(s, rho, u, p, p_star, u_star, gamma):
@@ -369,8 +405,13 @@ def riemann_euler(x, t, left, right, gamma=1.4, x0=0.0):
     u = np.where(empty, np.nan, u)
     with np.errstate(divide="ignore", invalid="ignore"):
         e = np.where(empty, np.nan, p / ((gamma - 1) * np.where(empty, 1.0, rho)))
-    return RiemannSolution(_out(np.where(empty, 0.0, rho)), _out(u), _out(np.where(empty, 0.0, p)), _out(e),
-                           float(gamma))
+    return RiemannSolution(
+        _out(np.where(empty, 0.0, rho)),
+        _out(u),
+        _out(np.where(empty, 0.0, p)),
+        _out(e),
+        float(gamma),
+    )
 
 
 def sod_shock_tube(x, t, gamma=1.4, x0=0.5):
@@ -871,5 +912,3 @@ def _wavenumber_squared(wavenumber):
 # ---------------------------------------------------------------------------------------------
 # Manufactured solutions
 # ---------------------------------------------------------------------------------------------
-
-

@@ -56,8 +56,16 @@ _THERMAL_CONVENTIONS = {"sqrt(T/m)": 1.0, "sqrt(2T/m)": 2.0, "mean": 8 / np.pi}
 
 #: The SI units of the entries of :func:`struphy_units`.
 STRUPHY_UNIT_SYMBOLS = {
-    "x": "m", "B": "T", "n": "m⁻³", "kBT": "keV", "v": "m/s", "t": "s", "frequency": "1/s",
-    "p": "Pa", "rho": "kg/m³", "j": "A/m²",
+    "x": "m",
+    "B": "T",
+    "n": "m⁻³",
+    "kBT": "keV",
+    "v": "m/s",
+    "t": "s",
+    "frequency": "1/s",
+    "p": "Pa",
+    "rho": "kg/m³",
+    "j": "A/m²",
 }
 
 
@@ -200,8 +208,13 @@ def debye_length(density, temperature):
     return _out(np.sqrt(vacuum_permittivity * temperature * ev_to_joule / (density * _e**2)))
 
 
-def larmor_radius(field, temperature=None, perpendicular_speed=None, mass=electron_mass,
-                  charge=elementary_charge):
+def larmor_radius(
+    field,
+    temperature=None,
+    perpendicular_speed=None,
+    mass=electron_mass,
+    charge=elementary_charge,
+):
     """Compute the Larmor (gyro-) radius ρ = m v⊥ / (|q| B).
 
     Give either the temperature, for the thermal Larmor radius with v⊥ = √(T/m), or the
@@ -316,8 +329,14 @@ def alfven_speed(field, density, mass_number=1, relativistic=False):
     return _out(speed)
 
 
-def sound_speed(electron_temperature, ion_temperature=0.0, mass_number=1, charge_number=1,
-                electron_gamma=1.0, ion_gamma=3.0):
+def sound_speed(
+    electron_temperature,
+    ion_temperature=0.0,
+    mass_number=1,
+    charge_number=1,
+    electron_gamma=1.0,
+    ion_gamma=3.0,
+):
     """Compute the ion sound speed c_s = √((γ_e Z T_e + γ_i T_i) / m_i).
 
     Parameters
@@ -490,7 +509,15 @@ def upper_hybrid_frequency(density, field):
     return _out(np.sqrt(plasma_frequency(density) ** 2 + cyclotron_frequency(field) ** 2))
 
 
-def struphy_units(x=1.0, B=1.0, n=1.0, kBT=None, velocity_scale="light", mass_number=None, charge_number=None):
+def struphy_units(
+    x=1.0,
+    B=1.0,
+    n=1.0,
+    kBT=None,
+    velocity_scale="light",
+    mass_number=None,
+    charge_number=None,
+):
     """Compute the units of Struphy's normalization from its base units.
 
     Mirrors ``struphy.physics.physics.Units.derive_units`` (the base units are those of
@@ -569,8 +596,18 @@ def struphy_units(x=1.0, B=1.0, n=1.0, kBT=None, velocity_scale="light", mass_nu
         v = np.sqrt(kBT * 1000 * _e / (proton_mass * mass_number))
     v = float(v)
     t = x / v
-    units = {"x": float(x), "B": float(B), "n": float(density), "kBT": kBT, "v": v, "t": t, "frequency": 1 / t,
-             "p": None, "rho": None, "j": None}
+    units = {
+        "x": float(x),
+        "B": float(B),
+        "n": float(density),
+        "kBT": kBT,
+        "v": v,
+        "t": t,
+        "frequency": 1 / t,
+        "p": None,
+        "rho": None,
+        "j": None,
+    }
     if mass_number is not None:
         units["p"] = float(mass_number * proton_mass * density * v**2)
         units["rho"] = float(mass_number * proton_mass * density)
@@ -613,4 +650,8 @@ def struphy_equation_parameters(units, charge_number=1, mass_number=1):
     charge = charge_number * _e
     omega_p = float(plasma_frequency(units["n"], mass, charge))
     omega_c = float(charge * units["B"] / mass)
-    return {"alpha": omega_p / omega_c, "epsilon": 1 / (omega_c * units["t"]), "kappa": omega_p * units["t"]}
+    return {
+        "alpha": omega_p / omega_c,
+        "epsilon": 1 / (omega_c * units["t"]),
+        "kappa": omega_p * units["t"],
+    }

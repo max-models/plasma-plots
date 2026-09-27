@@ -2287,12 +2287,30 @@ def _branch_curves(branches, k):
             if isinstance(values, dict):
                 for name, omega in values.items():
                     shown = name if label is None else f"{label}: {name}"
-                    curves.append((shown, k, np.real(np.broadcast_to(np.asarray(omega), np.shape(k)))))
+                    curves.append(
+                        (
+                            shown,
+                            k,
+                            np.real(np.broadcast_to(np.asarray(omega), np.shape(k))),
+                        )
+                    )
                 continue
-            curves.append((label or "theory", k, np.real(np.broadcast_to(np.asarray(values), np.shape(k)))))
+            curves.append(
+                (
+                    label or "theory",
+                    k,
+                    np.real(np.broadcast_to(np.asarray(values), np.shape(k))),
+                )
+            )
         else:
             k_branch, omega_branch = branch
-            curves.append((label or "theory", np.asarray(k_branch), np.real(np.asarray(omega_branch))))
+            curves.append(
+                (
+                    label or "theory",
+                    np.asarray(k_branch),
+                    np.real(np.asarray(omega_branch)),
+                )
+            )
     return curves
 
 
@@ -2644,7 +2662,13 @@ def _at_time(data, t):
 
 
 def prepare_marker_scatter(
-    markers: xr.Dataset, *, x: str, y: str, color: str | None = None, color_at=None, **selection
+    markers: xr.Dataset,
+    *,
+    x: str,
+    y: str,
+    color: str | None = None,
+    color_at=None,
+    **selection,
 ) -> xr.Dataset:
     """The per-marker positions and colors :func:`plot_marker_scatter` draws.
 
@@ -3666,12 +3690,20 @@ def _orbit_values(subset, color_by):
     if color_by in ("classification", None):
         return None, None
     if color_by == "t":
-        values = np.broadcast_to(np.asarray(subset.t, dtype=float)[:, None], (subset.sizes["t"], subset.sizes["marker"]))
+        values = np.broadcast_to(
+            np.asarray(subset.t, dtype=float)[:, None],
+            (subset.sizes["t"], subset.sizes["marker"]),
+        )
         return values, "t"
     if color_by in subset.data_vars and set(subset[color_by].dims) == {"t", "marker"}:
-        return np.asarray(subset[color_by].transpose("t", "marker"), dtype=float), _label(subset[color_by]) or color_by
+        return (
+            np.asarray(subset[color_by].transpose("t", "marker"), dtype=float),
+            _label(subset[color_by]) or color_by,
+        )
     variables = [n for n, v in subset.data_vars.items() if set(v.dims) == {"t", "marker"}]
-    raise ValueError(f'color_by must be "classification", None, "t" or a (t, marker) variable {variables}; got {color_by!r}')
+    raise ValueError(
+        f'color_by must be "classification", None, "t" or a (t, marker) variable {variables}; got {color_by!r}'
+    )
 
 
 def _colored_path(ax, xs, ys, values, norm, cmap):
@@ -3749,8 +3781,16 @@ def plot_orbit_poloidal(
         if keep.sum() < 2:
             continue
         if values is not None:
-            artists.append(_colored_path(ax, R[keep, marker], Z[keep, marker], values[keep, marker], norm,
-                                         STRUPHY_STYLE["image.cmap"]))
+            artists.append(
+                _colored_path(
+                    ax,
+                    R[keep, marker],
+                    Z[keep, marker],
+                    values[keep, marker],
+                    norm,
+                    STRUPHY_STYLE["image.cmap"],
+                )
+            )
             continue
         if codes is not None:
             name = ORBIT_CLASSES[int(codes[marker])]
@@ -4236,8 +4276,16 @@ def plot_orbit_grid(
         keep = alive[:, marker]
         name = ORBIT_CLASSES[int(codes[marker])] if codes is not None else None
         if values is not None:
-            artists.append(_colored_path(ax, R[keep, marker], Z[keep, marker], values[keep, marker], norm,
-                                         STRUPHY_STYLE["image.cmap"]))
+            artists.append(
+                _colored_path(
+                    ax,
+                    R[keep, marker],
+                    Z[keep, marker],
+                    values[keep, marker],
+                    norm,
+                    STRUPHY_STYLE["image.cmap"],
+                )
+            )
             ax.autoscale_view()
         else:
             color = ORBIT_CLASS_COLORS[name] if (name and color_by == "classification") else "C0"

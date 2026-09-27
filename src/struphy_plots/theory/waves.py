@@ -331,7 +331,10 @@ def hall_mhd_parallel(k, alfven_speed=1.0, ion_inertial_length=1.0):
     k = np.abs(np.asarray(k, dtype=float))
     va, d = np.asarray(alfven_speed, dtype=float), np.asarray(ion_inertial_length, dtype=float)
     root = np.sqrt(1 + (k * d) ** 2 / 4)
-    return {"whistler": _complex(k * va * (root + k * d / 2)), "ion cyclotron": _complex(k * va * (root - k * d / 2))}
+    return {
+        "whistler": _complex(k * va * (root + k * d / 2)),
+        "ion cyclotron": _complex(k * va * (root - k * d / 2)),
+    }
 
 
 # ----------------------------------------------------------------------------------------------
@@ -403,7 +406,10 @@ def electron_ion(plasma_frequency=1.0, cyclotron_frequency=1.0, mass_ratio=1836.
     wce = abs(float(cyclotron_frequency))
     return [
         Species(float(plasma_frequency), -wce),
-        Species(float(plasma_frequency) * np.sqrt(charge / mass_ratio), charge * wce / mass_ratio),
+        Species(
+            float(plasma_frequency) * np.sqrt(charge / mass_ratio),
+            charge * wce / mass_ratio,
+        ),
     ]
 
 
@@ -583,7 +589,10 @@ def _cold_polynomials(species):
         sp = _poly.polysub(sp, wp**2 * _poly.polymul([0.0, 1.0], others))
     pp = np.array([-sum(wp**2 for wp, _ in species), 1.0])
     # G = x²QRL = x (ωQ₊R)(ωQ₋L) with Q± = Π(ω ± Ω_s): polynomials in ω whose product is even
-    g = _poly.polymul([0.0, 1.0], _poly.polymul(_resonance_free(species, 1), _resonance_free(species, -1))[::2])
+    g = _poly.polymul(
+        [0.0, 1.0],
+        _poly.polymul(_resonance_free(species, 1), _resonance_free(species, -1))[::2],
+    )
     return q, sp, pp, g, species
 
 
@@ -1040,7 +1049,10 @@ def hasegawa_wakatani(ky, kx=0.0, adiabaticity=1.0, gradient=1.0, viscosity=0.0)
     root = np.sqrt(b**2 - 4 * c)
     first, second = (-b + root) / 2 - 1j * nu * k2, (-b - root) / 2 - 1j * nu * k2
     swap = second.imag > first.imag
-    return {"drift wave": _complex(np.where(swap, second, first)), "damped": _complex(np.where(swap, first, second))}
+    return {
+        "drift wave": _complex(np.where(swap, second, first)),
+        "damped": _complex(np.where(swap, first, second)),
+    }
 
 
 # ----------------------------------------------------------------------------------------------
@@ -1209,5 +1221,3 @@ def tae_frequency(q, major_radius=1.0, alfven_speed=1.0):
     0.1111
     """
     return np.asarray(np.asarray(alfven_speed, dtype=float) / (2 * np.abs(q) * np.asarray(major_radius)))[()]
-
-

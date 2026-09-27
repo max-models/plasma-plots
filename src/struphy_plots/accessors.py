@@ -3523,9 +3523,7 @@ class DatasetData:
 
         return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
 
-    def scatter(
-        self, *, x: str, y: str, color: str | None = None, color_at=None, **selection
-    ) -> xr.Dataset:
+    def scatter(self, *, x: str, y: str, color: str | None = None, color_at=None, **selection) -> xr.Dataset:
         """Return the per-marker positions and colors :meth:`DatasetPlots.scatter` would plot.
 
         ``.to_dataframe()`` hands them straight to e.g. Plotly Express.
@@ -3779,7 +3777,15 @@ def _complete_docstrings():
     let every accessor print a menu of its methods."""
     from ._docs import add_menu, complete_class
 
-    for cls in (ArrayPlots, ArrayAnalysis, ArrayData, SliceView, DatasetPlots, DatasetAnalysis, DatasetData):
+    for cls in (
+        ArrayPlots,
+        ArrayAnalysis,
+        ArrayData,
+        SliceView,
+        DatasetPlots,
+        DatasetAnalysis,
+        DatasetData,
+    ):
         complete_class(cls)
         add_menu(cls)
     add_menu(StruphyAccessor)

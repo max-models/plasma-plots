@@ -77,7 +77,11 @@ def _response(zeta):
     # axis after Berry: σ = erfc(√2 |x| y/√(x² − y²)) for |x| > |y|, ζ = x + iy.
     x, y = np.abs(far_zeta.real), far_zeta.imag
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
-        t = np.where(x > np.abs(y), _SQRT2 * x * y / np.sqrt(np.maximum(x**2 - y**2, 0.0)), np.sign(y) * np.inf)
+        t = np.where(
+            x > np.abs(y),
+            _SQRT2 * x * y / np.sqrt(np.maximum(x**2 - y**2, 0.0)),
+            np.sign(y) * np.inf,
+        )
         t = np.clip(t, -30.0, 30.0)
         tail = (np.exp(-(t**2)) * faddeeva(1j * np.abs(t))).real  # erfc(|t|)
         sigma = np.where(t >= 0, tail, 2 - tail)
@@ -128,7 +132,13 @@ class Maxwellian:
         return _real(np.sqrt(np.asarray(self.density * self.charge**2 / self.mass, dtype=float)))
 
     @classmethod
-    def ions(cls, mass_ratio=PROTON_ELECTRON_MASS_RATIO, temperature_ratio=1.0, charge=1.0, drift=0.0):
+    def ions(
+        cls,
+        mass_ratio=PROTON_ELECTRON_MASS_RATIO,
+        temperature_ratio=1.0,
+        charge=1.0,
+        drift=0.0,
+    ):
         """Create quasi-neutral ions for the reference electrons.
 
         Parameters
@@ -388,12 +398,17 @@ def solve_dispersion(function, k, guess, derivative=None, continuation=True, tol
 
         def slope(omega, kk):
             return _finite_difference(lambda w: function(w, kk))(omega)
+
     else:
         slope = derivative
     k = np.asarray(k, dtype=float)
     if not continuation:
         omega, converged = _newton(
-            lambda w: function(w, k), lambda w: slope(w, k), np.broadcast_to(guess, k.shape), tol, maxiter
+            lambda w: function(w, k),
+            lambda w: slope(w, k),
+            np.broadcast_to(guess, k.shape),
+            tol,
+            maxiter,
         )
         return _out(np.where(converged, omega, np.nan + 1j * np.nan))
     if k.ndim > 1:
@@ -406,7 +421,13 @@ def solve_dispersion(function, k, guess, derivative=None, continuation=True, tol
         seed = complex(guess) if not good else (good[-1] if len(good) == 1 else 2 * good[-1] - good[-2])
         omega, converged = _newton(lambda w: function(w, kk), lambda w: slope(w, kk), seed, tol, maxiter)
         if not converged and good:
-            omega, converged = _newton(lambda w: function(w, kk), lambda w: slope(w, kk), good[-1], tol, maxiter)
+            omega, converged = _newton(
+                lambda w: function(w, kk),
+                lambda w: slope(w, kk),
+                good[-1],
+                tol,
+                maxiter,
+            )
         if converged:
             out[i] = complex(omega)
             good = (good + [complex(omega)])[-2:]
@@ -429,7 +450,11 @@ def _bisect(function, a, b, iterations=200):
         mid = (a + b) / 2
         fm = function(mid)
         same = np.sign(fm) == np.sign(fa)
-        a, fa, b = np.where(same, mid, a), np.where(same, fm, fa), np.where(same, b, mid)
+        a, fa, b = (
+            np.where(same, mid, a),
+            np.where(same, fm, fa),
+            np.where(same, b, mid),
+        )
         if np.all(np.abs(b - a) <= 4e-16 * np.maximum(np.abs(a), np.abs(b)) + 1e-300):
             break
     return (a + b) / 2
@@ -557,7 +582,12 @@ def langmuir(k):
 # ---------------------------------------------------------------------------------------------
 # Ion-acoustic waves
 # ---------------------------------------------------------------------------------------------
-def ion_acoustic_fluid(k, temperature_ratio=10.0, mass_ratio=PROTON_ELECTRON_MASS_RATIO, adiabatic_index=3.0):
+def ion_acoustic_fluid(
+    k,
+    temperature_ratio=10.0,
+    mass_ratio=PROTON_ELECTRON_MASS_RATIO,
+    adiabatic_index=3.0,
+):
     """Compute the fluid ion-acoustic frequency with Boltzmann electrons and adiabatic ions.
 
     ω² = k² (T_e/(1 + k² λ_De²) + γ_i T_i)/m_i, i.e. in normalized units
@@ -818,8 +848,17 @@ def two_stream(k, beam_speed, thermal_speed, beam_density=0.5):
 
     def dispersion(gamma, axis=False):
         kk = k[..., None] if axis else k
-        s = species if not axis else tuple(
-            Maxwellian(density=n[..., None], thermal_speed=vt[..., None], drift=d * v[..., None]) for d in (1, -1)
+        s = (
+            species
+            if not axis
+            else tuple(
+                Maxwellian(
+                    density=n[..., None],
+                    thermal_speed=vt[..., None],
+                    drift=d * v[..., None],
+                )
+                for d in (1, -1)
+            )
         )
         with np.errstate(all="ignore"):
             value = np.asarray(electrostatic_dielectric(1j * gamma, kk, s)).real
