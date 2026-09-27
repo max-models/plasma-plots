@@ -117,19 +117,23 @@ def _display_figure(fig):
 
 @dataclass
 class PlotResult:
-    """Already-rendered Matplotlib objects; saving never redraws them.
+    """An already-drawn figure and what was drawn; saving never redraws it.
 
     Every plotting function returns one. As the last expression of a notebook cell it displays
-    its figure once; there is no need to write ``.fig``.
+    its figure once; there is no need to write ``.fig``. With ``backend="plotly"`` (see
+    :mod:`struphy_plots.plotly_backend`) the figure is a Plotly figure instead, with the same
+    ``fit_results`` and ``data``.
 
     Attributes
     ----------
-    fig : matplotlib.figure.Figure
+    fig : matplotlib.figure.Figure or plotly.graph_objects.Figure
         The figure.
-    ax : matplotlib.axes.Axes or array of matplotlib.axes.Axes
-        The axes drawn into; an array (or list) of axes for multi-panel plots.
+    ax : matplotlib.axes.Axes, array of matplotlib.axes.Axes or None
+        The axes drawn into; an array (or list) of axes for multi-panel plots; ``None`` for a
+        Plotly figure.
     artists : list
-        The drawn artists (lines, meshes, scatter collections, ...).
+        The drawn artists (lines, meshes, scatter collections, ...); for a Plotly figure its
+        traces.
     fit_results : list of FitResult or None
         The growth-rate fits of :func:`plot_timeseries`, one per series (``None`` where no fit
         was made); empty for other plots.
@@ -150,24 +154,43 @@ class PlotResult:
     data: dict = field(default_factory=dict)
     _shown: bool = field(default=False, init=False, repr=False, compare=False)
 
+    @property
+    def _plotly(self) -> bool:
+        return type(self.fig).__module__.startswith("plotly")
+
     def save(self, path, *, close=False, **kwargs):
         """Save the figure to a file, as drawn.
 
         Parameters
         ----------
         path : str or pathlib.Path
-            The file to write; its extension picks the format.
+            The file to write; its extension picks the format. A Plotly figure is written as a
+            standalone page (``.html``), as figure JSON (``.json``), or as an image through kaleido
+            (``.png``, ``.svg``, ``.pdf``, ...).
         close : bool, optional
-            Close the figure afterwards, to free its memory. Default: ``False``.
+            Close the Matplotlib figure afterwards, to free its memory. Default: ``False``.
         **kwargs
-            Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``);
-            ``bbox_inches="tight"`` unless given.
+            Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``;
+            ``bbox_inches="tight"`` unless given), or to Plotly's ``write_html``, ``write_json``
+            or ``write_image`` (``dpi`` then sets the image's ``scale``, 100 dpi per unit).
 
         Returns
         -------
         str
             The path written.
         """
+        if self._plotly:
+            suffix = Path(path).suffix.lower()
+            if suffix in (".html", ".htm"):
+                self.fig.write_html(path, **kwargs)
+            elif suffix == ".json":
+                self.fig.write_json(path, **kwargs)
+            else:
+                if "dpi" in kwargs:
+                    kwargs["scale"] = kwargs.pop("dpi") / 100.0
+                kwargs.pop("bbox_inches", None)
+                self.fig.write_image(path, **kwargs)
+            return str(path)
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
         if close:
@@ -175,7 +198,7 @@ class PlotResult:
         return str(path)
 
     def show(self):
-        """Show the figure with ``matplotlib.pyplot.show``.
+        """Show the figure with ``matplotlib.pyplot.show``, or a Plotly figure with its ``show``.
 
         Afterwards a notebook no longer displays the result again as a cell result.
 
@@ -184,12 +207,55 @@ class PlotResult:
         PlotResult
             This result.
         """
-        plt.show()
+        if self._plotly:
+            self.fig.show()
+        else:
+            plt.show()
         self._shown = True
         return self
 
+    def to_plotly(self, *, close: bool = False) -> "PlotResult":
+        """The same result with the figure converted to an interactive Plotly figure.
+
+        For the plotting functions, whose results are Matplotlib figures; the accessor methods
+        take ``backend="plotly"`` instead.
+
+        Parameters
+        ----------
+        close : bool, optional
+            Close the Matplotlib figure afterwards. Default: ``False``.
+
+        Returns
+        -------
+        PlotResult
+            A new result: the Plotly figure, its traces as ``artists``, and this result's
+            ``fit_results`` and ``data``.
+
+        See Also
+        --------
+        struphy_plots.plotly_backend.to_plotly : The conversion.
+
+        Examples
+        --------
+        >>> plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")
+        """
+        from .plotly_backend import _plotly_result, to_plotly
+
+        if self._plotly:
+            return self
+        result = _plotly_result(to_plotly(self.fig), self)
+        if close:
+            plt.close(self.fig)
+        return result
+
     def _ipython_display_(self):
-        if not self._shown:
+        if self._shown:
+            return
+        if self._plotly:
+            from IPython.display import display
+
+            display(self.fig)
+        else:
             _display_figure(self.fig)
 
     def __repr__(self):
@@ -1907,8 +1973,14 @@ def animate_slices(
         return (mesh,)
 
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, sweep, renderer.data[sweep].values[list(frames)])
     _detach_figure(fig)
     return animation
+
+
+def _label_frames(animation, sweep, values):
+    """Record the sweep values of an animation's frames, the slider labels of its Plotly version."""
+    animation._struphy_sweep = (sweep, [float(v) for v in np.asarray(values, dtype=float)])
 
 
 @rank_zero
@@ -2006,6 +2078,7 @@ def animate_fields(
 
     update(frames[0])
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, sweep, renderers[0].data[sweep].values[list(frames)])
     _detach_figure(fig)
     return animation
 
@@ -3007,6 +3080,7 @@ def animate_markers(
 
     update(0)
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, "t", times[list(frames)])
     _detach_figure(fig)
     return animation
 
@@ -4062,6 +4136,7 @@ def animate_lines(
 
     update(0)
     animation = FuncAnimation(fig, update, frames=frames, interval=interval, blit=False)
+    _label_frames(animation, sweep, sweeps[list(frames)])
     _detach_figure(fig)
     return animation
 

@@ -22,6 +22,8 @@ classifiers = [
 [project.optional-dependencies]
 pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]
+# backend="plotly": interactive Plotly versions of the plots; kaleido saves them as PNG/SVG/PDF
+plotly = ["plotly", "kaleido"]
 # the output helpers of the struphy-hub example gallery (struphy_plots.gallery): Plotly figures,
 # their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
 gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]

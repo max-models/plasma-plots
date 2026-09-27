@@ -114,9 +114,10 @@ n.struphy.data.to_vtk("ring")                # one .vts per time and a .pvd for 
 
 ## Other plotting libraries
 
-`struphy-plots` never depends on another plotting library. The guides show the
-same plots with [Plotly](https://plotly.com/python/), folded under each
-matplotlib figure. A 2-D slice as a Plotly heatmap:
+`struphy-plots` never depends on another plotting library. The selected data goes to any of
+them; for Plotly there is also a shortcut, `backend="plotly"`, which draws every plot as an
+interactive Plotly figure (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+Built by hand, a 2-D slice as a Plotly heatmap:
 
 ```python
 import plotly.express as px
