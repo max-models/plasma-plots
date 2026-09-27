@@ -393,3 +393,31 @@ def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch)
     assert "cdn.plot.ly" in text and page.endswith("movie.html")
     with pytest.raises(ValueError, match="no frames"):
         energy().struphy.plot.timeseries(backend="plotly").save(tmp_path / "e.png", frame=0)
+
+
+def test_the_image_of_a_frame_updates_the_traces_the_frame_names(tmp_path, monkeypatch):
+    """Frames over a fixed background name the traces they change (go.Frame(traces=[...]))."""
+    shown = []
+    monkeypatch.setattr(go.Figure, "write_image", lambda self, path, **kw: shown.append(self))
+    background = go.Scatter(x=[0, 1], y=[0, 0], name="background")
+    figure = go.Figure(
+        data=[background, go.Scatter(x=[0], y=[0], name="marker")],
+        frames=[go.Frame(data=[go.Scatter(x=[i], y=[i])], traces=[1], name=str(i)) for i in range(3)],
+    )
+    PlotResult(figure).save(tmp_path / "still.png", frame=2)
+    still = shown[-1]
+    assert list(still.data[0].x) == [0, 1] and still.data[0].name == "background"  # untouched
+    assert (list(still.data[1].x), still.data[1].name) == ([2], "marker")
+
+
+def test_a_figure_of_your_own_saves_with_the_same_defaults_on_rank_zero_only(tmp_path, monkeypatch):
+    import sys
+
+    figure = go.Figure(go.Scatter(x=[0, 1], y=[1, 2]))
+    PlotResult(figure).save(tmp_path / "own.html")
+    assert "cdn.plot.ly" in (tmp_path / "own.html").read_text()
+    monkeypatch.delitem(sys.modules, "mpi4py.MPI", raising=False)
+    monkeypatch.delenv("STRUPHY_MPI", raising=False)
+    monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
+    assert PlotResult(figure).save(tmp_path / "other.html").endswith("other.html")
+    assert not (tmp_path / "other.html").exists()

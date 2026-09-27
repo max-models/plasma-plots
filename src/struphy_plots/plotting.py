@@ -124,6 +124,10 @@ class PlotResult:
     :mod:`struphy_plots.plotly_backend`) the figure is a Plotly figure instead, with the same
     ``fit_results`` and ``data``.
 
+    A figure made some other way (e.g. with ``plotly.graph_objects`` directly) is saved with the
+    same defaults as ``PlotResult(figure).save("page.html")``. Saving and showing do nothing on
+    MPI ranks other than 0, so a script can call them on every rank.
+
     Attributes
     ----------
     fig : matplotlib.figure.Figure or plotly.graph_objects.Figure
@@ -145,10 +149,11 @@ class PlotResult:
     --------
     >>> result = plot_lineout(phi.isel(t=-1, eta2=0, eta3=0))
     >>> result.save("phi.png", dpi=200)
+    >>> PlotResult(go.Figure(go.Scatter(x=t, y=energy))).save("energy.html")   # a figure of your own
     """
 
     fig: object
-    ax: object
+    ax: object = None
     artists: list = field(default_factory=list)
     fit_results: list[FitResult | None] = field(default_factory=list)
     data: dict = field(default_factory=dict)
@@ -183,8 +188,12 @@ class PlotResult:
         Returns
         -------
         str
-            The path written.
+            The path written (on MPI ranks other than 0 nothing is written).
         """
+        from .mpi import is_plotting_rank
+
+        if not is_plotting_rank():
+            return str(path)
         if self._plotly:
             suffix = Path(path).suffix.lower()
             if suffix in (".html", ".htm"):
@@ -212,8 +221,12 @@ class PlotResult:
             raise ValueError("frame= needs a Plotly animation; this figure has no frames")
         index = range(len(self.fig.frames))[frame]  # also -1 for the last
         update = self.fig.frames[index]
-        # a frame names only what changes: complete it with the first frame's traces
-        data = [{**base.to_plotly_json(), **new.to_plotly_json()} for base, new in zip(self.fig.data, update.data)]
+        # a frame names only what changes: complete it with the figure's traces, the ones in
+        # frame.traces if it names them (e.g. frames over a fixed background), else from the first
+        data = [trace.to_plotly_json() for trace in self.fig.data]
+        targets = update.traces if update.traces is not None else range(len(update.data))
+        for target, new in zip(targets, update.data):
+            data[target] = {**data[target], **new.to_plotly_json()}
         still = go.Figure(data=data, layout=self.fig.layout)
         still.update_layout(update.layout)
         if still.layout.sliders:
@@ -230,6 +243,10 @@ class PlotResult:
         PlotResult
             This result.
         """
+        from .mpi import is_plotting_rank
+
+        if not is_plotting_rank():
+            return self
         if self._plotly:
             self.fig.show()
         else:
