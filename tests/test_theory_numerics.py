@@ -91,8 +91,9 @@ def test_phase_and_amplitude_error_orders():
     np.testing.assert_allclose(nm.amplitude_error(theta, "rk3") / theta**4, -1 / 24, rtol=1e-2)
     np.testing.assert_allclose(nm.amplitude_error(theta, "rk2") / theta**4, 1 / 8, rtol=1e-2)
     assert nm.phase_error(0.0, "rk4") == 0.0
-    # odd in θ
-    np.testing.assert_allclose(nm.phase_error(-theta, "rk4"), nm.phase_error(theta, "rk4"))
+    # even in θ (G(−θ) = conj G(θ)); arg G/θ − 1 cancels to ~1e-12 here, so compare to a few ulps of 1
+    np.testing.assert_allclose(nm.phase_error(-theta, "rk4"), nm.phase_error(theta, "rk4"),
+                               rtol=1e-7, atol=4 * np.finfo(float).eps)
 
 
 def _integrate(name, theta, steps):
