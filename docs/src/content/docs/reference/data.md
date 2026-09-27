@@ -3,6 +3,12 @@ title: struphy.data
 description: API reference for array.struphy.data and dataset.struphy.data.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 The data behind each plot, without rendering it — every method here mirrors
 one on [`array.struphy.plot`](/struphy-plots/reference/plot/) (or
 `dataset.struphy.plot`) and returns the same already-selected `xarray`

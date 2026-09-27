@@ -3,6 +3,12 @@ title: struphy.analysis
 description: API reference for array.struphy.analysis.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 Accessed as `array.struphy.analysis` on any labeled `xarray.DataArray`.
 Backed by `struphy_plots.accessors.ArrayAnalysis`; underlying implementations
 live in `struphy_plots.analysis`.

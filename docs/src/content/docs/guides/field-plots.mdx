@@ -5,6 +5,12 @@ description: Slices, panels, animations, vector fields, and 3-D volumes.
 
 import PlotlyChart from '../../../components/PlotlyChart.astro';
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 Everything here is a method of `array.struphy.plot`, where `array` is a labeled
 `xarray.DataArray` produced by Struphy's `Output.evaluate(...)`. Full
 signatures are in the [Plotting reference](/struphy-plots/reference/plot/).

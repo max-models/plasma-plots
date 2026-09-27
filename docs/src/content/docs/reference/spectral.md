@@ -3,6 +3,12 @@ title: struphy_plots.spectral
 description: API reference for the spectral diagnostics and their plots.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 Fourier and spectral diagnostics in `struphy_plots.spectral`, their plots in
 `struphy_plots.spectral_plots`, and the matching accessor methods. See the
 [Spectral analysis guide](/struphy-plots/guides/spectral/) for the conventions

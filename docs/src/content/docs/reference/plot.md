@@ -3,6 +3,12 @@ title: struphy.plot
 description: API reference for array.struphy.plot.
 ---
 
+:::note[Examples need `import struphy_plots`]
+Every example on this page assumes `import struphy_plots` has run once in
+the session; it registers the `.struphy` accessors (see
+[Getting started](/struphy-plots/guides/getting-started/#import-struphy_plots-first)).
+:::
+
 Accessed as `array.struphy.plot` on any labeled `xarray.DataArray`. Backed by
 `struphy_plots.accessors.ArrayPlots`; underlying implementations live in
 `struphy_plots.plotting` and can be called directly on a plain

@@ -15,21 +15,39 @@ For interactive 3-D volume rendering, install the optional PyVista extra:
 pip install "struphy-plots[pyvista]"
 ```
 
-## Registering the accessor
+## Import struphy_plots first
 
-Importing `struphy_plots` registers the `.struphy` accessor on every
-`xarray.DataArray`:
-
+:::caution[Required in every script and notebook]
 ```python
 import struphy_plots  # registers DataArray.struphy
+```
+Struphy's output does not load struphy-plots by itself. Without this import,
+none of the examples in these docs work: `.struphy` does not exist on your
+arrays, and you get
 
+```
+AttributeError: 'DataArray' object has no attribute 'struphy'
+```
+:::
+
+The import registers the accessors, as a side effect:
+
+- `.struphy` on every `xarray.DataArray` and `xarray.Dataset`, including the
+  products of Struphy's `Output` and every array derived from them
+- `out.plot` and `out.analysis` on Struphy's `Output` object
+
+You don't need to use the imported module; the import alone enables the
+accessors, so linters may flag it as unused (silence them with `# noqa: F401`).
+Put it at the top of the script, or in the first cell of a notebook:
+
+```python
+import struphy_plots  # noqa: F401  (registers DataArray.struphy)
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
 field = out.evaluate("em_fields/phi")
 field.struphy.plot.slice(x="eta1", y="eta2", t=-1)
 ```
-
-You don't need to keep a reference to `struphy_plots` around — the import
-alone is enough to enable `.struphy` on any array produced by Struphy's
-`Output` object.
 
 ## Where to look next
 
