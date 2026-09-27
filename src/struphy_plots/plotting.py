@@ -1420,7 +1420,9 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
             raise TypeError(f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}")
-        if isinstance(value, (bool, str)):
+        if value in ("first", "last"):  # accepted, but integer positions are the documented form
+            selected = selected.isel({dim: 0 if value == "first" else -1})
+        elif isinstance(value, (bool, str)):
             raise TypeError(f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value")
         elif isinstance(value, (int, np.integer)):
             selected = selected.isel({dim: int(value)})

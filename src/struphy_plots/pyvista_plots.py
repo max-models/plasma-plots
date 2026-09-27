@@ -306,9 +306,11 @@ def _cut_indices(data, cuts):
         chosen = []
         # not via numpy: a list like [0.0, -1] would turn the index -1 into the coordinate -1.0
         for position in positions if isinstance(positions, (list, tuple)) else [positions]:
-            if isinstance(position, (bool, str)):
+            if position in ("first", "last"):  # accepted, but integer indices are the documented form
+                chosen.append(0 if position == "first" else len(coordinate) - 1)
+            elif isinstance(position, (bool, str)):
                 raise TypeError(f"cannot cut {dim} at {position!r}; use an integer index (e.g. -1) or a float coordinate")
-            if isinstance(position, (int, np.integer)):
+            elif isinstance(position, (int, np.integer)):
                 chosen.append(position % len(coordinate))
             else:
                 chosen.append(int(np.abs(coordinate - float(position)).argmin()))

@@ -159,7 +159,7 @@ def test_selection_keywords_take_positions_and_values(run):
     with pytest.raises(TypeError, match="not a dimension"):
         product.struphy.plot.slice(x="eta1", y="v1", time=-1)
     with pytest.raises(TypeError, match="integer position"):
-        product.struphy.plot.slice(x="eta1", y="v1", t="last")
+        product.struphy.plot.slice(x="eta1", y="v1", t="final")
 
 
 def test_products_of_one_species_sit_on_the_output(run):

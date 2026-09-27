@@ -129,6 +129,7 @@ def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
     cuts = p3.prepare_slices_3d(field, cuts={"eta3": [0.0, -1], "eta1": 2})
     assert [piece.shape for piece in cuts] == [(6, 12, 1), (6, 12, 1), (1, 12, 16)]
     assert cuts[1].eta3.item() == 1.0
+    assert p3.prepare_slices_3d(field, cuts={"eta3": "last"})[0].eta3.item() == 1.0   # still accepted
     with pytest.raises(ValueError, match="eta1, eta2 or eta3"):
         p3.prepare_slices_3d(field, cuts={"t": 0})
 
