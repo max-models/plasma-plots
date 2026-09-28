@@ -430,6 +430,17 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.desc`: `from_desc`
 - `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `save_vtk`, `save_movie`
 
+## Command line: plasma-plots
+
+`plasma-plots info PATH`, `plot PATH PRODUCT METHOD key=value ... -o FILE` (any plot method above), `movie PATH PRODUCT ... -o FILE` and `quicklook PATH -o DIR`, on a Struphy run folder or a file xarray reads; `key=value` values: `t=-1` a position, `t=0.35` a value, `other=@name` another product. `plasma-plots COMMAND --help` for details. The same from Python, in `plasma_plots.cli`:
+
+- `open_source(path, *, pproc=False)`: Open path: a Struphy Output for a run folder, else an xarray.Dataset.
+- `parse_value(text, source=None)`: A key=value value as Python: an int, a float, a bool, None, a list or a string.
+- `plot_methods(obj)`: The plot methods of obj that plasma-plots plot can call and save.
+- `quicklook_plot(array)`: The plot method and options of a quick look at array, or None if there is none.
+- `quicklook(source, directory, *, formats=('png',), dpi=None, log=None)`: Save the standard figures of source into directory; return the files written.
+- `main(argv=None)`: Run the plasma-plots command.
+
 ## Theory: plasma_plots.theory
 
 Analytic results to compare with, plain numpy; complex ω for dispersion relations.

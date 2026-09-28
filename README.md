@@ -29,13 +29,19 @@ out.evaluate("em_fields/phi").plasma.plot.slice(x="eta1", y="eta2", t=-1)
 > first. Without it you get
 > `AttributeError: 'DataArray' object has no attribute 'plasma'`.
 
-In Python, `import plasma_plots; help(plasma_plots)` (or `python -m plasma_plots`) gives an overview,
+In Python, `import plasma_plots; help(plasma_plots)` (or `plasma-plots guide` in a terminal) gives an overview,
 printing an accessor lists its methods (`print(phi.plasma.plot)`), and `help()`
 on a method shows every parameter. For language models and coding agents, the
 documentation is available as plain text at
 https://struphy-hub.github.io/plasma-plots/llms.txt. [API.md](API.md) (or
-`python -m plasma_plots api`) is a one-page index of every accessor method and function, and
+`plasma-plots api`) is a one-page index of every accessor method and function, and
 [AGENTS.md](AGENTS.md) explains the code for agents working on it.
+
+From the shell, the `plasma-plots` command saves figures of a Struphy run folder or a
+netCDF file without any Python: `plasma-plots info sim_1`,
+`plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 -o phi.png`,
+`plasma-plots quicklook sim_1 -o figures/` (see the
+[command-line guide](https://struphy-hub.github.io/plasma-plots/guides/command-line/)).
 
 Direct plotting functions are available from
 `plasma_plots.plotting`; analysis functions are in `plasma_plots.analysis`.

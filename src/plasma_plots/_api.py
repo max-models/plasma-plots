@@ -294,6 +294,17 @@ def api_index() -> str:
                 f"- `plasma_plots.{name}`: " + ", ".join(f"`{n}`" for n in names)
             )
     out.append("")
+    out.append("## Command line: plasma-plots\n")
+    out.append(
+        "`plasma-plots info PATH`, `plot PATH PRODUCT METHOD key=value ... -o FILE` (any plot method above), "
+        "`movie PATH PRODUCT ... -o FILE` and `quicklook PATH -o DIR`, on a Struphy run folder or a file "
+        "xarray reads; `key=value` values: `t=-1` a position, `t=0.35` a value, `other=@name` another "
+        "product. `plasma-plots COMMAND --help` for details. The same from Python, in `plasma_plots.cli`:\n"
+    )
+    from . import cli
+
+    out += [_line(fname, function) for fname, function in _public_functions(cli)]
+    out.append("")
     out.append("## Theory: plasma_plots.theory\n")
     out.append(
         "Analytic results to compare with, plain numpy; complex ω for dispersion relations.\n"

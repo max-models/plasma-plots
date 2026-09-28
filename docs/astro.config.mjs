@@ -88,6 +88,7 @@ export default defineConfig({
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 						{ label: 'Profiling', slug: 'guides/profiling' },
+						{ label: 'Command line', slug: 'guides/command-line' },
 						{ label: 'Recipes', slug: 'guides/recipes' },
 						{ label: 'MHD slab waves', slug: 'guides/real-example' },
 						{ label: 'GVEC equilibria', slug: 'guides/gvec' },

@@ -1518,5 +1518,40 @@ try:
 except ImportError as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped the backend=\"plotly\" figures (plotly unavailable): {exc}")
 
+# =============================================================================
+# The command line: plasma-plots plot / movie on a netCDF file
+# =============================================================================
+# Drawn by the command itself (plasma_plots.cli.main), so the guide shows what it writes.
+
+import tempfile as _cli_tempfile
+
+from plasma_plots.cli import main as _cli_main
+
+_cli_dir = Path(_cli_tempfile.mkdtemp())
+_cli_t = np.linspace(0, 4, 81)
+_cli_e1 = np.linspace(0, 1, 48)
+_cli_e2 = np.linspace(0, 1, 64, endpoint=False)
+_T, _E1, _E2 = np.meshgrid(_cli_t, _cli_e1, _cli_e2, indexing="ij")
+xr.Dataset(
+    {
+        "phi": (
+            ("t", "eta1", "eta2", "eta3"),
+            (np.exp(0.3 * _T) * np.sin(np.pi * _E1) * np.cos(2 * np.pi * (3 * _E2 - 0.5 * _T)))[..., None],
+            {"label": r"$\phi$", "units": "V"},
+        ),
+        "energy": ("t", np.exp(0.6 * _cli_t) * (1 + 0.3 * np.cos(6 * _cli_t)), {"label": "field energy", "units": "J"}),
+    },
+    coords={"t": ("t", _cli_t, {"units": "s"}), "eta1": _cli_e1, "eta2": _cli_e2, "eta3": [0.0]},
+).to_netcdf(_cli_dir / "run.nc")
+_cli_run = str(_cli_dir / "run.nc")
+for _argv in (
+    ["plot", _cli_run, "phi", "slice", "t=-1", "eta3=0", "-o", str(OUT / "cli_slice.png")],
+    ["plot", _cli_run, "energy", "timeseries", "fit=[1,4]", "-o", str(OUT / "cli_timeseries.png")],
+    ["movie", _cli_run, "phi", "eta3=0", "step=2", "-o", str(PUBLIC_OUT / "cli_movie.gif")],
+):
+    if _cli_main(_argv) != 0:
+        raise RuntimeError(f"plasma-plots {' '.join(_argv)} failed")
+plt.close("all")
+
 plt.close("all")
 print("done")
