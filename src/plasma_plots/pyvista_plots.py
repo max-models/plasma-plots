@@ -17,10 +17,9 @@ import numpy as np
 import xarray as xr
 
 from .analysis import ORBIT_CLASSES, classify_orbits
-from .arrays import close_periodic, mapping_jacobian, validate_array, value_label
+from .arrays import close_periodic, logical_dims, mapping_jacobian, validate_array, value_label
 from .mpi import rank_zero
 
-SPATIAL = ("eta1", "eta2", "eta3")
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
 
 
@@ -47,25 +46,26 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
     back with a single point, so a plane is still a (flat) structured grid.
     """
     validate_array(data, required_dims=extra)
-    others = set(data.dims) - {*extra, *SPATIAL}
+    spatial = logical_dims(data)
+    others = set(data.dims) - {*extra, *spatial}
     if others:
-        raise ValueError(f"select every dimension except {(*extra, *SPATIAL)} first; {sorted(others)} remain")
+        raise ValueError(f"select every dimension except {(*extra, *spatial)} first; {sorted(others)} remain")
     missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
     if missing:
         raise ValueError(f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}")
-    absent = [dim for dim in SPATIAL if dim not in data.dims]
+    absent = [dim for dim in spatial if dim not in data.dims]
     if len(absent) > 1:
-        raise ValueError(f"3-D views need at least two of eta1, eta2, eta3; {data.name!r} has dims {data.dims}")
+        raise ValueError(f"3-D views need at least two of {spatial}; {data.name!r} has dims {data.dims}")
     for dim in absent:
         data = data.expand_dims(dim) if dim in data.coords else data.expand_dims({dim: [0.0]})
     coords = {}
     for name in ("X", "Y", "Z"):
         coordinate = data.coords[name]
-        for dim in SPATIAL:
+        for dim in spatial:
             if dim not in coordinate.dims:
                 coordinate = coordinate.expand_dims({dim: data.sizes[dim]})
-        coords[name] = coordinate.transpose(*SPATIAL).variable
-    return data.assign_coords(coords).transpose(*extra, *SPATIAL)
+        coords[name] = coordinate.transpose(*spatial).variable
+    return data.assign_coords(coords).transpose(*extra, *spatial)
 
 
 def is_flat(grid) -> bool:
@@ -111,7 +111,7 @@ def _camera(plotter, grid):
 
 
 def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    return tuple(np.asarray(data.coords[name].transpose(*SPATIAL), dtype=float) for name in ("X", "Y", "Z"))
+    return tuple(np.asarray(data.coords[name].transpose(*logical_dims(data)), dtype=float) for name in ("X", "Y", "Z"))
 
 
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
@@ -149,7 +149,7 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
     """
     pv = _pv()
     vector = "component" in data.dims
-    data = close_periodic(_spatial(data, extra=("component",) if vector else ()), SPATIAL)
+    data = close_periodic(_spatial(data, extra=("component",) if vector else ()), logical_dims(data))
     grid = pv.StructuredGrid(*_points(data))
     name = name or _label(data)
     if vector:
@@ -198,7 +198,7 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
         raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
-    short = [dim for dim in SPATIAL if data.sizes[dim] < 2]
+    short = [dim for dim in logical_dims(data) if data.sizes[dim] < 2]
     if short:
         raise ValueError(f"pushing forward needs at least two points along {short}")
     jacobian = mapping_jacobian(data)  # jacobian[a, i] = dX_a / de_i
@@ -216,8 +216,16 @@ def _vector_grid(data, components, name):
     return structured_grid(data, name=name)
 
 
+def _vtk_text(text: str) -> str:
+    """Mathtext that VTK renders: inside ``$...$`` VTK reads ``|`` as a table-cell separator, so
+    it becomes ``\\vert`` (``$|B|$`` shows as |B|, not as the raw string)."""
+    import re
+
+    return re.sub(r"\$[^$]*\$", lambda math: math.group(0).replace("|", r"\vert "), text)
+
+
 def _bar(title):
-    return {"title": title, "fmt": "%.3g"}
+    return {"title": _vtk_text(title), "fmt": "%.3g"}
 
 
 def _clim(values, clim, *, symmetric=False, robust=False):
@@ -301,11 +309,18 @@ def _grid_points(grid) -> np.ndarray:
     return np.asarray(grid.points).reshape((*grid.dimensions, 3), order="F")
 
 
-def _add_context(plotter, grid, show_domain):
+def _add_context(plotter, grid, show_domain, drawn=()):
+    """The domain's outer faces, translucent; not those a drawn surface (``drawn``, point arrays
+    like :func:`boundary_faces`' ) already covers, which would flicker against it."""
     if not show_domain:
         return
     pv = _pv()
-    for i, face in enumerate(boundary_faces(_grid_points(grid))):
+    faces = [
+        face
+        for face in boundary_faces(_grid_points(grid))
+        if not any(points.shape == face.shape and np.allclose(points, face) for points in drawn)
+    ]
+    for i, face in enumerate(faces):
         surface = pv.StructuredGrid(face[..., 0], face[..., 1], face[..., 2])
         plotter.add_mesh(surface, color="lightgrey", opacity=0.12, name=f"domain{i}")
 
@@ -313,7 +328,7 @@ def _add_context(plotter, grid, show_domain):
 def _finish(plotter, title, grid=None):
     """Title and axes; with ``grid`` (a plotter this module created), aim the camera at it."""
     if title:
-        plotter.add_text(title, font_size=10, name="title")
+        plotter.add_text(_vtk_text(title), font_size=10, name="title")
     plotter.show_axes()
     if grid is not None:
         _camera(plotter, grid)
@@ -427,8 +442,9 @@ def pyvista_isosurface(
 def _cut_indices(data, cuts):
     indices = {}
     for dim, positions in (cuts or {}).items():
-        if dim not in SPATIAL:
-            raise ValueError(f"cuts are along eta1, eta2 or eta3; got {dim!r}")
+        if dim not in logical_dims(data):
+            first, second, third = logical_dims(data)
+            raise ValueError(f"cuts are along {first}, {second} or {third}; got {dim!r}")
         coordinate = np.asarray(data[dim], dtype=float)
         chosen = []
         # not via numpy: a list like [0.0, -1] would turn the index -1 into the coordinate -1.0
@@ -483,7 +499,7 @@ def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[x
     if cuts is None:
         if 1 in data.shape:
             return [data]
-        cuts = {dim: data.sizes[dim] // 2 for dim in SPATIAL}
+        cuts = {dim: data.sizes[dim] // 2 for dim in logical_dims(data)}
     return [data.isel({dim: [index]}) for dim, indices in _cut_indices(data, cuts).items() for index in indices]
 
 
@@ -561,11 +577,12 @@ def pyvista_slices(
     own = plotter is None
     plotter = _plotter(plotter)
     grid = structured_grid(data)
+    surfaces = [structured_grid(piece, name=_label(data)) for piece in pieces]
     if not (is_flat(grid) and len(pieces) == 1 and pieces[0].shape == data.shape):
-        _add_context(plotter, grid, show_domain)
-    for i, piece in enumerate(pieces):
+        _add_context(plotter, grid, show_domain, drawn=[_grid_points(surface) for surface in surfaces])
+    for i, surface in enumerate(surfaces):
         plotter.add_mesh(
-            structured_grid(piece, name=_label(data)),
+            surface,
             cmap=cmap,
             clim=(lo, hi),
             line_width=3,  # cuts through a 2-D field are lines
@@ -645,7 +662,7 @@ def pyvista_glyphs(
         raise ValueError("stride must be positive")
     name = _label(data)
     full = _vector_grid(data, components, name)
-    thinned = _vector_grid(data.isel({dim: slice(None, None, stride) for dim in SPATIAL}), components, name)
+    thinned = _vector_grid(data.isel({dim: slice(None, None, stride) for dim in logical_dims(data)}), components, name)
     magnitude = thinned[f"|{name}|"]
     peak = float(magnitude.max()) if magnitude.size else 0.0
     length = 0.1 * full.length if scale is None else scale
@@ -915,7 +932,7 @@ def pyvista_orbits(
     lines = orbit_polylines(orbits, color_by=color_by, max_markers=max_markers)
     plotter = _plotter(plotter)
     if domain is not None:
-        spatial = domain.isel({d: 0 for d in domain.dims if d not in SPATIAL})
+        spatial = domain.isel({d: 0 for d in domain.dims if d not in logical_dims(domain)})
         _add_context(plotter, structured_grid(spatial), True)
     if lines.n_points and color_by == "classification":
         legend = []

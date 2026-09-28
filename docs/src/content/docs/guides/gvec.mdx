@@ -1,0 +1,181 @@
+---
+title: GVEC equilibria
+description: Poloidal planes, Boozer surfaces, rational surfaces and flux-surface averages of GVEC's evaluations.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+[GVEC](https://gvec.readthedocs.io) computes 3-D MHD equilibria and evaluates them into
+`xarray` Datasets: `state.evaluate(...)` on its logical grid, `state.evaluate_sfl(...)` on a
+Boozer or PEST grid. plasma-plots reads those Datasets directly, whether fresh from a `State` or
+saved with `to_netcdf` and opened again, so plotting a saved equilibrium does not need GVEC at all.
+
+```python
+import gvec
+import plasma_plots
+
+state = gvec.find_state("path/to/run")      # or run.state after gvec.run(params)
+ev = state.evaluate("mod_B", "pos", "Jac", "iota", "theta_P", "N_FP", rho=17, theta=64, zeta=40)
+ev.to_netcdf("equilibrium.nc")              # optional: plot it later, anywhere
+ev = plasma_plots.from_gvec(ev)             # the geometry on every variable (see below)
+```
+
+The figures on this page come from a synthetic Dataset laid out exactly like GVEC's (five field
+periods, a rotating ellipse), so the docs build without GVEC.
+
+## Reading GVEC's Datasets
+
+`.plasma` on a GVEC Dataset or one of its variables reads GVEC's layout by itself:
+`ev.mod_B.plasma.plot.slice(x="zeta", y="theta", rho=1.0)` works on the raw output.
+`plasma_plots.from_gvec(ev)` does the same once for the whole Dataset, and attaches the geometry
+(`pos`) to every variable. A single variable like `ev.mod_B` doesn't carry `pos`, so call it
+before plotting in physical space. What changes:
+
+| GVEC | plasma-plots |
+|---|---|
+| dimensions `rad`, `pol`, `tor` | `rho`, `theta`/`theta_B`/`theta_P`, `zeta`/`zeta_B`: select with `rho=0.5`, draw with `x="zeta"` |
+| `pos` over `xyz` | the coordinates `X`, `Y`, `Z` of every variable: `coords="physical"`, 3-D views, gradients |
+| `X1`, `X2`, `theta_P`, a Boozer grid's `theta`, `zeta` | coordinates of every variable: `plane="X1X2"`, coordinate lines |
+| vectors along `xyz` | along `component` (Cartesian), as for Struphy's vectors |
+| `symbol` attributes | `label` (`$\iota$`), for axes and color bars |
+| `N_FP` | the `nfp` attribute; the angles get a `period` (2π, 2π/nfp) |
+| `rad_weight`, `pol_weight`, `tor_weight` | `rho_weight`, `theta_weight`, `zeta_weight`, used by integrals |
+
+The angles stay in radians. Every other plot and diagnostic of plasma-plots then works on GVEC
+data as on Struphy's, e.g. `ev.mod_B.plasma.analysis.gradient()` or
+`ev.B.plasma.plot.glyphs(stride=3)`.
+
+## Poloidal planes
+
+```python
+ev.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3,
+                            overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}})
+```
+
+The field in the `(R, Z)` plane at three toroidal angles of one field period, with four flux
+surfaces and eight lines of constant PEST angle θ\* on top. `coordinate_lines` draws lines of
+constant value of either drawn dimension (`{"rho": 4, "theta": 8}` for GVEC's own angle), or
+contour lines of another coordinate over them, here `theta_P` (evaluate it with the rest). An
+angle gets its lines spread over its period and none twice at its seam. A number gives that many
+lines, a list the values themselves (`{"rho": [0.5, 1.0]}`). `slice(..., zeta=0.0)` draws one
+plane. `plane="X1X2"` draws GVEC's reference coordinates instead: the same as `"RZ"` for the
+cylindrical map, the plane of the curved frame for the others.
+
+![|B| in three poloidal planes of one field period, with flux surfaces and lines of constant PEST angle](../../../assets/figures/gvec_poloidal_planes.png)
+
+The data behind one of these planes: `ev.mod_B.plasma.data.slice(coords="physical", plane="RZ", zeta=0.0)` returns the selected field, with its `X`, `Y`, `Z` (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+One plane, with `backend="plotly"` (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+ev.mod_B.plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0,
+                           overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}}, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_gvec_poloidal_plane.json" />
+
+</details>
+
+## On a flux surface, in Boozer angles
+
+```python
+boozer = plasma_plots.from_gvec(
+    state.evaluate_sfl("mod_B", "pos", rho=[0.25, 0.5, 1.0], theta=64, zeta=40, sfl="boozer")
+)
+boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5, levels=12)
+```
+
+A surface is a logical slice at one `rho`: over the Boozer angles of an `evaluate_sfl` grid, or
+over GVEC's own (`x="zeta", y="theta"`) or PEST's (`x="zeta", y="theta_P"`). `levels=12` adds
+contour lines.
+
+![|B| over the Boozer angles of the surface rho = 0.5, with contour lines](../../../assets/figures/gvec_boozer_surface.png)
+
+The data behind this plot: `boozer.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5)`.
+
+For axes in units of 2π, as GVEC labels them, rescale the angles first:
+`boozer.mod_B.plasma.analysis.map_coordinate("theta_B", 1 / (2 * np.pi), label=r"$\theta_B / 2\pi$")`,
+and the same for `zeta_B`. The rescaled angle is for display: it no longer has GVEC's period.
+
+## Fourier modes on a surface
+
+```python
+boozer.mod_B.plasma.plot.mode_map(rho=0.5, m_range=(-3, 3), n_range=(-10, 10))
+```
+
+The amplitudes of |B| over poloidal `m` and toroidal `n`. On GVEC's angles the transform takes
+their periods from the Dataset, so `n` is the full-torus mode number, a multiple of nfp (here
+5). `boozer.mod_B.plasma.analysis.mode_spectrum()` returns the complex amplitudes over
+`(rho, m, n)`, for quasi-symmetry measures and the like. See
+[Spectral analysis](/plasma-plots/guides/spectral/) for the other mode tools.
+
+![The Fourier amplitudes of |B| on the surface rho = 0.5 over (m, n), n in multiples of 5](../../../assets/figures/gvec_mode_map.png)
+
+The data behind this plot: `abs(boozer.mod_B.plasma.analysis.mode_spectrum()).sel(rho=0.5)`.
+
+## Rotational transform and flux-surface averages
+
+```python
+with plasma_plots.figure(1, 2) as fig:
+    ev.iota.plasma.plot.lineout(rationals=4, ax=fig[0])
+    ev.plasma.analysis.surface_average("mod_B").plasma.plot.lineout(ax=fig[1])
+```
+
+`rationals=4` marks the four lowest-order rational values `n/m` of ι that the profile reaches,
+with `n` a multiple of nfp (the resonances of a device with nfp field periods), and the radius
+of each crossing. `ev.iota.plasma.analysis.rational_surfaces(count=4)` returns them as an array
+over `surface`, with the coordinates `n`, `m` and `value`. It works for a safety factor `q` too.
+
+`surface_average` is `⟨f⟩ = ∫ f √g dθ dζ / ∫ √g dθ dζ` over both angles. On a Dataset,
+`ev.plasma.analysis.surface_average("mod_B")` takes GVEC's Jacobian `Jac` (evaluate it with the
+rest); on one variable, pass it: `ev.mod_B.plasma.analysis.surface_average(jacobian=ev.Jac)`.
+Without one, `√g` comes from the numerical Jacobian of `X`, `Y`, `Z`, which is accurate to a
+fraction of a percent on a fine grid.
+
+![Left: the rotational transform with its rational surfaces 5/11, 5/9, 5/8 and 5/7 marked; right: the flux-surface average of |B|](../../../assets/figures/gvec_profiles.png)
+
+The data behind these plots: `ev.iota.plasma.data.lineout()` and the `surface_average` array itself.
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+```python
+ev.iota.plasma.plot.lineout(rationals=4, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_gvec_iota.json" />
+
+</details>
+
+## Integrals
+
+```python
+import xarray as xr
+from plasma_plots.analysis import volume_integral
+
+gauss = plasma_plots.from_gvec(state.evaluate("Jac", "pos", "N_FP", rho="int", theta="int", zeta="int"))
+volume = volume_integral(xr.ones_like(gauss.Jac), jacobian=gauss.Jac) * gauss.nfp
+```
+
+`volume_integral` integrates over the sampled grid, which covers one field period, so multiply by
+`nfp` for the whole device. On GVEC's integration points (`"int"`) it uses GVEC's Gauss weights and
+gives GVEC's own volume to machine precision (GVEC's toroidal weight counts all field periods;
+`from_gvec` rescales it to one). On a uniform grid the angles get the rectangle rule, which is
+exact for their Fourier modes, and the radius the trapezoidal rule. `jacobian=` takes GVEC's `Jac`;
+without it, `√g` comes from the geometry.
+
+## In 3-D
+
+```python
+ev.mod_B.plasma.plot.slices_3d(cuts={"rho": [1.0]}).show()
+```
+
+|B| on the last flux surface of one field period, with PyVista (see
+[3-D views](/plasma-plots/guides/3d-views/)): `cuts` take `rho`, `theta` and `zeta` like
+`eta1`, `eta2`, `eta3`, e.g. `cuts={"rho": [0.5], "zeta": [0.0]}` for an inner surface and a
+poloidal cut inside the translucent outer one.
+
+![|B| on the last flux surface of one field period](../../../assets/figures/gvec_surface_3d.png)

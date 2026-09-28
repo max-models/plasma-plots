@@ -28,8 +28,76 @@ DIM_LABELS = {
     "component": "component",
     "marker": "marker",
     "quantity": "quantity",
+    "rho": r"$\rho$",
+    "theta": r"$\theta$",
+    "zeta": r"$\zeta$",
+    "theta_B": r"$\theta_B$",
+    "zeta_B": r"$\zeta_B$",
+    "theta_P": r"$\theta_P$",
 }
 SCALARS_EXCLUDE = ("time",)
+
+#: The names of the three logical dimensions, radial first, as the codes that plasma-plots reads
+#: name them: Struphy's ``eta1``, ``eta2``, ``eta3`` in [0, 1], and GVEC's flux coordinates (after
+#: :func:`plasma_plots.gvec.from_gvec`) with its logical, Boozer or PEST angles in radians.
+LOGICAL_DIMS = (
+    ("eta1", "eta2", "eta3"),
+    ("rho", "theta", "zeta"),
+    ("rho", "theta_B", "zeta_B"),
+    ("rho", "theta_P", "zeta"),
+)
+
+
+def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
+    """The names of the three logical dimensions of ``data``, radial first.
+
+    One of :data:`LOGICAL_DIMS`: the one with the most of its names among the dimensions of
+    ``data`` (then among its coordinates, for a slice that selected some away), Struphy's
+    ``("eta1", "eta2", "eta3")`` when none match.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        The field.
+
+    Returns
+    -------
+    tuple of str
+        Three dimension names, e.g. ``("eta1", "eta2", "eta3")`` or ``("rho", "theta_B", "zeta_B")``;
+        ``data`` need not have all three.
+
+    Examples
+    --------
+    >>> logical_dims(phi)                    # Struphy
+    ('eta1', 'eta2', 'eta3')
+    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))  # GVEC, Boozer
+    ('rho', 'theta_B', 'zeta_B')
+    """
+    dims, coords = set(data.dims), set(data.coords)
+    return max(LOGICAL_DIMS, key=lambda names: (sum(n in dims for n in names), sum(n in coords for n in names)))
+
+
+def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
+    """The period of an angle coordinate, from its ``period`` attribute.
+
+    GVEC's angles carry one (2π for the poloidal angles, 2π/nfp for the toroidal ones, see
+    :func:`plasma_plots.gvec.from_gvec`); Struphy's logical coordinates have none.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        The field.
+    dim : str
+        One of its coordinates.
+
+    Returns
+    -------
+    float or None
+        The period, or ``None`` if ``dim`` has no ``period`` attribute (or is no coordinate).
+    """
+    coordinate = data.coords.get(dim)
+    period = None if coordinate is None else coordinate.attrs.get("period")
+    return None if period is None else float(period)
 
 
 def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> xr.DataArray:
@@ -65,8 +133,9 @@ def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> 
 def axis_label(data: xr.DataArray, dim: str) -> str:
     """The axis label of a dimension, with its units.
 
-    The label is the coordinate's ``long_name`` attribute, else a default for the known
-    dimensions (matplotlib mathtext such as ``$\\eta_1$`` for ``eta1``), else the dimension name.
+    The label is the coordinate's ``label`` attribute, else its ``long_name``, else a default for
+    the known dimensions (matplotlib mathtext such as ``$\\eta_1$`` for ``eta1``), else the
+    dimension name.
 
     Parameters
     ----------
@@ -88,7 +157,8 @@ def axis_label(data: xr.DataArray, dim: str) -> str:
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")
     coord = data.coords.get(dim)
-    label = ("" if coord is None else coord.attrs.get("long_name", "")) or DIM_LABELS.get(dim, dim)
+    attrs = {} if coord is None else coord.attrs
+    label = attrs.get("label") or attrs.get("long_name") or DIM_LABELS.get(dim, dim)
     unit = "" if coord is None else coord.attrs.get("units", "")
     return f"{label} [{unit}]" if unit else label
 
@@ -331,15 +401,15 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
         The field, with the physical ``X``, ``Y``, ``Z`` coordinates; without them ``data``
         comes back unchanged.
     dims : sequence of str, optional
-        The directions to close, if periodic. Default: those of ``eta1``, ``eta2``, ``eta3``
-        that ``data`` has.
+        The directions to close, if periodic. Default: those of the logical dimensions (see
+        :func:`logical_dims`) that ``data`` has.
 
     Returns
     -------
     xarray.DataArray
         ``data``, one point longer along each periodic direction in ``dims``.
     """
-    dims = [d for d in (dims or ("eta1", "eta2", "eta3")) if d in data.dims]
+    dims = [d for d in (dims or logical_dims(data)) if d in data.dims]
     if not dims or any(name not in data.coords for name in ("X", "Y", "Z")):
         return data
 
@@ -416,14 +486,14 @@ def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
     """The Jacobian ``J[a, i] = ∂X_a / ∂η_i`` of the mapping, shape ``(3, 3, n1, n2, n3)``.
 
     Differentiated numerically from the ``X``, ``Y``, ``Z`` coordinates of ``data`` on its
-    ``(eta1, eta2, eta3)`` grid: spectrally around periodic directions (see :func:`periodicity`),
+    logical grid (``(eta1, eta2, eta3)``, or GVEC's, see :func:`logical_dims`): spectrally around periodic directions (see :func:`periodicity`),
     second order elsewhere (see :func:`logical_derivative`).
 
     Parameters
     ----------
     data : xarray.DataArray
-        An array with the dimensions ``eta1``, ``eta2``, ``eta3``, each with at least two
-        points, and the ``X``, ``Y``, ``Z`` coordinates over them.
+        An array with the three logical dimensions, each with at least two points, and the
+        ``X``, ``Y``, ``Z`` coordinates over them.
 
     Returns
     -------
@@ -437,7 +507,7 @@ def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
         If a logical dimension is missing or has fewer than two points (pass a struphy domain to
         the calling function instead).
     """
-    spatial = ("eta1", "eta2", "eta3")
+    spatial = logical_dims(data)
     missing = [d for d in spatial if d not in data.dims]
     short = [d for d in spatial if d in data.dims and data.sizes[d] < 2]
     if missing or short:

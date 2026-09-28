@@ -34,8 +34,12 @@ at https://struphy-hub.github.io/plasma-plots.
 - **Dimensions and attributes.** Time is `t`; logical space `eta1`, `eta2`, `eta3` (mapped
   coordinates `X`, `Y`, `Z` as 2-D/3-D coordinates); vector components `component`; markers
   `marker`. Labels come from `attrs["label"]` (mathtext), units from `attrs["units"]`,
-  coordinate labels from their `long_name`/`units`; `attrs["run"]` titles a figure,
+  coordinate labels from their `label`/`long_name`/`units`; `attrs["run"]` titles a figure,
   `attrs["run_name"]` names a run in comparisons.
+- **GVEC.** `.plasma` reads GVEC's evaluations (`state.evaluate(...)`) itself: the dimensions
+  become `rho`, `theta`/`theta_B`/`theta_P`, `zeta`/`zeta_B` (angles in radians, with a
+  `period`), `pos` the `X`, `Y`, `Z` coordinates, `xyz` the `component`; call
+  `plasma_plots.from_gvec(ds)` once on the Dataset to give every variable its geometry.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`); Matplotlib animations a `FuncAnimation`;
   PyVista views a `pyvista.Plotter`; analysis methods labeled xarray objects (which have
@@ -114,7 +118,7 @@ RESULTS = [
     "plasma_plots.plotting.View",
 ]
 # the modules of plain functions behind the accessors, for arrays from anywhere
-MODULES = ["plotting", "spectral_plots", "analysis", "spectral", "arrays", "pyvista_plots"]
+MODULES = ["plotting", "spectral_plots", "analysis", "spectral", "arrays", "gvec", "pyvista_plots"]
 THEORY = ["kinetic", "waves", "parameters", "orbits", "exact", "numerics", "special"]
 
 

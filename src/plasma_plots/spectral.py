@@ -20,6 +20,8 @@ from dataclasses import dataclass
 import numpy as np
 import xarray as xr
 
+from .arrays import angle_period, logical_dims
+
 
 def _provenance(data) -> dict:
     return {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
@@ -791,16 +793,17 @@ def spectrogram(
 def mode_spectrum(
     data: xr.DataArray,
     *,
-    dims=("eta2", "eta3"),
+    dims=None,
     names=("m", "n"),
-    periods=1.0,
-    scale=1,
+    periods=None,
+    scale=None,
 ) -> xr.DataArray:
     """Compute complex Fourier amplitudes over integer mode numbers along periodic directions.
 
     For a torus with θ = 2π eta2 and φ = 2π eta3, the default gives coefficients over poloidal
     ``m`` and toroidal ``n``, as functions of every remaining dimension, e.g.
-    ``(t, eta1, m, n)``. A duplicate periodic endpoint is dropped first (see
+    ``(t, eta1, m, n)``. On GVEC's angles (see :func:`plasma_plots.gvec.from_gvec`) the default
+    uses their periods, 2π and 2π/nfp, and gives the full-torus ``n``, a multiple of nfp. A duplicate periodic endpoint is dropped first (see
     :func:`drop_periodic_endpoint`), and each transform is normalized by N (see :func:`fft`).
     The mode ``exp(2π i (m eta2 + n eta3))`` appears at ``(m, n)``, so a real field ``cos(...)``
     of amplitude ``A`` has ``A/2`` at ``(m, n)`` and at ``(-m, -n)``; see
@@ -812,17 +815,20 @@ def mode_spectrum(
     data : xarray.DataArray
         The field, sampled uniformly over one full period along each of ``dims``.
     dims : str or sequence of str, optional
-        The periodic dimensions to transform. Default: ``("eta2", "eta3")``.
+        The periodic dimensions to transform. Default: the two angles of the logical dimensions
+        (see :func:`plasma_plots.arrays.logical_dims`), ``("eta2", "eta3")`` for Struphy.
     names : str or sequence of str, optional
         The name of the mode number of each dimension, one per dimension.
         Default: ``("m", "n")``.
     periods : float or sequence of float, optional
         Each direction's period in its coordinate: one number for all, or one per dimension.
-        Default: 1.0.
+        Default: the coordinate's ``period`` attribute (see
+        :func:`plasma_plots.arrays.angle_period`), else 1.0.
     scale : int or sequence of int, optional
         Multiplies the mode numbers (one number, or one per dimension; cast to integers), e.g.
         ``scale=(1, 6)`` labels a sixth of a torus (Struphy's ``tor_period=6``) with full-torus
-        toroidal mode numbers. Default: 1.
+        toroidal mode numbers. Default: 2π over the ``period`` attribute of an angle (nfp for
+        GVEC's toroidal angle), else 1.
 
     Returns
     -------
@@ -847,9 +853,14 @@ def mode_spectrum(
     >>> modes = mode_spectrum(phi)
     >>> abs(modes.sel(m=2, n=-1)).isel(t=-1).plot()
     """
-    dims = [dims] if isinstance(dims, str) else list(dims)
+    dims = list(logical_dims(data)[1:]) if dims is None else [dims] if isinstance(dims, str) else list(dims)
     names = [names] if isinstance(names, str) else list(names)
+    attributes = [angle_period(data, dim) for dim in dims]
+    if periods is None:
+        periods = [1.0 if period is None else period for period in attributes]
     periods = [periods] * len(dims) if np.isscalar(periods) else list(periods)
+    if scale is None:
+        scale = [1 if period is None else round(2 * np.pi / period) for period in attributes]
     scales = [scale] * len(dims) if np.isscalar(scale) else list(scale)
     if not len(dims) == len(names) == len(periods) == len(scales):
         raise ValueError("dims, names, periods and scale must have the same length")

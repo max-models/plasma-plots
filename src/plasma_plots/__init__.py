@@ -67,7 +67,12 @@ What is where
 * Whole runs: ``out.plot.energies``, ``out.plot.scalars``, ``out.plot.equilibrium``,
   ``out.plot.profile``; ``out.analysis.linear_mhd_energies``, ``out.analysis.time_fft``,
   ``out.analysis.mode_spectrum``.
-* Integrals: ``plasma_plots.analysis.volume_integral`` and ``field_energy``.
+* Integrals: ``plasma_plots.analysis.volume_integral`` and ``field_energy``;
+  ``analysis.surface_average`` for flux-surface averages.
+* GVEC equilibria: ``.plasma`` reads ``state.evaluate(...)`` itself, ``plasma_plots.from_gvec(ds)``
+  attaches the geometry to every variable; poloidal planes with
+  ``overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}}`` (and ``plane="X1X2"``), ι with
+  ``plot.lineout(rationals=4)`` and ``analysis.rational_surfaces``.
 * Analytic theory to compare with (plain functions, not accessors): ``plasma_plots.theory.kinetic``
   (Landau damping, beam instabilities, Weibel), ``.waves`` (MHD, Hall-MHD and cold-plasma waves,
   drift waves, continua), ``.parameters`` (plasma parameters, Struphy's units), ``.orbits``,
@@ -124,6 +129,7 @@ from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy
 from .accessors import PlasmaAccessor
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .figures import figure
+from .gvec import from_gvec
 from .plotly_backend import get_backend, set_backend
 from .plotting import save_figure
 
@@ -131,6 +137,7 @@ __all__ = [
     "SkippedPlot",
     "PlasmaAccessor",
     "figure",
+    "from_gvec",
     "get_backend",
     "is_plotting_rank",
     "mpi_rank",

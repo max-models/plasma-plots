@@ -17,8 +17,12 @@ at https://struphy-hub.github.io/plasma-plots.
 - **Dimensions and attributes.** Time is `t`; logical space `eta1`, `eta2`, `eta3` (mapped
   coordinates `X`, `Y`, `Z` as 2-D/3-D coordinates); vector components `component`; markers
   `marker`. Labels come from `attrs["label"]` (mathtext), units from `attrs["units"]`,
-  coordinate labels from their `long_name`/`units`; `attrs["run"]` titles a figure,
+  coordinate labels from their `label`/`long_name`/`units`; `attrs["run"]` titles a figure,
   `attrs["run_name"]` names a run in comparisons.
+- **GVEC.** `.plasma` reads GVEC's evaluations (`state.evaluate(...)`) itself: the dimensions
+  become `rho`, `theta`/`theta_B`/`theta_P`, `zeta`/`zeta_B` (angles in radians, with a
+  `period`), `pos` the `X`, `Y`, `Z` coordinates, `xyz` the `component`; call
+  `plasma_plots.from_gvec(ds)` once on the Dataset to give every variable its geometry.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`); Matplotlib animations a `FuncAnimation`;
   PyVista views a `pyvista.Plotter`; analysis methods labeled xarray objects (which have
@@ -69,7 +73,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None, reference=None, backend=None)`: Plot this time series, and any others given, in one axes.
   - e.g. `energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)`
   - e.g. `energy.plasma.plot.timeseries(other_run_energy)`
-- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
+- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
   - e.g. `phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)`
   - e.g. `T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)`
 - `array.plasma.plot.line_animation(*, x=None, sweep='t', reference=None, x_of=None, xlabel=None, ylim=None, step=1, max_frames=None, interval=100, title=None, alongside=None, alongside_logy=False, backend=None, **selection)`: Animate a one-dimensional profile over sweep.
@@ -112,16 +116,16 @@ Plots of one array, as array.plasma.plot.<kind>(...).
   - e.g. `phi.plasma.plot.filtered(band, eta1=0.4, eta2=0.0, eta3=0.0)`
 - `array.plasma.plot.spectrogram(*, length, step=None, detrend=True, window='hann', log=True, dynamic_range=4.0, omega_max=None, frequencies=None, ax=None, backend=None, **selection)`: Plot short-time power spectra over (t, omega).
   - e.g. `signal.plasma.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45)`
-- `array.plasma.plot.mode_amplitudes(*, dims=('eta2', 'eta3'), names=('m', 'n'), top=6, fit=None, reduce='max', scale=1, relative=False, logy=True, ax=None, backend=None, **selection)`: Plot the amplitude of the strongest (m, n) modes of this field over time.
+- `array.plasma.plot.mode_amplitudes(*, dims=None, names=('m', 'n'), top=6, fit=None, reduce='max', scale=None, relative=False, logy=True, ax=None, backend=None, **selection)`: Plot the amplitude of the strongest (m, n) modes of this field over time.
   - e.g. `phi.plasma.plot.mode_amplitudes(top=2, fit=(100, 500))`
-- `array.plasma.plot.mode_map(*, dims=('eta2', 'eta3'), m_range=None, n_range=None, reduce='max', scale=1, log=True, ax=None, backend=None, **selection)`: Plot |amplitude| over the (m, n) plane at one time.
+- `array.plasma.plot.mode_map(*, dims=None, m_range=None, n_range=None, reduce='max', scale=None, log=True, ax=None, backend=None, **selection)`: Plot |amplitude| over the (m, n) plane at one time.
   - e.g. `phi.plasma.plot.mode_map(t=-1, m_range=(0, 16))`
-- `array.plasma.plot.radial_power(*, x='eta1', x_of=None, xlabel=None, continuum=None, detrend=True, window=None, log=True, dynamic_range=3.0, omega_max=None, ax=None, backend=None, **selection)`: Plot the time-power over (omega, x), averaged over the other dimensions.
+- `array.plasma.plot.radial_power(*, x=None, x_of=None, xlabel=None, continuum=None, detrend=True, window=None, log=True, dynamic_range=3.0, omega_max=None, ax=None, backend=None, **selection)`: Plot the time-power over (omega, x), averaged over the other dimensions.
   - e.g. `phi.plasma.plot.radial_power(x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=0.5)`
-- `array.plasma.plot.mode_profiles(omega=None, *, x='eta1', dims=('eta2', 'eta3'), x_of=None, xlabel=None, top=4, phase=True, scale=1, backend=None, **selection)`: Plot the radial profile of each (m, n) harmonic of this field.
+- `array.plasma.plot.mode_profiles(omega=None, *, x=None, dims=None, x_of=None, xlabel=None, top=4, phase=True, scale=None, backend=None, **selection)`: Plot the radial profile of each (m, n) harmonic of this field.
   - e.g. `phi.plasma.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)`
   - e.g. `phi.plasma.plot.mode_profiles(t=-1, scale=(1, 6))`
-- `array.plasma.plot.profiles(*, x='eta1', over='t', at=None, x_of=None, xlabel=None, ax=None, title=None, reference=None, backend=None, **selection)`: Plot profiles along x at several values of over in one axes.
+- `array.plasma.plot.profiles(*, x=None, over='t', at=None, x_of=None, xlabel=None, ax=None, title=None, reference=None, backend=None, **selection)`: Plot profiles along x at several values of over in one axes.
   - e.g. `T.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})`
 - `array.plasma.plot.cross_spectrum(other, *, dims=None, detrend=True, window=None, omega_max=None, backend=None)`: Plot the magnitude, coherence and phase of other relative to this signal.
   - e.g. `u.plasma.plot.cross_spectrum(b, dims="eta3", omega_max=1.5)`
@@ -198,7 +202,7 @@ Quantitative diagnostics of one array, as array.plasma.analysis.<quantity>(...).
   - e.g. `phi.plasma.analysis.spectral_peaks(n_peaks=2)`
 - `array.plasma.analysis.spectrogram(*, length, step=None, detrend=True, window='hann')`: Return power spectra in sliding time windows.
   - e.g. `signal.plasma.analysis.spectrogram(length=200.0, step=10.0)`
-- `array.plasma.analysis.mode_spectrum(*, dims=('eta2', 'eta3'), names=('m', 'n'), periods=1.0)`: Return the complex amplitudes over poloidal/toroidal mode numbers.
+- `array.plasma.analysis.mode_spectrum(*, dims=None, names=('m', 'n'), periods=None, scale=None)`: Return the complex amplitudes over poloidal/toroidal mode numbers.
   - e.g. `modes = phi.plasma.analysis.mode_spectrum()`
 - `array.plasma.analysis.mode_amplitudes(*, top=None, real=True, relative=False)`: Return the real amplitudes of this mode spectrum along one mode dimension.
   - e.g. `phi.plasma.analysis.mode_spectrum().plasma.analysis.mode_amplitudes(top=4)`
@@ -210,6 +214,10 @@ Quantitative diagnostics of one array, as array.plasma.analysis.<quantity>(...).
   - e.g. `probe.plasma.analysis.matrix_pencil(n_modes=1)`
 - `array.plasma.analysis.gradient(*, domain=None)`: Return the Cartesian gradient of this scalar field on a mapped domain.
   - e.g. `phi.plasma.analysis.gradient()`
+- `array.plasma.analysis.surface_average(*, jacobian=None, domain=None, quadrature=None)`: Return the flux-surface average of this field over its two angles.
+  - e.g. `ev.mod_B.plasma.analysis.surface_average(jacobian=ev.Jac)`
+- `array.plasma.analysis.rational_surfaces(*, count=4, nfp=None, max_denominator=12)`: Return where this rotational transform (or safety factor) profile is a low-order rational.
+  - e.g. `ev.iota.plasma.analysis.rational_surfaces(count=3)`
 - `array.plasma.analysis.error(exact, *, norm='rms', relative=False, dims=None, weighted=False, domain=None, args=None)`: Return the error against an exact solution (an array or a function of the coordinates).
   - e.g. `T.plasma.analysis.error(exact, relative=True)`
   - e.g. `T.plasma.analysis.error(exact, norm="max")`
@@ -300,6 +308,8 @@ Quantitative diagnostics of one dataset, as dataset.plasma.analysis.<quantity>(.
   - e.g. `orbits.plasma.analysis.orbit_invariants(absB=absB_xyz)`
 - `dataset.plasma.analysis.bounce_period(*, v_par='v_par')`: Return the bounce period of each trapped marker.
   - e.g. `orbits.plasma.analysis.bounce_period()`
+- `dataset.plasma.analysis.surface_average(name, *, jacobian='Jac', domain=None, quadrature=None)`: Return the flux-surface average of one variable, with this Dataset's Jacobian.
+  - e.g. `ev.plasma.analysis.surface_average("mod_B")`
 
 ### dataset.plasma.data
 
@@ -409,9 +419,10 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 
 - `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`
 - `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`
-- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`
+- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
-- `plasma_plots.arrays`: `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
+- `plasma_plots.arrays`: `logical_dims`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
+- `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `save_vtk`, `save_movie`
 
 ## Theory: plasma_plots.theory

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 import xarray as xr
 
-from .arrays import validate_array
+from .arrays import angle_period, logical_dims, validate_array
 
 
 def _label(data):
@@ -414,7 +414,6 @@ def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
     return out
 
 
-SPATIAL_DIMS = ("eta1", "eta2", "eta3")
 VELOCITY_DIMS = ("v1", "v2", "v3")
 
 
@@ -448,8 +447,8 @@ def spatial_average(data: xr.DataArray, *, dims=None) -> xr.DataArray:
     data : xarray.DataArray
         The array, e.g. a binned distribution function.
     dims : str or sequence of str, optional
-        The dimensions averaged over. Default: every one of ``eta1``, ``eta2``, ``eta3`` that
-        ``data`` has.
+        The dimensions averaged over. Default: every logical dimension (``eta1``, ``eta2``,
+        ``eta3``, or GVEC's ``rho``, ``theta``, ``zeta``) that ``data`` has.
 
     Returns
     -------
@@ -463,7 +462,7 @@ def spatial_average(data: xr.DataArray, *, dims=None) -> xr.DataArray:
         If ``data`` has none of the default dimensions, or lacks one of ``dims``.
     """
     validate_array(data)
-    averaged = _select_dims(data, dims, SPATIAL_DIMS)
+    averaged = _select_dims(data, dims, logical_dims(data))
     out = data.mean(averaged, keep_attrs=True)
     out.attrs["label"] = f"average of {_label(data)}".strip()
     out.attrs.pop("long_name", None)
@@ -845,17 +844,21 @@ def power_spectrum(data: xr.DataArray, *, dim: str | None = None, detrend: bool 
 # ---------------------------------------------------------------------------------------------
 
 
-def quadrature_weights(coordinate) -> np.ndarray:
-    """Quadrature weights for samples of a logical coordinate in ``[0, 1]``.
+def quadrature_weights(coordinate, *, period: float | None = None) -> np.ndarray:
+    """Quadrature weights for samples of a logical coordinate in ``[0, 1]``, or of an angle.
 
     Struphy's cell centers (uniform, half a cell from each end) get the midpoint rule, which
-    integrates over the whole unit interval; any other grid gets the trapezoidal rule over the
-    sampled range. A single point (a 2-D run's flat direction) has weight 1.
+    integrates over the whole unit interval; a uniform grid over one full ``period`` (an angle,
+    e.g. GVEC's) the rectangle rule, exact for its Fourier modes; any other grid the trapezoidal
+    rule over the sampled range. A single point (a 2-D run's flat direction) has weight 1.
 
     Parameters
     ----------
     coordinate : array_like of float
         The sample points along one logical direction.
+    period : float, optional
+        The direction's period, if it is an angle (see :func:`plasma_plots.arrays.angle_period`).
+        Default: none.
 
     Returns
     -------
@@ -872,6 +875,8 @@ def quadrature_weights(coordinate) -> np.ndarray:
     h = np.diff(x)
     if np.allclose(h, h[0]) and np.isclose(x[0], h[0] / 2) and np.isclose(x[-1], 1 - h[0] / 2):
         return np.full(x.size, h[0])
+    if period is not None and np.allclose(h, h[0]) and np.isclose(x.size * h[0], period):
+        return np.full(x.size, h[0])
     weights = np.empty(x.size)
     weights[1:-1] = (x[2:] - x[:-2]) / 2
     weights[0], weights[-1] = h[0] / 2, h[-1] / 2
@@ -882,42 +887,57 @@ def _geometry(data: xr.DataArray, domain=None):
     """``|sqrt g|`` and the metric ``G`` (3, 3, n1, n2, n3) on the logical grid of ``data``: from a
     struphy ``domain`` (exact), or from the Jacobian of the attached X, Y, Z coordinates.
     """
-    missing = [d for d in SPATIAL_DIMS if d not in data.dims]
+    spatial = logical_dims(data)
+    missing = [d for d in spatial if d not in data.dims]
     if missing:
-        raise ValueError(f"integrals need the logical dimensions eta1, eta2, eta3; {missing} are missing")
+        raise ValueError(f"integrals need the logical dimensions {spatial}; {missing} are missing")
     if domain is not None:
-        etas = [np.asarray(data[d], dtype=float) for d in SPATIAL_DIMS]
+        etas = [np.asarray(data[d], dtype=float) for d in spatial]
         sqrt_g = np.abs(np.asarray(domain.jacobian_det(*etas), dtype=float))
         metric = np.asarray(domain.metric(*etas), dtype=float)
-        return sqrt_g.reshape([data.sizes[d] for d in SPATIAL_DIMS]), metric
+        return sqrt_g.reshape([data.sizes[d] for d in spatial]), metric
     from .arrays import mapping_jacobian
 
-    jacobian = mapping_jacobian(data)
+    jacobian = mapping_jacobian(data.transpose(..., *spatial))
     sqrt_g = np.abs(np.linalg.det(np.moveaxis(jacobian, (0, 1), (-2, -1))))
     metric = np.einsum("ai...,aj...->ij...", jacobian, jacobian)
     return sqrt_g, metric
 
 
-def _integrate(integrand: xr.DataArray, quadrature=None) -> xr.DataArray:
+def _weights(data: xr.DataArray, dim: str, given=None) -> np.ndarray:
+    """The quadrature weights along ``dim``: ``given``, else a ``<dim>_weight`` coordinate (GVEC's
+    Gauss weights, one per point or one for all), else :func:`quadrature_weights`."""
+    if given is None and f"{dim}_weight" in data.coords:
+        given = np.broadcast_to(np.asarray(data.coords[f"{dim}_weight"], dtype=float), (data.sizes[dim],))
+    if given is None:
+        return quadrature_weights(data[dim], period=angle_period(data, dim))
+    values = np.asarray(given, dtype=float)
+    if values.size != data.sizes[dim]:
+        raise ValueError(f"{values.size} quadrature weights for {data.sizes[dim]} points along {dim!r}")
+    return values
+
+
+def _integrate(integrand: xr.DataArray, quadrature=None, dims=None) -> xr.DataArray:
+    dims = logical_dims(integrand) if dims is None else dims
     weights = 1.0
-    for dim in SPATIAL_DIMS:
-        given = (quadrature or {}).get(dim)
-        values = quadrature_weights(integrand[dim]) if given is None else np.asarray(given, dtype=float)
-        if values.size != integrand.sizes[dim]:
-            raise ValueError(f"{values.size} quadrature weights for {integrand.sizes[dim]} points along {dim!r}")
-        weights = weights * xr.DataArray(values, dims=(dim,))
-    return (integrand * weights).sum(list(SPATIAL_DIMS))
+    for dim in dims:
+        weights = weights * xr.DataArray(_weights(integrand, dim, (quadrature or {}).get(dim)), dims=(dim,))
+    weight_coords = [f"{d}_weight" for d in dims if f"{d}_weight" in integrand.coords]
+    return (integrand * weights).sum(list(dims)).drop_vars(weight_coords, errors="ignore")
 
 
 def _spatial_array(values, data):
+    spatial = logical_dims(data)
     return xr.DataArray(
         np.asarray(values, dtype=float),
-        dims=SPATIAL_DIMS,
-        coords={d: data[d] for d in SPATIAL_DIMS},
+        dims=spatial,
+        coords={d: data[d] for d in spatial},
     )
 
 
-def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=None, quadrature=None) -> xr.DataArray:
+def volume_integral(
+    data: xr.DataArray, *, form: int = 0, weight=None, domain=None, quadrature=None, jacobian=None
+) -> xr.DataArray:
     """``∫ w f dV`` over the logical grid, as a function of every other dimension (e.g. ``t``).
 
     A function (``form=0``) is integrated with the volume element ``|√g| dη``; a density (a
@@ -926,25 +946,32 @@ def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=No
     Parameters
     ----------
     data : xarray.DataArray
-        The integrand, with the dimensions ``eta1``, ``eta2``, ``eta3``.
+        The integrand, with the three logical dimensions (``eta1``, ``eta2``, ``eta3``, or GVEC's
+        ``rho``, ``theta``, ``zeta``; see :func:`plasma_plots.arrays.logical_dims`).
     form : {0, 3}, optional
         ``0`` (default) for a function, ``3`` for a density.
     weight : array_like, optional
-        An extra weight ``w`` over ``(eta1, eta2, eta3)``, broadcast against ``data``.
+        An extra weight ``w`` over the logical grid, broadcast against ``data``.
     domain : struphy domain, optional
         The mapping (``out.domain``), which gives the exact ``|√g|``. Without one, ``|√g|`` comes
         from the numerical Jacobian of the ``X``, ``Y``, ``Z`` coordinates (see
         :func:`plasma_plots.arrays.mapping_jacobian`). Only needed for ``form=0``.
     quadrature : dict, optional
-        Maps ``eta1``/``eta2``/``eta3`` to explicit weights, one per point (e.g. Gauss weights,
-        see ``out.analysis.quadrature_grid()``). Directions left out get
-        :func:`quadrature_weights`: the midpoint rule on Struphy's cell centers, else trapezoidal.
+        Maps logical dimensions to explicit weights, one per point (e.g. Gauss weights, see
+        ``out.analysis.quadrature_grid()``). Directions left out take a ``<dim>_weight``
+        coordinate (GVEC's integration points, see :func:`plasma_plots.gvec.from_gvec`), else
+        :func:`quadrature_weights`: the midpoint rule on Struphy's cell centers, the rectangle rule
+        over a full period of an angle, else trapezoidal.
+    jacobian : xarray.DataArray, optional
+        The Jacobian determinant ``√g`` on the grid, e.g. GVEC's ``Jac`` (its absolute value is
+        used), instead of ``domain`` or the numerical one. Only needed for ``form=0``.
 
     Returns
     -------
     xarray.DataArray
-        The integral, as a function of the dimensions other than ``eta1``, ``eta2``, ``eta3``,
-        labeled ``"integral of ..."``.
+        The integral, as a function of the dimensions other than the logical ones, labeled
+        ``"integral of ..."``. On GVEC's grid over one field period, multiply by ``nfp`` for the
+        whole device.
 
     Raises
     ------
@@ -960,18 +987,174 @@ def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=No
     --------
     >>> total_charge = volume_integral(rho, domain=out.domain)
     >>> mass = volume_integral(n3, form=3)          # a 3-form: no |√g|
+    >>> volume = volume_integral(xr.ones_like(ev.mod_B), jacobian=ev.Jac) * ev.nfp   # GVEC
     """
     if form not in (0, 3):
         raise ValueError("volume_integral takes form=0 (a function) or form=3 (a density)")
     validate_array(data)
     integrand = data
-    if form == 0:
+    if form == 0 and jacobian is not None:
+        integrand = integrand * abs(jacobian)
+    elif form == 0:
         sqrt_g, _ = _geometry(data, domain)
         integrand = integrand * _spatial_array(sqrt_g, data)
     if weight is not None:
         integrand = integrand * np.asarray(weight, dtype=float)
     out = _integrate(integrand, quadrature)
     out.attrs = {**_provenance(data), "label": f"integral of {_label(data)}".strip()}
+    return out
+
+
+def surface_average(data: xr.DataArray, *, jacobian=None, domain=None, quadrature=None) -> xr.DataArray:
+    """The flux-surface average ``⟨f⟩ = ∫ f √g dθ dζ / ∫ √g dθ dζ`` over the two angles.
+
+    The angles are the second and third logical dimensions (``eta2``, ``eta3``, or GVEC's
+    ``theta``, ``zeta`` or Boozer or PEST angles; see :func:`plasma_plots.arrays.logical_dims`),
+    and the average is a function of the radius and every other dimension. The angles are
+    integrated as in :func:`volume_integral`: GVEC's Gauss weights where given, else the
+    rectangle rule over a full period. On the magnetic axis, where ``√g`` vanishes, it is the
+    plain mean over the angles.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The field, over the radial and both angular logical dimensions.
+    jacobian : xarray.DataArray, optional
+        ``√g`` on the same grid, e.g. GVEC's ``Jac`` (its absolute value is used). Default: from
+        ``domain``, else the numerical Jacobian of the ``X``, ``Y``, ``Z`` coordinates, which needs
+        at least two radial points.
+    domain : struphy domain, optional
+        The mapping, for the exact ``√g`` of a Struphy run.
+    quadrature : dict, optional
+        Explicit weights for the angles, as for :func:`volume_integral`.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``⟨f⟩`` as a function of the radius (and every non-spatial dimension), labeled
+        ``"⟨...⟩"``.
+
+    Raises
+    ------
+    ValueError
+        If an angle is missing, or ``√g`` can't be computed (no ``jacobian``, ``domain`` or
+        ``X``, ``Y``, ``Z`` on at least two radial points).
+
+    See Also
+    --------
+    volume_integral
+
+    Examples
+    --------
+    >>> ev.mod_B.plasma.analysis.surface_average(jacobian=ev.Jac)    # GVEC: ⟨|B|⟩(rho)
+    >>> surface_average(p, domain=out.domain)                        # Struphy
+    """
+    validate_array(data)
+    _, poloidal, toroidal = logical_dims(data)
+    missing = [d for d in (poloidal, toroidal) if d not in data.dims]
+    if missing:
+        raise ValueError(f"a surface average needs the angles {poloidal!r}, {toroidal!r}; {missing} are missing")
+    if jacobian is not None:
+        sqrt_g = abs(jacobian)
+    else:
+        values, _ = _geometry(data, domain)
+        sqrt_g = _spatial_array(values, data)
+    weights = xr.ones_like(sqrt_g)
+    for dim in (poloidal, toroidal):
+        weights = weights * xr.DataArray(_weights(data, dim, (quadrature or {}).get(dim)), dims=(dim,))
+    measure = (sqrt_g * weights).sum((poloidal, toroidal))
+    plain = (data * weights).sum((poloidal, toroidal)) / weights.sum((poloidal, toroidal))
+    out = ((data * sqrt_g * weights).sum((poloidal, toroidal)) / measure.where(measure > 0)).fillna(plain)
+    drop = [f"{d}_weight" for d in (poloidal, toroidal) if f"{d}_weight" in out.coords]
+    out = out.drop_vars(drop)
+    out.attrs = {**_provenance(data), "label": f"⟨{_label(data)}⟩"}
+    if "nfp" in data.attrs:
+        out.attrs["nfp"] = data.attrs["nfp"]
+    return out
+
+
+def rational_surfaces(
+    profile: xr.DataArray, *, count: int = 4, nfp: int | None = None, max_denominator: int = 12
+) -> xr.DataArray:
+    """Where a rotational transform (or safety factor) profile takes low-order rational values.
+
+    The values are the fractions ``n/m`` with ``m ≤ max_denominator`` and ``n`` a multiple of
+    ``nfp`` (for ι = n/m, the resonances of a stellarator with nfp field periods) that the profile
+    reaches; the ``count`` of lowest order (smallest ``m``, then ``|n|``) are kept. Each crossing
+    is found by linear interpolation between samples, so a non-monotonic profile gives several.
+
+    Parameters
+    ----------
+    profile : xarray.DataArray
+        A 1-D profile, e.g. ``iota`` over ``rho``.
+    count : int, optional
+        The number of rational values. Default: 4.
+    nfp : int, optional
+        The numerators are multiples of it. Default: the profile's ``nfp`` attribute (GVEC's, see
+        :func:`plasma_plots.gvec.from_gvec`), else 1.
+    max_denominator : int, optional
+        The largest ``m``. Default: 12.
+
+    Returns
+    -------
+    xarray.DataArray
+        The positions of the crossings (in the profile's coordinate), over a ``surface``
+        dimension with the coordinates ``n``, ``m`` and ``value`` (``n/m``), lowest order first;
+        empty if the profile reaches none.
+
+    Raises
+    ------
+    ValueError
+        If ``profile`` is not one-dimensional.
+
+    See Also
+    --------
+    plasma_plots.plotting.plot_lineout : ``rationals=`` marks them on the profile.
+
+    Examples
+    --------
+    >>> rational_surfaces(ev.iota, count=3)
+    >>> ev.iota.plasma.plot.lineout(rationals=3)
+    """
+    from math import gcd
+
+    validate_array(profile)
+    if profile.ndim != 1:
+        raise ValueError(f"rational surfaces need a 1-D profile; {profile.name!r} has dims {profile.dims}")
+    dim = profile.dims[0]
+    nfp = int(profile.attrs.get("nfp", 1) if nfp is None else nfp)
+    x = np.asarray(profile[dim], dtype=float)
+    y = np.asarray(profile, dtype=float)
+    finite = np.isfinite(y)
+    lo, hi = float(y[finite].min()), float(y[finite].max())
+    candidates = []
+    for m in range(1, max_denominator + 1):
+        for n in range(int(np.ceil(lo * m / nfp)) * nfp, int(np.floor(hi * m / nfp)) * nfp + 1, nfp):
+            if gcd(abs(n), m) == 1 or (n == 0 and m == 1):
+                candidates.append((m, abs(n), n))
+    candidates = sorted(set(candidates))[:count]
+    rows = []
+    for m, _, n in candidates:
+        value = n / m
+        d = y - value
+        for i in range(len(x) - 1):
+            if not (np.isfinite(d[i]) and np.isfinite(d[i + 1])):
+                continue
+            if d[i] == 0:
+                rows.append((n, m, value, x[i]))
+            elif d[i] * d[i + 1] < 0:
+                rows.append((n, m, value, x[i] - d[i] * (x[i + 1] - x[i]) / (d[i + 1] - d[i])))
+        if d[-1] == 0:
+            rows.append((n, m, value, x[-1]))
+    n, m, value, where = (np.array(column) for column in zip(*rows)) if rows else ([], [], [], [])
+    out = xr.DataArray(
+        np.asarray(where, dtype=float),
+        dims="surface",
+        coords={"n": ("surface", np.asarray(n, dtype=int)), "m": ("surface", np.asarray(m, dtype=int)),
+                "value": ("surface", np.asarray(value, dtype=float))},
+        name=dim,
+        attrs={"label": f"rational surfaces of {_label(profile)}"},
+    )
     return out
 
 
@@ -1075,10 +1258,11 @@ def field_energy(
             tensor = metric * (w / np.where(sqrt_g > 0, sqrt_g, np.inf))
         else:
             tensor = metric * (w * sqrt_g)
+        spatial = logical_dims(data)
         A = xr.DataArray(
             tensor,
-            dims=("component", "component_2", *SPATIAL_DIMS),
-            coords={d: data[d] for d in SPATIAL_DIMS},
+            dims=("component", "component_2", *spatial),
+            coords={d: data[d] for d in spatial},
         )
         other = data.rename(component="component_2").drop_vars("component_2", errors="ignore")
         squared = (data.drop_vars("component", errors="ignore") * A * other).sum(("component", "component_2"))
@@ -1132,13 +1316,14 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
     from .arrays import logical_derivative, mapping_jacobian, periodicity
 
     validate_array(data)
-    missing = [d for d in SPATIAL_DIMS if d not in data.dims]
+    spatial = logical_dims(data)
+    missing = [d for d in spatial if d not in data.dims]
     if missing:
-        raise ValueError(f"gradient needs the logical dimensions eta1, eta2, eta3; {missing} are missing")
+        raise ValueError(f"gradient needs the logical dimensions {spatial}; {missing} are missing")
     if "component" in data.dims:
         raise ValueError("gradient takes a scalar field; select a component first")
-    field = data.transpose(..., *SPATIAL_DIMS)
-    etas = [np.asarray(field[d], dtype=float) for d in SPATIAL_DIMS]
+    field = data.transpose(..., *spatial)
+    etas = [np.asarray(field[d], dtype=float) for d in spatial]
     varying = [i for i, eta in enumerate(etas) if eta.size > 1]
     if not varying:
         raise ValueError("gradient needs at least one logical direction with more than one point")
@@ -1152,7 +1337,7 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
         if any(name not in field.coords for name in ("X", "Y", "Z")):
             raise ValueError("gradient needs the X, Y, Z coordinates, or a struphy domain")
         points = np.stack(
-            [np.asarray(field.coords[name].transpose(*SPATIAL_DIMS), dtype=float) for name in ("X", "Y", "Z")],
+            [np.asarray(field.coords[name].transpose(*spatial), dtype=float) for name in ("X", "Y", "Z")],
             axis=-1,
         )
         if len(varying) == 3:
@@ -1223,7 +1408,7 @@ def evaluate_on(data: xr.DataArray, function, args=None) -> xr.DataArray:
         space = (
             ["X", "Y", "Z"]
             if all(c in data.coords for c in ("X", "Y", "Z"))
-            else [d for d in SPATIAL_DIMS if d in data.dims]
+            else [d for d in logical_dims(data) if d in data.dims]
         )
         args = [*space, *(["t"] if "t" in data.coords else [])]
     missing = [name for name in args if name not in data.coords]
@@ -1328,11 +1513,12 @@ def error(
             return abs(values).max(dims)
         power = 1 if norm == "l1" else 2
         if weighted:
-            if not set(SPATIAL_DIMS) <= set(values.dims) or set(dims) != set(SPATIAL_DIMS):
-                raise ValueError("weighted norms integrate over eta1, eta2, eta3 (the default dims)")
+            spatial = logical_dims(values)
+            if not set(spatial) <= set(values.dims) or set(dims) != set(spatial):
+                raise ValueError(f"weighted norms integrate over {spatial} (the default dims)")
             integral = volume_integral(abs(values) ** power, domain=domain)
             if norm == "rms":
-                ones = xr.ones_like(values.isel({d: 0 for d in values.dims if d not in SPATIAL_DIMS}, drop=True))
+                ones = xr.ones_like(values.isel({d: 0 for d in values.dims if d not in spatial}, drop=True))
                 integral = integral / volume_integral(ones, domain=domain)
         else:
             integral = (abs(values) ** power).mean(dims)
@@ -1576,11 +1762,12 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
     >>> J.plasma.plot.slice(overlays={"contours_of": A})
     """
     cartesian = _cartesian_vector(vector, "cartesian").isel(component=[0, 1])
+    spatial = logical_dims(cartesian)
     field = cartesian.squeeze(
-        [d for d in SPATIAL_DIMS if d in cartesian.dims and cartesian.sizes[d] == 1],
+        [d for d in spatial if d in cartesian.dims and cartesian.sizes[d] == 1],
         drop=False,
     )
-    grid = [d for d in SPATIAL_DIMS if d in field.dims and field.sizes[d] > 1]
+    grid = [d for d in spatial if d in field.dims and field.sizes[d] > 1]
     if len(grid) != 2 or not all(c in field.coords for c in ("X", "Y")):
         raise ValueError("flux_function needs a 2-D field on two logical directions with X, Y coordinates")
     X = np.asarray(field.coords["X"].squeeze(drop=True).transpose(*grid), dtype=float)
