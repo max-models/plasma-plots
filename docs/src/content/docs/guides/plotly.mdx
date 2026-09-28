@@ -44,7 +44,22 @@ result.save("energy.json")     # the figure JSON, e.g. for a website
 ```
 
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
-that saves its figures runs unchanged on several ranks. A space-time map of a `(t, z)` field is
+that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`
+saves the same way, with the same defaults and only on rank 0: `PlotResult(figure).save("page.html")`
+(`from struphy_plots.plotting import PlotResult`).
+
+To write the page, the image and the figure JSON at once, as a website needs them, use
+`save_figure`. It takes a plot's result or a figure of your own, and saves nothing on other ranks:
+
+```python
+from struphy_plots import save_figure
+
+save_figure(result, "energy", show=True)              # energy.html, energy.png, energy.plotly.json
+save_figure(movie, "phase-space", frame=-1)           # the image shows the last frame
+save_figure(my_figure, "orbits", formats=("html",))   # a plotly.graph_objects.Figure, only the page
+```
+
+A space-time map of a `(t, z)` field is
 a slice with time as one of its axes:
 `e_x.struphy.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
 
@@ -75,7 +90,13 @@ n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], st
 
 <PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
 
-Every frame is stored in the figure, so a long, finely resolved sweep makes a large page. Use
+Every frame stores only what changes: parts that are the same in every frame (static contour
+lines, the domain's boundary, a fixed background, a mesh's grid) are stored once. A contour level
+the field reaches only in some frames is hidden in the others. On a mapped grid, each frame is an
+image of the mesh; `struphy_plots.plotly_backend.IMAGE_PIXELS = 600` (default 1200 along the
+longer side) makes those images, and the page, smaller.
+
+Still, a long, finely resolved sweep makes a large page. Use
 `step` to keep every n-th frame, or `max_frames` for at most that many, evenly spaced (the first
 and the last included). If the first frame is still featureless, the image of an animation can
 show a later one; the page and the JSON keep the whole animation:
@@ -105,8 +126,9 @@ The guides show many of the plots with Plotly, folded under each Matplotlib figu
   `movie`, `orbits_3d`) are already interactive; see [3-D views](/struphy-plots/guides/3d-views/).
 - `frames` and `save_frames` write PNG files for a movie.
 - `ax=`, which draws into a Matplotlib axes you made, cannot be combined with
-  `backend="plotly"` (that raises `TypeError`). To compose several plots, save them
-  separately, or build your own figure from [`.struphy.data`](/struphy-plots/guides/data/).
+  `backend="plotly"` (that raises `TypeError`). To compose several plots into one Plotly
+  figure, use `struphy_plots.figure(..., backend="plotly")` (see
+  [Several plots in one figure](/struphy-plots/guides/timeseries/#several-plots-in-one-figure)).
 - `out.plot.profile.*` has its own `backend="plotly"`, from scope-profiler (see
   [Profiling](/struphy-plots/guides/profiling/)).
 

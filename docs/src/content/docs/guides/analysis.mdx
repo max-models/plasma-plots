@@ -31,6 +31,25 @@ energy in Landau damping — fitting the raw oscillation would give nonsense.
 
 ![Damping rate fitted to the envelope of an oscillating, decaying signal](../../../assets/figures/damping.png)
 
+## Oscillation frequency
+
+`oscillation_frequency()` measures the frequency of one oscillation from its zero crossings,
+which damping or growth do not shift. Each crossing is interpolated to a fraction of a sample,
+and the period is the slope of a line through the crossing times, so a few periods give a
+frequency far finer than a spectrum's bins:
+
+```python
+fit = probe.struphy.analysis.oscillation_frequency(window=(0.0, 30.0))
+fit.omega, fit.period, fit.times       # the crossings used
+probe.struphy.analysis.oscillation_frequency(method="peaks")   # from the maxima instead
+```
+
+`method="peaks"` uses the maxima, for a signal that does not cross its mean. The peaks of an
+energy are half a period of the field apart, so they give twice its frequency. For several
+frequencies at once, use a [spectrum](/struphy-plots/guides/spectral/).
+
+![A damped oscillation with its zero crossings marked](../../../assets/figures/oscillation_frequency.png)
+
 ## Norm
 
 ```python
@@ -118,17 +137,16 @@ once, use the [mode spectrum](/struphy-plots/guides/spectral/#mode-numbers).
 ## Convergence studies
 
 ```python
-from struphy_plots.plotting import plot_convergence
-
-plot_convergence(resolutions, errors, order=2)  # a reference slope
-plot_convergence(resolutions, errors)           # or fit the observed order
+errors = xr.DataArray(l2_errors, dims="n", coords={"n": [8, 16, 32, 64, 128]}, name="scheme A")
+errors.struphy.plot.convergence(other_errors)   # fit the observed order of each
+errors.struphy.plot.convergence(order=2)        # or draw a reference slope
 ```
 
-`plot_convergence` is a standalone function (not tied to a single array —
-`resolutions`/`errors` are usually your own arrays from a resolution or `dt`
-scan), plotted log-log. Give it an explicit `order` to draw a reference
+`plot.convergence` draws 1-D errors over their resolution (or step size) log-log, one series per
+array, e.g. several schemes or norms. Give it an explicit `order` to draw a reference
 slope (e.g. `2` for an expected second-order scheme), or leave it to fit and
-report the observed order via `struphy_plots.analysis.convergence_order`:
+report the observed order via `struphy_plots.analysis.convergence_order`. For plain arrays,
+`struphy_plots.plotting.plot_convergence(resolutions, errors)` does the same:
 
 ![Two schemes' error decaying with resolution, each with a fitted order](../../../assets/figures/convergence.png)
 

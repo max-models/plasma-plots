@@ -49,6 +49,45 @@ energy.struphy.plot.timeseries(other_run_energy, logy=True)
 Passing further arrays plots them together; if they come from different runs
 (different `attrs["run_name"]`), each line is labeled by its run.
 
+## Several plots in one figure
+
+`struphy_plots.figure(nrows, ncols)` makes a figure of panels; every plot method that takes
+`ax=` draws into one of them. Here the growing energy with its fit above, and the relative drift
+of the total energy below:
+
+```python
+import struphy_plots
+
+with struphy_plots.figure(2, 1, sharex=True) as fig:
+    energy.struphy.plot.timeseries(fit=(0.0, 2.0), ax=fig[0])
+    total.struphy.analysis.drift().struphy.plot.timeseries(logy=False, ax=fig[1])
+fig.save("energies.png")
+fig.results[0].fit_results[0].rate     # each panel's result, with its fits
+```
+
+![The field energy with its fit above, the drift of the total energy below](../../../assets/figures/composed_energies.png)
+
+Panels keep their own colorbars and legends; `sharex`/`sharey` share the axes (and, in Plotly,
+their zoom), and `title=` goes above all panels. Panels left empty are hidden.
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+`backend="plotly"` finishes the figure as one interactive Plotly figure (see
+[Interactive plots with Plotly](/struphy-plots/guides/plotly/)); the plots inside the block draw
+into their panels as before:
+
+```python
+with struphy_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
+    energy.struphy.plot.timeseries(fit=(0.0, 2.0), ax=fig[0])
+    total.struphy.analysis.drift().struphy.plot.timeseries(logy=False, ax=fig[1])
+fig.save("energies.html")
+```
+
+<PlotlyChart src="/plotly/plotly_composed_energies.json" height="560px" />
+
+</details>
+
 ## Exact and expected curves
 
 `reference` draws exact or expected curves over the series, dashed and black:

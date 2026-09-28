@@ -244,6 +244,109 @@ def damping_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult 
     return growth_rate(envelope(data), fit)
 
 
+
+@dataclass(frozen=True)
+class OscillationFit:
+    """The frequency of an oscillating time series, from :func:`oscillation_frequency`.
+
+    Attributes
+    ----------
+    omega : float
+        The angular frequency ``2π / period``.
+    period : float
+        The period, from a straight-line fit through the times of successive zero crossings (half
+        periods apart) or peaks (a period apart).
+    times : numpy.ndarray
+        The times of the crossings or peaks that were used.
+    method : str
+        ``"zero_crossings"`` or ``"peaks"``.
+    """
+
+    omega: float
+    period: float
+    times: np.ndarray
+    method: str
+
+
+def oscillation_frequency(
+    data: xr.DataArray,
+    *,
+    window: tuple[float | None, float | None] = (None, None),
+    method: str = "zero_crossings",
+    detrend: bool = True,
+) -> OscillationFit | None:
+    """Measure the frequency of an oscillating time series from its zero crossings or its peaks.
+
+    Zero crossings are unaffected by damping or growth, and are found to a fraction of a sample by
+    linear interpolation; peaks are refined by a parabola through each peak and its neighbours.
+    The period is the slope of a straight line through the crossing (or peak) times against their
+    number, so a single late or early crossing hardly matters. A spectrum
+    (:func:`~struphy_plots.spectral.spectral_peaks`) resolves several frequencies at once; this
+    measures one, from a few periods, better than a frequency bin.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The time series, with ``t`` as its only dimension, e.g. a probe or a mode amplitude.
+    window : (float or None, float or None), optional
+        The time interval ``(t0, t1)`` used; ``None`` for an open end. Default: every sample.
+    method : {"zero_crossings", "peaks"}, optional
+        Count the crossings of the mean (half a period apart), or the maxima (a period apart; for a
+        signal that does not cross its mean, e.g. an energy, whose peaks are half the field's
+        period apart). Default: ``"zero_crossings"``.
+    detrend : bool, optional
+        Subtract the mean over the window first, so that crossings are of the mean. Default:
+        ``True``.
+
+    Returns
+    -------
+    OscillationFit or None
+        The frequency, period and the times used; ``None`` with fewer than two crossings or peaks.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``t``, or ``method`` is unknown.
+
+    See Also
+    --------
+    damping_rate : The decay of the same oscillation.
+
+    Examples
+    --------
+    >>> oscillation_frequency(phi.isel(eta1=8, eta2=0, eta3=0), window=(5.0, 40.0)).omega
+    """
+    validate_array(data, required_dims=("t",))
+    if data.dims != ("t",):
+        raise ValueError(f"oscillation_frequency needs dims ('t',), got {data.dims}")
+    if method not in ("zero_crossings", "peaks"):
+        raise ValueError(f"unknown method {method!r}; expected 'zero_crossings' or 'peaks'")
+    t0, t1 = window
+    t = np.asarray(data.t, dtype=float)
+    keep = np.isfinite(np.asarray(data, dtype=float)) & (t >= (-np.inf if t0 is None else t0)) & (
+        t <= (np.inf if t1 is None else t1)
+    )
+    t, values = t[keep], np.asarray(data, dtype=float)[keep]
+    if detrend and values.size:
+        values = values - values.mean()
+    if method == "zero_crossings":
+        sign = np.signbit(values)
+        i = np.flatnonzero(sign[:-1] != sign[1:])
+        # linear interpolation between the two samples around each crossing
+        times = t[i] - values[i] * (t[i + 1] - t[i]) / (values[i + 1] - values[i])
+        spacing = 0.5  # crossings are half a period apart
+    else:
+        i = np.flatnonzero((values[1:-1] > values[:-2]) & (values[1:-1] >= values[2:])) + 1
+        left, mid, right = values[i - 1], values[i], values[i + 1]
+        curvature = left - 2 * mid + right
+        shift = np.where(curvature != 0, 0.5 * (left - right) / np.where(curvature != 0, curvature, 1), 0.0)
+        times = t[i] + shift * 0.5 * (t[i + 1] - t[i - 1])
+        spacing = 1.0
+    if times.size < 2:
+        return None
+    period = float(np.polyfit(np.arange(times.size), times, 1)[0]) / spacing  # the slope: time per event
+    return OscillationFit(omega=2 * np.pi / period, period=period, times=times, method=method)
+
 def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArray:
     """L2 norm over ``dims`` (default: every dimension except ``t``), as a function of the rest.
 

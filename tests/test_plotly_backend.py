@@ -393,3 +393,176 @@ def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch)
     assert "cdn.plot.ly" in text and page.endswith("movie.html")
     with pytest.raises(ValueError, match="no frames"):
         energy().struphy.plot.timeseries(backend="plotly").save(tmp_path / "e.png", frame=0)
+
+
+def test_the_image_of_a_frame_updates_the_traces_the_frame_names(tmp_path, monkeypatch):
+    """Frames over a fixed background name the traces they change (go.Frame(traces=[...]))."""
+    shown = []
+    monkeypatch.setattr(go.Figure, "write_image", lambda self, path, **kw: shown.append(self))
+    background = go.Scatter(x=[0, 1], y=[0, 0], name="background")
+    figure = go.Figure(
+        data=[background, go.Scatter(x=[0], y=[0], name="marker")],
+        frames=[go.Frame(data=[go.Scatter(x=[i], y=[i])], traces=[1], name=str(i)) for i in range(3)],
+    )
+    PlotResult(figure).save(tmp_path / "still.png", frame=2)
+    still = shown[-1]
+    assert list(still.data[0].x) == [0, 1] and still.data[0].name == "background"  # untouched
+    assert (list(still.data[1].x), still.data[1].name) == ([2], "marker")
+
+
+def test_a_figure_of_your_own_saves_with_the_same_defaults_on_rank_zero_only(tmp_path, monkeypatch):
+    import sys
+
+    figure = go.Figure(go.Scatter(x=[0, 1], y=[1, 2]))
+    PlotResult(figure).save(tmp_path / "own.html")
+    assert "cdn.plot.ly" in (tmp_path / "own.html").read_text()
+    monkeypatch.delitem(sys.modules, "mpi4py.MPI", raising=False)
+    monkeypatch.delenv("STRUPHY_MPI", raising=False)
+    monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
+    assert PlotResult(figure).save(tmp_path / "other.html").endswith("other.html")
+    assert not (tmp_path / "other.html").exists()
+
+
+def growing_blob(nt=5):
+    t, x = np.linspace(0, 1, nt), np.linspace(0, 1, 20)
+    E1, E2 = np.meshgrid(x, x, indexing="ij")
+    values = np.stack([(0.2 + ti) * np.exp(-((E1 - 0.5) ** 2 + (E2 - 0.5) ** 2) / 0.05) for ti in t])
+    return xr.DataArray(values, dims=("t", "eta1", "eta2"), coords={"t": t, "eta1": x, "eta2": x}, name="n")
+
+
+def test_a_contour_level_the_field_reaches_only_later_is_hidden_until_then():
+    blob = growing_blob()
+    result = blob.struphy.plot.animation(x="eta1", y="eta2", levels=[0.9], shared_clim=False, backend="plotly")
+    level = next(j for j, trace in enumerate(result.fig.data) if trace.name == "level 0.9")
+    shown = []
+    for frame in result.fig.frames:
+        trace = frame.data[list(frame.traces).index(level)]
+        shown.append(trace.visible)
+    assert shown[0] is False and shown[-1] is True  # the peak reaches 0.9 only after t = 0.7
+    assert result.fig.data[level].visible is False  # the figure starts at the first frame
+
+
+def test_traces_that_never_change_are_stored_once_in_the_figure():
+    blob = growing_blob()
+    result = blob.struphy.plot.animation(x="eta1", y="eta2", overlays={"boundary": True, "points": {"c": (0.5, 0.5)}},
+                                         backend="plotly")
+    figure = result.fig
+    heatmap = next(j for j, trace in enumerate(figure.data) if trace.type == "heatmap")
+    static = [j for j, trace in enumerate(figure.data) if trace.type == "scatter"]  # boundary edges and the point
+    assert static and all(set(frame.traces) == {heatmap} for frame in figure.frames)
+    # the image of a later frame still shows the static traces with the changed heatmap
+    still = result._still(-1)
+    assert len(still.data) == len(figure.data)
+    np.testing.assert_allclose(np.asarray(still.data[heatmap].z), np.asarray(figure.frames[-1].data[0].z))
+
+
+def travelling_profile():
+    t, x = np.linspace(0, 10, 51), np.linspace(0, 1, 32)
+    u = xr.DataArray(np.exp(-0.1 * t)[:, None] * np.sin(2 * np.pi * (x[None] - 0.1 * t[:, None])), dims=("t", "x"),
+                     coords={"t": t, "x": x}, name="u")
+    tt = np.linspace(0, 10, 201)
+    energy = xr.DataArray(np.exp(-0.2 * tt), dims="t", coords={"t": tt}, name="en_U", attrs={"label": "kinetic"})
+    return u, energy
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
+def test_a_line_animation_runs_companion_panels_in_sync(backend):
+    u, energy = travelling_profile()
+    n = (1 + u).rename("n")
+    result = u.struphy.plot.line_animation(x="x", alongside=[n, [energy, 0.5 * energy]], alongside_logy=True,
+                                           max_frames=6, backend=backend)
+    if backend == "matplotlib":
+        fig = result._fig
+        assert len(fig.axes) == 3 and fig.axes[2].get_yscale() == "log"
+        frames = list(result.new_frame_seq())
+        assert len(frames) == 6 and frames[0] == 0 and frames[-1] == 50
+        result._func(frames[-1])
+        marker = fig.axes[2].lines[1]  # the whole series, then its marker
+        assert marker.get_xdata()[0] == pytest.approx(10.0)
+        np.testing.assert_allclose(fig.axes[1].lines[0].get_ydata(), n.isel(t=-1).values)
+        return
+    figure = result.fig
+    assert len(figure.frames) == 6 and figure.layout.yaxis3.type == "log"
+    wholes = [j for j, trace in enumerate(figure.data) if trace.yaxis == "y3" and trace.mode == "lines"]
+    assert len(wholes) == 2 and not set(wholes) & set(figure.frames[1].traces)  # the whole series: stored once
+    last = figure.frames[-1]
+    moved = [trace for j, trace in zip(last.traces, last.data) if figure.data[j].yaxis == "y3"]
+    assert [list(trace.x) for trace in moved] == [[10.0], [10.0]]
+    assert list(moved[0].y) == pytest.approx([energy.values[-1]])
+
+
+def test_a_companion_must_be_a_profile_or_time_series():
+    u, energy = travelling_profile()
+    with pytest.raises(ValueError, match="alongside panel"):
+        u.struphy.plot.line_animation(x="x", alongside=[u.expand_dims(y=[0.0, 1.0])])
+    with pytest.raises(ValueError, match="alongside panel"):
+        u.struphy.plot.line_animation(x="x", alongside=[[u, energy]])
+
+
+def banana_orbits(nt=60, nm=4):
+    t = np.linspace(0, 10, nt)
+    phase = t[:, None] * np.linspace(0.6, 1.4, nm)[None]
+    passing = np.arange(nm)[None] % 2 == 0
+    angle = np.where(passing, phase, 0.9 * np.sin(phase))
+    R, z = 3 + 0.4 * np.cos(angle), 0.4 * np.sin(angle)
+    return xr.Dataset({"x": (("t", "marker"), R + 0 * t[:, None]), "y": (("t", "marker"), 0 * R),
+                       "z": (("t", "marker"), z), "v_par": (("t", "marker"), np.where(passing, 1.0, np.cos(phase)))},
+                      coords={"t": t, "marker": np.arange(nm)})
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
+def test_marker_animations_take_classes_trails_paths_and_major_radius(backend):
+    orbits = banana_orbits()
+    result = orbits.struphy.plot.animation(x="R", y="z", color="classification", trail=10, paths=True,
+                                           max_frames=5, backend=backend)
+    if backend == "matplotlib":
+        ax = result._fig.axes[0]
+        frames = list(result.new_frame_seq())
+        assert len(frames) == 5 and ax.get_xlabel() == "R"
+        assert [t.get_text() for t in ax.get_legend().get_texts()] == ["passing (2)", "trapped (2)"]
+        result._func(frames[-1])
+        trails = [line for line in ax.lines if line.get_alpha() == 0.7]
+        assert len(trails) == 3  # one per class
+        xs = trails[0].get_xdata()  # the passing markers' last 10 samples, NaN between markers
+        assert np.isfinite(xs).sum() == 2 * 10
+        return
+    figure = result.fig
+    assert len(figure.frames) == 5
+    assert [t.name for t in figure.data if t.showlegend] == ["passing (2)", "trapped (2)"]
+    faint = [j for j, t in enumerate(figure.data) if t.type == "scatter" and t.mode == "lines" and t.opacity is None
+             and t.line.color and t.line.color.endswith("0.5)")]
+    assert faint and not set(faint) & set(figure.frames[1].traces)  # the whole paths: stored once
+
+
+def test_a_background_without_time_is_drawn_once():
+    orbits = banana_orbits()
+    e1, e2 = np.linspace(0.05, 0.9, 8), np.linspace(0, 1, 24)
+    E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+    psi = xr.DataArray(E1**2, dims=("eta1", "eta2"), coords={
+        "eta1": e1, "eta2": e2, "X": (("eta1", "eta2"), 3 + E1 * np.cos(2 * np.pi * E2)),
+        "Y": (("eta1", "eta2"), 0 * E1), "Z": (("eta1", "eta2"), E1 * np.sin(2 * np.pi * E2))}, name="psi")
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "The input coordinates to pcolormesh")
+        animation = orbits.struphy.plot.animation(x="R", y="z", background=psi, max_frames=4)
+        mesh = next(c for c in animation._fig.axes[0].collections if type(c).__name__ == "QuadMesh")
+        animation._func(list(animation.new_frame_seq())[-1])
+    assert mesh in animation._fig.axes[0].collections  # not redrawn
+
+
+def test_trail_must_be_a_positive_integer():
+    with pytest.raises(ValueError, match="trail"):
+        banana_orbits().struphy.plot.animation(x="R", y="z", trail=0)
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
+def test_a_slice_of_contour_lines_only_has_a_colorbar_of_its_colormap(backend):
+    result = growing_blob().struphy.plot.slice(x="eta1", y="eta2", t=-1, levels=5, fill=False, cmap="magma",
+                                               backend=backend)
+    if backend == "matplotlib":
+        colorbar = result.fig.axes[-1]._colorbar
+        assert colorbar.mappable is not result.artists[0]  # not the transparent mesh
+        assert colorbar.mappable.get_cmap().name == "magma" and colorbar.mappable.norm.vmax > 0
+        return
+    axis = result.fig.layout.coloraxis
+    assert axis.showscale and axis.cmax > 0
+    assert any(trace.marker.coloraxis == "coloraxis" for trace in result.fig.data if trace.type == "scatter")

@@ -37,6 +37,18 @@ phi.struphy.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=lambda eta1: 0.1
 default is four evenly spaced ones), and `over` names another dimension to
 sweep instead of `t`.
 
+`x_of` maps the coordinate for one plot. To work in physical units throughout, replace the
+coordinate itself: `analysis.map_coordinate` takes a function of it (or a factor, for a length),
+and a new name and units, so that selections and every plot use them:
+
+```python
+r_T = T.struphy.analysis.map_coordinate("eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m")
+r_T.struphy.plot.profiles(x="r", at=[0, 20, 40])
+T.struphy.analysis.map_coordinate("eta1", 2.0, name="x", units="m")    # a 2 m long interval
+```
+
+![Temperature profiles over x in meters](../../../assets/figures/profiles_meters.png)
+
 ![Radial profiles at four times](../../../assets/figures/profiles.png)
 
 ### Exact solutions
@@ -69,6 +81,36 @@ anim.save("heat.gif", writer="pillow")
 ```
 
 ![A profile animated with the exact solution](/struphy-plots/figures/line_animation.gif)
+
+`alongside` adds panels below the profile that run in sync with it: another profile over the
+same sweep (e.g. the density next to the velocity), or time series, drawn whole with a marker at
+each frame's time (a list of series shares one panel; `alongside_logy=True` puts them on log
+axes). Time series may be on another time grid, e.g. scalars saved every step; each frame marks the
+nearest time. Here the peak temperature of the run below its profile, against the exact one:
+
+```python
+peak = T.max("eta1")
+anim = T.struphy.plot.line_animation(reference={"exact": exact}, alongside=[[peak, exact_peak]], step=2)
+```
+
+![A profile animated with its peak temperature below, against the exact peak](/struphy-plots/figures/line_animation_companions.gif)
+
+`max_frames=100` keeps at most that many evenly spaced frames (the first and the last included),
+as for the 2-D animations.
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+
+```python
+T.struphy.plot.line_animation(reference={"exact": exact}, alongside=[[peak, exact_peak]], step=2, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_line_animation_companions.json" height="620px" />
+
+</details>
 
 For the error itself, see [errors against exact solutions](/struphy-plots/guides/analysis/#errors-against-exact-solutions).
 

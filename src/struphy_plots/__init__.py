@@ -38,9 +38,13 @@ would draw, instead of the figure.
 What is where
 -------------
 * Time series and rates: ``plot.timeseries(fit=(t0, t1), reference=...)``,
-  ``analysis.growth_rate``, ``analysis.damping_rate``, ``analysis.envelope``.
-* Profiles: ``plot.lineout``, ``plot.profiles``, ``plot.line_animation``, each with ``reference=``
-  for exact solutions.
+  ``analysis.growth_rate``, ``analysis.damping_rate``, ``analysis.envelope``,
+  ``analysis.oscillation_frequency`` (from zero crossings).
+* Profiles: ``plot.lineout``, ``plot.profiles``, ``plot.line_animation`` (``alongside=`` for
+  panels in sync), each with ``reference=`` for exact solutions; ``analysis.map_coordinate`` for
+  physical coordinates (``eta1`` → ``r`` in m).
+* Several plots in one figure: ``with struphy_plots.figure(2, 1) as fig:`` and ``ax=fig[0]``,
+  ``ax=fig[1]``.
 * 2-D fields: ``plot.slice``, ``plot.panels``, ``plot.animation``, ``plot.viewer``,
   ``plot.frames``, with ``levels=`` (contour lines), ``overlays=`` (a second field's contours,
   boundary, lines, points), ``symmetric=``, ``robust=``; ``plot.vector`` for vector fields.
@@ -52,10 +56,11 @@ What is where
 * Dispersion relations: ``plot.dispersion(branches=...)``, ``analysis.dispersion`` and
   ``.struphy.analysis.trace_branch(theory)`` on the spectrum.
 * Comparing with theory: ``analysis.error(exact)``, ``plot.against_theory(theory)``,
-  ``analysis.project_mode``.
+  ``analysis.project_mode``; convergence studies with ``plot.convergence``.
 * Vector calculus on mapped domains: ``analysis.gradient``, ``analysis.divergence``,
   ``analysis.curl``, ``analysis.flux_function``, ``analysis.toroidal_components``.
-* Particles: ``dataset.struphy.plot.scatter``, ``.animation``, ``.paths``, ``.poloidal``,
+* Particles: ``dataset.struphy.plot.scatter``, ``.animation`` (``trail=``, ``paths=``,
+  ``color="classification"``), ``.paths``, ``.poloidal``,
   ``.orbit_grid``, ``.orbit_classification``, ``.orbits_3d``; ``dataset.struphy.analysis.
   classify_orbits``, ``.orbit_invariants``, ``.bounce_period``; binned distributions with
   ``plot.slice(x="eta1", y="v1")`` and ``analysis.velocity_moments``.
@@ -118,6 +123,17 @@ Runs as is, on synthetic data:
 from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import StruphyAccessor
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
+from .figures import figure
 from .plotly_backend import get_backend, set_backend
+from .plotting import save_figure
 
-__all__ = ["SkippedPlot", "StruphyAccessor", "get_backend", "is_plotting_rank", "mpi_rank", "set_backend"]
+__all__ = [
+    "SkippedPlot",
+    "StruphyAccessor",
+    "figure",
+    "get_backend",
+    "is_plotting_rank",
+    "mpi_rank",
+    "save_figure",
+    "set_backend",
+]
