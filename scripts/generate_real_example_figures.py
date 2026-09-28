@@ -25,7 +25,7 @@ matplotlib.use("Agg")
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
+import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT_SIM =  Path(__file__).resolve().parents[1] / "docs" / "src" / "assets" / "simulations"
@@ -91,16 +91,16 @@ def pproc(out: Output):
     pressure = out.evaluate("mhd/pressure").isel(eta1=0, eta2=0)
     pressure = pressure.assign_coords(eta3=("eta3", pressure["Z"].values))
 
-    velocity_spectrum = velocity.struphy.analysis.dispersion(dim="eta3")
-    pressure_spectrum = pressure.struphy.analysis.dispersion(dim="eta3")
+    velocity_spectrum = velocity.plasma.analysis.dispersion(dim="eta3")
+    pressure_spectrum = pressure.plasma.analysis.dispersion(dim="eta3")
 
     fit_k_range = (0.2, 2.0)
-    (alfven_branch,) = velocity_spectrum.struphy.analysis.fit_branches(
+    (alfven_branch,) = velocity_spectrum.plasma.analysis.fit_branches(
         n_branches=1, k_range=fit_k_range, noise_level=0.5
     )
     # The fast branch's power is only a few percent of the slow branch's peak power in this
     # window, so noise_level has to be low enough to still count it as a genuine peak.
-    slow_branch, fast_branch = pressure_spectrum.struphy.analysis.fit_branches(
+    slow_branch, fast_branch = pressure_spectrum.plasma.analysis.fit_branches(
         n_branches=2, k_range=fit_k_range, noise_level=0.02
     )
     measured_alfven, measured_slow, measured_fast = (
@@ -119,7 +119,7 @@ def pproc(out: Output):
     omega_max = min(exact_speeds["fast magnetosonic"] * k_top, omega_nyquist)
 
     velocity_path = OUT / "real_dispersion_velocity.png"
-    velocity_result = velocity.struphy.plot.dispersion(
+    velocity_result = velocity.plasma.plot.dispersion(
         branches={
             "shear Alfven (exact)": lambda k: exact_speeds["shear Alfven"] * k,
             "shear Alfven (measured)": lambda k: measured_alfven * k,
@@ -134,7 +134,7 @@ def pproc(out: Output):
     print(f"wrote {velocity_path}")
 
     pressure_path = OUT / "real_dispersion_pressure.png"
-    pressure_result = pressure.struphy.plot.dispersion(
+    pressure_result = pressure.plasma.plot.dispersion(
         branches={
             "slow (exact)": lambda k: exact_speeds["slow magnetosonic"] * k,
             "slow (measured)": lambda k: measured_slow * k,

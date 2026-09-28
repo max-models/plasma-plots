@@ -1,4 +1,4 @@
-"""Tests for the optional scope-profiler plotting wrappers (out.struphy.plot.profile)."""
+"""Tests for the optional scope-profiler plotting wrappers (out.plasma.plot.profile)."""
 
 import time
 
@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 scope_profiler = pytest.importorskip("scope_profiler")
 
-from struphy_plots.output_accessors import OutputPlots  # noqa: E402
-from struphy_plots.output_accessors import ProfilePlots
+from plasma_plots.output_accessors import OutputPlots  # noqa: E402
+from plasma_plots.output_accessors import ProfilePlots
 
 
 class FakeProfile:

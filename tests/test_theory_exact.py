@@ -1,10 +1,10 @@
-"""The exact solutions of struphy_plots.theory.exact: published benchmark values (Toro's Riemann
+"""The exact solutions of plasma_plots.theory.exact: published benchmark values (Toro's Riemann
 problems), conservation laws, and the differential equations checked by finite differences."""
 
 import numpy as np
 import pytest
 
-from struphy_plots.theory.exact import (
+from plasma_plots.theory.exact import (
     advected,
     caustic_time,
     dalembert,

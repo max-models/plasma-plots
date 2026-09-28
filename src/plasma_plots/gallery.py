@@ -2,7 +2,7 @@
 
 The example scripts on https://struphy-hub.github.io/examples/ use these helpers to write
 their results, so that a copied example runs on its own with ``pip install
-"struphy-plots[gallery]"``. Every helper writes to the current directory and names its files
+"plasma-plots[gallery]"``. Every helper writes to the current directory and names its files
 after the example's stem: ``<stem>.png``, ``<stem>.plotly.json`` and ``<stem>.html`` for each
 figure, ``<stem>.metadata.json`` for the measured values, and ``<stem>-profile.h5`` with its
 plot data for the profiling. The website's build reads exactly these files.
@@ -362,7 +362,7 @@ def heatmap_figure(
 
     Examples
     --------
-    >>> heatmap_figure(f.struphy.analysis.spatial_average(), x="t", y="v1", title="f(v, t)",
+    >>> heatmap_figure(f.plasma.analysis.spatial_average(), x="t", y="v1", title="f(v, t)",
     ...                xaxis_title="t [a.u.]", yaxis_title="v [a.u.]")
     """
     x_values = data[x].values if x_values is None else x_values

@@ -1,4 +1,4 @@
-"""Small xarray metadata helpers used by :mod:`struphy_plots`.
+"""Small xarray metadata helpers used by :mod:`plasma_plots`.
 
 They intentionally live here rather than in Struphy so the plotting package can
 operate on labeled xarray data from any producer.
@@ -137,7 +137,7 @@ def map_coordinate(
 
     Examples
     --------
-    >>> map_coordinate(T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m").struphy.plot.lineout(x="r", t=-1)
+    >>> map_coordinate(T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m").plasma.plot.lineout(x="r", t=-1)
     >>> map_coordinate(n, "eta1", 2 * np.pi, units="m")   # a length of 2π along eta1
     """
     if dim not in data.dims:

@@ -1,4 +1,4 @@
-"""Kinetic dispersion relations of struphy_plots.theory.kinetic: literature values, limits and
+"""Kinetic dispersion relations of plasma_plots.theory.kinetic: literature values, limits and
 independent checks with scipy (the Faddeeva function wofz and polynomial roots)."""
 
 import warnings
@@ -6,8 +6,8 @@ import warnings
 import numpy as np
 import pytest
 
-from struphy_plots.theory import kinetic
-from struphy_plots.theory.kinetic import (
+from plasma_plots.theory import kinetic
+from plasma_plots.theory.kinetic import (
     Maxwellian,
     beam_plasma_cold,
     bohm_gross,
@@ -27,7 +27,7 @@ from struphy_plots.theory.kinetic import (
 
 
 def scipy_dielectric(omega, k, species):
-    """ε(ω, k) from scipy's Faddeeva function, independent of struphy_plots.theory.special."""
+    """ε(ω, k) from scipy's Faddeeva function, independent of plasma_plots.theory.special."""
     special = pytest.importorskip("scipy.special")
     total = 1.0 + 0j
     with np.errstate(all="ignore"):

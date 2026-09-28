@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from struphy_plots.theory.special import faddeeva, plasma_dispersion
+from plasma_plots.theory.special import faddeeva, plasma_dispersion
 
 #: Proton-to-electron mass ratio (CODATA 2018), the default ion mass in units of m_e.
 PROTON_ELECTRON_MASS_RATIO = 1836.15267343

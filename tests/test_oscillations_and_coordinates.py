@@ -8,9 +8,9 @@ import xarray as xr
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
-import struphy_plots  # noqa: E402, F401
-from struphy_plots.analysis import oscillation_frequency  # noqa: E402
-from struphy_plots.arrays import axis_label, map_coordinate  # noqa: E402
+import plasma_plots  # noqa: E402, F401
+from plasma_plots.analysis import oscillation_frequency  # noqa: E402
+from plasma_plots.arrays import axis_label, map_coordinate  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +26,7 @@ def damped(omega=1.3, gamma=0.05, n=400):
 
 @pytest.mark.parametrize("method", ["zero_crossings", "peaks"])
 def test_the_frequency_of_a_damped_oscillation_is_found_to_a_fraction_of_a_sample(method):
-    fit = damped().struphy.analysis.oscillation_frequency(method=method)
+    fit = damped().plasma.analysis.oscillation_frequency(method=method)
     assert fit.omega == pytest.approx(1.3, rel=1e-3) and fit.period == pytest.approx(2 * np.pi / 1.3, rel=1e-3)
     assert fit.method == method and len(fit.times) >= 8
 
@@ -54,12 +54,12 @@ def profile():
 
 
 def test_a_mapped_coordinate_renames_the_dimension_and_labels_the_plots():
-    mapped = profile().struphy.analysis.map_coordinate("eta1", lambda e: 0.1 + 0.9 * e, name="r", units="m",
+    mapped = profile().plasma.analysis.map_coordinate("eta1", lambda e: 0.1 + 0.9 * e, name="r", units="m",
                                                       label="$r$")
     assert mapped.dims == ("t", "r") and "eta1" not in mapped.coords
     np.testing.assert_allclose(mapped.r, 0.1 + 0.9 * profile().eta1.values)
     assert axis_label(mapped, "r") == "$r$ [m]"
-    result = mapped.struphy.plot.lineout(x="r", t=-1)
+    result = mapped.plasma.plot.lineout(x="r", t=-1)
     assert result.ax.get_xlabel() == "$r$ [m]"
     assert float(mapped.sel(r=0.55, t=1.0)) == pytest.approx(2 * 0.5)
 
@@ -79,7 +79,7 @@ def test_convergence_plots_several_series_with_their_orders(backend):
     n = np.array([16, 32, 64, 128])
     l2 = xr.DataArray(3.0 * n**-2.0, dims="n", coords={"n": n}, name="L2 error")
     linf = xr.DataArray(5.0 * n**-1.0, dims="n", coords={"n": n}, name="max error")
-    result = l2.struphy.plot.convergence(linf, backend=backend)
+    result = l2.plasma.plot.convergence(linf, backend=backend)
     if backend == "matplotlib":
         labels = [line.get_label() for line in result.ax.lines]
         assert labels[0] == "L2 error" and labels[1].startswith("fit: order -2.00")
@@ -88,4 +88,4 @@ def test_convergence_plots_several_series_with_their_orders(backend):
     names = [trace.name for trace in result.fig.data]
     assert names[1].startswith("fit: order -2.00") and result.fig.layout.xaxis.type == "log"
     with pytest.raises(ValueError, match="one-dimensional"):
-        l2.expand_dims(m=[1, 2]).struphy.plot.convergence()
+        l2.expand_dims(m=[1, 2]).plasma.plot.convergence()

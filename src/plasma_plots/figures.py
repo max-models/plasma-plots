@@ -1,8 +1,8 @@
-"""Several plots in one figure, with either backend: ``struphy_plots.figure(...)``.
+"""Several plots in one figure, with either backend: ``plasma_plots.figure(...)``.
 
->>> with struphy_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
-...     energy.struphy.plot.timeseries(fit=(0.0, 5.0), ax=fig[0])
-...     drift.struphy.plot.timeseries(logy=True, ax=fig[1])
+>>> with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
+...     energy.plasma.plot.timeseries(fit=(0.0, 5.0), ax=fig[0])
+...     drift.plasma.plot.timeseries(logy=True, ax=fig[1])
 >>> fig.save("energies.html")
 
 Every plot method that takes ``ax=`` draws into one panel. The figure is drawn with Matplotlib and,
@@ -22,14 +22,14 @@ class Figure:
 
     Index it for a panel's Matplotlib axes (``fig[0]``, ``fig[1, 2]``) and pass that as ``ax=`` to
     any plot method. After the ``with`` block, it saves and shows like a
-    :class:`~struphy_plots.plotting.PlotResult`.
+    :class:`~plasma_plots.plotting.PlotResult`.
 
     Parameters
     ----------
     nrows, ncols : int
         The number of rows and columns of panels.
     backend : {"matplotlib", "plotly"} or None
-        How the figure is finished; ``None`` for the default (see :func:`struphy_plots.set_backend`).
+        How the figure is finished; ``None`` for the default (see :func:`plasma_plots.set_backend`).
     sharex, sharey : bool or {"row", "col", "all"}
         Share the horizontal or vertical axes.
     figsize : (float, float) or None
@@ -62,15 +62,15 @@ class Figure:
             return
         import matplotlib.pyplot as plt
 
-        from .plotting import STRUPHY_STYLE
+        from .plotting import PLOT_STYLE
 
         if figsize is None:
-            figsize = (STRUPHY_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75 + 2.0 * (ncols > 2) * (ncols - 2),
+            figsize = (PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75 + 2.0 * (ncols > 2) * (ncols - 2),
                        3.2 * nrows + 0.8)
-        with plt.rc_context(STRUPHY_STYLE):
+        with plt.rc_context(PLOT_STYLE):
             self._fig, axes = plt.subplots(nrows, ncols, sharex=sharex, sharey=sharey, figsize=figsize,
                                            squeeze=False, layout="constrained", **options)
-        self._fig._struphy_composed = True  # the plots in it leave the title and layout to the figure
+        self._fig._plasma_composed = True  # the plots in it leave the title and layout to the figure
         self.axes = axes
 
     def __getitem__(self, index):
@@ -133,7 +133,7 @@ class Figure:
 
     @property
     def result(self):
-        """The figure, as a :class:`~struphy_plots.plotting.PlotResult`.
+        """The figure, as a :class:`~plasma_plots.plotting.PlotResult`.
 
         After the ``with`` block the finished figure; inside it, the figure as drawn so far, so
         that ``fig.save(...)`` works in either place.
@@ -153,7 +153,7 @@ class Figure:
         return self.result.fig
 
     def save(self, path, **kwargs):
-        """Save the figure, as :meth:`PlotResult.save <struphy_plots.plotting.PlotResult.save>` does.
+        """Save the figure, as :meth:`PlotResult.save <plasma_plots.plotting.PlotResult.save>` does.
 
         Inside the ``with`` block it saves the panels drawn so far.
 
@@ -162,7 +162,7 @@ class Figure:
         path : str or pathlib.Path
             The file to write; its extension picks the format.
         **kwargs
-            Passed to :meth:`PlotResult.save <struphy_plots.plotting.PlotResult.save>`.
+            Passed to :meth:`PlotResult.save <plasma_plots.plotting.PlotResult.save>`.
 
         Returns
         -------
@@ -215,7 +215,7 @@ def figure(
         The number of columns of panels. Default: 1.
     backend : {"matplotlib", "plotly"}, optional
         Finish the figure as a Matplotlib or as an interactive Plotly figure. Default: the one set
-        with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+        with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
     sharex : bool or {"row", "col", "all"}, optional
         Share the horizontal axes (and their zoom, in Plotly), as for ``matplotlib.pyplot.subplots``.
         Default: ``False``.
@@ -235,9 +235,9 @@ def figure(
 
     Examples
     --------
-    >>> with struphy_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
-    ...     energy.struphy.plot.timeseries(fit=(0.0, 5.0), ax=fig[0])
-    ...     drift.struphy.plot.timeseries(logy=True, ax=fig[1])
+    >>> with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
+    ...     energy.plasma.plot.timeseries(fit=(0.0, 5.0), ax=fig[0])
+    ...     drift.plasma.plot.timeseries(logy=True, ax=fig[1])
     >>> fig.save("energies.html")
     >>> fig.results[0].fit_results[0].rate
     """

@@ -28,7 +28,7 @@ def _pv():
     try:
         import pyvista
     except ImportError as error:  # pragma: no cover
-        raise ImportError('PyVista plots need the optional extra: pip install "struphy-plots[pyvista]"') from error
+        raise ImportError('PyVista plots need the optional extra: pip install "plasma-plots[pyvista]"') from error
     return pyvista
 
 
@@ -119,7 +119,7 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
 
     A scalar field becomes point data ``name`` (default: the field's label); a vector field with
     a ``component`` dimension of three Cartesian components becomes point vectors ``name``, plus
-    their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`struphy_plots.arrays.close_periodic`.
+    their magnitude as ``"|name|"``. Periodic directions are closed, see :func:`plasma_plots.arrays.close_periodic`.
     The grid is useful directly for any PyVista filter.
 
     Parameters
@@ -337,7 +337,7 @@ def pyvista_isosurface(
     """Contour surfaces of a selected scalar ``(eta1, eta2, eta3)`` field in physical space.
 
     ``values`` is the number of evenly spaced levels, or explicit levels (between the color
-    limits, which ``symmetric``/``robust`` set as in :func:`~struphy_plots.plotting.color_limits`).
+    limits, which ``symmetric``/``robust`` set as in :func:`~plasma_plots.plotting.color_limits`).
     ``show_domain`` draws
     the domain's outer surface translucently for context. For a 2-D field (one logical
     direction with a single point) the levels are contour lines over the colored plane.
@@ -796,7 +796,7 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     """Marker orbits as one ``pyvista.PolyData`` line per marker, with point data ``color_by``.
 
     Samples where a marker is lost (every quantity zero) are dropped. ``color_by`` is ``"t"``,
-    ``"classification"`` (see :func:`~struphy_plots.analysis.classify_orbits`), or the name of
+    ``"classification"`` (see :func:`~plasma_plots.analysis.classify_orbits`), or the name of
     any ``(t, marker)`` variable, e.g. ``"v_par"`` or ``"weight"``.
 
     Parameters
@@ -1031,7 +1031,7 @@ def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
     With a ``t`` dimension, one file per time is written into the directory ``path``, plus a
     ``.pvd`` collection that ParaView opens as a time series; without one, ``path`` is a single
     ``.vts`` file. Vector fields (``component``) become point vectors. Any array works, e.g. a
-    :func:`~struphy_plots.spectral.filter_time` result, so filtered modes can be inspected in
+    :func:`~plasma_plots.spectral.filter_time` result, so filtered modes can be inspected in
     ParaView too.
 
     Parameters

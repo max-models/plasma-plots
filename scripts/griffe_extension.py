@@ -1,13 +1,13 @@
 """A griffe extension for the API reference: inherited parameter docs, and Sphinx roles as links.
 
-An accessor method (``array.struphy.plot.lineout``, ``out.plot.energies``, ...) documents only the
+An accessor method (``array.plasma.plot.lineout``, ``out.plot.energies``, ...) documents only the
 parameters that differ from the function it wraps; the first entry of its See Also section names
 that function (see CONTRIBUTING.md). This extension fills in the rest while griffe loads the
 package, so the API reference (starlight-pydocs, or anything else built on griffe) lists every
-parameter. ``struphy_plots._docs`` does the same at import time for ``help()``.
+parameter. ``plasma_plots._docs`` does the same at import time for ``help()``.
 
 The docstrings cross-reference with Sphinx roles (``:func:`plot_slice```, ``:meth:`ArrayPlots.view```,
-``:class:`~struphy_plots.plotting.PlotResult```), which read well in ``help()``. The reference renders
+``:class:`~plasma_plots.plotting.PlotResult```), which read well in ``help()``. The reference renders
 mkdocstrings-style references instead, so the extension also rewrites each role, and each name
 under See Also, to ``[`label`][full.dotted.path]``, resolving short and relative names.
 

@@ -10,7 +10,7 @@ import xarray as xr
 from struphy.post_processing.arrays import data_array
 from struphy.post_processing.output import Output
 from struphy.post_processing.tests.test_output import write_tree
-from struphy_plots.analysis import spatial_average, velocity_moments
+from plasma_plots.analysis import spatial_average, velocity_moments
 
 F = "kinetic_ions/f"
 
@@ -158,8 +158,8 @@ def test_reductions_are_available_from_external_helpers_and_the_accessor(run):
 
     average = spatial_average(product)
     assert average.dims == ("t", "v1")
-    xr.testing.assert_identical(average, product.struphy.analysis.spatial_average())
-    xr.testing.assert_identical(moments, product.struphy.analysis.velocity_moments())
+    xr.testing.assert_identical(average, product.plasma.analysis.spatial_average())
+    xr.testing.assert_identical(moments, product.plasma.analysis.velocity_moments())
 
 
 # --- SI units ---------------------------------------------------------------------------------

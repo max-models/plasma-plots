@@ -110,7 +110,7 @@ jobs:
             ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
           key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
 
-      - name: Install struphy-plots (with PyVista, profiling and test tools)
+      - name: Install plasma-plots (with PyVista, profiling and test tools)
         run: pip install -e ".[pyvista,profiling,dev]"
 
       # The 3-D views guide embeds interactive scenes exported with
@@ -121,7 +121,7 @@ jobs:
         run: pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
 
       # The docs embed live interactive Plotly charts (via <PlotlyChart>) to
-      # demonstrate `array.struphy.data`; plotly is not a struphy-plots
+      # demonstrate `array.plasma.data`; plotly is not a plasma-plots
       # dependency, only needed here to export each figure's JSON.
       - name: Install Plotly (docs examples only)
         run: pip install plotly

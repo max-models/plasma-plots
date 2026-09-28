@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "struphy-plots"
+name = "plasma-plots"
 version = "0.1.0"
-description = "Optional plotting and diagnostics for labeled Struphy output"
+description = "Plots and diagnostics of labeled xarray output from plasma simulations, such as Struphy"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Max Lindqvist", email = "max.lindqvist@ipp.mpg.de" }]
@@ -24,16 +24,16 @@ pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]
 # backend="plotly": interactive Plotly versions of the plots; kaleido saves them as PNG/SVG/PDF
 plotly = ["plotly", "kaleido"]
-# the output helpers of the struphy-hub example gallery (struphy_plots.gallery): Plotly figures,
+# the output helpers of the struphy-hub example gallery (plasma_plots.gallery): Plotly figures,
 # their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
 gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]
 dev = ["pytest", "ruff", "h5py", "griffe"]
 
 [project.urls]
-Homepage = "https://github.com/struphy-hub/struphy-plots"
-Repository = "https://github.com/struphy-hub/struphy-plots"
-Documentation = "https://struphy-hub.github.io/struphy-plots"
-Issues = "https://github.com/struphy-hub/struphy-plots/issues"
+Homepage = "https://github.com/struphy-hub/plasma-plots"
+Repository = "https://github.com/struphy-hub/plasma-plots"
+Documentation = "https://struphy-hub.github.io/plasma-plots"
+Issues = "https://github.com/struphy-hub/plasma-plots/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -42,7 +42,7 @@ where = ["src"]
 # Restrict collection to our own tests: the struphy submodule now lives at
 # ./struphy (with its own nested feectools submodule), and bare `pytest`
 # would otherwise recurse into their test suites too -- and fail on their
-# own optional dependencies (e.g. psydac) that struphy-plots has no need of.
+# own optional dependencies (e.g. psydac) that plasma-plots has no need of.
 testpaths = ["tests"]
 # Real struphy simulations (compiled kernels, ~1 min): skipped unless requested with
 # `pytest --run-simulations` (see tests/conftest.py); run in the docs workflow.

@@ -1,11 +1,11 @@
-"""struphy_plots.theory.orbits: gyromotion and drifts (also against full Lorentz orbits), and the
+"""plasma_plots.theory.orbits: gyromotion and drifts (also against full Lorentz orbits), and the
 trapped-particle results against numerical bounce motion in B = B₀/(1 + ε cos θ)."""
 
 import numpy as np
 import pytest
 
-from struphy_plots.theory import orbits
-from struphy_plots.theory.special import elliptic_k
+from plasma_plots.theory import orbits
+from plasma_plots.theory.special import elliptic_k
 
 
 # ---------------------------------------------------------------------------------------------

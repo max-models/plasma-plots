@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import xarray as xr
 
-import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
-from struphy_plots.analysis import (BranchFit, fit_dispersion_branches,
+import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
+from plasma_plots.analysis import (BranchFit, fit_dispersion_branches,
                                     power_spectrum)
 
 
@@ -79,7 +79,7 @@ def test_fit_dispersion_branches_raises_when_nothing_matches():
 
 def test_accessor_fit_branches_matches_the_function():
     field = multi_branch_field([1.0])
-    spectrum = field.struphy.analysis.dispersion()
-    via_accessor = spectrum.struphy.analysis.fit_branches(n_branches=1, noise_level=0.3, order=3)
+    spectrum = field.plasma.analysis.dispersion()
+    via_accessor = spectrum.plasma.analysis.fit_branches(n_branches=1, noise_level=0.3, order=3)
     via_function = fit_dispersion_branches(spectrum, n_branches=1, noise_level=0.3, order=3)
     assert via_accessor[0].velocity == pytest.approx(via_function[0].velocity)

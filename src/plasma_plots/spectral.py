@@ -413,7 +413,7 @@ def filter_time(data: xr.DataArray, *, dims=None, omega_min: float = 1e-8, pad_b
     See Also
     --------
     band_filter : Keep an explicit frequency band instead.
-    struphy_plots.spectral_plots.plot_filtered : Compare the signal with its reconstruction.
+    plasma_plots.spectral_plots.plot_filtered : Compare the signal with its reconstruction.
 
     Examples
     --------
@@ -750,7 +750,7 @@ def spectrogram(
 
     See Also
     --------
-    struphy_plots.spectral_plots.plot_spectrogram : Draw the result.
+    plasma_plots.spectral_plots.plot_spectrogram : Draw the result.
 
     Examples
     --------
@@ -918,7 +918,7 @@ def mode_amplitudes(
 
     See Also
     --------
-    struphy_plots.spectral_plots.plot_mode_amplitudes : Amplitudes over time, with growth rates.
+    plasma_plots.spectral_plots.plot_mode_amplitudes : Amplitudes over time, with growth rates.
 
     Examples
     --------
@@ -1007,7 +1007,7 @@ def mode_structure(
 
     See Also
     --------
-    struphy_plots.spectral_plots.plot_mode_profiles : Draw the harmonics' radial profiles.
+    plasma_plots.spectral_plots.plot_mode_profiles : Draw the harmonics' radial profiles.
 
     Examples
     --------
@@ -1094,7 +1094,7 @@ def cross_spectrum(
 
     See Also
     --------
-    struphy_plots.spectral_plots.plot_cross_spectrum : Draw magnitude, coherence and phase.
+    plasma_plots.spectral_plots.plot_cross_spectrum : Draw magnitude, coherence and phase.
 
     Examples
     --------
@@ -1174,7 +1174,7 @@ def matrix_pencil(
     See Also
     --------
     pencil_reconstruction : The fitted signal at any times.
-    struphy_plots.spectral_plots.plot_pencil_fit : Draw the fit and the complex frequencies.
+    plasma_plots.spectral_plots.plot_pencil_fit : Draw the fit and the complex frequencies.
 
     Examples
     --------
@@ -1296,16 +1296,16 @@ def trace_branch(
     refined below the bin spacing with a parabola through its log power. With numpy's sign
     convention a right-moving wave sits at ``(k, -ω)``, i.e. mirrored at ``(-k, +ω)``, so the
     power at ``-k`` is added to the power at ``+k``. Unlike
-    :func:`~struphy_plots.analysis.fit_dispersion_branches`, the branch may be curved (e.g. a
+    :func:`~plasma_plots.analysis.fit_dispersion_branches`, the branch may be curved (e.g. a
     whistler or Bohm-Gross branch).
 
     Parameters
     ----------
     spectrum : xarray.DataArray
-        An ``(omega, k)`` power spectrum, e.g. from ``array.struphy.analysis.dispersion()``.
+        An ``(omega, k)`` power spectrum, e.g. from ``array.plasma.analysis.dispersion()``.
     theory : callable
         The expected branch ``omega(k)``, applied to an array of ``k``; of a complex frequency (as
-        :mod:`struphy_plots.theory` returns), the real part is used.
+        :mod:`plasma_plots.theory` returns), the real part is used.
     window : float, optional
         The relative half-width of the search window about the theory. Default: 0.2.
     k_range : (float, float), optional

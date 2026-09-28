@@ -1,11 +1,11 @@
-"""Fluid, MHD and cold-plasma waves of struphy_plots.theory.waves, against identities, limits and
+"""Fluid, MHD and cold-plasma waves of plasma_plots.theory.waves, against identities, limits and
 the eigenvalues of the linearized equations."""
 
 import numpy as np
 import pytest
 
-from struphy_plots.theory import waves
-from struphy_plots.theory.waves import Species, electron_ion
+from plasma_plots.theory import waves
+from plasma_plots.theory.waves import Species, electron_ion
 
 
 def _omega_of_matrix(matrix):

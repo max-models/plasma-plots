@@ -25,7 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # The test suite exercises struphy_plots against real struphy output
+      # The test suite exercises plasma_plots against real struphy output
       # objects (struphy.post_processing.output.Output and friends), so
       # struphy itself has to be installed. It has compiled dependencies
       # (pyccel/mpi4py), hence the system packages below. struphy comes from
@@ -41,7 +41,7 @@ jobs:
       - name: Install struphy (from the struphy submodule)
         run: pip install ./struphy
 
-      - name: Install struphy-plots with dev dependencies
+      - name: Install plasma-plots with dev dependencies
         run: pip install -e ".[dev,profiling,pyvista]"
 
       # The PyVista tests build scenes off-screen, which needs a virtual display

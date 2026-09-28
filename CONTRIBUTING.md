@@ -13,7 +13,7 @@ pytest
 ruff check src tests scripts
 ```
 
-The test suite exercises `struphy_plots` against real `struphy` output
+The test suite exercises `plasma_plots` against real `struphy` output
 objects (`struphy.post_processing.output.Output` and friends, plus `h5py`),
 built from small fixtures that don't need compiled kernels, so `struphy compile`
 isn't required just to run `pytest`.
@@ -24,11 +24,11 @@ The documentation site (Astro + Starlight) lives in `docs/`. Almost every
 figure and interactive Plotly chart (`docs/src/assets/figures/*`,
 `docs/public/plotly/*.json`) is built from small **synthetic** `xarray` data
 by `scripts/generate_docs_figures.py` -- the point of those guides is
-`struphy_plots` itself, not any particular physics, so this needs only
-`struphy-plots` and its optional extras, no struphy install at all.
+`plasma_plots` itself, not any particular physics, so this needs only
+`plasma-plots` and its optional extras, no struphy install at all.
 
 The one exception is the [A real
-simulation](https://struphy-hub.github.io/struphy-plots/guides/real-example/)
+simulation](https://struphy-hub.github.io/plasma-plots/guides/real-example/)
 guide, whose `real_*.png` figures (and the full source shown on that page,
 via an Astro `?raw` import) come from actually running struphy
 (`scripts/generate_real_example_figures.py`, a real `LinearMHD` slab-waves
@@ -62,7 +62,7 @@ make docs-build     # figures + npm run build
 - `plotly` exports each interactive figure's JSON, fetched client-side by
   the `<PlotlyChart>` component (`docs/src/components/PlotlyChart.astro`),
   which loads Plotly.js itself from a CDN at view time -- neither is a
-  `struphy-plots` dependency, and the docs pages that use `<PlotlyChart>`
+  `plasma-plots` dependency, and the docs pages that use `<PlotlyChart>`
   will fail to build without the referenced JSON, the same as the PyVista
   figures above.
 
@@ -77,7 +77,7 @@ The API reference on the docs site is generated from the docstrings by
 drifts from the code. It runs griffe (through `uv` if it's on your `PATH`, else `python -m griffe`,
 which the `dev` extra installs), with the extension `scripts/griffe_extension.py`: that fills in
 inherited parameters (see below) and turns the Sphinx roles into links. The module pages live
-under `/api/struphy_plots/`. The accessor pages (`docs/src/content/docs/reference/plot.mdx` and
+under `/api/plasma_plots/`. The accessor pages (`docs/src/content/docs/reference/plot.mdx` and
 the others) embed one method per `<Autodoc>` block, in source order; `scripts/accessor_pages.py`
 writes them, so run it after adding or removing an accessor method (`tests/test_accessor_pages.py`
 fails until you do).
@@ -142,20 +142,20 @@ The rules:
 - **Classes:** result dataclasses (`PlotResult`, `FitResult`, ...) list their
   fields under `Attributes`. Other classes that users construct document
   their constructor under `Parameters`.
-- **Accessor methods** (`array.struphy.plot.slice`, ...) that wrap a function
+- **Accessor methods** (`array.plasma.plot.slice`, ...) that wrap a function
   name it first under `See Also`. Parameters the method doesn't document are
   then taken from that function, so the two can't disagree. Document a
   parameter in the method only when it differs from the function's
   (`**selection`, for example). The first entry may also be another method
   with the same options: `slice`, `panels`, `viewer`, `animation` and
   `frames` all take theirs from `ArrayPlots.view`.
-- **Markup:** ``` ``code`` ```, cross-references as `` :func:`struphy_plots.spectral.fft` ``,
+- **Markup:** ``` ``code`` ```, cross-references as `` :func:`plasma_plots.spectral.fft` ``,
   `` :meth:`ArrayPlots.slice` `` or `` :class:`PlotResult` `` (a leading `~`
   shows only the last name), and Unicode instead of LaTeX (`ω`, `|√g|`).
 - **Selections** in examples use integer positions (`t=-1`, `t=0`) or float
   values (`t=0.35`).
 
-Code in `struphy_plots.theory` is plain numpy (no scipy, no Struphy), follows the conventions
+Code in `plasma_plots.theory` is plain numpy (no scipy, no Struphy), follows the conventions
 in its package docstring (complex frequencies, branch dicts, normalized units), cites its
 sources under `References`, and is tested against literature values or independent numerical
 solutions. Its docstring examples must run: `tests/test_theory_doctests.py` runs them.
@@ -166,7 +166,7 @@ shows every parameter of every function.
 
 ## Plotly versions of the plots
 
-`backend="plotly"` (`src/struphy_plots/plotly_backend.py`) converts the finished Matplotlib
+`backend="plotly"` (`src/plasma_plots/plotly_backend.py`) converts the finished Matplotlib
 figure into Plotly; there is no second implementation of any plot. A new accessor plot method
 that draws with Matplotlib gets the option with `@with_backend` and a `backend: Backend | None =
 None` parameter, documented in the method itself (copy the entry of a neighbouring method);
@@ -185,6 +185,6 @@ to the test's cases.
   [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC),
   so no API token is stored in the repo — this needs a one-time "pending
   publisher" set up on the PyPI project settings for
-  `struphy-hub/struphy-plots`, workflow `publish.yml`, environment `pypi`.
+  `struphy-hub/plasma-plots`, workflow `publish.yml`, environment `pypi`.
   The workflow passes `skip-existing: true`, so re-pushing `main` without a
   version bump is a safe no-op rather than a failing build.

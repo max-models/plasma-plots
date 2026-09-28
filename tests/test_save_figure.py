@@ -14,8 +14,8 @@ import xarray as xr  # noqa: E402
 
 go = pytest.importorskip("plotly.graph_objects")
 
-import struphy_plots  # noqa: E402
-from struphy_plots import save_figure  # noqa: E402
+import plasma_plots  # noqa: E402
+from plasma_plots import save_figure  # noqa: E402
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def energy():
 
 
 def test_a_plotly_result_is_saved_as_page_image_and_json(tmp_path, images, energy):
-    result = energy.struphy.plot.timeseries(backend="plotly")
+    result = energy.plasma.plot.timeseries(backend="plotly")
     paths = save_figure(result, tmp_path / "energy")
     assert [p.rsplit("/", 1)[-1] for p in paths] == ["energy.html", "energy.png", "energy.plotly.json"]
     html = (tmp_path / "energy.html").read_text()
@@ -75,7 +75,7 @@ def test_the_image_of_an_animation_shows_frame_or_still(tmp_path, images):
 
 
 def test_a_matplotlib_figure_keeps_its_own_size(tmp_path, energy):
-    result = energy.struphy.plot.timeseries()
+    result = energy.plasma.plot.timeseries()
     paths = save_figure(result, tmp_path / "mpl", formats=("png", "pdf"))
     assert all((tmp_path / name).stat().st_size > 0 for name in ("mpl.png", "mpl.pdf"))
     assert len(paths) == 2
@@ -84,7 +84,7 @@ def test_a_matplotlib_figure_keeps_its_own_size(tmp_path, energy):
 def test_nothing_is_written_on_other_mpi_ranks(tmp_path, images, monkeypatch):
     rank_1 = types.SimpleNamespace(COMM_WORLD=types.SimpleNamespace(Get_rank=lambda: 1, Get_size=lambda: 2))
     monkeypatch.setitem(sys.modules, "mpi4py.MPI", rank_1)
-    monkeypatch.setattr(struphy_plots.mpi, "mpi_rank", lambda: 1, raising=False)
+    monkeypatch.setattr(plasma_plots.mpi, "mpi_rank", lambda: 1, raising=False)
     figure = go.Figure(go.Scatter(x=[0, 1], y=[1, 2]))
     assert save_figure(figure, tmp_path / "rank1") == []
     assert not list(tmp_path.iterdir())

@@ -7,8 +7,8 @@ import xarray as xr
 pv = pytest.importorskip("pyvista")
 pv.OFF_SCREEN = True
 
-import struphy_plots  # noqa: E402, F401  (registers the accessors)
-from struphy_plots import pyvista_plots as p3  # noqa: E402
+import plasma_plots  # noqa: E402, F401  (registers the accessors)
+from plasma_plots import pyvista_plots as p3  # noqa: E402
 
 
 def torus_coords(n1=6, n2=12, n3=16, R0=3.0, full=True):
@@ -135,24 +135,24 @@ def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
 
     flat = scalar(plane_coords())
     assert [piece.shape for piece in p3.prepare_slices_3d(flat)] == [flat.shape]
-    plotter = field.struphy.plot.slices_3d(cuts={"eta3": [0, 0.5]})
+    plotter = field.plasma.plot.slices_3d(cuts={"eta3": [0, 0.5]})
     assert {"slice0", "slice1"} <= actor_names(plotter)
     plotter.close()
-    assert len(field.struphy.data.slices_3d(cuts={"eta1": 0.5})) == 1
+    assert len(field.plasma.data.slices_3d(cuts={"eta1": 0.5})) == 1
 
 
 def test_glyphs_and_streamlines_for_a_2d_vector_field():
     flow = vortex(plane_coords())
-    plotter = flow.struphy.plot.glyphs(stride=2)
+    plotter = flow.plasma.plot.glyphs(stride=2)
     assert "glyphs" in actor_names(plotter)
     plotter.close()
-    plotter = flow.struphy.plot.streamlines(n_points=10)
+    plotter = flow.plasma.plot.streamlines(n_points=10)
     assert "streamlines" in actor_names(plotter)
     lines = plotter.renderer.actors["streamlines"].mapper.dataset
     np.testing.assert_allclose(lines.points[:, 2], 0.0, atol=1e-12)  # stays on the plane
     plotter.close()
     with pytest.raises(ValueError, match="cartesian"):
-        flow.struphy.plot.glyphs(components="covariant")
+        flow.plasma.plot.glyphs(components="covariant")
 
 
 def test_orbit_polylines_drop_lost_samples_and_color_by_class():
@@ -166,7 +166,7 @@ def test_orbit_polylines_drop_lost_samples_and_color_by_class():
     lines = p3.orbit_polylines(orbits)
     assert lines.n_points == 5 + 2  # marker 1 is lost after two samples
     assert lines.n_lines == 2
-    plotter = orbits.struphy.plot.orbits_3d(color_by="classification")
+    plotter = orbits.plasma.plot.orbits_3d(color_by="classification")
     assert {"orbits_passing", "orbits_lost"} <= actor_names(plotter)
     plotter.close()
     with pytest.raises(ValueError, match="color_by"):
@@ -193,7 +193,7 @@ def test_save_movie_writes_one_frame_per_step(tmp_path):
     from PIL import Image
 
     field = scalar(plane_coords(), t=[0.0, 0.5, 1.0, 1.5])
-    path = field.struphy.plot.movie(tmp_path / "movie.gif", kind="isosurface", step=2, values=3)
+    path = field.plasma.plot.movie(tmp_path / "movie.gif", kind="isosurface", step=2, values=3)
     assert Image.open(path).n_frames == 2
     with pytest.raises(ValueError, match="kind"):
         p3.save_movie(field, tmp_path / "x.gif", kind="volume")

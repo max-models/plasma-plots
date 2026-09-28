@@ -1,24 +1,24 @@
 """Interactive Plotly versions of the plots: ``backend="plotly"``.
 
-Every accessor plot that draws with Matplotlib (``array.struphy.plot.*``,
-``dataset.struphy.plot.*``, ``out.plot.*``) takes ``backend="plotly"``. The plot is drawn with
+Every accessor plot that draws with Matplotlib (``array.plasma.plot.*``,
+``dataset.plasma.plot.*``, ``out.plot.*``) takes ``backend="plotly"``. The plot is drawn with
 Matplotlib as usual, off screen, and the drawn figure is converted into a Plotly figure: the same
 data, color limits, fits, reference curves, labels and layout, but with hover values, zoom and,
 for animations and viewers, a slider in the browser. The two backends cannot disagree about what
 they show, because there is only one drawing code path.
 
->>> result = phi.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, backend="plotly")
+>>> result = phi.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, backend="plotly")
 >>> result.fig                           # a plotly.graph_objects.Figure
 >>> result.save("phi.html")              # a standalone page; .png/.pdf/.svg need kaleido
->>> struphy_plots.set_backend("plotly")  # the default for every plot from now on
+>>> plasma_plots.set_backend("plotly")  # the default for every plot from now on
 
-Plots return a :class:`~struphy_plots.plotting.PlotResult` with either backend (``fit_results``
+Plots return a :class:`~plasma_plots.plotting.PlotResult` with either backend (``fit_results``
 and ``data`` included); animations and viewers return one too, whose figure has a slider. Plotly
-is optional: ``pip install "struphy-plots[plotly]"``.
+is optional: ``pip install "plasma-plots[plotly]"``.
 
 The conversion itself is also available for any Matplotlib figure drawn with the plotting
 functions: :func:`to_plotly`, :func:`animation_to_plotly` and
-:meth:`~struphy_plots.plotting.PlotResult.to_plotly`.
+:meth:`~plasma_plots.plotting.PlotResult.to_plotly`.
 
 What converts: lines, markers and scatters (also colored by a value), meshes (heatmaps on
 rectilinear grids; on mapped, curvilinear grids an image of the mesh with the values under the
@@ -45,15 +45,15 @@ BACKENDS = ("matplotlib", "plotly")
 PX_PER_INCH = 100.0
 PX_PER_PT = PX_PER_INCH / 72.0
 #: The longer side, in pixels, of the image a mesh on a mapped (curvilinear) grid is drawn as. Lower it
-#: for smaller pages, e.g. of long animations: ``struphy_plots.plotly_backend.IMAGE_PIXELS = 600``.
+#: for smaller pages, e.g. of long animations: ``plasma_plots.plotly_backend.IMAGE_PIXELS = 600``.
 IMAGE_PIXELS = 1200
 
 _default = "matplotlib"
 # inside a plot method: nested accessor calls draw with Matplotlib (the outermost call converts)
-_drawing = contextvars.ContextVar("struphy_plots_drawing", default=False)
+_drawing = contextvars.ContextVar("plasma_plots_drawing", default=False)
 # how many plot methods are running, one inside the other
-_depth = contextvars.ContextVar("struphy_plots_depth", default=0)
-# the result lists of the figures being composed with struphy_plots.figure, innermost last
+_depth = contextvars.ContextVar("plasma_plots_depth", default=0)
+# the result lists of the figures being composed with plasma_plots.figure, innermost last
 _collecting: list[list] = []
 
 
@@ -88,9 +88,9 @@ def set_backend(backend: str) -> str:
 
     Examples
     --------
-    >>> previous = struphy_plots.set_backend("plotly")
-    >>> phi.struphy.plot.slice(t=-1, eta3=0)   # a Plotly figure
-    >>> struphy_plots.set_backend(previous)
+    >>> previous = plasma_plots.set_backend("plotly")
+    >>> phi.plasma.plot.slice(t=-1, eta3=0)    # a Plotly figure
+    >>> plasma_plots.set_backend(previous)
     """
     global _default
     previous, _default = _default, _check(backend)
@@ -144,7 +144,7 @@ def _plotly():
         import plotly.graph_objects as go
     except ImportError as error:  # pragma: no cover - depends on the environment
         raise ImportError(
-            'backend="plotly" needs plotly: pip install "struphy-plots[plotly]" (or pip install plotly)'
+            'backend="plotly" needs plotly: pip install "plasma-plots[plotly]" (or pip install plotly)'
         ) from error
     return go
 
@@ -181,7 +181,7 @@ def with_backend(method):
         try:
             if backend == "matplotlib":
                 result = method(*args, **kwargs)
-                if _collecting and _depth.get() == 1:  # a panel of struphy_plots.figure
+                if _collecting and _depth.get() == 1:  # a panel of plasma_plots.figure
                     _collecting[-1].append(result)
                 return result
             ax = arguments.get("ax", (arguments.get("options") or {}).get("ax"))
@@ -456,7 +456,7 @@ def to_plotly(figure, *, strict: bool = False):
     ----------
     figure : matplotlib.figure.Figure
         A figure drawn by one of the plotting functions (or any figure with the artists they
-        use, see :mod:`struphy_plots.plotly_backend`).
+        use, see :mod:`plasma_plots.plotly_backend`).
     strict : bool, optional
         Raise instead of warning when a part of the figure cannot be converted. Default:
         ``False``.
@@ -475,7 +475,7 @@ def to_plotly(figure, *, strict: bool = False):
     See Also
     --------
     animation_to_plotly : The same for an animation.
-    struphy_plots.plotting.PlotResult.to_plotly : The same for a plot result.
+    plasma_plots.plotting.PlotResult.to_plotly : The same for a plot result.
 
     Examples
     --------
@@ -1205,7 +1205,7 @@ def animation_to_plotly(animation, *, labels=None, prefix: str | None = None, pl
     Parameters
     ----------
     animation : matplotlib.animation.FuncAnimation
-        The animation, e.g. from :func:`~struphy_plots.plotting.animate_slices`.
+        The animation, e.g. from :func:`~plasma_plots.plotting.animate_slices`.
     labels : sequence of str, optional
         One slider label per frame. Default: the sweep values the animation was made for (for the
         animations of this package), else the frame numbers.
@@ -1239,7 +1239,7 @@ def animation_to_plotly(animation, *, labels=None, prefix: str | None = None, pl
     frames = list(animation.new_frame_seq())
     if not frames:
         raise ValueError("the animation has no frames")
-    sweep = getattr(animation, "_struphy_sweep", None)
+    sweep = getattr(animation, "_plasma_sweep", None)
     if labels is None:
         labels = [f"{v:.4g}" for v in sweep[1]] if sweep is not None and len(sweep[1]) == len(frames) else \
             [str(i) for i in range(len(frames))]
@@ -1381,7 +1381,7 @@ def viewer_to_plotly(viewer):
 
     Parameters
     ----------
-    viewer : struphy_plots.plotting.InteractiveSliceViewer
+    viewer : plasma_plots.plotting.InteractiveSliceViewer
         The viewer (drawn or not).
 
     Returns

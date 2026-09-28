@@ -37,7 +37,7 @@ def test_the_reference_shows_every_parameter_of_every_function():
     method then documents every parameter of its signature."""
     import griffe
 
-    package = griffe.load("struphy_plots", search_paths=[str(SCRIPTS.parent / "src")], docstring_parser="numpy",
+    package = griffe.load("plasma_plots", search_paths=[str(SCRIPTS.parent / "src")], docstring_parser="numpy",
                           extensions=griffe.load_extensions(str(SCRIPTS / "griffe_extension.py")))
     generator = load_generator()
     missing = []
@@ -56,8 +56,8 @@ def test_help_shows_every_parameter_of_every_accessor_method():
     same ones the generated reference shows."""
     import inspect
 
-    from struphy_plots import accessors, output_accessors
-    from struphy_plots._docs import _items, _sections
+    from plasma_plots import accessors, output_accessors
+    from plasma_plots._docs import _items, _sections
 
     generator = load_generator()
     package = generator.load_package()

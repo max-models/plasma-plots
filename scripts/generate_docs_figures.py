@@ -1,9 +1,9 @@
 """Generate every general-purpose example figure embedded in the docs
 (docs/src/assets/figures/).
 
-Builds small, purely synthetic labeled xarray data and renders it with struphy_plots,
+Builds small, purely synthetic labeled xarray data and renders it with plasma_plots,
 so the docs show real output of the actual plotting/analysis code rather than mockups,
-without needing a struphy install at all. Most figures need only struphy_plots +
+without needing a struphy install at all. Most figures need only plasma_plots +
 numpy/xarray/matplotlib; a few (marked below) need the optional ``pyvista`` extra
 (``pip install -e ".[pyvista]"``) and a working off-screen rendering setup (see
 ``.github/workflows/docs.yml``).
@@ -30,9 +30,9 @@ import numpy as np
 import xarray as xr
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import struphy_plots  # noqa: F401  (registers .struphy on DataArray/Dataset)
-from struphy_plots.arrays import axis_label, value_label
-from struphy_plots.plotting import (PlotResult, plot_convergence,
+import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
+from plasma_plots.arrays import axis_label, value_label
+from plasma_plots.plotting import (PlotResult, plot_convergence,
                                     plot_dispersion, plot_scalars)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
@@ -97,11 +97,11 @@ field = field_array(
     "phi", r"$\phi$", "a.u.", phi, ("t", "eta1", "eta2"), {"t": t, "eta1": eta1, "eta2": eta2}
 )
 
-save(field.struphy.plot.slice(x="eta1", y="eta2", t=-1), "slice.png")
-save(field.struphy.plot.panels(x="eta1", y="eta2", nrows=2, ncols=3), "panels.png")
-save(field.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5), "lineout.png")
+save(field.plasma.plot.slice(x="eta1", y="eta2", t=-1), "slice.png")
+save(field.plasma.plot.panels(x="eta1", y="eta2", nrows=2, ncols=3), "panels.png")
+save(field.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5), "lineout.png")
 
-anim = field.struphy.plot.animation(x="eta1", y="eta2", step=2, interval=120)
+anim = field.plasma.plot.animation(x="eta1", y="eta2", step=2, interval=120)
 anim_path = PUBLIC_OUT / "animation.gif"
 anim.save(anim_path, writer="pillow", fps=8)
 print(f"wrote {anim_path}")
@@ -124,7 +124,7 @@ vector = field_array(
     {"t": t, "eta1": eta1, "eta2": eta2},
 )
 save(
-    vector.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1),
+    vector.plasma.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1),
     "vector.png",
 )
 
@@ -138,7 +138,7 @@ blob = np.exp(
 volume_data = field_array(
     "n", "$n$", "a.u.", blob, ("eta1", "eta2", "eta3"), {"eta1": e1_3, "eta2": e2_3, "eta3": e3_3}
 )
-save(volume_data.struphy.plot.volume_slices(), "volume_slices.png")
+save(volume_data.plasma.plot.volume_slices(), "volume_slices.png")
 
 try:
     import pyvista as pv
@@ -150,7 +150,7 @@ try:
         Y=(("eta1", "eta2", "eta3"), E2_3),
         Z=(("eta1", "eta2", "eta3"), E3_3),
     )
-    plotter = physical.struphy.plot.volume(cmap="viridis")
+    plotter = physical.plasma.plot.volume(cmap="viridis")
     plotter.camera_position = "iso"
     plotter.screenshot(str(OUT / "volume.png"))
     plotter.close()
@@ -173,14 +173,14 @@ energy = field_array("en_phi", r"$e_\phi$", "J", en_phi, ("t",), {"t": tt})
 total = field_array("en_tot", r"$e_{tot}$", "J", en_tot, ("t",), {"t": tt})
 
 save(
-    energy.struphy.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth"),
+    energy.plasma.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth"),
     "timeseries_growth.png",
 )
 save(plot_scalars({"en_phi": energy, "en_tot": total}, logy=False), "scalars.png")
 
-with struphy_plots.figure(2, 1, sharex=True) as composed:
-    energy.struphy.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
-    total.struphy.analysis.drift().struphy.plot.timeseries(logy=False, ax=composed[1])
+with plasma_plots.figure(2, 1, sharex=True) as composed:
+    energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
+    total.plasma.analysis.drift().plasma.plot.timeseries(logy=False, ax=composed[1])
 save(composed, "composed_energies.png")
 
 
@@ -191,8 +191,8 @@ def oscillating_energy(rate=-0.3, omega=3.0):
 
 
 damped = oscillating_energy()
-envelope = damped.struphy.analysis.envelope()
-fit = damped.struphy.analysis.damping_rate(amplitude=True)
+envelope = damped.plasma.analysis.envelope()
+fit = damped.plasma.analysis.damping_rate(amplitude=True)
 fig, ax = plt.subplots()
 ax.plot(damped.t, damped, lw=0.8, label="energy")
 ax.plot(envelope.t, envelope, "o", ms=3, color="C1", label="envelope peaks")
@@ -210,16 +210,16 @@ save_fig(fig, "damping.png")
 # the frequency of a damped oscillation from its zero crossings
 t_osc = np.linspace(0.0, 30.0, 301)
 probe_osc = field_array("E", "$E_x$", "a.u.", np.exp(-0.06 * t_osc) * np.cos(1.3 * t_osc + 0.4), ("t",), {"t": t_osc})
-fit_osc = probe_osc.struphy.analysis.oscillation_frequency()
-shown_osc = probe_osc.struphy.plot.timeseries(logy=False, title=f"zero crossings: ω = {fit_osc.omega:.4f} (exact 1.3)")
+fit_osc = probe_osc.plasma.analysis.oscillation_frequency()
+shown_osc = probe_osc.plasma.plot.timeseries(logy=False, title=f"zero crossings: ω = {fit_osc.omega:.4f} (exact 1.3)")
 shown_osc.ax.plot(fit_osc.times, np.zeros_like(fit_osc.times), "o", ms=5, mfc="none", label="zero crossings")
 shown_osc.ax.legend(fontsize="small")
 save(shown_osc, "oscillation_frequency.png")
 
 run_a = field_array("en_phi", r"$e_\phi$", "J", np.exp(0.55 * tt), ("t",), {"t": tt})
 run_b = field_array("en_phi", r"$e_\phi$", "J", np.exp(0.62 * tt), ("t",), {"t": tt})
-save(run_a.struphy.plot.compare(run_b, mode="difference"), "compare_difference.png")
-save(run_a.struphy.plot.compare(run_b, mode="ratio"), "compare_ratio.png")
+save(run_a.plasma.plot.compare(run_b, mode="difference"), "compare_difference.png")
+save(run_a.plasma.plot.compare(run_b, mode="ratio"), "compare_ratio.png")
 
 
 # =============================================================================
@@ -229,13 +229,13 @@ decaying_field = field * xr.DataArray(
     1.0 / (1.0 + 0.4 * t), dims=("t",), coords={"t": t}
 )
 decaying_field.attrs = dict(field.attrs)
-norm_t = decaying_field.struphy.analysis.norm()
+norm_t = decaying_field.plasma.analysis.norm()
 save(
-    norm_t.struphy.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png"
+    norm_t.plasma.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png"
 )
 
 save(
-    total.struphy.analysis.drift().struphy.plot.lineout(
+    total.plasma.analysis.drift().plasma.plot.lineout(
         x="t", title="Drift from the initial value"
     ),
     "drift.png",
@@ -250,7 +250,7 @@ en_cons = field_array(
     {"t": tt},
 )
 save(
-    en_cons.struphy.analysis.relative_error().struphy.plot.lineout(
+    en_cons.plasma.analysis.relative_error().plasma.plot.lineout(
         x="t", title="Relative energy conservation error"
     ),
     "relative_error.png",
@@ -275,9 +275,9 @@ distribution = field_array(
     "f", "$f$", "a.u.", f, ("t", "eta1", "v1"), {"t": tp, "eta1": e1p, "v1": v1p}
 )
 
-save(distribution.struphy.plot.slice(x="eta1", y="v1", t=-1), "phase_space.png")
+save(distribution.plasma.plot.slice(x="eta1", y="v1", t=-1), "phase_space.png")
 
-moments = distribution.struphy.analysis.velocity_moments()
+moments = distribution.plasma.analysis.velocity_moments()
 final = moments.isel(t=-1)
 fig, axes = plt.subplots(1, 3, figsize=(12, 3.4), layout="constrained")
 for ax, name in zip(axes, ("density", "mean_v1", "variance_v1")):
@@ -290,9 +290,9 @@ for ax, name in zip(axes, ("density", "mean_v1", "variance_v1")):
     )
 save_fig(fig, "velocity_moments.png")
 
-averaged = distribution.struphy.analysis.spatial_average()
+averaged = distribution.plasma.analysis.spatial_average()
 save(
-    averaged.struphy.plot.slice(
+    averaged.plasma.plot.slice(
         x="t", y="v1", title="Velocity distribution averaged over space"
     ),
     "spatial_average.png",
@@ -318,8 +318,8 @@ orbits = xr.Dataset(
     coords={"t": s, "marker": np.arange(n_markers)},
     attrs={"product": "orbits", "label": "marker orbits"},
 )
-save(orbits.struphy.plot.trajectories(show_paths=True), "trajectories.png")
-marker_orbits = orbits  # `orbits` becomes struphy_plots.theory.orbits further down
+save(orbits.plasma.plot.trajectories(show_paths=True), "trajectories.png")
+marker_orbits = orbits  # `orbits` becomes plasma_plots.theory.orbits further down
 
 # A cloud of Lagrangian particles (e.g. an SPH gas expansion), colored by a
 # tracer they carry -- their own initial radius.
@@ -340,7 +340,7 @@ cloud = xr.Dataset(
     coords={"marker": np.arange(n_particles)},
     attrs={"label": "Expanding particle cloud"},
 )
-save(cloud.struphy.plot.scatter(x="x", y="y", color="density"), "marker_scatter.png")
+save(cloud.plasma.plot.scatter(x="x", y="y", color="density"), "marker_scatter.png")
 
 # Marker orbits overlaid on a background field (a Poincare-style diagnostic):
 # a potential well with a few near-circular confined orbits at different radii.
@@ -366,7 +366,7 @@ confined_orbits = xr.Dataset(
     coords={"t": s_orbit, "marker": np.arange(n_confined)},
 )
 save(
-    well.struphy.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2"),
+    well.plasma.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2"),
     "orbit_overlay.png",
 )
 
@@ -380,7 +380,7 @@ second_order = 0.4 / sizes**2
 resolution = {"n": ("n", sizes, {"long_name": "resolution"})}
 scheme_a = xr.DataArray(first_order, dims="n", coords=resolution, name="scheme A")
 scheme_b = xr.DataArray(second_order, dims="n", coords=resolution, name="scheme B")
-save(scheme_a.struphy.plot.convergence(scheme_b), "convergence.png")
+save(scheme_a.plasma.plot.convergence(scheme_b), "convergence.png")
 
 
 # =============================================================================
@@ -411,7 +411,7 @@ dispersive_field = field_array(
     "phi", r"$\phi$", "a.u.", wave, ("t", "eta1"), {"t": t_disp, "eta1": x_disp}
 )
 save(
-    dispersive_field.struphy.plot.dispersion(
+    dispersive_field.plasma.plot.dispersion(
         branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12
     ),
     "dispersion.png",
@@ -429,17 +429,17 @@ for n_light in range(1, 40):
                                                     + rng_light.uniform(0, 2 * np.pi))
 e_x = xr.DataArray(light_values, dims=("t", "z"), coords={"t": t_light, "z": z_light}, name="E_x",
                    attrs={"label": "$E_x$"})
-light_spectrum = e_x.struphy.analysis.dispersion(dim="z")
-light_fits = light_spectrum.struphy.analysis.fit_branches(n_branches=1)
+light_spectrum = e_x.plasma.analysis.dispersion(dim="z")
+light_fits = light_spectrum.plasma.analysis.fit_branches(n_branches=1)
 save(
-    light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
+    light_spectrum.plasma.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
                                            dynamic_range=12, omega_max=25),
     "dispersion_fits.png",
 )
 
 
 # =============================================================================
-# A Plotly figure built by hand from .struphy.data (the Selecting data guide; needs
+# A Plotly figure built by hand from .plasma.data (the Selecting data guide; needs
 # `pip install plotly`): figure JSON for the docs' <PlotlyChart> component
 # (docs/src/components/PlotlyChart.astro), which loads Plotly.js from a CDN. The
 # backend="plotly" versions of the plots are written at the end of this script.
@@ -454,7 +454,7 @@ try:
         fig.write_json(PLOTLY_OUT / f"{filename}.json")
         print(f"wrote {PLOTLY_OUT / f'{filename}.json'}")
 
-    selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
+    selected = field.plasma.data.slice(x="eta1", y="eta2", t=-1)
     fig = px.imshow(
         selected.transpose("eta2", "eta1"),
         x=selected.eta1,
@@ -469,7 +469,7 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 
 
 # =============================================================================
-# Spectral analysis: struphy_plots.spectral / spectral_plots
+# Spectral analysis: plasma_plots.spectral / spectral_plots
 #
 # A synthetic toroidal Alfven eigenmode (TAE) in a sixth of a hollow torus, with the
 # parameters of Struphy's TAE tutorial: r = 0.1 + 0.9*eta1, q = 1.71 + 0.16 r^2,
@@ -477,8 +477,8 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # Coupled m = 10/11 harmonics peaked either side of r* = 0.5 oscillate at the gap
 # frequency and grow slowly; a continuum-damped m = 10 oscillation sits at r = 0.8.
 # =============================================================================
-from struphy_plots import spectral_plots as spp  # noqa: E402
-from struphy_plots.spectral import (  # noqa: E402
+from plasma_plots import spectral_plots as spp  # noqa: E402
+from plasma_plots.spectral import (  # noqa: E402
     cross_spectrum,
     filter_time,
     matrix_pencil,
@@ -528,28 +528,28 @@ phi_tae = field_array(
 )
 radius_of = lambda eta1: 0.1 + 0.9 * eta1  # noqa: E731
 
-band_tae = phi_tae.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
+band_tae = phi_tae.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
 save(
-    phi_tae.struphy.plot.power_spectrum(
+    phi_tae.plasma.plot.power_spectrum(
         peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate": omega_tae}, omega_max=0.5,
         title="Power spectrum, averaged over the torus sector",
     ),
     "spectral_power.png",
 )
-save(phi_tae.struphy.plot.filtered(band_tae, eta1=0.4, eta2=0.0, eta3=0.0), "spectral_filtered.png")
-save(phi_tae.struphy.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)), "spectral_mode_amplitudes.png")
-save(phi_tae.struphy.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
+save(phi_tae.plasma.plot.filtered(band_tae, eta1=0.4, eta2=0.0, eta3=0.0), "spectral_filtered.png")
+save(phi_tae.plasma.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)), "spectral_mode_amplitudes.png")
+save(phi_tae.plasma.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
 save(
-    phi_tae.struphy.plot.radial_power(
+    phi_tae.plasma.plot.radial_power(
         x_of=radius_of, xlabel=r"$r/a$", continuum=(alfven_continuum, [(10, n_tae), (11, n_tae)]),
         omega_max=0.3,
     ),
     "spectral_radial_power.png",
 )
-peaks_tae = phi_tae.struphy.analysis.spectral_peaks(n_peaks=2, window="hann")
+peaks_tae = phi_tae.plasma.analysis.spectral_peaks(n_peaks=2, window="hann")
 omega_measured = float(peaks_tae.omega_refined[0])
 save(
-    phi_tae.struphy.plot.mode_profiles(omega_measured, x_of=radius_of, xlabel=r"$r/a$", top=2),
+    phi_tae.plasma.plot.mode_profiles(omega_measured, x_of=radius_of, xlabel=r"$r/a$", top=2),
     "spectral_mode_profiles.png",
 )
 
@@ -563,7 +563,7 @@ probe_short = field_array(
     ("t",),
     {"t": t_short},
 )
-save(probe_short.struphy.plot.pencil_fit(n_modes=1), "spectral_pencil.png")
+save(probe_short.plasma.plot.pencil_fit(n_modes=1), "spectral_pencil.png")
 
 # An energetic-particle-like mode chirping down in frequency, beside a steady mode
 t_chirp = np.arange(1600) * 0.5
@@ -576,7 +576,7 @@ chirp = field_array(
     ("t",),
     {"t": t_chirp},
 )
-save(chirp.struphy.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45), "spectral_spectrogram.png")
+save(chirp.plasma.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45), "spectral_spectrogram.png")
 
 # A standing shear-Alfven wave: velocity and magnetic perturbation a quarter period apart
 z_wave = np.linspace(0.02, np.pi / 2 - 0.02, 24)
@@ -591,14 +591,14 @@ b_wave = field_array(
     "b", "$b_x$", "a.u.", np.sin(z_wave)[None] * np.cos(omega_wave * t_wave)[:, None] + noise[1],
     ("t", "eta3"), {"t": t_wave, "eta3": z_wave},
 )
-save(u_wave.struphy.plot.cross_spectrum(b_wave, dims="eta3", omega_max=1.5), "spectral_cross.png")
+save(u_wave.plasma.plot.cross_spectrum(b_wave, dims="eta3", omega_max=1.5), "spectral_cross.png")
 
 
 # =============================================================================
 # Run-level tools from struphy's TAE_example_Shrut branch: energy budgets,
 # profiles at several times, mode profiles at one time, orbit projections
 # =============================================================================
-from struphy_plots.plotting import plot_energy_budget  # noqa: E402
+from plasma_plots.plotting import plot_energy_budget  # noqa: E402
 
 # An energetic-particle drive: the wave grows while the energetic ions lose the same energy
 t_en = np.linspace(0.0, 60.0, 301)
@@ -622,11 +622,11 @@ save(
 
 # Radial profiles of the synthetic TAE at a few times, and its harmonics at the last time
 save(
-    phi_tae.struphy.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=radius_of, xlabel=r"$r/a$", eta2=0.0, eta3=0.0),
+    phi_tae.plasma.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=radius_of, xlabel=r"$r/a$", eta2=0.0, eta3=0.0),
     "profiles.png",
 )
 save(
-    phi_tae.struphy.plot.mode_profiles(t=-1, scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2),
+    phi_tae.plasma.plot.mode_profiles(t=-1, scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2),
     "mode_profiles_snapshot.png",
 )
 
@@ -670,11 +670,11 @@ boundary_field = field_array(
     Y=(("eta1", "eta2", "eta3"), np.zeros((5, 64, 1))),
     Z=(("eta1", "eta2", "eta3"), ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None]),
 )
-save(orbits_gc.struphy.plot.orbit_classification(), "orbit_classification.png")
-save(orbits_gc.struphy.plot.poloidal(boundary=boundary_field), "orbits_poloidal.png")
+save(orbits_gc.plasma.plot.orbit_classification(), "orbit_classification.png")
+save(orbits_gc.plasma.plot.poloidal(boundary=boundary_field), "orbits_poloidal.png")
 
 # The shear-Alfven continua of the TAE harmonics, with the frequency measured above
-from struphy_plots.plotting import plot_continuous_spectrum  # noqa: E402
+from plasma_plots.plotting import plot_continuous_spectrum  # noqa: E402
 
 save(
     plot_continuous_spectrum(
@@ -687,7 +687,7 @@ save(
     ),
     "continuous_spectrum.png",
 )
-save(orbits_gc.struphy.plot.quantities(markers=4), "orbits_quantities.png")
+save(orbits_gc.plasma.plot.quantities(markers=4), "orbits_quantities.png")
 # the orbits moving in the poloidal plane over flux surfaces, colored by class, with trails
 e1_s = np.linspace(0, 1, 12)
 E1_s, E2_s = np.meshgrid(e1_s, e2_b, indexing="ij")
@@ -699,7 +699,7 @@ psi_gc = field_array("psi", r"$\psi$", "a.u.", ((0.1 + 0.9 * E1_s) ** 2)[..., No
 ).isel(eta3=0)
 orbit_movie = dict(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80, background=psi_gc,
                    background_options={"levels": 6, "fill": False, "cmap": "Greys"})
-animation_gc = orbits_gc.struphy.plot.animation(**orbit_movie)
+animation_gc = orbits_gc.plasma.plot.animation(**orbit_movie)
 animation_gc.save(PUBLIC_OUT / "orbits_animation.gif", writer="pillow", fps=10)
 print(f"wrote {PUBLIC_OUT / 'orbits_animation.gif'}")
 
@@ -743,13 +743,13 @@ ring = field_array(
     Z=(("eta1", "eta2", "eta3"), np.zeros((a1, a2, 1))),
 )
 save(
-    ring.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], cmap="viridis",
+    ring.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], cmap="viridis",
                             title="Charge density with the interface n = 0.2"),
     "contour_interface.png",
 )
 save(
     # at the outer interface, where the wave moves the edge (a radial average would cancel it)
-    ring.isel(eta3=0).sel(eta1=0.59, method="nearest").struphy.plot.mode_amplitudes(
+    ring.isel(eta3=0).sel(eta1=0.59, method="nearest").plasma.plot.mode_amplitudes(
         dims="eta2", names="m", relative=True, top=3, fit=(8.0, 20.0)
     ),
     "relative_modes.png",
@@ -780,11 +780,11 @@ dam_density = np.stack(
 )
 dam_field, _, _ = unit_square(dam_density, 40, 40, t=t_db, name="n", label="$n$")
 save(
-    dam.struphy.plot.scatter(x="x", y="y", color="x", color_at=0, t=-1, s=5, cmap="plasma",
+    dam.plasma.plot.scatter(x="x", y="y", color="x", color_at=0, t=-1, s=5, cmap="plasma",
                              background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"}),
     "markers_over_density.png",
 )
-animation_db = dam.struphy.plot.animation(
+animation_db = dam.plasma.plot.animation(
     x="x", y="y", color="x", color_at=0, s=5, cmap="plasma",
     background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"},
 )
@@ -821,7 +821,7 @@ beltrami = xr.Dataset(
     coords={"t": t_bs, "marker": np.arange(path.shape[1])},
 )
 save(
-    beltrami.struphy.plot.paths(
+    beltrami.plasma.plot.paths(
         near=[tuple(p) for p in starts[:6]],
         background=psi.isel(eta3=0),
         background_options={"levels": 12, "fill": False, "cmap": "Greys", "title": "Marker paths over the streamlines"},
@@ -856,17 +856,17 @@ omega_hw = phi_hw.copy(data=np.array(omega_values)[..., None]).rename("omega")
 omega_hw.attrs.update(label=r"$\omega$")
 density_hw = phi_hw.copy(data=np.array(n_values)[..., None]).rename("n")
 density_hw.attrs.update(label="$n$")
-animation_hw = omega_hw.struphy.plot.animation(
+animation_hw = omega_hw.plasma.plot.animation(
     coords="physical", plane="XY", eta3=0, alongside=[density_hw], cmap="RdBu_r", symmetric=True, robust=True
 )
 animation_hw.save(PUBLIC_OUT / "fields_side_by_side.gif", writer="pillow", fps=6)
 print(f"wrote {PUBLIC_OUT / 'fields_side_by_side.gif'}")
 
 # Recipe: the E x B kinetic energy of drift waves and of the zonal flow, from gradient()
-grad_phi = phi_hw.struphy.analysis.gradient()
+grad_phi = phi_hw.plasma.analysis.gradient()
 total_energy = 0.5 * (grad_phi.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
 zonal = xr.zeros_like(phi_hw) + phi_hw.mean("eta2")  # keeps the X, Y coordinates
-grad_zonal = zonal.struphy.analysis.gradient()
+grad_zonal = zonal.plasma.analysis.gradient()
 zonal_energy = 0.5 * (grad_zonal.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
 fig, ax = plt.subplots(figsize=(7, 4), layout="constrained")
 ax.stackplot(
@@ -883,7 +883,7 @@ save_fig(fig, "zonal_energy.png")
 # curves over time series and profiles, errors, mode projections, traced
 # dispersion branches, overlays on slices, orbit grids
 # =============================================================================
-from struphy_plots.plotting import plot_measured_vs_theory  # noqa: E402
+from plasma_plots.plotting import plot_measured_vs_theory  # noqa: E402
 
 # A damped standing Langmuir wave, as in the Landau-damping examples; project_mode picks its
 # amplitude out of the field, and the exact envelope goes over it
@@ -897,10 +897,10 @@ e_ld = field_array(
     + 2e-3 * rng_ld.standard_normal((251, 64)),
     ("t", "eta1"), {"t": t_ld, "eta1": x_ld},
 )
-amplitude_ld = e_ld.struphy.analysis.project_mode(dim="eta1", number=k_ld)
+amplitude_ld = e_ld.plasma.analysis.project_mode(dim="eta1", number=k_ld)
 amplitude_ld.attrs.update(label=r"$\hat E_{k=1}$")
 save(
-    amplitude_ld.struphy.plot.timeseries(
+    amplitude_ld.plasma.plot.timeseries(
         logy=False,
         reference={"$\\pm 0.1\\,e^{-\\gamma t}$": lambda t: 0.1 * np.exp(-gamma_ld * t),
                    "_lower": lambda t: -0.1 * np.exp(-gamma_ld * t)},
@@ -922,11 +922,11 @@ def heat_kernel(x, t, D=D_exact, width=0.05):
 
 heat = field_array("T", "$T$", "a.u.", heat_kernel(x_hd[None], t_hd[:, None], D_run), ("t", "eta1"), {"t": t_hd, "eta1": x_hd})
 save(
-    heat.struphy.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": heat_kernel},
+    heat.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": heat_kernel},
                                title="Temperature profiles and the exact solution"),
     "profiles_exact.png",
 )
-animation_hd = heat.struphy.plot.line_animation(reference={"exact": heat_kernel}, step=2)
+animation_hd = heat.plasma.plot.line_animation(reference={"exact": heat_kernel}, step=2)
 animation_hd.save(PUBLIC_OUT / "line_animation.gif", writer="pillow", fps=8)
 print(f"wrote {PUBLIC_OUT / 'line_animation.gif'}")
 # the same with the peak temperature below, the run's against the exact one
@@ -934,16 +934,16 @@ peak_hd = heat.max("eta1").rename("peak")
 peak_hd.attrs = {"label": "peak of the run", "units": "a.u."}
 exact_peak_hd = xr.DataArray(heat_kernel(0.5, t_hd), dims="t", coords={"t": t_hd}, name="exact",
                              attrs={"label": "exact peak", "units": "a.u."})
-animation_hc = heat.struphy.plot.line_animation(reference={"exact": heat_kernel}, alongside=[[peak_hd, exact_peak_hd]],
+animation_hc = heat.plasma.plot.line_animation(reference={"exact": heat_kernel}, alongside=[[peak_hd, exact_peak_hd]],
                                                 step=2)
 animation_hc.save(PUBLIC_OUT / "line_animation_companions.gif", writer="pillow", fps=8)
 print(f"wrote {PUBLIC_OUT / 'line_animation_companions.gif'}")
 # a coordinate in physical units: the unit interval is 2 m long
-heat_m = heat.struphy.analysis.map_coordinate("eta1", 2.0, name="x", units="m")
-save(heat_m.struphy.plot.profiles(x="x", at=[0, 20, 40], title="Temperature over x in meters"), "profiles_meters.png")
+heat_m = heat.plasma.analysis.map_coordinate("eta1", 2.0, name="x", units="m")
+save(heat_m.plasma.plot.profiles(x="x", at=[0, 20, 40], title="Temperature over x in meters"), "profiles_meters.png")
 errors_hd = xr.Dataset({
-    "rms": heat.struphy.analysis.error(heat_kernel, relative=True),
-    "max": heat.struphy.analysis.error(heat_kernel, norm="max", relative=True),
+    "rms": heat.plasma.analysis.error(heat_kernel, relative=True),
+    "max": heat.plasma.analysis.error(heat_kernel, norm="max", relative=True),
 })
 fig, ax = plt.subplots(figsize=(7, 3.6), layout="constrained")
 for name, series in errors_hd.items():
@@ -953,10 +953,10 @@ ax.legend()
 save_fig(fig, "error_in_time.png")
 
 # The Bohm-Gross branch, traced in the dispersion diagram and compared with the theory
-spectrum_bg = struphy_plots.analysis.power_spectrum(dispersive_field)
-traced_bg = spectrum_bg.struphy.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5)).dropna("k")
+spectrum_bg = plasma_plots.analysis.power_spectrum(dispersive_field)
+traced_bg = spectrum_bg.plasma.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5)).dropna("k")
 save(
-    dispersive_field.struphy.plot.dispersion(
+    dispersive_field.plasma.plot.dispersion(
         branches={"Bohm-Gross": bohm_gross}, frequencies={"plasma frequency": 1.0},
         points={"traced": traced_bg}, kmax=7, omega_max=12,
     ),
@@ -977,11 +977,11 @@ b_is = xr.DataArray(
     dims=("component", "eta1", "eta2", "eta3"),
     coords={"component": [0, 1, 2], **b_is.coords}, name="B", attrs={"label": "B"},
 )
-flux_is = b_is.struphy.analysis.flux_function()
+flux_is = b_is.plasma.analysis.flux_function()
 strength = np.sqrt((b_is**2).sum("component")).rename("absB")
 strength.attrs.update(label="$|B|$")
 save(
-    strength.struphy.plot.slice(
+    strength.plasma.plot.slice(
         coords="physical", plane="XY", eta3=0, cmap="magma",
         overlays={"contours_of": flux_is, "contour_levels": 14, "contour_color": "w", "boundary": True,
                   "points": {"O-point": (np.pi, np.pi), "X-points": ([0.05, 2 * np.pi - 0.05], [np.pi, np.pi])}},
@@ -1000,7 +1000,7 @@ packet = field_array(
     ("t", "eta1"), {"t": t_wp, "eta1": x_wp},
 )
 save(
-    packet.struphy.plot.slice(
+    packet.plasma.plot.slice(
         x="eta1", y="t", cmap="RdBu_r", symmetric=True,
         overlays={"lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4}, "line_color": "k"},
         title="Wave packet moving at the group velocity",
@@ -1009,12 +1009,12 @@ save(
 )
 
 # Individual guiding-center orbits side by side, with their invariants and bounce periods
-save(orbits_gc.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_field), "orbit_grid.png")
+save(orbits_gc.plasma.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_field), "orbit_grid.png")
 
-# Selecting data: the ring's last slice and a radial cut from .struphy.data, drawn with plain
+# Selecting data: the ring's last slice and a radial cut from .plasma.data, drawn with plain
 # matplotlib, with the densest point and the ring's extent found on the selected arrays
-last = ring.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
-cut = ring.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
+last = ring.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
+cut = ring.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
 radius = 0.1 + 0.9 * cut.eta1
 densest = last.isel(last.argmax(...))
 fig, (ax_map, ax_cut) = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained", width_ratios=(1, 1.2))
@@ -1034,9 +1034,9 @@ save_fig(fig, "data_selection.png")
 
 
 # =============================================================================
-# Theory: struphy_plots.theory, the analytic results to compare runs against
+# Theory: plasma_plots.theory, the analytic results to compare runs against
 # =============================================================================
-from struphy_plots.theory import exact, kinetic, numerics, orbits, waves  # noqa: E402
+from plasma_plots.theory import exact, kinetic, numerics, orbits, waves  # noqa: E402
 
 # Landau damping of Langmuir waves: the kinetic root against Bohm-Gross and the weak-damping formula
 k_th = np.linspace(0.1, 0.6, 101)
@@ -1065,7 +1065,7 @@ for mode in range(1, 11):  # k = 0.1 ... 1
     langmuir_field += np.exp(w_mode.imag * t_th)[:, None] * np.cos(k_mode * x_th[None] - w_mode.real * t_th[:, None])
 e_th = field_array("e1", "$E_x$", "a.u.", langmuir_field, ("t", "eta1"), {"t": t_th, "eta1": x_th})
 save(
-    e_th.struphy.plot.dispersion(
+    e_th.plasma.plot.dispersion(
         branches={"kinetic": kinetic.langmuir, "Bohm–Gross": kinetic.bohm_gross}, kmax=1.1, omega_max=2.5,
         title="Theory as branches=: Langmuir waves",
     ),
@@ -1197,7 +1197,7 @@ save_fig(fig, "theory_numerics.png")
 try:
     import pyvista as pv
 
-    from struphy_plots.plotting import (plot_equilibrium_profile,
+    from plasma_plots.plotting import (plot_equilibrium_profile,
                                         show_equilibrium)
 
     pv.OFF_SCREEN = True
@@ -1250,7 +1250,7 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 
 
 # =============================================================================
-# 3-D views (optional PyVista): struphy_plots.pyvista_plots
+# 3-D views (optional PyVista): plasma_plots.pyvista_plots
 #
 # A synthetic torus (the same X/Y/Z-coordinate layout every Struphy field product
 # has) with a helical m=3, n=2 mode and a tokamak-like magnetic field; then a 2-D
@@ -1259,7 +1259,7 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 try:
     import pyvista as pv
 
-    from struphy_plots import pyvista_plots as p3
+    from plasma_plots import pyvista_plots as p3
 
     pv.OFF_SCREEN = True
 
@@ -1311,13 +1311,13 @@ try:
         name="phi",
         attrs={"label": "phi"},
     )
-    shot(mode.struphy.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0), "3d_isosurface.png", zoom=1.3)
+    shot(mode.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0), "3d_isosurface.png", zoom=1.3)
     shot(
-        mode.struphy.plot.slices_3d(cuts={"eta3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0),
+        mode.plasma.plot.slices_3d(cuts={"eta3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0),
         "3d_slices.png",
         zoom=1.3,
     )
-    shot(mode.struphy.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0), "3d_flux_surface.png", zoom=1.3)
+    shot(mode.plasma.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0), "3d_flux_surface.png", zoom=1.3)
 
     TRR = np.hypot(TX, TY)
     e_phi = np.stack([-TY / TRR, TX / TRR, 0 * TRR])
@@ -1330,11 +1330,11 @@ try:
         attrs={"label": "B"},
     )
     shot(
-        b_field.struphy.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35),
+        b_field.plasma.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35),
         "3d_streamlines.png",
         zoom=1.3,
     )
-    shot(b_field.isel(eta1=[24]).struphy.plot.glyphs(stride=3, scale=0.5), "3d_glyphs.png", zoom=1.3)
+    shot(b_field.isel(eta1=[24]).plasma.plot.glyphs(stride=3, scale=0.5), "3d_glyphs.png", zoom=1.3)
     def solid_torus(eta1, eta2, eta3, squeeze_out=False):
         """A torus with a polar axis at eta1 = 0, as in most tokamak runs."""
         E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
@@ -1361,7 +1361,7 @@ try:
         coords={"t": t_orb[:, 0], "marker": np.arange(n_orb)},
     )
     shot(
-        orbits3.struphy.plot.orbits_3d(color_by="classification", domain=mode.isel(t=0)),
+        orbits3.plasma.plot.orbits_3d(color_by="classification", domain=mode.isel(t=0)),
         "3d_orbits.png",
         zoom=1.3,
     )
@@ -1383,7 +1383,7 @@ try:
         name="phi",
         attrs={"label": "phi"},
     )
-    shot(phi_2d.struphy.plot.isosurface(values=7, cmap="RdBu_r", t=0), "2d_isosurface.png", iso=False, interactive=False)
+    shot(phi_2d.plasma.plot.isosurface(values=7, cmap="RdBu_r", t=0), "2d_isosurface.png", iso=False, interactive=False)
     flow_2d = xr.DataArray(
         np.stack([-CY * np.exp(-2 * CR**2), CX * np.exp(-2 * CR**2), 0 * CX])
         + 0.15 * np.stack([np.cos(3 * CTH), np.sin(3 * CTH), 0 * CX]) * np.sin(np.pi * CR),
@@ -1392,14 +1392,14 @@ try:
         name="u",
         attrs={"label": "u"},
     )
-    shot(flow_2d.struphy.plot.streamlines(n_points=80), "2d_streamlines.png", iso=False, interactive=False)
+    shot(flow_2d.plasma.plot.streamlines(n_points=80), "2d_streamlines.png", iso=False, interactive=False)
 
     # GIFs go to public/ so Astro keeps them animated (see PUBLIC_OUT above)
     for movie_data, kind, options, filename in (
         (mode, "slices", {"cuts": {"eta3": [0.0, 0.25, 0.5, 0.75]}, "cmap": "RdBu_r"}, "3d_slices.gif"),
         (phi_2d, "isosurface", {"values": 7, "cmap": "RdBu_r"}, "2d_isosurface.gif"),
     ):
-        path = movie_data.struphy.plot.movie(
+        path = movie_data.plasma.plot.movie(
             PUBLIC_OUT / filename, kind=kind, framerate=8, window_size=(800, 560), **options
         )
         print(f"wrote {path}")
@@ -1411,7 +1411,7 @@ try:
         "Z": (("eta1", "eta2", "eta3"), r_tae * np.sin(2 * np.pi * S2)),
     }
     tae_3d = band_tae.filtered.isel(t=-1).assign_coords(sector)
-    shot(tae_3d.struphy.plot.slices_3d(cuts={"eta3": [0.0, 0.5, 1.0], "eta1": 0.44}, cmap="RdBu_r"), "spectral_tae_3d.png", zoom=1.2)
+    shot(tae_3d.plasma.plot.slices_3d(cuts={"eta3": [0.0, 0.5, 1.0], "eta1": 0.44}, cmap="RdBu_r"), "spectral_tae_3d.png", zoom=1.2)
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped 3-D view figures (PyVista unavailable or headless rendering failed): {exc}")
 
@@ -1425,7 +1425,7 @@ try:
 
     import scope_profiler as _sp
 
-    from struphy_plots.output_accessors import OutputPlots
+    from plasma_plots.output_accessors import OutputPlots
 
     class _FakeProfile:
         def __init__(self, results):
@@ -1482,36 +1482,36 @@ try:
         path = result.save(PLOTLY_OUT / f"{filename}.json")
         print(f"wrote {path}")
 
-    save_plotly(field.struphy.plot.slice(x="eta1", y="eta2", t=-1, backend="plotly"), "plotly_view_slice")
-    save_plotly(vector.struphy.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1, backend="plotly"),
+    save_plotly(field.plasma.plot.slice(x="eta1", y="eta2", t=-1, backend="plotly"), "plotly_view_slice")
+    save_plotly(vector.plasma.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1, backend="plotly"),
                 "plotly_vector")
-    save_plotly(volume_data.struphy.plot.volume_slices(backend="plotly"), "plotly_volume_slices")
-    save_plotly(energy.struphy.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth", backend="plotly"),
+    save_plotly(volume_data.plasma.plot.volume_slices(backend="plotly"), "plotly_volume_slices")
+    save_plotly(energy.plasma.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth", backend="plotly"),
                 "plotly_timeseries")
-    with struphy_plots.figure(2, 1, sharex=True, backend="plotly") as composed:
-        energy.struphy.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
-        total.struphy.analysis.drift().struphy.plot.timeseries(logy=False, ax=composed[1])
+    with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as composed:
+        energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
+        total.plasma.analysis.drift().plasma.plot.timeseries(logy=False, ax=composed[1])
     save_plotly(composed, "plotly_composed_energies")
-    save_plotly(run_a.struphy.plot.compare(run_b, mode="ratio", backend="plotly"), "plotly_compare")
-    save_plotly(distribution.struphy.plot.slice(x="eta1", y="v1", t=-1, backend="plotly"), "plotly_phase_space")
-    save_plotly(marker_orbits.struphy.plot.trajectories(show_paths=True, backend="plotly"), "plotly_trajectories")
-    save_plotly(cloud.struphy.plot.scatter(x="x", y="y", color="density", backend="plotly"), "plotly_scatter")
-    save_plotly(well.struphy.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2", backend="plotly"),
+    save_plotly(run_a.plasma.plot.compare(run_b, mode="ratio", backend="plotly"), "plotly_compare")
+    save_plotly(distribution.plasma.plot.slice(x="eta1", y="v1", t=-1, backend="plotly"), "plotly_phase_space")
+    save_plotly(marker_orbits.plasma.plot.trajectories(show_paths=True, backend="plotly"), "plotly_trajectories")
+    save_plotly(cloud.plasma.plot.scatter(x="x", y="y", color="density", backend="plotly"), "plotly_scatter")
+    save_plotly(well.plasma.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2", backend="plotly"),
                 "plotly_overlay_orbits")
-    save_plotly(dispersive_field.struphy.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12,
+    save_plotly(dispersive_field.plasma.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12,
                                                          backend="plotly"), "plotly_dispersion")
-    save_plotly(light_spectrum.struphy.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
+    save_plotly(light_spectrum.plasma.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
                                                        dynamic_range=12, omega_max=25, backend="plotly"), "plotly_dispersion_fits")
-    save_plotly(heat.struphy.plot.line_animation(reference={"exact": heat_kernel},
+    save_plotly(heat.plasma.plot.line_animation(reference={"exact": heat_kernel},
                                                   alongside=[[peak_hd, exact_peak_hd]], step=2, backend="plotly"),
                 "plotly_line_animation_companions")
-    save_plotly(orbits_gc.struphy.plot.animation(**orbit_movie, backend="plotly"), "plotly_orbits_animation")
+    save_plotly(orbits_gc.plasma.plot.animation(**orbit_movie, backend="plotly"), "plotly_orbits_animation")
     # the Plotly guide
-    save_plotly(ring.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"),
+    save_plotly(ring.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"),
                 "plotly_ring_slice")
-    save_plotly(ring.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4,
+    save_plotly(ring.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4,
                                             backend="plotly"), "plotly_ring_animation")
-    save_plotly(phi_tae.struphy.plot.power_spectrum(peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate":
+    save_plotly(phi_tae.plasma.plot.power_spectrum(peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate":
                                                     omega_tae}, omega_max=0.5, backend="plotly"),
                 "plotly_spectral_power")
 except ImportError as exc:  # pragma: no cover - optional, environment-dependent

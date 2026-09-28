@@ -12,8 +12,8 @@ import xarray as xr  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 from matplotlib.collections import LineCollection  # noqa: E402
 
-import struphy_plots  # noqa: E402, F401
-from struphy_plots.plotting import plot_measured_vs_theory, plot_orbit_grid, plot_orbit_poloidal  # noqa: E402
+import plasma_plots  # noqa: E402, F401
+from plasma_plots.plotting import plot_measured_vs_theory, plot_orbit_grid, plot_orbit_poloidal  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -40,28 +40,28 @@ def disk(n1=6, n2=8, n_t=3):
 
 def test_data_lineout_checks_x_like_the_plot():
     field = disk()
-    profile = field.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
+    profile = field.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
     assert profile.dims == ("eta1",)
     with pytest.raises(ValueError, match="not the remaining dimension"):
-        field.struphy.data.lineout(x="eta2", t=-1, eta2=0.3, eta3=0)
+        field.plasma.data.lineout(x="eta2", t=-1, eta2=0.3, eta3=0)
     with pytest.raises(ValueError, match="exactly one remaining dimension"):
-        field.struphy.data.lineout(x="eta1", t=-1, eta3=0)
+        field.plasma.data.lineout(x="eta1", t=-1, eta3=0)
 
 
 def test_data_view_orders_the_frames_and_closes_the_seam_in_physical_coordinates():
     field = disk()
-    frames = field.struphy.data.view(x="eta2", y="eta1", eta3=0)
+    frames = field.plasma.data.view(x="eta2", y="eta1", eta3=0)
     assert frames.dims == ("t", "eta2", "eta1")
-    physical = field.struphy.data.view(coords="physical", plane="XY", eta3=0)
+    physical = field.plasma.data.view(coords="physical", plane="XY", eta3=0)
     assert physical.dims == ("t", "eta1", "eta2")
     assert physical.sizes["eta2"] == field.sizes["eta2"] + 1          # the seam, closed
     np.testing.assert_allclose(physical.isel(eta2=-1), physical.isel(eta2=0))
     # every frame matches the slice the plot draws at that time
-    np.testing.assert_allclose(physical.isel(t=1), field.struphy.data.slice(coords="physical", plane="XY", t=1, eta3=0))
+    np.testing.assert_allclose(physical.isel(t=1), field.plasma.data.slice(coords="physical", plane="XY", t=1, eta3=0))
     with pytest.raises(ValueError, match="expected 't'"):
-        field.struphy.data.view(x="eta1", y="eta2")                   # eta3 left over
+        field.plasma.data.view(x="eta1", y="eta2")                    # eta3 left over
     with pytest.raises(ValueError, match="physical coordinates"):
-        field.drop_vars(["X", "Y", "Z"]).struphy.data.view(coords="physical", eta3=0)
+        field.drop_vars(["X", "Y", "Z"]).plasma.data.view(coords="physical", eta3=0)
 
 
 def test_dataset_data_scatter_returns_what_the_plot_draws():
@@ -71,16 +71,16 @@ def test_dataset_data_scatter_returns_what_the_plot_draws():
          "density": (("t", "marker"), 10 + np.arange(12.0).reshape(3, 4)), "weight": (("t", "marker"), np.ones((3, 4)))},
         coords={"t": t, "marker": np.arange(4)},
     )
-    selected = markers.struphy.data.scatter(x="x", y="y", color="density", t=-1)
+    selected = markers.plasma.data.scatter(x="x", y="y", color="density", t=-1)
     assert set(selected.data_vars) == {"x", "y", "density"}
     np.testing.assert_allclose(selected.density, markers.density.isel(t=-1))
-    initial = markers.struphy.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)
+    initial = markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)
     assert set(initial.data_vars) == {"x", "y", "color"}
     np.testing.assert_allclose(initial.color, markers.x.isel(t=0))    # colored by the start
     np.testing.assert_allclose(initial.x, markers.x.isel(t=-1))
-    assert set(markers.struphy.data.scatter(x="x", y="y", t=0).data_vars) == {"x", "y"}
+    assert set(markers.plasma.data.scatter(x="x", y="y", t=0).data_vars) == {"x", "y"}
     with pytest.raises(ValueError, match="not data variables"):
-        markers.struphy.data.scatter(x="x", y="y", color="speed", t=0)
+        markers.plasma.data.scatter(x="x", y="y", color="speed", t=0)
 
 
 def test_measured_against_a_theory_given_as_points():
@@ -116,7 +116,7 @@ def test_orbit_plots_color_by_a_quantity_and_reject_unknown_values():
     grid = plot_orbit_grid(paths, markers=4, ncols=2, color_by="t")
     assert sum(isinstance(a, LineCollection) for a in grid.artists) == 4
     assert any("trapped" in ax.get_title() for ax in grid.ax.ravel())   # titles still name the class
-    assert len(paths.struphy.plot.poloidal(color_by=None).fig.axes) == 1
+    assert len(paths.plasma.plot.poloidal(color_by=None).fig.axes) == 1
     with pytest.raises(ValueError, match="color_by must be"):
         plot_orbit_poloidal(paths, color_by="speed")
     with pytest.raises(ValueError, match="color_by must be"):
@@ -124,7 +124,7 @@ def test_orbit_plots_color_by_a_quantity_and_reject_unknown_values():
 
 
 def test_dispersion_takes_theory_dicts_complex_branches_and_struphy_style_objects():
-    from struphy_plots.plotting import plot_dispersion
+    from plasma_plots.plotting import plot_dispersion
 
     t = np.linspace(0, 40, 200)
     x = np.linspace(0, 2 * np.pi, 64, endpoint=False)
@@ -144,8 +144,8 @@ def test_dispersion_takes_theory_dicts_complex_branches_and_struphy_style_object
         assert labels <= shown
         for line in result.ax.lines:
             assert np.isrealobj(line.get_ydata())
-    from struphy_plots.spectral import trace_branch
-    from struphy_plots.analysis import power_spectrum
+    from plasma_plots.spectral import trace_branch
+    from plasma_plots.analysis import power_spectrum
 
     traced = trace_branch(power_spectrum(field), lambda k: 1.0 * k + 0.05j, k_range=(1.5, 2.5)).dropna("k")
     assert traced.k.values.tolist() == [2.0]

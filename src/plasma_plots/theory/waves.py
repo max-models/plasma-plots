@@ -5,7 +5,7 @@ modes, drift waves and Hasegawa–Wakatani, Alfvén and slow continua and the TA
 All frequencies are complex for ``exp(i(k·x − ωt))`` (a positive imaginary part is growth) and are
 the positive-frequency branches (−ω* is a solution as well). Characteristic frequencies that are
 not functions of k (cutoffs, resonances, cavity modes, the TAE frequency) are real. Several branches
-come as dicts of branch names to frequencies, which ``array.struphy.plot.dispersion(branches=...)``
+come as dicts of branch names to frequencies, which ``array.plasma.plot.dispersion(branches=...)``
 takes as they are. Units are whatever the speeds, lengths and frequencies are given in.
 """
 

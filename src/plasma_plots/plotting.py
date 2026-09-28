@@ -3,7 +3,7 @@
 Every function takes labeled ``xarray`` objects (fields with dimensions ``t``, ``eta1``, ``eta2``,
 ``eta3``, ..., time series, marker datasets) and returns a :class:`PlotResult` or, for animations, a
 ``matplotlib.animation.FuncAnimation``. They remain importable for plotting arbitrary labeled
-arrays. The optional xarray accessor exposes them as ``array.struphy.plot.*``.
+arrays. The optional xarray accessor exposes them as ``array.plasma.plot.*``.
 
 Slices of N-dimensional fields are described by a :class:`View`: which dimensions to select, which
 two to draw and whether in logical or physical coordinates. The slice functions
@@ -37,9 +37,9 @@ from .analysis import (
 from .arrays import SCALARS_EXCLUDE, axis_label, close_periodic, save_scalars, scalar_names, validate_array, value_label
 from .mpi import rank_zero
 
-logger = logging.getLogger("struphy")
+logger = logging.getLogger("plasma_plots")
 
-STRUPHY_STYLE = {
+PLOT_STYLE = {
     "figure.figsize": (8.0, 5.0),
     "figure.dpi": 110,
     "axes.grid": True,
@@ -121,7 +121,7 @@ class PlotResult:
 
     Every plotting function returns one. As the last expression of a notebook cell it displays
     its figure once; there is no need to write ``.fig``. With ``backend="plotly"`` (see
-    :mod:`struphy_plots.plotly_backend`) the figure is a Plotly figure instead, with the same
+    :mod:`plasma_plots.plotly_backend`) the figure is a Plotly figure instead, with the same
     ``fit_results`` and ``data``.
 
     A figure made some other way (e.g. with ``plotly.graph_objects`` directly) is saved with the
@@ -273,7 +273,7 @@ class PlotResult:
 
         See Also
         --------
-        struphy_plots.plotly_backend.to_plotly : The conversion.
+        plasma_plots.plotly_backend.to_plotly : The conversion.
 
         Examples
         --------
@@ -324,7 +324,7 @@ def save_figure(
     ----------
     figure : PlotResult, Figure, plotly.graph_objects.Figure or matplotlib.figure.Figure
         What to save: the result of a plot (e.g. with ``backend="plotly"``), a figure of
-        :func:`struphy_plots.figure`, or a figure made some other way.
+        :func:`plasma_plots.figure`, or a figure made some other way.
     name : str or pathlib.Path
         The files' path without the format, e.g. ``"maxwell-wave"`` or ``"figures/energy"``.
     formats : sequence of str, optional
@@ -356,7 +356,7 @@ def save_figure(
 
     Examples
     --------
-    >>> dispersion = spectrum.struphy.plot.dispersion(kmin=0, backend="plotly")
+    >>> dispersion = spectrum.plasma.plot.dispersion(kmin=0, backend="plotly")
     >>> save_figure(dispersion, "maxwell-wave", show=True)   # maxwell-wave.html, .png, .plotly.json
     >>> save_figure(movie, "phase-space", frame=len(movie.fig.frames) // 2)
     >>> save_figure(go.Figure(go.Scatter(x=t, y=energy)), "energy", formats=("html",))
@@ -434,7 +434,7 @@ def shared_run_label(data, default="") -> str:
 
 
 def _finish(fig, *, run_label="", tight=True):
-    if getattr(fig, "_struphy_composed", False):  # a panel of struphy_plots.figure: it has its own title
+    if getattr(fig, "_plasma_composed", False):  # a panel of plasma_plots.figure: it has its own title
         return
     if run_label:
         fig.suptitle(run_label, fontsize="small")
@@ -668,7 +668,7 @@ def plot_timeseries(
         Use a logarithmic value axis. Default: ``True``.
     fit : GrowthFit, optional
         Fit an exponential growth rate to each series (see
-        :func:`struphy_plots.analysis.growth_rate`) and draw it dashed, with the fit window shaded.
+        :func:`plasma_plots.analysis.growth_rate`) and draw it dashed, with the fit window shaded.
         Default: no fit.
     title : str, optional
         The axes title. Default: the first series' label.
@@ -685,7 +685,7 @@ def plot_timeseries(
     -------
     PlotResult
         The figure, the axes, the drawn lines, and in ``fit_results`` one
-        :class:`~struphy_plots.analysis.FitResult` (or ``None``) per series.
+        :class:`~plasma_plots.analysis.FitResult` (or ``None``) per series.
 
     Raises
     ------
@@ -719,7 +719,7 @@ def plot_timeseries(
 
     run_label = shared_run_label(series) if run_label is None else run_label
     own_figure = ax is None
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         artists, fits = [], []
         for item in series:
@@ -1396,7 +1396,7 @@ class _SliceRenderer:
         )
         self.vmin, self.vmax = vmin, vmax
         self.shared_clim = shared_clim
-        self.cmap = cmap or STRUPHY_STYLE["image.cmap"]
+        self.cmap = cmap or PLOT_STYLE["image.cmap"]
         self.equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
         self.title = _label(data) if title is None else title
         self.limits = self._limits(self.data) if shared_clim else None
@@ -1661,7 +1661,7 @@ def plot_slice(
     )
     run_label = shared_run_label(data) if run_label is None else run_label
     own_figure = ax is None
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = renderer.draw(ax, renderer.data)
         fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
@@ -1810,7 +1810,7 @@ def plot_panels(
     sweep = renderer.view.sweep
     indices = np.linspace(0, renderer.data.sizes[sweep] - 1, nrows * ncols).astype(int)
     run_label = shared_run_label(data) if run_label is None else run_label
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, axes = plt.subplots(
             nrows,
             ncols,
@@ -1996,7 +1996,7 @@ class InteractiveSliceViewer:
         renderer.view = View(x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane)
         controls = [dim for dim in base.dims if dim not in {x, y}]
         indices = {dim: 0 for dim in controls}
-        with plt.rc_context(STRUPHY_STYLE):
+        with plt.rc_context(PLOT_STYLE):
             fig, ax = plt.subplots()
             fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
             mesh = renderer.draw(ax, base.isel(indices))
@@ -2167,7 +2167,7 @@ def animate_slices(
     )
     frames = renderer.indices(step, max_frames)
     sweep = renderer.view.sweep
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, ax = plt.subplots()
         mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
         colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
@@ -2189,7 +2189,7 @@ def animate_slices(
 
 def _label_frames(animation, sweep, values):
     """Record the sweep values of an animation's frames, the slider labels of its Plotly version."""
-    animation._struphy_sweep = (sweep, [float(v) for v in np.asarray(values, dtype=float)])
+    animation._plasma_sweep = (sweep, [float(v) for v in np.asarray(values, dtype=float)])
 
 
 @rank_zero
@@ -2262,7 +2262,7 @@ def animate_fields(
     if len(lengths) != 1:
         raise ValueError(f"every field needs the same number of {sweep!r} values; got {sorted(lengths)}")
     titles = titles or [renderer.title for renderer in renderers]
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, axes = plt.subplots(
             1,
             len(fields),
@@ -2435,7 +2435,7 @@ def save_frames(
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, ax = plt.subplots()
         try:
             sweep = renderer.view.sweep
@@ -2546,7 +2546,7 @@ def plot_convergence(
         The axes to draw into. Default: a new figure.
     order : float, optional
         With ``None`` (default), fits and draws the observed order via
-        :func:`struphy_plots.analysis.convergence_order`. Pass an explicit ``order`` (e.g. ``2``
+        :func:`plasma_plots.analysis.convergence_order`. Pass an explicit ``order`` (e.g. ``2``
         for second-order) to draw a reference slope through the first point instead of fitting
         one.
     label : str, optional
@@ -2651,7 +2651,7 @@ def plot_dispersion(
 ):
     """The space-time power spectrum of a ``(t, dim)`` field, as a dispersion-relation plot.
 
-    The spectrum may also be given directly, e.g. from :func:`~struphy_plots.analysis.power_spectrum`
+    The spectrum may also be given directly, e.g. from :func:`~plasma_plots.analysis.power_spectrum`
     (then ``dim`` and ``detrend`` are not used). Shows only non-negative frequencies (a real signal's spectrum is symmetric under
     ``(k, ω) → (-k, -ω)``, so every branch already appears on both sides of ``k = 0``).
 
@@ -2667,7 +2667,7 @@ def plot_dispersion(
         spectrum, with the dimensions ``omega`` and ``k``.
     dim : str, optional
         The spatial dimension to transform. Default: the one besides ``t`` (see
-        :func:`struphy_plots.analysis.power_spectrum`).
+        :func:`plasma_plots.analysis.power_spectrum`).
     detrend : bool, optional
         Remove the time-mean at each point of ``dim`` first, which otherwise dominates the
         spectrum as a spurious zero-frequency line. Default: ``True``.
@@ -2675,7 +2675,7 @@ def plot_dispersion(
         Theoretical curves to compare against, drawn dashed: a dict of labels to a callable
         ``omega(k)`` or an explicit ``(k, omega)`` pair of arrays; or one callable that returns a
         dict of branch names to frequencies, such as the dispersion relations of
-        :mod:`struphy_plots.theory` or Struphy's ``struphy.dispersion_relations`` objects (a
+        :mod:`plasma_plots.theory` or Struphy's ``struphy.dispersion_relations`` objects (a
         callable in the dict may return such a dict too). Complex frequencies are drawn by their
         real part.
     log : bool, optional
@@ -2704,10 +2704,10 @@ def plot_dispersion(
         Labeled horizontal lines, e.g. cutoffs or resonances.
     points : dict, optional
         Measured points to mark: a dict of labels to a ``(k, omega)`` pair or a
-        :func:`~struphy_plots.spectral.trace_branch` result (an ``xarray.Dataset`` with ``k`` and
+        :func:`~plasma_plots.spectral.trace_branch` result (an ``xarray.Dataset`` with ``k`` and
         ``omega``).
     fits : sequence of BranchFit, optional
-        Fitted straight branches from :func:`~struphy_plots.analysis.fit_dispersion_branches`,
+        Fitted straight branches from :func:`~plasma_plots.analysis.fit_dispersion_branches`,
         drawn dotted as ``omega = velocity * k`` over the shown ``k >= 0``. Default: none.
 
     Returns
@@ -2717,8 +2717,8 @@ def plot_dispersion(
 
     See Also
     --------
-    struphy_plots.analysis.power_spectrum : The spectrum, without plotting.
-    struphy_plots.analysis.fit_dispersion_branches : Straight branches fitted to it, for ``fits``.
+    plasma_plots.analysis.power_spectrum : The spectrum, without plotting.
+    plasma_plots.analysis.fit_dispersion_branches : Straight branches fitted to it, for ``fits``.
     plot_continuous_spectrum : Continuum frequencies to compare a measured frequency with.
 
     Examples
@@ -3154,7 +3154,7 @@ def plot_marker_scatter(
         xv,
         yv,
         c=None if colors is None else np.asarray(colors),
-        cmap=cmap or STRUPHY_STYLE["image.cmap"],
+        cmap=cmap or PLOT_STYLE["image.cmap"],
         s=s,
         edgecolors="none",
         zorder=3,
@@ -3235,7 +3235,7 @@ def animate_markers(
     color : str, optional
         A variable to color by: per frame, or fixed at the time ``color_at``; or
         ``"classification"``, the orbit class of each marker (passing, trapped, lost; needs
-        ``v_par``, see :func:`~struphy_plots.analysis.classify_orbits`), with a legend. Default: one
+        ``v_par``, see :func:`~plasma_plots.analysis.classify_orbits`), with a legend. Default: one
         color.
     color_at : int or float, optional
         Fix the colors at this time (an integer position, e.g. ``0`` for the initial position,
@@ -3306,7 +3306,7 @@ def animate_markers(
     frames = _thin(range(0, subset.sizes["t"], step), max_frames)
     times = np.asarray(subset.t)
     renderer = None
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, ax = plt.subplots()
         if background is not None:
             options = dict(background_options or {})
@@ -3322,7 +3322,7 @@ def animate_markers(
         if colors is not None:
             shading = dict(
                 c=colors if colors.ndim == 1 else colors[0],
-                cmap=cmap or STRUPHY_STYLE["image.cmap"],
+                cmap=cmap or PLOT_STYLE["image.cmap"],
                 vmin=None if clim is None else clim[0],
                 vmax=None if clim is None else clim[1],
             )
@@ -3590,7 +3590,7 @@ def prepare_orbit_classification(
     -------
     xarray.Dataset
         ``x`` and ``y`` over ``marker``, and ``classification`` from
-        :func:`struphy_plots.analysis.classify_orbits` (0 passing, 1 trapped, -1 lost).
+        :func:`plasma_plots.analysis.classify_orbits` (0 passing, 1 trapped, -1 lost).
 
     Raises
     ------
@@ -3622,7 +3622,7 @@ def plot_orbit_classification(
 ):
     """Scatter markers in a phase-space plane, colored as passing, trapped or lost.
 
-    The classification is :func:`~struphy_plots.analysis.classify_orbits` (Struphy's criteria:
+    The classification is :func:`~plasma_plots.analysis.classify_orbits` (Struphy's criteria:
     ``v_par`` reversing sign means trapped, a zeroed marker means lost). The default plane, initial
     ``v_par`` against ``mu``, shows the trapped-passing boundary directly; ``x="p_phi"`` gives the
     usual canonical-momentum diagram when ``p_phi`` was saved. The legend gives each class's
@@ -3928,7 +3928,7 @@ def plot_energy_budget(
         ]
     panels = 1 + (total is not None) + bool(groups)
     run_label = shared_run_label([_series(scalars, n) for n in parts]) if run_label is None else run_label
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, axes = plt.subplots(1, panels, figsize=(5.2 * panels, 4.0), layout="constrained", squeeze=False)
     axes = list(axes[0])
     artists = []
@@ -4141,7 +4141,7 @@ def plot_orbit_poloidal(
         :func:`prepare_orbits`).
     color_by : str or None, optional
         ``"classification"`` colors by orbit class (needs ``v_par``, see
-        :func:`~struphy_plots.analysis.classify_orbits`); ``"t"`` or the name of a
+        :func:`~plasma_plots.analysis.classify_orbits`); ``"t"`` or the name of a
         ``(t, marker)`` variable (e.g. ``"v_par"``) colors each orbit along its path, with a
         color bar; ``None`` gives one color per marker. Default: ``"classification"``.
     max_markers : int, optional
@@ -4191,7 +4191,7 @@ def plot_orbit_poloidal(
                     Z[keep, marker],
                     values[keep, marker],
                     norm,
-                    STRUPHY_STYLE["image.cmap"],
+                    PLOT_STYLE["image.cmap"],
                 )
             )
             continue
@@ -4275,7 +4275,7 @@ def plot_orbit_quantities(
     drifted = set(quantities) if drift_of is True else set(drift_of or ())
     alive = _alive(subset)
     codes = np.asarray(classify_orbits(subset)) if "v_par" in subset else None
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, axes = plt.subplots(
             len(quantities),
             1,
@@ -4416,9 +4416,9 @@ def animate_lines(
         lo, hi = np.nanmin(stacked), np.nanmax(stacked)
         pad = 0.05 * (hi - lo if hi > lo else 1.0)
         ylim = (lo - pad, hi + pad)
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         if panels:
-            width, height = STRUPHY_STYLE["figure.figsize"]
+            width, height = PLOT_STYLE["figure.figsize"]
             fig, axes = plt.subplots(1 + len(panels), 1, figsize=(width, 0.8 * height + 2.4 * len(panels)),
                                      layout="constrained", gridspec_kw={"height_ratios": [1.6] + [1] * len(panels)})
             ax, companion_axes = axes[0], list(axes[1:])
@@ -4558,7 +4558,7 @@ def plot_measured_vs_theory(
         runs or methods), drawn as markers.
     theory : callable, (x, y) pair or dict, optional
         A function of the parameter, an ``(x, y)`` pair, or a dict of labels to these, drawn as
-        lines over the measured range. Complex values (e.g. from :mod:`struphy_plots.theory`)
+        lines over the measured range. Complex values (e.g. from :mod:`plasma_plots.theory`)
         are compared by their real part; for growth or damping rates pass
         ``lambda k: f(k).imag``.
     show_error : bool, optional
@@ -4618,7 +4618,7 @@ def plot_measured_vs_theory(
         raise ValueError("no measured values")
     theories = _references(theory, default="theory")
     panels = 2 if show_error and theories else 1
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, axes = plt.subplots(
             panels,
             1,
@@ -4744,7 +4744,7 @@ def plot_orbit_grid(
     R = np.hypot(np.asarray(subset.x), np.asarray(subset.y))
     Z = np.asarray(subset.z)
     rows = int(np.ceil(len(markers) / ncols))
-    with plt.rc_context(STRUPHY_STYLE):
+    with plt.rc_context(PLOT_STYLE):
         fig, axes = plt.subplots(
             rows,
             ncols,
@@ -4776,7 +4776,7 @@ def plot_orbit_grid(
                     Z[keep, marker],
                     values[keep, marker],
                     norm,
-                    STRUPHY_STYLE["image.cmap"],
+                    PLOT_STYLE["image.cmap"],
                 )
             )
             ax.autoscale_view()

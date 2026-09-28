@@ -1,4 +1,4 @@
-"""The numerics theory of struphy_plots.theory: amplification factors against closed forms and
+"""The numerics theory of plasma_plots.theory: amplification factors against closed forms and
 direct integration, stability limits, phase-error orders, finite-difference and Yee dispersion
 against direct application of the stencils, spline Galerkin dispersion against assembled mass
 and stiffness matrices, and PIC noise against sampling."""
@@ -8,7 +8,7 @@ from math import factorial
 import numpy as np
 import pytest
 
-from struphy_plots.theory import numerics as nm
+from plasma_plots.theory import numerics as nm
 
 ONE_STEP = ["explicit_euler", "implicit_euler", "implicit_midpoint", "rk2", "rk3", "rk4"]
 ALL = ONE_STEP + ["leapfrog", "two_step_leapfrog"]
