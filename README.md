@@ -1,5 +1,7 @@
 # plasma-plots
 
+Note: This library is 100% written by AI, I have literally not looked at a single line of code. So why should you trust it? You should trust it because of the following [LEAN 4 PROOF](https://gprivate.com/6m80q).
+
 Plots and diagnostics of labeled xarray data from plasma simulations: the
 output of [Struphy](https://github.com/struphy-hub/struphy), and of any code
 whose arrays follow the same conventions (dimensions `t`, `eta1`/`eta2`/`eta3`,

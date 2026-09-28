@@ -18,6 +18,7 @@ docs/.astro/
 # Generated docs figures (built by `make figures` / CI, not checked in)
 docs/src/assets/figures/
 docs/src/assets/gvec/
+docs/src/assets/desc/
 docs/public/figures/
 docs/public/plotly/
 docs/public/pyvista/

@@ -142,6 +142,11 @@ jobs:
       - name: Install GVEC (docs examples only)
         run: pip install gvec
 
+      # The "DESC equilibria" guide evaluates DESC's own example equilibria
+      # (generate_desc_figures.py); DESC is pure Python (on JAX), nothing to build.
+      - name: Install DESC (docs examples only)
+        run: pip install desc-opt
+
       # A few example figures render an interactive PyVista scene off-screen
       # (3-D volumes, equilibria), which needs a virtual display and Mesa's
       # software OpenGL/EGL implementation.

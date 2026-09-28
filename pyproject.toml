@@ -28,6 +28,8 @@ plotly = ["plotly", "kaleido"]
 # their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
 gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]
 dev = ["pytest", "ruff", "h5py", "griffe"]
+# plasma_plots.from_desc: evaluating DESC equilibria (tests/test_desc.py, the DESC guide)
+desc = ["desc-opt"]
 
 [project.urls]
 Homepage = "https://github.com/struphy-hub/plasma-plots"
