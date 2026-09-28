@@ -33,9 +33,17 @@ whole Dataset to attach the geometry to every variable first: a single variable 
 Examples
 --------
 >>> import plasma_plots
->>> ev = plasma_plots.from_gvec(state.evaluate("mod_B", "pos", "iota", "N_FP", rho=11, theta=32, zeta=24))
->>> ev.mod_B.plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0,
-...                            overlays={"coordinate_lines": {"rho": 5, "theta": 8}})
+>>> ev = plasma_plots.from_gvec(
+...     state.evaluate(
+...         "mod_B", "pos", "iota", "N_FP", rho=11, theta=32, zeta=24
+...     )
+... )
+>>> ev.mod_B.plasma.plot.slice(
+...     coords="physical",
+...     plane="RZ",
+...     zeta=0.0,
+...     overlays={"coordinate_lines": {"rho": 5, "theta": 8}},
+... )
 >>> ev.iota.plasma.plot.lineout(rationals=4)
 """
 
@@ -130,9 +138,17 @@ def from_gvec(data: xr.DataArray | xr.Dataset, *, nfp: int | None = None) -> xr.
 
     Examples
     --------
-    >>> ev = from_gvec(state.evaluate("mod_B", "pos", "N_FP", rho=11, theta=32, zeta=24))
-    >>> ev.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3)
-    >>> boozer = from_gvec(state.evaluate_sfl("mod_B", "pos", rho=[0.5], theta=32, zeta=24, sfl="boozer"))
+    >>> ev = from_gvec(
+    ...     state.evaluate("mod_B", "pos", "N_FP", rho=11, theta=32, zeta=24)
+    ... )
+    >>> ev.mod_B.plasma.plot.panels(
+    ...     sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3
+    ... )
+    >>> boozer = from_gvec(
+    ...     state.evaluate_sfl(
+    ...         "mod_B", "pos", rho=[0.5], theta=32, zeta=24, sfl="boozer"
+    ...     )
+    ... )
     >>> boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5)
     """
     if isinstance(data, xr.DataArray):

@@ -108,7 +108,10 @@ def convergence_order(sizes, errors) -> ConvergenceFit | None:
 
     Examples
     --------
-    >>> errors = [run.evaluate("T").plasma.analysis.error(exact).isel(t=-1) for run in runs]
+    >>> errors = [
+    ...     run.evaluate("T").plasma.analysis.error(exact).isel(t=-1)
+    ...     for run in runs
+    ... ]
     >>> convergence_order([16, 32, 64], errors).order
     -2.01
     """
@@ -154,7 +157,9 @@ def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult |
     Examples
     --------
     >>> energy = out.scalars["en_E"]
-    >>> growth_rate(energy, GrowthFit(window=(0.0, 5.0), amplitude_from_quadratic=True)).rate
+    >>> growth_rate(
+    ...     energy, GrowthFit(window=(0.0, 5.0), amplitude_from_quadratic=True)
+    ... ).rate
     """
     validate_array(data, required_dims=("t",))
     if data.dims != ("t",):
@@ -239,7 +244,9 @@ def damping_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult 
 
     Examples
     --------
-    >>> damping_rate(out.scalars["en_E"], GrowthFit(amplitude_from_quadratic=True)).rate
+    >>> damping_rate(
+    ...     out.scalars["en_E"], GrowthFit(amplitude_from_quadratic=True)
+    ... ).rate
     """
     return growth_rate(envelope(data), fit)
 
@@ -314,7 +321,9 @@ def oscillation_frequency(
 
     Examples
     --------
-    >>> oscillation_frequency(phi.isel(eta1=8, eta2=0, eta3=0), window=(5.0, 40.0)).omega
+    >>> oscillation_frequency(
+    ...     phi.isel(eta1=8, eta2=0, eta3=0), window=(5.0, 40.0)
+    ... ).omega
     """
     validate_array(data, required_dims=("t",))
     if data.dims != ("t",):
@@ -513,7 +522,7 @@ def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
 
     Examples
     --------
-    >>> moments = velocity_moments(f)          # f(t, eta1, v1)
+    >>> moments = velocity_moments(f)  # f(t, eta1, v1)
     >>> moments.variance_v1.isel(t=-1).plasma.plot.lineout()
     """
     validate_array(f)
@@ -986,8 +995,9 @@ def volume_integral(
     Examples
     --------
     >>> total_charge = volume_integral(rho, domain=out.domain)
-    >>> mass = volume_integral(n3, form=3)          # a 3-form: no |√g|
-    >>> volume = volume_integral(xr.ones_like(ev.mod_B), jacobian=ev.Jac) * ev.nfp   # GVEC
+    >>> mass = volume_integral(n3, form=3)  # a 3-form: no |√g|
+    >>> # GVEC
+    >>> volume = volume_integral(xr.ones_like(ev.mod_B), jacobian=ev.Jac) * ev.nfp
     """
     if form not in (0, 3):
         raise ValueError("volume_integral takes form=0 (a function) or form=3 (a density)")
@@ -1046,8 +1056,9 @@ def surface_average(data: xr.DataArray, *, jacobian=None, domain=None, quadratur
 
     Examples
     --------
-    >>> ev.mod_B.plasma.analysis.surface_average(jacobian=ev.Jac)    # GVEC: ⟨|B|⟩(rho)
-    >>> surface_average(p, domain=out.domain)                        # Struphy
+    >>> # GVEC: ⟨|B|⟩(rho)
+    >>> ev.mod_B.plasma.analysis.surface_average(jacobian=ev.Jac)
+    >>> surface_average(p, domain=out.domain)  # Struphy
     """
     validate_array(data)
     _, poloidal, toroidal = logical_dims(data)
@@ -1228,8 +1239,9 @@ def field_energy(
 
     Examples
     --------
-    >>> field_energy(u_2form, form=2, weight=n0, domain=out.domain)   # ½ uᵀ M2n u, as LinearMHD's en_U
-    >>> field_energy(E)                                               # ½ ∫ |E|² dV
+    >>> # ½ uᵀ M2n u, as LinearMHD's en_U
+    >>> field_energy(u_2form, form=2, weight=n0, domain=out.domain)
+    >>> field_energy(E)  # ½ ∫ |E|² dV
     """
     validate_array(data)
     if form not in (None, 0, 1, 2, 3, "v"):
@@ -1311,8 +1323,8 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
 
     Examples
     --------
-    >>> E = -gradient(phi)                          # Cartesian components (x, y, z), over time
-    >>> E = -gradient(phi, domain=out.domain)       # with the exact Jacobian
+    >>> E = -gradient(phi)  # Cartesian components (x, y, z), over time
+    >>> E = -gradient(phi, domain=out.domain)  # with the exact Jacobian
     """
     from .arrays import logical_derivative, mapping_jacobian, periodicity
 
@@ -1484,9 +1496,10 @@ def error(
 
     Examples
     --------
-    >>> error(T, exact, relative=True)          # relative RMS error over time
-    >>> error(T, exact, norm="max")             # largest pointwise error
-    >>> error(u, lambda x, y, z, t: np.sin(x - t), norm="l2", weighted=True)   # √∫|u − u_exact|² dV
+    >>> error(T, exact, relative=True)  # relative RMS error over time
+    >>> error(T, exact, norm="max")  # largest pointwise error
+    >>> # √∫|u − u_exact|² dV
+    >>> error(u, lambda x, y, z, t: np.sin(x - t), norm="l2", weighted=True)
     """
     validate_array(data)
     if callable(exact):
@@ -1581,7 +1594,7 @@ def project_mode(
 
     Examples
     --------
-    >>> amplitude = project_mode(e1, dim="eta1", number=1)          # sine amplitude over t
+    >>> amplitude = project_mode(e1, dim="eta1", number=1)  # sine amplitude over t
     >>> phase = np.angle(project_mode(rho, dim="eta2", number=3, kind="complex"))
     """
     from .spectral import drop_periodic_endpoint
@@ -1664,7 +1677,7 @@ def divergence(vector: xr.DataArray, *, components: str = "cartesian", domain=No
 
     Examples
     --------
-    >>> div_B = divergence(B)                       # should stay at round-off
+    >>> div_B = divergence(B)  # should stay at round-off
     >>> norm(div_B).plasma.plot.timeseries()
     """
     cartesian = _cartesian_vector(vector, components)
@@ -1713,7 +1726,7 @@ def curl(vector: xr.DataArray, *, components: str = "cartesian", domain=None) ->
 
     Examples
     --------
-    >>> J = curl(B)                                 # the current, in Cartesian components
+    >>> J = curl(B)  # the current, in Cartesian components
     >>> vorticity = curl(u).sel(component=2)
     """
     cartesian = _cartesian_vector(vector, components)

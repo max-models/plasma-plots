@@ -481,7 +481,9 @@ def spline_galerkin_dispersion(k, dx, degree: int, c=1.0):
     Examples
     --------
     >>> theta = np.pi / 4
-    >>> print(np.round(spline_galerkin_dispersion(theta, 1.0, [1, 2, 3]) / theta, 6))
+    >>> print(
+    ...     np.round(spline_galerkin_dispersion(theta, 1.0, [1, 2, 3]) / theta, 6)
+    ... )
     [1.025859 1.0003   1.000005]
     """
     degrees = np.asarray(degree)

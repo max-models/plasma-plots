@@ -193,7 +193,9 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
 
     Examples
     --------
-    >>> B_xyz = push_forward(out.evaluate("em_fields/b_field", representation="v").isel(t=-1))
+    >>> B_xyz = push_forward(
+    ...     out.evaluate("em_fields/b_field", representation="v").isel(t=-1)
+    ... )
     """
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
@@ -754,7 +756,12 @@ def pyvista_streamlines(
     Examples
     --------
     >>> pyvista_streamlines(B.isel(t=-1)).show()
-    >>> pyvista_streamlines(B.isel(t=-1), source_center=(3.0, 0.0, 0.0), source_radius=0.5, tube_radius=0.01).show()
+    >>> pyvista_streamlines(
+    ...     B.isel(t=-1),
+    ...     source_center=(3.0, 0.0, 0.0),
+    ...     source_radius=0.5,
+    ...     tube_radius=0.01,
+    ... ).show()
     """
     pv = _pv()
     name = _label(data)
@@ -927,7 +934,9 @@ def pyvista_orbits(
     Examples
     --------
     >>> pyvista_orbits(out.kinetic_ions.orbits, color_by="classification").show()
-    >>> pyvista_orbits(out.kinetic_ions.orbits, color_by="v_par", domain=phi, tube_radius=0.01).show()
+    >>> pyvista_orbits(
+    ...     out.kinetic_ions.orbits, color_by="v_par", domain=phi, tube_radius=0.01
+    ... ).show()
     """
     lines = orbit_polylines(orbits, color_by=color_by, max_markers=max_markers)
     plotter = _plotter(plotter)

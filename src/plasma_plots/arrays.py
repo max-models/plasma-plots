@@ -68,9 +68,10 @@ def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
 
     Examples
     --------
-    >>> logical_dims(phi)                    # Struphy
+    >>> logical_dims(phi)  # Struphy
     ('eta1', 'eta2', 'eta3')
-    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))  # GVEC, Boozer
+    >>> # GVEC, Boozer
+    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))
     ('rho', 'theta_B', 'zeta_B')
     """
     dims, coords = set(data.dims), set(data.coords)
@@ -207,8 +208,11 @@ def map_coordinate(
 
     Examples
     --------
-    >>> map_coordinate(T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m").plasma.plot.lineout(x="r", t=-1)
-    >>> map_coordinate(n, "eta1", 2 * np.pi, units="m")   # a length of 2π along eta1
+    >>> map_coordinate(
+    ...     T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m"
+    ... ).plasma.plot.lineout(x="r", t=-1)
+    >>> # a length of 2π along eta1
+    >>> map_coordinate(n, "eta1", 2 * np.pi, units="m")
     """
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")

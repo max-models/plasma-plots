@@ -33,7 +33,9 @@ Examples
 --------
 The electron plasma frequency and Debye length of a 1e19 m⁻³, 100 eV plasma:
 
->>> print(f"{plasma_frequency(1e19):.3e} rad/s, {debye_length(1e19, 100.0):.3e} m")
+>>> print(
+...     f"{plasma_frequency(1e19):.3e} rad/s, {debye_length(1e19, 100.0):.3e} m"
+... )
 1.784e+11 rad/s, 2.351e-05 m
 """
 
@@ -98,7 +100,8 @@ def plasma_frequency(density, mass=electron_mass, charge=elementary_charge):
     --------
     >>> print(f"{plasma_frequency(1e18) / (2 * np.pi):.4g} Hz")
     8.979e+09 Hz
-    >>> print(f"{plasma_frequency(1e20, mass=2 * proton_mass):.4g} rad/s")   # deuterons
+    >>> # deuterons
+    >>> print(f"{plasma_frequency(1e20, mass=2 * proton_mass):.4g} rad/s")
     9.309e+09 rad/s
     """
     density = np.asarray(density, dtype=float)
@@ -200,7 +203,7 @@ def debye_length(density, temperature):
 
     Examples
     --------
-    >>> print(f"{debye_length(1e6, 1.0):.4g} m")   # 1 cm⁻³, 1 eV
+    >>> print(f"{debye_length(1e6, 1.0):.4g} m")  # 1 cm⁻³, 1 eV
     7.434 m
     """
     density = np.asarray(density, dtype=float)
@@ -249,9 +252,11 @@ def larmor_radius(
 
     Examples
     --------
-    >>> print(f"{larmor_radius(1.0, temperature=1e3):.4g} m")   # 1 keV electron, 1 T
+    >>> # 1 keV electron, 1 T
+    >>> print(f"{larmor_radius(1.0, temperature=1e3):.4g} m")
     7.54e-05 m
-    >>> print(f"{larmor_radius(2.0, perpendicular_speed=1e6, mass=proton_mass):.4g} m")
+    >>> radius = larmor_radius(2.0, perpendicular_speed=1e6, mass=proton_mass)
+    >>> print(f"{radius:.4g} m")
     0.00522 m
     """
     if (temperature is None) == (perpendicular_speed is None):
@@ -285,9 +290,9 @@ def inertial_length(density, mass=electron_mass, charge=elementary_charge):
 
     Examples
     --------
-    >>> print(f"{inertial_length(1e20):.4g} m")   # electrons
+    >>> print(f"{inertial_length(1e20):.4g} m")  # electrons
     0.0005314 m
-    >>> print(f"{inertial_length(1e20, mass=proton_mass):.4g} m")   # protons
+    >>> print(f"{inertial_length(1e20, mass=proton_mass):.4g} m")  # protons
     0.02277 m
     """
     return _out(speed_of_light / plasma_frequency(density, mass, charge))
@@ -318,7 +323,8 @@ def alfven_speed(field, density, mass_number=1, relativistic=False):
 
     Examples
     --------
-    >>> print(f"{alfven_speed(1.0, 1e20, mass_number=2):.4g} m/s")   # deuterium, 1 T
+    >>> # deuterium, 1 T
+    >>> print(f"{alfven_speed(1.0, 1e20, mass_number=2):.4g} m/s")
     1.542e+06 m/s
     """
     field = np.abs(np.asarray(field, dtype=float))
@@ -401,7 +407,7 @@ def plasma_beta(density, temperature, field):
 
     Examples
     --------
-    >>> print(f"{plasma_beta(1e20, 1e4, 5.0):.4f}")   # 10 keV, 5 T
+    >>> print(f"{plasma_beta(1e20, 1e4, 5.0):.4f}")  # 10 keV, 5 T
     0.0161
     """
     density = np.asarray(density, dtype=float)
@@ -431,7 +437,7 @@ def plasma_parameter(density, temperature):
 
     Examples
     --------
-    >>> print(f"{plasma_parameter(1e6, 1.0):.3g}")   # 1 cm⁻³, 1 eV
+    >>> print(f"{plasma_parameter(1e6, 1.0):.3g}")  # 1 cm⁻³, 1 eV
     1.72e+09
     """
     density = np.asarray(density, dtype=float)
@@ -568,10 +574,12 @@ def struphy_units(
 
     Examples
     --------
-    >>> units = struphy_units(x=1.0, B=1.0, n=1.0, velocity_scale="alfvén", mass_number=2)
+    >>> units = struphy_units(
+    ...     x=1.0, B=1.0, n=1.0, velocity_scale="alfvén", mass_number=2
+    ... )
     >>> print(f"v = {units['v']:.4g} m/s, t = {units['t']:.4g} s")
     v = 1.542e+06 m/s, t = 6.484e-07 s
-    >>> print(f"p = {units['p']:.4g} Pa")   # B²/μ₀
+    >>> print(f"p = {units['p']:.4g} Pa")  # B²/μ₀
     p = 7.958e+05 Pa
     """
     density = n * 1e20

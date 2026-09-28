@@ -617,7 +617,10 @@ def ion_acoustic_fluid(
 
     Examples
     --------
-    >>> round(ion_acoustic_fluid(0.1, temperature_ratio=10.0, mass_ratio=100.0).real, 5)
+    >>> round(
+    ...     ion_acoustic_fluid(0.1, temperature_ratio=10.0, mass_ratio=100.0).real,
+    ...     5,
+    ... )
     0.01136
     """
     k = np.asarray(k, dtype=float)
@@ -993,7 +996,7 @@ def maximum_growth(function, k_range, samples=64, tol=1e-8):
     Examples
     --------
     >>> k, omega = maximum_growth(lambda k: two_stream_cold(k, 1.0), (0.01, 1.4))
-    >>> round(k, 5), round(omega.imag, 6)   # √(3/8), √0.5/2
+    >>> round(k, 5), round(omega.imag, 6)  # √(3/8), √0.5/2
     (0.61237, 0.353553)
     """
     k = np.linspace(k_range[0], k_range[1], samples)
@@ -1067,7 +1070,9 @@ def weibel(k, anisotropy, parallel_thermal_speed):
     --------
     >>> round(weibel(1.0, anisotropy=4.0, parallel_thermal_speed=0.1).imag, 4)
     0.061
-    >>> weibel(np.sqrt(3.0), anisotropy=4.0, parallel_thermal_speed=0.1).imag < 1e-12
+    >>> weibel(
+    ...     np.sqrt(3.0), anisotropy=4.0, parallel_thermal_speed=0.1
+    ... ).imag < 1e-12
     True
     """
     k, a, v = _floats(k, anisotropy, parallel_thermal_speed)

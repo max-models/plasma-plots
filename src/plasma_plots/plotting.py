@@ -161,7 +161,8 @@ class PlotResult:
     --------
     >>> result = plot_lineout(phi.isel(t=-1, eta2=0, eta3=0))
     >>> result.save("phi.png", dpi=200)
-    >>> PlotResult(go.Figure(go.Scatter(x=t, y=energy))).save("energy.html")   # a figure of your own
+    >>> # a figure of your own
+    >>> PlotResult(go.Figure(go.Scatter(x=t, y=energy))).save("energy.html")
     """
 
     fig: object
@@ -289,7 +290,9 @@ class PlotResult:
 
         Examples
         --------
-        >>> plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")
+        >>> plot_timeseries(
+        ...     energy, fit=GrowthFit(window=(5.0, 20.0))
+        ... ).to_plotly().save("energy.html")
         """
         from .plotly_backend import _plotly_result, to_plotly
 
@@ -369,9 +372,12 @@ def save_figure(
     Examples
     --------
     >>> dispersion = spectrum.plasma.plot.dispersion(kmin=0, backend="plotly")
-    >>> save_figure(dispersion, "maxwell-wave", show=True)   # maxwell-wave.html, .png, .plotly.json
+    >>> # maxwell-wave.html, .png, .plotly.json
+    >>> save_figure(dispersion, "maxwell-wave", show=True)
     >>> save_figure(movie, "phase-space", frame=len(movie.fig.frames) // 2)
-    >>> save_figure(go.Figure(go.Scatter(x=t, y=energy)), "energy", formats=("html",))
+    >>> save_figure(
+    ...     go.Figure(go.Scatter(x=t, y=energy)), "energy", formats=("html",)
+    ... )
     """
     from .mpi import is_plotting_rank
 
@@ -854,8 +860,11 @@ def plot_lineout(
 
     Examples
     --------
-    >>> plot_lineout(phi.isel(t=-1, eta2=0, eta3=0), reference=lambda x: np.sin(np.pi * x))
-    >>> plot_lineout(ev.iota, rationals=4)          # GVEC's ι(ρ) with its 4 lowest-order n/m
+    >>> plot_lineout(
+    ...     phi.isel(t=-1, eta2=0, eta3=0), reference=lambda x: np.sin(np.pi * x)
+    ... )
+    >>> # GVEC's ι(ρ) with its 4 lowest-order n/m
+    >>> plot_lineout(ev.iota, rationals=4)
     """
     data = prepare_lineout(data, x=x)
     x = data.dims[0]
@@ -1746,7 +1755,11 @@ def plot_slice(
     Examples
     --------
     >>> plot_slice(phi.isel(t=-1, eta3=0), symmetric=True, cmap="RdBu_r")
-    >>> plot_slice(phi.isel(t=0), view=View(isel={"eta3": 0}, coordinates="physical"), levels=10)
+    >>> plot_slice(
+    ...     phi.isel(t=0),
+    ...     view=View(isel={"eta3": 0}, coordinates="physical"),
+    ...     levels=10,
+    ... )
     """
     renderer = _SliceRenderer(
         data,
@@ -2027,7 +2040,9 @@ class InteractiveSliceViewer:
 
     Examples
     --------
-    >>> InteractiveSliceViewer(phi, view=View(x="eta1", y="eta2"), symmetric=True).show()
+    >>> InteractiveSliceViewer(
+    ...     phi, view=View(x="eta1", y="eta2"), symmetric=True
+    ... ).show()
     """
 
     def __init__(
@@ -2372,7 +2387,9 @@ def animate_fields(
 
     Examples
     --------
-    >>> animation = animate_fields([vorticity.isel(eta3=0), density.isel(eta3=0)], symmetric=True)
+    >>> animation = animate_fields(
+    ...     [vorticity.isel(eta3=0), density.isel(eta3=0)], symmetric=True
+    ... )
     """
     from matplotlib.animation import FuncAnimation
 
@@ -2854,7 +2871,10 @@ def plot_dispersion(
 
     Examples
     --------
-    >>> plot_dispersion(e_field.isel(eta2=0, eta3=0), branches={"Langmuir": lambda k: np.sqrt(1 + 3 * k**2)})
+    >>> plot_dispersion(
+    ...     e_field.isel(eta2=0, eta3=0),
+    ...     branches={"Langmuir": lambda k: np.sqrt(1 + 3 * k**2)},
+    ... )
     """
     given = {"omega", "k"} <= set(data.dims)
     spectrum = data.transpose("omega", "k") if given else power_spectrum(data, dim=dim, detrend=detrend)
@@ -3268,7 +3288,9 @@ def plot_marker_scatter(
 
     Examples
     --------
-    >>> plot_marker_scatter(out.orbits["ions"], x="x", y="y", color="weights", t=-1)
+    >>> plot_marker_scatter(
+    ...     out.orbits["ions"], x="x", y="y", color="weights", t=-1
+    ... )
     """
     missing = [name for name in (x, y) if name not in markers.data_vars]
     if missing:
@@ -3419,7 +3441,9 @@ def animate_markers(
 
     Examples
     --------
-    >>> animation = animate_markers(out.orbits["ions"], x="x", y="y", color="x", color_at=0)
+    >>> animation = animate_markers(
+    ...     out.orbits["ions"], x="x", y="y", color="x", color_at=0
+    ... )
     """
     from matplotlib.animation import FuncAnimation
 
@@ -3579,7 +3603,11 @@ def plot_marker_paths(
 
     Examples
     --------
-    >>> plot_marker_paths(out.orbits["ions"], near=[(0.2, 0.5), (0.5, 0.5), (0.8, 0.5)], background=psi)
+    >>> plot_marker_paths(
+    ...     out.orbits["ions"],
+    ...     near=[(0.2, 0.5), (0.5, 0.5), (0.8, 0.5)],
+    ...     background=psi,
+    ... )
     """
     subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=(x, y)).transpose("t", "marker", ...)
     xs, ys = np.asarray(subset[x]), np.asarray(subset[y])
@@ -3685,7 +3713,11 @@ def plot_field_with_orbits(
 
     Examples
     --------
-    >>> plot_field_with_orbits(phi.isel(t=-1), View(x="eta1", y="eta2", isel={"eta3": 0}), out.orbits["ions"])
+    >>> plot_field_with_orbits(
+    ...     phi.isel(t=-1),
+    ...     View(x="eta1", y="eta2", isel={"eta3": 0}),
+    ...     out.orbits["ions"],
+    ... )
     """
     x, y = view.x, view.y
     subset = prepare_orbits(orbits, max_markers=max_markers, required=(x, y))
@@ -3932,7 +3964,12 @@ def plot_continuous_spectrum(
 
     Examples
     --------
-    >>> plot_continuous_spectrum(spectrum, np.linspace(0, 1, 200), [(1, 1), (2, 1)], frequencies={"measured": 0.42})
+    >>> plot_continuous_spectrum(
+    ...     spectrum,
+    ...     np.linspace(0, 1, 200),
+    ...     [(1, 1), (2, 1)],
+    ...     frequencies={"measured": 0.42},
+    ... )
     """
     data = prepare_continuous_spectrum(spectrum, x, modes)
     styles = ["-", "--", ":", "-."]
@@ -4056,7 +4093,10 @@ def plot_energy_budget(
 
     Examples
     --------
-    >>> plot_energy_budget(out.scalars, groups={"wave": ["en_U", "en_B", "en_p"], "ions": ["en_fv"]})
+    >>> plot_energy_budget(
+    ...     out.scalars,
+    ...     groups={"wave": ["en_U", "en_B", "en_p"], "ions": ["en_fv"]},
+    ... )
     """
     names = list(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars)
     if total is not None and total not in names:
@@ -4395,7 +4435,11 @@ def plot_orbit_quantities(
 
     Examples
     --------
-    >>> plot_orbit_quantities(out.orbits["ions"], quantities=("v_par", "mu", "p_phi"), markers=[0, 5, 9])
+    >>> plot_orbit_quantities(
+    ...     out.orbits["ions"],
+    ...     quantities=("v_par", "mu", "p_phi"),
+    ...     markers=[0, 5, 9],
+    ... )
     """
     subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=tuple(quantities))
     subset = subset.transpose("t", "marker", ...)
@@ -4526,8 +4570,14 @@ def animate_lines(
 
     Examples
     --------
-    >>> animation = animate_lines(phi.isel(eta2=0, eta3=0), reference=lambda x, t: np.cos(t) * np.sin(np.pi * x))
-    >>> animation = animate_lines(u.isel(eta2=0, eta3=0), alongside=[n.isel(eta2=0, eta3=0), [en_U, en_B]])
+    >>> animation = animate_lines(
+    ...     phi.isel(eta2=0, eta3=0),
+    ...     reference=lambda x, t: np.cos(t) * np.sin(np.pi * x),
+    ... )
+    >>> animation = animate_lines(
+    ...     u.isel(eta2=0, eta3=0),
+    ...     alongside=[n.isel(eta2=0, eta3=0), [en_U, en_B]],
+    ... )
     """
     from matplotlib.animation import FuncAnimation
 
@@ -4728,7 +4778,9 @@ def plot_measured_vs_theory(
 
     Examples
     --------
-    >>> plot_measured_vs_theory(branch.omega, theory=lambda k: np.sqrt(1 + 3 * k**2), xlabel="k")
+    >>> plot_measured_vs_theory(
+    ...     branch.omega, theory=lambda k: np.sqrt(1 + 3 * k**2), xlabel="k"
+    ... )
     """
     series = []
     for label, item in _references(measured, default=None):

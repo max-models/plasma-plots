@@ -261,7 +261,12 @@ class OutputPlots:
         Examples
         --------
         >>> out.plot.energies()
-        >>> out.plot.energies(groups={"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]})
+        >>> out.plot.energies(
+        ...     groups={
+        ...         "wave": ["en_U", "en_B", "en_p"],
+        ...         "energetic ions": ["en_fv", "en_fB"],
+        ...     }
+        ... )
         """
         from .plotting import plot_energy_budget
 
@@ -650,8 +655,12 @@ class OutputAnalysis:
         Examples
         --------
         >>> energies = out.analysis.linear_mhd_energies()
-        >>> filtered = out.analysis.filter_time(out.evaluate("mhd/velocity", representation="2")).filtered
-        >>> out.analysis.linear_mhd_energies(velocity=filtered, b_field=None, pressure=None)
+        >>> filtered = out.analysis.filter_time(
+        ...     out.evaluate("mhd/velocity", representation="2")
+        ... ).filtered
+        >>> out.analysis.linear_mhd_energies(
+        ...     velocity=filtered, b_field=None, pressure=None
+        ... )
         """
         return _linear_mhd_energies(self._output, velocity, b_field, pressure, gamma)
 
@@ -674,8 +683,13 @@ class OutputAnalysis:
         Examples
         --------
         >>> etas, weights = out.analysis.quadrature_grid()
-        >>> b = out.evaluate("em_fields/b_field", eta1=etas["eta1"], eta2=etas["eta2"], eta3=etas["eta3"],
-        ...                  representation="2")
+        >>> b = out.evaluate(
+        ...     "em_fields/b_field",
+        ...     eta1=etas["eta1"],
+        ...     eta2=etas["eta2"],
+        ...     eta3=etas["eta3"],
+        ...     representation="2",
+        ... )
         """
         return _quadrature_grid(self._output)
 

@@ -111,7 +111,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
   - e.g. `phi.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1, eta3=0)`
 - `array.plasma.plot.dispersion(*, dim=None, detrend=True, branches=None, log=True, dynamic_range=6.0, kmin=None, kmax=None, omega_max=None, vmin=None, vmax=None, cmap=None, ax=None, title=None, frequencies=None, points=None, fits=(), backend=None)`: Plot the space-time power spectrum of this (t, dim) field as a dispersion relation.
   - e.g. `E.plasma.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})`
-  - e.g. `spectrum = E.plasma.analysis.dispersion(dim="eta1")           # or pass the spectrum itself`
+  - e.g. `spectrum = E.plasma.analysis.dispersion(dim="eta1")  # or pass the spectrum itself`
 - `array.plasma.plot.power_spectrum(*, dims=None, detrend=True, window=None, peaks=None, band=None, frequencies=None, logy=True, omega_max=None, ax=None, title=None, backend=None, **selection)`: Plot the power per frequency bin, averaged over dims.
   - e.g. `band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))`
   - e.g. `phi.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap": omega_tae})`
@@ -323,7 +323,7 @@ The data behind each plot in DatasetPlots, without rendering it.
   - e.g. `markers.plasma.data.trajectories(max_markers=50)`
 - `dataset.plasma.data.scatter(*, x, y, color=None, color_at=None, **selection)`: Return the per-marker positions and colors DatasetPlots.scatter would plot.
   - e.g. `markers.plasma.data.scatter(x="x", y="y", color="density", t=-1).to_dataframe()`
-  - e.g. `markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)    # colored by the start`
+  - e.g. `markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)  # colored by the start`
 - `dataset.plasma.data.orbit_classification(*, x='v_par', y=None, v_par='v_par', t=0)`: Return the per-marker x, y and classification that orbit_classification plots.
   - e.g. `orbits.plasma.data.orbit_classification(x="p_phi")`
 
@@ -388,7 +388,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
   - e.g. `fig.save("energies.html")`
 - `plasma_plots.set_backend(backend)`: Set the backend of every plot that does not pass backend= itself.
   - e.g. `previous = plasma_plots.set_backend("plotly")`
-  - e.g. `phi.plasma.plot.slice(t=-1, eta3=0)    # a Plotly figure`
+  - e.g. `phi.plasma.plot.slice(t=-1, eta3=0)  # a Plotly figure`
 - `plasma_plots.get_backend()`: Return the backend of plots that do not pass backend= themselves.
 - `plasma_plots.mpi_rank()`: Return this process' rank in MPI_COMM_WORLD, without initializing MPI.
   - e.g. `mpi_rank()  # in a serial run`

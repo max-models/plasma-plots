@@ -169,17 +169,33 @@ def examples(function, limit=2) -> list[str]:
     match = re.search(r"^Examples\n-+\n(.*?)(?=^\S[^\n]*\n-{3,}|\Z)", doc, re.S | re.M)
     if not match:
         return []
-    found = []
+    statements = []  # each a list of lines: the ">>>" line and its "..." lines
     for line in match.group(1).splitlines():
         stripped = line.strip()
         if stripped.startswith(">>> "):
-            code = stripped[4:]
-            if code.startswith(("import ", "from ")) or len(found) >= limit:
-                continue
-            found.append(code)
-        elif stripped.startswith("... ") and found:
-            found[-1] += " " + stripped[4:].strip()
-    return found
+            statements.append([stripped[4:]])
+        elif stripped.startswith("... ") and statements:
+            statements[-1].append(stripped[4:].strip())
+    found, comment = [], None
+    for lines in statements:
+        if lines[0].startswith("#"):  # a comment of its own line belongs to the next statement
+            comment = lines[0]
+            continue
+        if not lines[0].startswith(("import ", "from ")):
+            found.append(_one_line(lines) + (f"  {comment}" if comment else ""))
+        comment = None
+    return found[:limit]
+
+
+def _one_line(lines: list[str]) -> str:
+    """A statement formatted over several lines, on one: ``f(\\n    x=1,\\n)`` as ``f(x=1)``."""
+    code = lines[0]
+    for line in lines[1:]:
+        if line.startswith((")", "]", "}")):
+            code = code.removesuffix(",") + line  # the formatter's trailing comma
+        else:
+            code += ("" if code.endswith(("(", "[", "{")) else " ") + line
+    return code
 
 
 def _with_examples(name, function) -> list[str]:

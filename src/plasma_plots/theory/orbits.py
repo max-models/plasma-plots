@@ -222,7 +222,8 @@ def grad_b_drift(perpendicular_speed, B, grad_B, charge=1.0, mass=1.0):
 
     Examples
     --------
-    >>> print(grad_b_drift(1.0, [0.0, 0.0, 1.0], [0.1, 0.0, 0.0]))   # B along z, ∇B along x
+    >>> # B along z, ∇B along x
+    >>> print(grad_b_drift(1.0, [0.0, 0.0, 1.0], [0.1, 0.0, 0.0]))
     [0.   0.05 0.  ]
     """
     B, grad_B = _vector(B), _vector(grad_B)
@@ -289,8 +290,10 @@ def trapped_fraction(epsilon, approximation="exact"):
 
     Examples
     --------
-    >>> print(f"{trapped_fraction(0.1):.4f}, {trapped_fraction(0.1, 'lin-liu'):.4f}, "
-    ...       f"{trapped_fraction(0.1, 'sqrt'):.4f}")
+    >>> fractions = [
+    ...     trapped_fraction(0.1, a) for a in ("exact", "lin-liu", "sqrt")
+    ... ]
+    >>> print(", ".join(f"{f:.4f}" for f in fractions))
     0.4492, 0.4431, 0.4617
     """
     eps = np.asarray(epsilon, dtype=float)
@@ -373,7 +376,9 @@ def trapping_boundary(epsilon, quantity="lambda", theta=0.0):
 
     Examples
     --------
-    >>> print(f"{trapping_boundary(0.1):.2f}, {trapping_boundary(0.1, 'pitch'):.4f}")
+    >>> print(
+    ...     f"{trapping_boundary(0.1):.2f}, {trapping_boundary(0.1, 'pitch'):.4f}"
+    ... )
     0.90, 0.4264
     """
     eps = np.asarray(epsilon, dtype=float)
@@ -451,7 +456,8 @@ def bounce_frequency(speed, kappa2, epsilon, safety_factor, major_radius):
 
     Examples
     --------
-    >>> print(f"{bounce_frequency(1.0, 0.0, 0.02, 1.0, 1.0):.4f}")   # √(ε/2) deeply trapped
+    >>> # √(ε/2) deeply trapped
+    >>> print(f"{bounce_frequency(1.0, 0.0, 0.02, 1.0, 1.0):.4f}")
     0.1000
     """
     k2 = np.asarray(kappa2, dtype=float)
@@ -494,7 +500,8 @@ def transit_frequency(speed, kappa2, epsilon, safety_factor, major_radius):
 
     Examples
     --------
-    >>> print(f"{transit_frequency(1.0, 50.0, 0.01, 1.0, 1.0):.4f}")   # ≈ v∥/(qR₀) = 1
+    >>> # ≈ v∥/(qR₀) = 1
+    >>> print(f"{transit_frequency(1.0, 50.0, 0.01, 1.0, 1.0):.4f}")
     0.9950
     """
     k2 = np.asarray(kappa2, dtype=float)

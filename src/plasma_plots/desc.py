@@ -31,9 +31,15 @@ Examples
 >>> import desc.examples
 >>> import plasma_plots
 >>> eq = desc.examples.get("W7-X")
->>> ev = plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64, zeta=40)
->>> ev["|B|"].plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0,
-...                             overlays={"coordinate_lines": {"rho": 5, "theta": 8}})
+>>> ev = plasma_plots.from_desc(
+...     eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64, zeta=40
+... )
+>>> ev["|B|"].plasma.plot.slice(
+...     coords="physical",
+...     plane="RZ",
+...     zeta=0.0,
+...     overlays={"coordinate_lines": {"rho": 5, "theta": 8}},
+... )
 >>> ev.iota.plasma.plot.lineout(rationals=4)
 """
 
@@ -148,7 +154,9 @@ def from_desc(
     Examples
     --------
     >>> ev = from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64, zeta=40)
-    >>> ev["|B|"].plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3)
+    >>> ev["|B|"].plasma.plot.panels(
+    ...     sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3
+    ... )
     >>> pest = from_desc(eq, "|B|", rho=[0.5], theta=64, zeta=48, sfl="pest")
     >>> pest["|B|"].plasma.plot.slice(x="zeta", y="theta_P", rho=0.5)
     """

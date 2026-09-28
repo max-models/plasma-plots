@@ -510,7 +510,10 @@ def drop_periodic_endpoint(data: xr.DataArray, dim: str, *, period: float = 1.0)
 
     Examples
     --------
-    >>> fft(drop_periodic_endpoint(phi.isel(t=-1, eta1=0, eta3=0), "eta2"), dim="eta2")
+    >>> fft(
+    ...     drop_periodic_endpoint(phi.isel(t=-1, eta1=0, eta3=0), "eta2"),
+    ...     dim="eta2",
+    ... )
     """
     if dim not in data.dims:
         raise ValueError(f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}")
@@ -1022,7 +1025,9 @@ def mode_structure(
 
     Examples
     --------
-    >>> omega = float(spectral_peaks(phi.isel(eta1=8, eta2=0, eta3=0)).omega_refined[0])
+    >>> omega = float(
+    ...     spectral_peaks(phi.isel(eta1=8, eta2=0, eta3=0)).omega_refined[0]
+    ... )
     >>> harmonics = mode_spectrum(mode_structure(phi, omega))
     """
     if np.iscomplexobj(data.values):
@@ -1340,7 +1345,9 @@ def trace_branch(
 
     Examples
     --------
-    >>> branch = trace_branch(spectrum, lambda k: np.sqrt(1 + 3 * k**2), k_range=(0.0, 2.0))
+    >>> branch = trace_branch(
+    ...     spectrum, lambda k: np.sqrt(1 + 3 * k**2), k_range=(0.0, 2.0)
+    ... )
     >>> branch.relative_error.plot()
     """
     if not {"omega", "k"} <= set(spectrum.dims):

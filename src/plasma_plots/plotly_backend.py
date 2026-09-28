@@ -7,10 +7,13 @@ data, color limits, fits, reference curves, labels and layout, but with hover va
 for animations and viewers, a slider in the browser. The two backends cannot disagree about what
 they show, because there is only one drawing code path.
 
->>> result = phi.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, backend="plotly")
->>> result.fig                           # a plotly.graph_objects.Figure
->>> result.save("phi.html")              # a standalone page; .png/.pdf/.svg need kaleido
->>> plasma_plots.set_backend("plotly")  # the default for every plot from now on
+>>> result = phi.plasma.plot.slice(
+...     coords="physical", plane="XY", t=-1, eta3=0, backend="plotly"
+... )
+>>> result.fig  # a plotly.graph_objects.Figure
+>>> result.save("phi.html")  # a standalone page; .png/.pdf/.svg need kaleido
+>>> # the default for every plot from now on
+>>> plasma_plots.set_backend("plotly")
 
 Plots return a :class:`~plasma_plots.plotting.PlotResult` with either backend (``fit_results``
 and ``data`` included); animations and viewers return one too, whose figure has a slider. Plotly
@@ -89,7 +92,7 @@ def set_backend(backend: str) -> str:
     Examples
     --------
     >>> previous = plasma_plots.set_backend("plotly")
-    >>> phi.plasma.plot.slice(t=-1, eta3=0)    # a Plotly figure
+    >>> phi.plasma.plot.slice(t=-1, eta3=0)  # a Plotly figure
     >>> plasma_plots.set_backend(previous)
     """
     global _default

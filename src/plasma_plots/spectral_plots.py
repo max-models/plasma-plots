@@ -125,7 +125,9 @@ def plot_power_spectrum(
 
     Examples
     --------
-    >>> plot_power_spectrum(phi.isel(eta2=0, eta3=0), peaks=2, frequencies={"theory": 1.2})
+    >>> plot_power_spectrum(
+    ...     phi.isel(eta2=0, eta3=0), peaks=2, frequencies={"theory": 1.2}
+    ... )
     """
     if isinstance(data, xr.Dataset):
         power = data["power"]
@@ -300,7 +302,9 @@ def plot_spectrogram(
 
     Examples
     --------
-    >>> plot_spectrogram(spectrogram(phi.isel(eta1=8, eta2=0, eta3=0), length=10.0))
+    >>> plot_spectrogram(
+    ...     spectrogram(phi.isel(eta1=8, eta2=0, eta3=0), length=10.0)
+    ... )
     """
     if set(power.dims) != {"t", "omega"}:
         raise ValueError(f"expected a (t, omega) spectrogram; got {power.dims}")
@@ -449,7 +453,10 @@ def plot_mode_map(
 
     Examples
     --------
-    >>> plot_mode_map(mode_spectrum(phi).isel(t=-1).sel(eta1=0.5, method="nearest"), m_range=(-8, 8))
+    >>> plot_mode_map(
+    ...     mode_spectrum(phi).isel(t=-1).sel(eta1=0.5, method="nearest"),
+    ...     m_range=(-8, 8),
+    ... )
     """
     if set(modes.dims) != {"m", "n"}:
         raise ValueError(f"reduce the mode spectrum to (m, n) first; got {modes.dims}")
@@ -648,7 +655,9 @@ def plot_mode_profiles(
 
     Examples
     --------
-    >>> plot_mode_profiles(mode_spectrum(mode_structure(phi, 0.42)).isel(n=0), top=3)
+    >>> plot_mode_profiles(
+    ...     mode_spectrum(mode_structure(phi, 0.42)).isel(n=0), top=3
+    ... )
     """
     x = logical_dims(structure)[0] if x is None else x
     names = [d for d in ("m", "n") if d in structure.dims]
@@ -740,7 +749,10 @@ def plot_cross_spectrum(cross: xr.Dataset, *, omega_max: float | None = None, ti
 
     Examples
     --------
-    >>> plot_cross_spectrum(cross_spectrum(phi, density, dims=["eta1", "eta2", "eta3"]), omega_max=3.0)
+    >>> plot_cross_spectrum(
+    ...     cross_spectrum(phi, density, dims=["eta1", "eta2", "eta3"]),
+    ...     omega_max=3.0,
+    ... )
     """
     if cross.magnitude.dims != ("omega",):
         raise ValueError(f"reduce the cross-spectrum to omega only; got {cross.magnitude.dims}")

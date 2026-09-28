@@ -139,7 +139,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)
+        >>> energy.plasma.plot.timeseries(
+        ...     logy=True, fit=(0.0, 2.0), fit_amplitude=True
+        ... )
         >>> energy.plasma.plot.timeseries(other_run_energy)
         """
         from .analysis import GrowthFit
@@ -200,8 +202,11 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
-        >>> T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
-        >>> ev.iota.plasma.plot.lineout(rationals=4)     # GVEC's ι(ρ) and its rational surfaces
+        >>> T.plasma.plot.lineout(
+        ...     x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1
+        ... )
+        >>> # GVEC's ι(ρ) and its rational surfaces
+        >>> ev.iota.plasma.plot.lineout(rationals=4)
         """
         from .plotting import _select, plot_lineout
 
@@ -266,7 +271,13 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> T.plasma.plot.line_animation(reference={"exact": exact}, step=2)
-        >>> u.plasma.plot.line_animation(x="eta1", alongside=[n, [en_U, en_B]], alongside_logy=True, eta2=0, eta3=0)
+        >>> u.plasma.plot.line_animation(
+        ...     x="eta1",
+        ...     alongside=[n, [en_U, en_B]],
+        ...     alongside_logy=True,
+        ...     eta2=0,
+        ...     eta3=0,
+        ... )
         """
         from .plotting import _select, animate_lines
 
@@ -324,7 +335,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> traced = spectrum.plasma.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))
+        >>> traced = spectrum.plasma.analysis.trace_branch(
+        ...     bohm_gross, k_range=(1.5, 5.5)
+        ... )
         >>> traced.omega.plasma.plot.against_theory(bohm_gross)
         """
         from .plotting import plot_measured_vs_theory
@@ -383,7 +396,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> errors = xr.DataArray(l2_errors, dims="n", coords={"n": [16, 32, 64, 128]}, name="L2 error")
+        >>> errors = xr.DataArray(
+        ...     l2_errors, dims="n", coords={"n": [16, 32, 64, 128]}, name="L2 error"
+        ... )
         >>> errors.plasma.plot.convergence(max_errors, backend="plotly")
         """
         from .arrays import axis_label
@@ -623,7 +638,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0).show()
+        >>> phi.plasma.plot.slices_3d(
+        ...     cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0
+        ... ).show()
         """
         from .pyvista_plots import pyvista_slices
 
@@ -723,7 +740,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> B.plasma.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), t=-1).show()
+        >>> B.plasma.plot.streamlines(
+        ...     n_points=60, source_center=(3.5, 0, 0), t=-1
+        ... ).show()
         """
         from .pyvista_plots import pyvista_streamlines
 
@@ -773,7 +792,12 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> phi.plasma.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
+        >>> phi.plasma.plot.movie(
+        ...     "mode.gif",
+        ...     kind="slices",
+        ...     cuts={"eta3": [0, 0.25, 0.5, 0.75]},
+        ...     cmap="RdBu_r",
+        ... )
         """
         from .pyvista_plots import save_movie
 
@@ -927,10 +951,15 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> E.plasma.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
-        >>> spectrum = E.plasma.analysis.dispersion(dim="eta1")           # or pass the spectrum itself
+        >>> E.plasma.plot.dispersion(
+        ...     dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)}
+        ... )
+        >>> # or pass the spectrum itself
+        >>> spectrum = E.plasma.analysis.dispersion(dim="eta1")
         >>> fits = spectrum.plasma.analysis.fit_branches(n_branches=1)
-        >>> spectrum.plasma.plot.dispersion(kmin=0, fits=fits, dynamic_range=15, backend="plotly")
+        >>> spectrum.plasma.plot.dispersion(
+        ...     kmin=0, fits=fits, dynamic_range=15, backend="plotly"
+        ... )
         """
         from .plotting import plot_dispersion
 
@@ -1008,7 +1037,9 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
-        >>> phi.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap": omega_tae})
+        >>> phi.plasma.plot.power_spectrum(
+        ...     peaks=2, band=band, frequencies={"TAE gap": omega_tae}
+        ... )
         """
         from .spectral_plots import plot_power_spectrum
 
@@ -1314,7 +1345,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> phi.plasma.plot.radial_power(x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=0.5)
+        >>> phi.plasma.plot.radial_power(
+        ...     x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=0.5
+        ... )
         """
         from .spectral import time_fft
         from .spectral_plots import plot_radial_power
@@ -1391,7 +1424,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> phi.plasma.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
+        >>> phi.plasma.plot.mode_profiles(
+        ...     omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2
+        ... )
         >>> phi.plasma.plot.mode_profiles(t=-1, scale=(1, 6))
         """
         from .spectral import mode_amplitudes, mode_spectrum, mode_structure
@@ -1454,7 +1489,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> T.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
+        >>> T.plasma.plot.profiles(
+        ...     x="eta1", at=[0, 10, 20, 40], reference={"exact": exact}
+        ... )
         """
         from .plotting import _select, plot_profiles
 
@@ -1753,7 +1790,9 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> phi.plasma.plot.slice(x="eta1", y="eta2", t=-1)
-        >>> n.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])
+        >>> n.plasma.plot.slice(
+        ...     coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2]
+        ... )
         """
         return self.view(
             x=x,
@@ -2000,7 +2039,9 @@ class ArrayPlots(_ArrayAccessor):
 
         Examples
         --------
-        >>> n.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])
+        >>> n.plasma.plot.animation(
+        ...     coords="physical", plane="XY", eta3=0, levels=[0.2]
+        ... )
         >>> vorticity.plasma.plot.animation(alongside=[density], eta3=0)
         """
         return self.view(
@@ -2465,7 +2506,9 @@ class ArrayData(_ArrayAccessor):
 
         Examples
         --------
-        >>> field, paths = field.plasma.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
+        >>> field, paths = field.plasma.data.overlay_orbits(
+        ...     orbits, x="eta1", y="eta2", t=-1
+        ... )
         """
         from .plotting import prepare_orbits
 
@@ -2664,7 +2707,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         Examples
         --------
-        >>> r_T = T.plasma.analysis.map_coordinate("eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m")
+        >>> r_T = T.plasma.analysis.map_coordinate(
+        ...     "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m"
+        ... )
         >>> r_T.plasma.plot.profiles(x="r", eta2=0, eta3=0)
         """
         from .arrays import map_coordinate
@@ -2844,7 +2889,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         Examples
         --------
-        >>> field.plasma.analysis.dispersion().plasma.analysis.fit_branches(n_branches=2)
+        >>> field.plasma.analysis.dispersion().plasma.analysis.fit_branches(
+        ...     n_branches=2
+        ... )
         """
         from .analysis import fit_dispersion_branches
 
@@ -3383,7 +3430,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         Examples
         --------
-        >>> spectrum.plasma.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5))
+        >>> spectrum.plasma.analysis.trace_branch(
+        ...     bohm_gross, window=0.2, k_range=(1.5, 5.5)
+        ... )
         """
         from .spectral import trace_branch
 
@@ -3591,7 +3640,9 @@ class DatasetPlots:
 
         Examples
         --------
-        >>> phi.plasma.analysis.time_fft(detrend=True).plasma.plot.power_spectrum(peaks=2)
+        >>> phi.plasma.analysis.time_fft(detrend=True).plasma.plot.power_spectrum(
+        ...     peaks=2
+        ... )
         """
         from .spectral_plots import plot_power_spectrum
 
@@ -3621,7 +3672,9 @@ class DatasetPlots:
 
         Examples
         --------
-        >>> u.plasma.analysis.cross_spectrum(b, dims="eta3").plasma.plot.cross_spectrum(omega_max=1.5)
+        >>> u.plasma.analysis.cross_spectrum(
+        ...     b, dims="eta3"
+        ... ).plasma.plot.cross_spectrum(omega_max=1.5)
         """
         from .spectral_plots import plot_cross_spectrum
 
@@ -3813,8 +3866,17 @@ class DatasetPlots:
 
         Examples
         --------
-        >>> markers.plasma.plot.animation(x="x", y="y", color="density", background=n, step=2)
-        >>> orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)
+        >>> markers.plasma.plot.animation(
+        ...     x="x", y="y", color="density", background=n, step=2
+        ... )
+        >>> orbits.plasma.plot.animation(
+        ...     x="R",
+        ...     y="z",
+        ...     color="classification",
+        ...     trail=300,
+        ...     paths=True,
+        ...     background=psi,
+        ... )
         """
         from .plotting import animate_markers
 
@@ -4035,7 +4097,9 @@ class DatasetPlots:
 
         Examples
         --------
-        >>> orbits.plasma.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0)).show()
+        >>> orbits.plasma.plot.orbits_3d(
+        ...     color_by="classification", domain=phi.isel(t=0)
+        ... ).show()
         """
         from .pyvista_plots import pyvista_orbits
 
@@ -4104,8 +4168,11 @@ class DatasetData:
 
         Examples
         --------
-        >>> markers.plasma.data.scatter(x="x", y="y", color="density", t=-1).to_dataframe()
-        >>> markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)    # colored by the start
+        >>> markers.plasma.data.scatter(
+        ...     x="x", y="y", color="density", t=-1
+        ... ).to_dataframe()
+        >>> # colored by the start
+        >>> markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)
         """
         from .plotting import prepare_marker_scatter
 
@@ -4179,7 +4246,9 @@ class SliceView:
 
     Examples
     --------
-    >>> view = phi.plasma.plot.view(x="eta1", y="eta2", cmap="RdBu_r", symmetric=True)
+    >>> view = phi.plasma.plot.view(
+    ...     x="eta1", y="eta2", cmap="RdBu_r", symmetric=True
+    ... )
     >>> view.slice(t=-1)
     >>> view.animation(step=2)
     """

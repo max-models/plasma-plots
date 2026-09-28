@@ -140,7 +140,8 @@ def plasma_light_wave(k, plasma_frequency=1.0, c=1.0):
 
     Examples
     --------
-    >>> print(round(float(plasma_light_wave(1.0, plasma_frequency=1.0).real), 6))   # √2
+    >>> # √2
+    >>> print(round(float(plasma_light_wave(1.0, plasma_frequency=1.0).real), 6))
     1.414214
     """
     k, wp, c = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (k, plasma_frequency, c)))
@@ -400,7 +401,11 @@ def electron_ion(plasma_frequency=1.0, cyclotron_frequency=1.0, mass_ratio=1836.
     Examples
     --------
     >>> electrons, ions = electron_ion(2.0, 1.0, mass_ratio=100.0)
-    >>> print(electrons.cyclotron_frequency, round(ions.plasma_frequency, 4), ions.cyclotron_frequency)
+    >>> print(
+    ...     electrons.cyclotron_frequency,
+    ...     round(ions.plasma_frequency, 4),
+    ...     ions.cyclotron_frequency,
+    ... )
     -1.0 0.2 0.01
     """
     wce = abs(float(cyclotron_frequency))
@@ -445,7 +450,7 @@ def stix(omega, species):
 
     Examples
     --------
-    >>> s = stix(2.0, Species(1.0, -1.0))     # electrons, ω = 2 ω_pe = 2 |Ω_e|
+    >>> s = stix(2.0, Species(1.0, -1.0))  # electrons, ω = 2 ω_pe = 2 |Ω_e|
     >>> print({name: round(float(v), 4) for name, v in s.items()})
     {'S': 0.6667, 'D': -0.1667, 'P': 0.75, 'R': 0.5, 'L': 0.8333}
     """
@@ -498,7 +503,8 @@ def refractive_index(omega, theta, species):
     Examples
     --------
     >>> plus, minus = refractive_index(2.0, np.pi / 2, Species(1.0, -1.0))
-    >>> print(round(float(plus), 4), round(float(minus), 4))     # O mode P, X mode RL/S
+    >>> # O mode P, X mode RL/S
+    >>> print(round(float(plus), 4), round(float(minus), 4))
     0.75 0.625
     """
     s = stix(omega, species)
@@ -554,7 +560,9 @@ def appleton_hartree(omega, theta, plasma_frequency=1.0, cyclotron_frequency=1.0
 
     Examples
     --------
-    >>> n2 = appleton_hartree(2.0, np.pi / 2, plasma_frequency=1.0, cyclotron_frequency=1.0)
+    >>> n2 = appleton_hartree(
+    ...     2.0, np.pi / 2, plasma_frequency=1.0, cyclotron_frequency=1.0
+    ... )
     >>> print({name: round(float(v), 4) for name, v in n2.items()})
     {'O': 0.75, 'X': 0.625}
     """
@@ -766,9 +774,12 @@ def resonances(theta, species):
 
     Examples
     --------
-    >>> print(np.round(resonances(np.pi / 2, Species(1.0, -1.0)), 4))   # upper hybrid, √2
+    >>> # upper hybrid, √2
+    >>> print(np.round(resonances(np.pi / 2, Species(1.0, -1.0)), 4))
     [1.4142]
-    >>> print(np.round(resonances(0.0, electron_ion(1.0, 1.0, mass_ratio=100.0)), 4))
+    >>> print(
+    ...     np.round(resonances(0.0, electron_ion(1.0, 1.0, mass_ratio=100.0)), 4)
+    ... )
     [0.01 1.  ]
     """
     q, sp, pp, _, species = _cold_polynomials(species)
@@ -848,8 +859,10 @@ def group_velocity(omega_of_k, k, step=None):
 
     Examples
     --------
-    >>> v = group_velocity(lambda k: plasma_light_wave(k, plasma_frequency=1.0), 1.0)
-    >>> print(round(float(v.real), 6))    # c²k/ω = 1/√2
+    >>> v = group_velocity(
+    ...     lambda k: plasma_light_wave(k, plasma_frequency=1.0), 1.0
+    ... )
+    >>> print(round(float(v.real), 6))  # c²k/ω = 1/√2
     0.707107
     """
     k = np.asarray(k, dtype=float)
@@ -914,7 +927,9 @@ def cavity_modes(lengths, c=1.0, max_index=6, max_frequency=None):
     Examples
     --------
     >>> modes = cavity_modes((1.0, 1.0, 1.0), max_index=2)
-    >>> for w, idx, kind in list(zip(modes["omega"], modes["indices"], modes["kind"]))[:4]:
+    >>> for w, idx, kind in list(
+    ...     zip(modes["omega"], modes["indices"], modes["kind"])
+    ... )[:4]:
     ...     print(round(float(w / np.pi), 4), idx, kind)
     1.4142 [0 1 1] TE
     1.4142 [1 0 1] TE
@@ -1179,7 +1194,7 @@ def slow_continuum(r, m, n, q, major_radius=1.0, alfven_speed=1.0, sound_speed=0
     Examples
     --------
     >>> w = slow_continuum(0.0, m=1, n=0, q=1.0, alfven_speed=1.0, sound_speed=1.0)
-    >>> print(round(float(w.real), 4))     # 1/√2
+    >>> print(round(float(w.real), 4))  # 1/√2
     0.7071
     """
     r = np.asarray(r, dtype=float)

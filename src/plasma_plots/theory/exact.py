@@ -243,7 +243,12 @@ def star_state(left, right, gamma=1.4):
     Toro's test 1 (Sod's shock tube):
 
     >>> s = star_state((1.0, 0.0, 1.0), (0.125, 0.0, 0.1))
-    >>> round(s.pressure, 5), round(s.velocity, 5), round(s.density_left, 5), round(s.density_right, 5)
+    >>> (
+    ...     round(s.pressure, 5),
+    ...     round(s.velocity, 5),
+    ...     round(s.density_left, 5),
+    ...     round(s.density_right, 5),
+    ... )
     (0.30313, 0.92745, 0.42632, 0.26557)
     >>> s.left_wave, s.right_wave
     ('rarefaction', 'shock')
@@ -369,7 +374,9 @@ def riemann_euler(x, t, left, right, gamma=1.4, x0=0.0):
     --------
     Toro's test 1 at t = 0.25, left of, inside and right of the star region:
 
-    >>> w = riemann_euler([-0.4, 0.1, 0.5], 0.25, (1.0, 0.0, 1.0), (0.125, 0.0, 0.1))
+    >>> w = riemann_euler(
+    ...     [-0.4, 0.1, 0.5], 0.25, (1.0, 0.0, 1.0), (0.125, 0.0, 0.1)
+    ... )
     >>> w.density.round(5), w.pressure.round(5)
     (array([1.     , 0.42632, 0.125  ]), array([1.     , 0.30313, 0.1    ]))
 
@@ -580,7 +587,7 @@ def heat_kernel(x, t, diffusivity, width=0.0, center=0.0, mass=1.0):
 
     Examples
     --------
-    >>> round(float(heat_kernel(0.0, 0.5, 1.0)), 6)      # 1/√(4π D t)
+    >>> round(float(heat_kernel(0.0, 0.5, 1.0)), 6)  # 1/√(4π D t)
     0.398942
     >>> round(float(heat_kernel((1.0, 0.0), 0.25, 1.0, width=1.0)), 6)
     0.076026
@@ -625,9 +632,10 @@ def advected(profile, x, t, velocity, period=None):
 
     Examples
     --------
-    >>> round(float(advected(lambda x: x, 0.1, 0.35, 1.0, period=1.0)), 6)   # −0.25 wrapped into [0, 1)
+    >>> # −0.25 wrapped into [0, 1)
+    >>> round(float(advected(lambda x: x, 0.1, 0.35, 1.0, period=1.0)), 6)
     0.75
-    >>> advected(lambda x: np.exp(-x**2), [0.0, 1.0], 1.0, 1.0).round(4)
+    >>> advected(lambda x: np.exp(-(x**2)), [0.0, 1.0], 1.0, 1.0).round(4)
     array([0.3679, 1.    ])
     """
     shifted = np.asarray(x, dtype=float) - velocity * np.asarray(t, dtype=float)
@@ -679,10 +687,14 @@ def dalembert(x, t, initial, speed, initial_rate=None):
 
     Examples
     --------
-    >>> pulse = lambda x: np.exp(-x**2 / 0.01)
-    >>> dalembert([0.0, 1.0], 1.0, pulse, 1.0).round(4)      # the pulse split in two halves
+    >>> pulse = lambda x: np.exp(-(x**2) / 0.01)
+    >>> # the pulse split in two halves
+    >>> dalembert([0.0, 1.0], 1.0, pulse, 1.0).round(4)
     array([0. , 0.5])
-    >>> round(float(dalembert(0.0, 0.5, np.zeros_like, 1.0, initial_rate=np.cos)), 6)  # sin(ct)/c
+    >>> # sin(ct)/c
+    >>> round(
+    ...     float(dalembert(0.0, 0.5, np.zeros_like, 1.0, initial_rate=np.cos)), 6
+    ... )
     0.479426
     """
     if speed <= 0:
@@ -815,7 +827,9 @@ def pressureless_eulerian(x, t, velocity, density=None, velocity_derivative=None
 
     Examples
     --------
-    >>> flow = pressureless_eulerian([-1.070796, 1.070796], 1.0, lambda q: -0.5 * np.sin(q))
+    >>> flow = pressureless_eulerian(
+    ...     [-1.070796, 1.070796], 1.0, lambda q: -0.5 * np.sin(q)
+    ... )
     >>> flow.density.round(5), flow.velocity.round(5)
     (array([1., 1.]), array([ 0.5, -0.5]))
     """

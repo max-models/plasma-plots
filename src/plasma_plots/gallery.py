@@ -278,8 +278,15 @@ def save_extra_figure(
 
     Examples
     --------
-    >>> figures = [save_extra_figure(space_time, "weak-landau-damping", "space-time",
-    ...                              alt="Space-time map of E", caption="E(x, t) of the run.")]
+    >>> figures = [
+    ...     save_extra_figure(
+    ...         space_time,
+    ...         "weak-landau-damping",
+    ...         "space-time",
+    ...         alt="Space-time map of E",
+    ...         caption="E(x, t) of the run.",
+    ...     )
+    ... ]
     >>> merge_metadata("weak-landau-damping", figures=figures)
     """
     save_figure(
@@ -362,8 +369,14 @@ def heatmap_figure(
 
     Examples
     --------
-    >>> heatmap_figure(f.plasma.analysis.spatial_average(), x="t", y="v1", title="f(v, t)",
-    ...                xaxis_title="t [a.u.]", yaxis_title="v [a.u.]")
+    >>> heatmap_figure(
+    ...     f.plasma.analysis.spatial_average(),
+    ...     x="t",
+    ...     y="v1",
+    ...     title="f(v, t)",
+    ...     xaxis_title="t [a.u.]",
+    ...     yaxis_title="v [a.u.]",
+    ... )
     """
     x_values = data[x].values if x_values is None else x_values
     y_values = data[y].values if y_values is None else y_values
@@ -500,9 +513,20 @@ def heatmap_movie(
     Examples
     --------
     >>> f = out.evaluate("kinetic_ions/e1_v1_density/f")
-    >>> movie, static_z = heatmap_movie(f, x="eta1", y="v1", title="f(x, v)",
-    ...                                 xaxis_title="x [a.u.]", yaxis_title="v [a.u.]")
-    >>> save_figure(movie, "two-stream-instability", suffix="-phase-space", static_z=static_z)
+    >>> movie, static_z = heatmap_movie(
+    ...     f,
+    ...     x="eta1",
+    ...     y="v1",
+    ...     title="f(x, v)",
+    ...     xaxis_title="x [a.u.]",
+    ...     yaxis_title="v [a.u.]",
+    ... )
+    >>> save_figure(
+    ...     movie,
+    ...     "two-stream-instability",
+    ...     suffix="-phase-space",
+    ...     static_z=static_z,
+    ... )
     """
     x_values = data[x].values if x_values is None else x_values
     y_values = data[y].values if y_values is None else y_values
@@ -607,7 +631,9 @@ def merge_metadata(stem: str, **fields) -> Path:
 
     Examples
     --------
-    >>> merge_metadata("weak-landau-damping", measuredDampingRate=rate, **profiling)
+    >>> merge_metadata(
+    ...     "weak-landau-damping", measuredDampingRate=rate, **profiling
+    ... )
     """
     path = Path(f"{stem}.metadata.json")
     if not is_root():
