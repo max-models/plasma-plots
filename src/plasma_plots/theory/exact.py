@@ -48,7 +48,9 @@ def _similarity(x, t, x0):
         raise ValueError("t must be non-negative")
     x, t = np.broadcast_arrays(x - x0, t)
     with np.errstate(divide="ignore", invalid="ignore"):
-        return np.where(t > 0, x / np.where(t > 0, t, 1.0), np.where(x < 0, -np.inf, np.inf))
+        return np.where(
+            t > 0, x / np.where(t > 0, t, 1.0), np.where(x < 0, -np.inf, np.inf)
+        )
 
 
 # ---------------------------------------------------------------------------------------------
@@ -124,7 +126,9 @@ class RiemannSolution:
     def energy(self):
         """The total energy density ρu²/2 + p/(γ − 1) (zero in a vacuum)."""
         rho = np.asarray(self.density)
-        kinetic = np.where(rho > 0, 0.5 * rho * np.where(rho > 0, self.velocity, 0.0) ** 2, 0.0)
+        kinetic = np.where(
+            rho > 0, 0.5 * rho * np.where(rho > 0, self.velocity, 0.0) ** 2, 0.0
+        )
         return _out(kinetic + np.asarray(self.pressure) / (self.gamma - 1))
 
     @property
@@ -144,7 +148,9 @@ class RiemannSolution:
 def _check_state(state, side):
     rho, u, p = (float(v) for v in state)
     if rho < 0 or p < 0:
-        raise ValueError(f"the {side} density and pressure must be non-negative; got {state!r}")
+        raise ValueError(
+            f"the {side} density and pressure must be non-negative; got {state!r}"
+        )
     if (rho == 0) != (p == 0):
         raise ValueError(
             f"the {side} state must have both density and pressure zero (a vacuum) or both positive; got {state!r}"
@@ -243,7 +249,12 @@ def star_state(left, right, gamma=1.4):
     Toro's test 1 (Sod's shock tube):
 
     >>> s = star_state((1.0, 0.0, 1.0), (0.125, 0.0, 0.1))
-    >>> round(s.pressure, 5), round(s.velocity, 5), round(s.density_left, 5), round(s.density_right, 5)
+    >>> (
+    ...     round(s.pressure, 5),
+    ...     round(s.velocity, 5),
+    ...     round(s.density_left, 5),
+    ...     round(s.density_right, 5),
+    ... )
     (0.30313, 0.92745, 0.42632, 0.26557)
     >>> s.left_wave, s.right_wave
     ('rarefaction', 'shock')
@@ -290,7 +301,9 @@ def _left_wave(s, rho, u, p, p_star, u_star, gamma):
     if p_star > p:  # shock
         g6 = (gamma - 1) / (gamma + 1)
         rho_star = rho * (p_star / p + g6) / (g6 * p_star / p + 1)
-        speed = u - a * np.sqrt((gamma + 1) / (2 * gamma) * p_star / p + (gamma - 1) / (2 * gamma))
+        speed = u - a * np.sqrt(
+            (gamma + 1) / (2 * gamma) * p_star / p + (gamma - 1) / (2 * gamma)
+        )
         ahead = s < speed
         return (
             np.where(ahead, rho, rho_star),
@@ -301,7 +314,9 @@ def _left_wave(s, rho, u, p, p_star, u_star, gamma):
     rho_star = rho * ratio ** (1 / gamma)
     head, tail = u - a, u_star - a * ratio ** ((gamma - 1) / (2 * gamma))
     with np.errstate(invalid="ignore", over="ignore"):
-        base = np.clip(2 / (gamma + 1) + (gamma - 1) / ((gamma + 1) * a) * (u - s), 0.0, None)
+        base = np.clip(
+            2 / (gamma + 1) + (gamma - 1) / ((gamma + 1) * a) * (u - s), 0.0, None
+        )
         fan = (
             rho * base ** (2 / (gamma - 1)),
             2 / (gamma + 1) * (a + 0.5 * (gamma - 1) * u + s),
@@ -369,7 +384,9 @@ def riemann_euler(x, t, left, right, gamma=1.4, x0=0.0):
     --------
     Toro's test 1 at t = 0.25, left of, inside and right of the star region:
 
-    >>> w = riemann_euler([-0.4, 0.1, 0.5], 0.25, (1.0, 0.0, 1.0), (0.125, 0.0, 0.1))
+    >>> w = riemann_euler(
+    ...     [-0.4, 0.1, 0.5], 0.25, (1.0, 0.0, 1.0), (0.125, 0.0, 0.1)
+    ... )
     >>> w.density.round(5), w.pressure.round(5)
     (array([1.     , 0.42632, 0.125  ]), array([1.     , 0.30313, 0.1    ]))
 
@@ -538,7 +555,11 @@ def dam_break(x, t, depth=1.0, gravity=1.0, x0=0.0):
 # ---------------------------------------------------------------------------------------------
 def _coordinates(x):
     """A list of coordinate arrays: a tuple is one array per dimension, anything else is 1-D."""
-    return [np.asarray(c, dtype=float) for c in x] if isinstance(x, tuple) else [np.asarray(x, dtype=float)]
+    return (
+        [np.asarray(c, dtype=float) for c in x]
+        if isinstance(x, tuple)
+        else [np.asarray(x, dtype=float)]
+    )
 
 
 def heat_kernel(x, t, diffusivity, width=0.0, center=0.0, mass=1.0):
@@ -580,7 +601,7 @@ def heat_kernel(x, t, diffusivity, width=0.0, center=0.0, mass=1.0):
 
     Examples
     --------
-    >>> round(float(heat_kernel(0.0, 0.5, 1.0)), 6)      # 1/√(4π D t)
+    >>> round(float(heat_kernel(0.0, 0.5, 1.0)), 6)  # 1/√(4π D t)
     0.398942
     >>> round(float(heat_kernel((1.0, 0.0), 0.25, 1.0, width=1.0)), 6)
     0.076026
@@ -625,14 +646,19 @@ def advected(profile, x, t, velocity, period=None):
 
     Examples
     --------
-    >>> round(float(advected(lambda x: x, 0.1, 0.35, 1.0, period=1.0)), 6)   # −0.25 wrapped into [0, 1)
+    >>> # −0.25 wrapped into [0, 1)
+    >>> round(float(advected(lambda x: x, 0.1, 0.35, 1.0, period=1.0)), 6)
     0.75
-    >>> advected(lambda x: np.exp(-x**2), [0.0, 1.0], 1.0, 1.0).round(4)
+    >>> advected(lambda x: np.exp(-(x**2)), [0.0, 1.0], 1.0, 1.0).round(4)
     array([0.3679, 1.    ])
     """
     shifted = np.asarray(x, dtype=float) - velocity * np.asarray(t, dtype=float)
     if period is not None:
-        a, b = (0.0, float(period)) if np.ndim(period) == 0 else (float(period[0]), float(period[1]))
+        a, b = (
+            (0.0, float(period))
+            if np.ndim(period) == 0
+            else (float(period[0]), float(period[1]))
+        )
         shifted = a + np.mod(shifted - a, b - a)
     return _out(profile(shifted))
 
@@ -679,10 +705,14 @@ def dalembert(x, t, initial, speed, initial_rate=None):
 
     Examples
     --------
-    >>> pulse = lambda x: np.exp(-x**2 / 0.01)
-    >>> dalembert([0.0, 1.0], 1.0, pulse, 1.0).round(4)      # the pulse split in two halves
+    >>> pulse = lambda x: np.exp(-(x**2) / 0.01)
+    >>> # the pulse split in two halves
+    >>> dalembert([0.0, 1.0], 1.0, pulse, 1.0).round(4)
     array([0. , 0.5])
-    >>> round(float(dalembert(0.0, 0.5, np.zeros_like, 1.0, initial_rate=np.cos)), 6)  # sin(ct)/c
+    >>> # sin(ct)/c
+    >>> round(
+    ...     float(dalembert(0.0, 0.5, np.zeros_like, 1.0, initial_rate=np.cos)), 6
+    ... )
     0.479426
     """
     if speed <= 0:
@@ -772,7 +802,11 @@ def pressureless(q, t, velocity, density=None, velocity_derivative=None):
     """
     q, t = np.broadcast_arrays(np.asarray(q, dtype=float), np.asarray(t, dtype=float))
     v = velocity(q)
-    dv = velocity_derivative(q) if velocity_derivative is not None else _derivative(velocity, q)
+    dv = (
+        velocity_derivative(q)
+        if velocity_derivative is not None
+        else _derivative(velocity, q)
+    )
     rho0 = density(q) if density is not None else 1.0
     with np.errstate(divide="ignore"):
         rho = rho0 / np.abs(1 + dv * t)
@@ -815,7 +849,9 @@ def pressureless_eulerian(x, t, velocity, density=None, velocity_derivative=None
 
     Examples
     --------
-    >>> flow = pressureless_eulerian([-1.070796, 1.070796], 1.0, lambda q: -0.5 * np.sin(q))
+    >>> flow = pressureless_eulerian(
+    ...     [-1.070796, 1.070796], 1.0, lambda q: -0.5 * np.sin(q)
+    ... )
     >>> flow.density.round(5), flow.velocity.round(5)
     (array([1., 1.]), array([ 0.5, -0.5]))
     """
@@ -823,7 +859,11 @@ def pressureless_eulerian(x, t, velocity, density=None, velocity_derivative=None
     x, t = x.copy(), t.copy()
 
     def dv(q):
-        return velocity_derivative(q) if velocity_derivative is not None else _derivative(velocity, q)
+        return (
+            velocity_derivative(q)
+            if velocity_derivative is not None
+            else _derivative(velocity, q)
+        )
 
     def g(q):
         return q + velocity(q) * t - x
@@ -836,7 +876,9 @@ def pressureless_eulerian(x, t, velocity, density=None, velocity_derivative=None
         if not (bad_low.any() or bad_high.any()):
             break
         step = 2 * step
-        low, high = np.where(bad_low, low - step, low), np.where(bad_high, high + step, high)
+        low, high = np.where(bad_low, low - step, low), np.where(
+            bad_high, high + step, high
+        )
     q = 0.5 * (low + high)
     for _ in range(200):
         value = g(q)

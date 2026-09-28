@@ -15,5 +15,7 @@ if sys.argv[1:] == ["api"]:
 elif sys.argv[1:] in ([], ["guide"]):
     print(plasma_plots.__doc__)
 else:
-    print("usage: python -m plasma_plots [guide | api]\n  guide  the package guide (default)\n  api    the API index")
+    print(
+        "usage: python -m plasma_plots [guide | api]\n  guide  the package guide (default)\n  api    the API index"
+    )
     sys.exit(2)

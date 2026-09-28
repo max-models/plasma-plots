@@ -35,7 +35,9 @@ def test_light_waves():
     w = waves.plasma_light_wave(k, plasma_frequency=1.5, c=2.0)
     np.testing.assert_allclose(w**2, 1.5**2 + 4 * k**2)
     # the plasma light wave is the O mode across B₀
-    n2_o = waves.appleton_hartree(w[2:].real, np.pi / 2, plasma_frequency=1.5, cyclotron_frequency=0.7)["O"]
+    n2_o = waves.appleton_hartree(
+        w[2:].real, np.pi / 2, plasma_frequency=1.5, cyclotron_frequency=0.7
+    )["O"]
     np.testing.assert_allclose(n2_o, 4 * k[2:] ** 2 / w[2:].real ** 2)
 
 
@@ -48,7 +50,9 @@ def test_magnetosonic_identities_and_limits():
     va, cs = 1.3, 0.7
     v = waves.magnetosonic_speeds(theta, va, cs)
     np.testing.assert_allclose(v["fast"] ** 2 + v["slow"] ** 2, cs**2 + va**2)
-    np.testing.assert_allclose(v["fast"] ** 2 * v["slow"] ** 2, cs**2 * va**2 * np.cos(theta) ** 2, atol=1e-14)
+    np.testing.assert_allclose(
+        v["fast"] ** 2 * v["slow"] ** 2, cs**2 * va**2 * np.cos(theta) ** 2, atol=1e-14
+    )
     assert np.all(v["slow"] <= v["shear Alfvén"] + 1e-14)
     assert np.all(v["shear Alfvén"] <= v["fast"] + 1e-14)
     # parallel: sound and Alfvén; perpendicular: fast magnetosonic, the others vanish
@@ -74,7 +78,9 @@ def _ideal_mhd_frequencies(k, theta, va, cs, d=0.0):
         u, b, p = state[:3], state[3:6], state[6]
         ikb = np.cross(1j * kv, b)
         du = -1j * kv * p + np.cross(ikb, b0)
-        db = np.cross(1j * kv, np.cross(u, b0)) - d * np.cross(1j * kv, np.cross(ikb, b0))
+        db = np.cross(1j * kv, np.cross(u, b0)) - d * np.cross(
+            1j * kv, np.cross(ikb, b0)
+        )
         dp = -(cs**2) * 1j * kv @ u
         return np.concatenate([du, db, [dp]])
 
@@ -94,9 +100,16 @@ def test_mhd_waves_against_linear_system(theta):
 
 def test_dissipative_alfven_against_linear_system():
     va = 1.2
-    for k, eta, nu, theta in [(1.0, 0.1, 0.03, 0.2), (3.0, 0.5, 0.0, 0.0), (10.0, 0.4, 0.05, 0.5), (2.0, 0.2, 0.2, 1.0)]:
+    for k, eta, nu, theta in [
+        (1.0, 0.1, 0.03, 0.2),
+        (3.0, 0.5, 0.0, 0.0),
+        (10.0, 0.4, 0.05, 0.5),
+        (2.0, 0.2, 0.2, 1.0),
+    ]:
         k_par = k * np.cos(theta)
-        matrix = np.array([[-nu * k**2, 1j * k_par * va], [1j * k_par * va, -eta * k**2]])
+        matrix = np.array(
+            [[-nu * k**2, 1j * k_par * va], [1j * k_par * va, -eta * k**2]]
+        )
         expected = _omega_of_matrix(matrix)
         w = waves.dissipative_alfven(k, va, resistivity=eta, viscosity=nu, theta=theta)
         got = np.array([w["forward"], w["backward"]])
@@ -104,9 +117,13 @@ def test_dissipative_alfven_against_linear_system():
         assert w["forward"].real >= 0
     # ideal limit and the equal-diffusivity damping rate (η + ν)k²/2
     assert waves.dissipative_alfven(2.0, 1.5)["forward"] == pytest.approx(3.0)
-    assert waves.dissipative_alfven(2.0, 1.0, 0.1, 0.1)["forward"].imag == pytest.approx(-0.4)
+    assert waves.dissipative_alfven(2.0, 1.0, 0.1, 0.1)[
+        "forward"
+    ].imag == pytest.approx(-0.4)
     # overdamped: purely imaginary
-    assert waves.dissipative_alfven(10.0, 1.0, resistivity=1.0)["forward"].real == pytest.approx(0.0)
+    assert waves.dissipative_alfven(10.0, 1.0, resistivity=1.0)[
+        "forward"
+    ].real == pytest.approx(0.0)
 
 
 def test_hall_mhd_parallel_limits():
@@ -130,7 +147,12 @@ def _determinant(n2, theta, s):
     sin2, cos2 = np.sin(theta) ** 2, np.cos(theta) ** 2
     S, D, P, R, L = (s[name] for name in "SDPRL")
     a, b, c = S * sin2 + P * cos2, R * L * sin2 + P * S * (1 + cos2), P * R * L
-    scale = abs(a) * n2**2 + (abs(R * L) * sin2 + abs(P * S) * (1 + cos2)) * abs(n2) + abs(c) + abs(P * D**2)
+    scale = (
+        abs(a) * n2**2
+        + (abs(R * L) * sin2 + abs(P * S) * (1 + cos2)) * abs(n2)
+        + abs(c)
+        + abs(P * D**2)
+    )
     return abs(np.linalg.det(matrix)), scale
 
 
@@ -139,7 +161,11 @@ def _dispersion_matrix(n2, theta, s):
     S, D, P = s["S"], s["D"], s["P"]
     sn, cn = np.sin(theta), np.cos(theta)
     return np.array(
-        [[S - n2 * cn**2, -1j * D, n2 * sn * cn], [1j * D, S - n2, 0.0], [n2 * sn * cn, 0.0, P - n2 * sn**2]]
+        [
+            [S - n2 * cn**2, -1j * D, n2 * sn * cn],
+            [1j * D, S - n2, 0.0],
+            [n2 * sn * cn, 0.0, P - n2 * sn**2],
+        ]
     )
 
 
@@ -190,17 +216,25 @@ def test_refractive_index_parallel_and_perpendicular_limits():
     s = waves.stix(omega, species)
     parallel = np.sort(np.stack(waves.refractive_index(omega, 0.0, species)), axis=0)
     np.testing.assert_allclose(parallel, np.sort(np.stack([s["R"], s["L"]]), axis=0))
-    perpendicular = np.sort(np.stack(waves.refractive_index(omega, np.pi / 2, species)), axis=0)
-    np.testing.assert_allclose(perpendicular, np.sort(np.stack([s["P"], s["R"] * s["L"] / s["S"]]), axis=0))
+    perpendicular = np.sort(
+        np.stack(waves.refractive_index(omega, np.pi / 2, species)), axis=0
+    )
+    np.testing.assert_allclose(
+        perpendicular, np.sort(np.stack([s["P"], s["R"] * s["L"] / s["S"]]), axis=0)
+    )
 
 
 def test_appleton_hartree_matches_stix():
     omega = np.array([0.4, 0.9, 1.3, 2.0, 3.5])
     for theta in (0.2, 0.8, np.pi / 2):
-        ah = waves.appleton_hartree(omega, theta, plasma_frequency=1.2, cyclotron_frequency=0.8)
+        ah = waves.appleton_hartree(
+            omega, theta, plasma_frequency=1.2, cyclotron_frequency=0.8
+        )
         stix_roots = waves.refractive_index(omega, theta, Species(1.2, -0.8))
         np.testing.assert_allclose(
-            np.sort(np.stack([ah["O"], ah["X"]]), axis=0), np.sort(np.stack(stix_roots), axis=0), rtol=1e-9
+            np.sort(np.stack([ah["O"], ah["X"]]), axis=0),
+            np.sort(np.stack(stix_roots), axis=0),
+            rtol=1e-9,
         )
     perpendicular = waves.appleton_hartree(omega, np.pi / 2, 1.2, 0.8)
     np.testing.assert_allclose(perpendicular["O"], 1 - 1.44 / omega**2)
@@ -233,12 +267,15 @@ def test_cold_plasma_waves_parallel_and_perpendicular():
         w = waves.cold_plasma_waves(k, theta, species)
         for branch in w.values():
             for kk, omega in zip(k, branch.real):
-                if omega < 1e-6:     # the degenerate ω = 0 root across B₀
+                if omega < 1e-6:  # the degenerate ω = 0 root across B₀
                     continue
                 s = waves.stix(omega, species)
                 n2 = kk**2 / omega**2
                 candidates = {
-                    "R": s["R"] - n2, "L": s["L"] - n2, "P=0": s["P"], "P": s["P"] - n2,
+                    "R": s["R"] - n2,
+                    "L": s["L"] - n2,
+                    "P=0": s["P"],
+                    "P": s["P"] - n2,
                     "X": s["R"] * s["L"] / s["S"] - n2,
                 }
                 residual = min(abs(candidates[r]) / (1 + abs(n2)) for r in relations)
@@ -258,7 +295,9 @@ def test_cold_plasma_waves_k_to_zero_are_cutoffs():
 def test_cutoffs_have_zero_refractive_index(name):
     species = SPECIES[name]
     c = waves.cutoffs(species)
-    assert c["P"][0] == pytest.approx(np.sqrt(sum(s.plasma_frequency**2 for s in species)))
+    assert c["P"][0] == pytest.approx(
+        np.sqrt(sum(s.plasma_frequency**2 for s in species))
+    )
     for key in "RLP":
         assert len(c[key]) >= 1
         for omega in c[key]:
@@ -277,16 +316,23 @@ def test_cutoffs_have_zero_refractive_index(name):
 @pytest.mark.parametrize("theta", [0.3, 1.0, np.pi / 2])
 def test_resonances_have_infinite_refractive_index(name, theta):
     species = SPECIES[name]
+
     def a_of(omega):
         s = waves.stix(omega, species)
-        return s["S"] * np.sin(theta) ** 2 + s["P"] * np.cos(theta) ** 2, abs(s["S"]) + abs(s["P"])
+        return s["S"] * np.sin(theta) ** 2 + s["P"] * np.cos(theta) ** 2, abs(
+            s["S"]
+        ) + abs(s["P"])
 
     for omega in waves.resonances(theta, species):
         a, scale = a_of(omega)
         assert abs(a) < 1e-8 * scale
         assert a_of(omega * (1 - 1e-6))[0] * a_of(omega * (1 + 1e-6))[0] < 0
-        n2_near = max(abs(r) for r in waves.refractive_index(omega * (1 + 1e-10), theta, species))
-        n2_far = max(abs(r) for r in waves.refractive_index(omega * (1 + 1e-3), theta, species))
+        n2_near = max(
+            abs(r) for r in waves.refractive_index(omega * (1 + 1e-10), theta, species)
+        )
+        n2_far = max(
+            abs(r) for r in waves.refractive_index(omega * (1 + 1e-3), theta, species)
+        )
         assert n2_near > 1e4 * n2_far
 
 
@@ -301,10 +347,14 @@ def test_resonance_values():
     lower_hybrid = np.sqrt((wpi**2 + wci**2) / (1 + wp**2 / wce**2))
     assert hybrid[0] == pytest.approx(lower_hybrid, rel=0.05)
     np.testing.assert_allclose(waves.resonances(0.0, species), [wci, wce])
-    assert waves.resonances(np.pi / 2, Species(1.0, -1.0)) == pytest.approx([np.sqrt(2)])
+    assert waves.resonances(np.pi / 2, Species(1.0, -1.0)) == pytest.approx(
+        [np.sqrt(2)]
+    )
     # the large-k limits of the branches are the resonances
     w = waves.cold_plasma_waves(1e4, 0.8, species)
-    limits = np.sort([o.real for o in w.values()])[:-2]   # the two light-like branches keep growing
+    limits = np.sort([o.real for o in w.values()])[
+        :-2
+    ]  # the two light-like branches keep growing
     np.testing.assert_allclose(limits, waves.resonances(0.8, species), rtol=1e-4)
 
 
@@ -312,24 +362,38 @@ def test_faraday_rotation():
     species = [Species(1.0, -0.5)]
     omega = np.array([50.0, 200.0, 1000.0])
     approximation = 1.0**2 * 0.5 * 10.0 / (2 * omega**2)
-    np.testing.assert_allclose(waves.faraday_rotation(omega, 10.0, species), approximation, rtol=3 / omega[0])
+    np.testing.assert_allclose(
+        waves.faraday_rotation(omega, 10.0, species), approximation, rtol=3 / omega[0]
+    )
     # with ions: Σ (−Ω_s) ω_ps² L/(2cω²)
     ei = electron_ion(1.0, 0.5, mass_ratio=4.0)
-    approximation = sum(-s.cyclotron_frequency * s.plasma_frequency**2 for s in ei) * 10.0 / (2 * 1e3**2)
-    assert waves.faraday_rotation(1e3, 10.0, ei) == pytest.approx(approximation, rel=1e-3)
+    approximation = (
+        sum(-s.cyclotron_frequency * s.plasma_frequency**2 for s in ei)
+        * 10.0
+        / (2 * 1e3**2)
+    )
+    assert waves.faraday_rotation(1e3, 10.0, ei) == pytest.approx(
+        approximation, rel=1e-3
+    )
     # exact: ω(√L − √R)L/(2c)
     s = waves.stix(3.0, species)
-    assert waves.faraday_rotation(3.0, 2.0, species, c=2.0) == pytest.approx(3.0 * (np.sqrt(s["L"]) - np.sqrt(s["R"])) / 2)
+    assert waves.faraday_rotation(3.0, 2.0, species, c=2.0) == pytest.approx(
+        3.0 * (np.sqrt(s["L"]) - np.sqrt(s["R"])) / 2
+    )
     assert np.isnan(waves.faraday_rotation(0.5, 1.0, species))
 
 
 def test_group_velocity():
     k = np.array([0.5, 1.0, 2.0])
-    np.testing.assert_allclose(waves.group_velocity(waves.light_wave, k), 1.0, rtol=1e-8)
+    np.testing.assert_allclose(
+        waves.group_velocity(waves.light_wave, k), 1.0, rtol=1e-8
+    )
     w = waves.plasma_light_wave(k, 1.0, 2.0)
     vg = waves.group_velocity(lambda kk: waves.plasma_light_wave(kk, 1.0, 2.0), k)
     np.testing.assert_allclose(vg, 4 * k / w, rtol=1e-8)
-    branches = waves.group_velocity(lambda kk: waves.mhd_waves(kk, np.pi / 2, 1.0, 0.5), k)
+    branches = waves.group_velocity(
+        lambda kk: waves.mhd_waves(kk, np.pi / 2, 1.0, 0.5), k
+    )
     np.testing.assert_allclose(branches["fast"], np.hypot(1.0, 0.5), rtol=1e-8)
     assert set(branches) == {"shear Alfvén", "slow", "fast"}
 
@@ -355,7 +419,9 @@ def _brute_force_modes(lengths, max_index):
     return counts
 
 
-@pytest.mark.parametrize("lengths", [(1.0, 1.3, 0.7), (1.0, 1.0, 1.0), (2.0, 0.5), (1.0, 1.0)])
+@pytest.mark.parametrize(
+    "lengths", [(1.0, 1.3, 0.7), (1.0, 1.0, 1.0), (2.0, 0.5), (1.0, 1.0)]
+)
 def test_cavity_modes_against_brute_force(lengths):
     lengths = np.array(lengths)
     modes = waves.cavity_modes(lengths, c=2.0, max_index=5)
@@ -363,7 +429,9 @@ def test_cavity_modes_against_brute_force(lengths):
     for idx in map(tuple, modes["indices"]):
         counts[idx] = counts.get(idx, 0) + 1
     assert counts == _brute_force_modes(lengths, 5)
-    np.testing.assert_allclose(modes["omega"], 2.0 * np.pi * np.linalg.norm(modes["indices"] / lengths, axis=1))
+    np.testing.assert_allclose(
+        modes["omega"], 2.0 * np.pi * np.linalg.norm(modes["indices"] / lengths, axis=1)
+    )
     assert np.all(np.diff(modes["omega"]) >= 0)
     assert set(modes["kind"]) == {"TE", "TM"}
 
@@ -388,28 +456,40 @@ def test_drift_wave():
     ky = np.array([0.1, 1.0, 3.0])
     np.testing.assert_allclose(waves.drift_wave(ky), ky / (1 + ky**2))
     np.testing.assert_allclose(
-        waves.drift_wave(ky, kx=0.5, diamagnetic_speed=2.0, rho_s=0.3), 2 * ky / (1 + (0.25 + ky**2) * 0.09)
+        waves.drift_wave(ky, kx=0.5, diamagnetic_speed=2.0, rho_s=0.3),
+        2 * ky / (1 + (0.25 + ky**2) * 0.09),
     )
 
 
 def _hw_matrix(kx, ky, alpha, kappa, nu):
     """d/dt (φ, n) of the linearized Hasegawa–Wakatani equations with ζ = −k²φ."""
     k2 = kx**2 + ky**2
-    return np.array([[-alpha / k2 - nu * k2, alpha / k2], [alpha - 1j * kappa * ky, -alpha - nu * k2]])
+    return np.array(
+        [
+            [-alpha / k2 - nu * k2, alpha / k2],
+            [alpha - 1j * kappa * ky, -alpha - nu * k2],
+        ]
+    )
 
 
 def test_hasegawa_wakatani_against_linear_system():
-    for kx, ky, alpha, kappa, nu in [(0.0, 1.0, 1.0, 1.0, 0.0), (0.3, 0.5, 0.1, 1.0, 0.01), (1.0, 2.0, 5.0, 0.5, 0.0),
-                                     (0.0, -0.7, 0.5, 1.0, 0.02)]:
+    for kx, ky, alpha, kappa, nu in [
+        (0.0, 1.0, 1.0, 1.0, 0.0),
+        (0.3, 0.5, 0.1, 1.0, 0.01),
+        (1.0, 2.0, 5.0, 0.5, 0.0),
+        (0.0, -0.7, 0.5, 1.0, 0.02),
+    ]:
         expected = _omega_of_matrix(_hw_matrix(kx, ky, alpha, kappa, nu))
         w = waves.hasegawa_wakatani(ky, kx, alpha, kappa, nu)
         _assert_same_roots([w["drift wave"], w["damped"]], expected)
         assert w["drift wave"].imag >= w["damped"].imag
         if nu == 0:
-            assert w["drift wave"].imag > 0     # unstable for every k_y ≠ 0
+            assert w["drift wave"].imag > 0  # unstable for every k_y ≠ 0
     ky = np.linspace(0.1, 3, 10)
     w = waves.hasegawa_wakatani(ky, adiabaticity=1e4, gradient=0.7)["drift wave"]
-    np.testing.assert_allclose(w.real, waves.drift_wave(ky, diamagnetic_speed=0.7), rtol=1e-3)
+    np.testing.assert_allclose(
+        w.real, waves.drift_wave(ky, diamagnetic_speed=0.7), rtol=1e-3
+    )
     assert np.all((w.imag > 0) & (w.imag < 1e-3))
 
 
@@ -422,13 +502,15 @@ def test_alfven_and_slow_continua():
     q = 1 + 2 * r**2
     R0, va, cs = 3.0, 1.5, 0.8
     w = waves.alfven_continuum(r, 3, -2, lambda x: 1 + 2 * x**2, R0, va)
-    np.testing.assert_allclose(w, np.abs(-2 + 3 / q) / R0 * va)       # Struphy: (n + m/q)/R₀
+    np.testing.assert_allclose(w, np.abs(-2 + 3 / q) / R0 * va)  # Struphy: (n + m/q)/R₀
     np.testing.assert_allclose(waves.alfven_continuum(r, 3, -2, q, R0, va), w)
     # zero at the rational surface q = −m/n = 1.5
     assert waves.alfven_continuum(0.5, 3, -2, 1.5, R0, va) == pytest.approx(0.0)
     slow = waves.slow_continuum(r, 3, -2, q, R0, va, lambda x: cs + 0 * x)
     np.testing.assert_allclose(slow, w * cs / np.hypot(cs, va))
-    np.testing.assert_allclose(waves.parallel_wavenumber(r, 3, -2, q, R0), (-2 + 3 / q) / R0)
+    np.testing.assert_allclose(
+        waves.parallel_wavenumber(r, 3, -2, q, R0), (-2 + 3 / q) / R0
+    )
 
 
 def test_tae_frequency_and_the_crossing_of_continua():
@@ -436,14 +518,19 @@ def test_tae_frequency_and_the_crossing_of_continua():
     r = np.linspace(0.01, 1, 20001)
 
     def q(x):
-        return 1 + x      # q = 1.5 at r = 0.5
+        return 1 + x  # q = 1.5 at r = 0.5
 
     center = waves.tae_frequency(1.5, R0, va)
     assert center == pytest.approx(va / (2 * 1.5 * R0))
     # the m and m + 1 continua cross at q = (m + ½)/|n| = 1.5, at the TAE frequency
-    a1, a2 = waves.alfven_continuum(r, m, n, q, R0, va).real, waves.alfven_continuum(r, m + 1, n, q, R0, va).real
+    a1, a2 = (
+        waves.alfven_continuum(r, m, n, q, R0, va).real,
+        waves.alfven_continuum(r, m + 1, n, q, R0, va).real,
+    )
     crossing = np.argmin(np.abs(a1 - a2))
     assert r[crossing] == pytest.approx(0.5, abs=1e-4)
     assert a1[crossing] == pytest.approx(center, rel=1e-3)
     # the continuum is |k∥| v_A, with k∥ = (n + m/q)/R₀
-    np.testing.assert_allclose(a1, np.abs(waves.parallel_wavenumber(r, m, n, q, R0)) * va, rtol=1e-14)
+    np.testing.assert_allclose(
+        a1, np.abs(waves.parallel_wavenumber(r, m, n, q, R0)) * va, rtol=1e-14
+    )

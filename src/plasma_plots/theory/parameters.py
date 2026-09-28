@@ -33,7 +33,9 @@ Examples
 --------
 The electron plasma frequency and Debye length of a 1e19 m⁻³, 100 eV plasma:
 
->>> print(f"{plasma_frequency(1e19):.3e} rad/s, {debye_length(1e19, 100.0):.3e} m")
+>>> print(
+...     f"{plasma_frequency(1e19):.3e} rad/s, {debye_length(1e19, 100.0):.3e} m"
+... )
 1.784e+11 rad/s, 2.351e-05 m
 """
 
@@ -98,7 +100,8 @@ def plasma_frequency(density, mass=electron_mass, charge=elementary_charge):
     --------
     >>> print(f"{plasma_frequency(1e18) / (2 * np.pi):.4g} Hz")
     8.979e+09 Hz
-    >>> print(f"{plasma_frequency(1e20, mass=2 * proton_mass):.4g} rad/s")   # deuterons
+    >>> # deuterons
+    >>> print(f"{plasma_frequency(1e20, mass=2 * proton_mass):.4g} rad/s")
     9.309e+09 rad/s
     """
     density = np.asarray(density, dtype=float)
@@ -134,7 +137,9 @@ def cyclotron_frequency(field, mass=electron_mass, charge=elementary_charge):
     >>> print(f"{cyclotron_frequency(1.0, charge=-elementary_charge):.4g} rad/s")
     -1.759e+11 rad/s
     """
-    return _out(np.asarray(charge, dtype=float) * np.abs(np.asarray(field, dtype=float)) / mass)
+    return _out(
+        np.asarray(charge, dtype=float) * np.abs(np.asarray(field, dtype=float)) / mass
+    )
 
 
 def thermal_speed(temperature, mass=electron_mass, convention="sqrt(T/m)"):
@@ -174,9 +179,13 @@ def thermal_speed(temperature, mass=electron_mass, convention="sqrt(T/m)"):
     5.931e+05 m/s
     """
     if convention not in _THERMAL_CONVENTIONS:
-        raise ValueError(f"convention must be one of {list(_THERMAL_CONVENTIONS)}; got {convention!r}")
+        raise ValueError(
+            f"convention must be one of {list(_THERMAL_CONVENTIONS)}; got {convention!r}"
+        )
     temperature = np.asarray(temperature, dtype=float)
-    return _out(np.sqrt(_THERMAL_CONVENTIONS[convention] * temperature * ev_to_joule / mass))
+    return _out(
+        np.sqrt(_THERMAL_CONVENTIONS[convention] * temperature * ev_to_joule / mass)
+    )
 
 
 def debye_length(density, temperature):
@@ -200,12 +209,14 @@ def debye_length(density, temperature):
 
     Examples
     --------
-    >>> print(f"{debye_length(1e6, 1.0):.4g} m")   # 1 cm⁻³, 1 eV
+    >>> print(f"{debye_length(1e6, 1.0):.4g} m")  # 1 cm⁻³, 1 eV
     7.434 m
     """
     density = np.asarray(density, dtype=float)
     temperature = np.asarray(temperature, dtype=float)
-    return _out(np.sqrt(vacuum_permittivity * temperature * ev_to_joule / (density * _e**2)))
+    return _out(
+        np.sqrt(vacuum_permittivity * temperature * ev_to_joule / (density * _e**2))
+    )
 
 
 def larmor_radius(
@@ -249,9 +260,11 @@ def larmor_radius(
 
     Examples
     --------
-    >>> print(f"{larmor_radius(1.0, temperature=1e3):.4g} m")   # 1 keV electron, 1 T
+    >>> # 1 keV electron, 1 T
+    >>> print(f"{larmor_radius(1.0, temperature=1e3):.4g} m")
     7.54e-05 m
-    >>> print(f"{larmor_radius(2.0, perpendicular_speed=1e6, mass=proton_mass):.4g} m")
+    >>> radius = larmor_radius(2.0, perpendicular_speed=1e6, mass=proton_mass)
+    >>> print(f"{radius:.4g} m")
     0.00522 m
     """
     if (temperature is None) == (perpendicular_speed is None):
@@ -259,7 +272,9 @@ def larmor_radius(
     if perpendicular_speed is None:
         perpendicular_speed = thermal_speed(temperature, mass)
     speed = np.asarray(perpendicular_speed, dtype=float)
-    return _out(mass * np.abs(speed) / (np.abs(charge) * np.abs(np.asarray(field, dtype=float))))
+    return _out(
+        mass * np.abs(speed) / (np.abs(charge) * np.abs(np.asarray(field, dtype=float)))
+    )
 
 
 def inertial_length(density, mass=electron_mass, charge=elementary_charge):
@@ -285,9 +300,9 @@ def inertial_length(density, mass=electron_mass, charge=elementary_charge):
 
     Examples
     --------
-    >>> print(f"{inertial_length(1e20):.4g} m")   # electrons
+    >>> print(f"{inertial_length(1e20):.4g} m")  # electrons
     0.0005314 m
-    >>> print(f"{inertial_length(1e20, mass=proton_mass):.4g} m")   # protons
+    >>> print(f"{inertial_length(1e20, mass=proton_mass):.4g} m")  # protons
     0.02277 m
     """
     return _out(speed_of_light / plasma_frequency(density, mass, charge))
@@ -318,7 +333,8 @@ def alfven_speed(field, density, mass_number=1, relativistic=False):
 
     Examples
     --------
-    >>> print(f"{alfven_speed(1.0, 1e20, mass_number=2):.4g} m/s")   # deuterium, 1 T
+    >>> # deuterium, 1 T
+    >>> print(f"{alfven_speed(1.0, 1e20, mass_number=2):.4g} m/s")
     1.542e+06 m/s
     """
     field = np.abs(np.asarray(field, dtype=float))
@@ -401,13 +417,15 @@ def plasma_beta(density, temperature, field):
 
     Examples
     --------
-    >>> print(f"{plasma_beta(1e20, 1e4, 5.0):.4f}")   # 10 keV, 5 T
+    >>> print(f"{plasma_beta(1e20, 1e4, 5.0):.4f}")  # 10 keV, 5 T
     0.0161
     """
     density = np.asarray(density, dtype=float)
     temperature = np.asarray(temperature, dtype=float)
     field = np.asarray(field, dtype=float)
-    return _out(2 * vacuum_permeability * density * temperature * ev_to_joule / field**2)
+    return _out(
+        2 * vacuum_permeability * density * temperature * ev_to_joule / field**2
+    )
 
 
 def plasma_parameter(density, temperature):
@@ -431,7 +449,7 @@ def plasma_parameter(density, temperature):
 
     Examples
     --------
-    >>> print(f"{plasma_parameter(1e6, 1.0):.3g}")   # 1 cm⁻³, 1 eV
+    >>> print(f"{plasma_parameter(1e6, 1.0):.3g}")  # 1 cm⁻³, 1 eV
     1.72e+09
     """
     density = np.asarray(density, dtype=float)
@@ -506,7 +524,9 @@ def upper_hybrid_frequency(density, field):
     >>> print(f"{upper_hybrid_frequency(1e19, 1.0):.4g} rad/s")
     2.505e+11 rad/s
     """
-    return _out(np.sqrt(plasma_frequency(density) ** 2 + cyclotron_frequency(field) ** 2))
+    return _out(
+        np.sqrt(plasma_frequency(density) ** 2 + cyclotron_frequency(field) ** 2)
+    )
 
 
 def struphy_units(
@@ -568,10 +588,12 @@ def struphy_units(
 
     Examples
     --------
-    >>> units = struphy_units(x=1.0, B=1.0, n=1.0, velocity_scale="alfvén", mass_number=2)
+    >>> units = struphy_units(
+    ...     x=1.0, B=1.0, n=1.0, velocity_scale="alfvén", mass_number=2
+    ... )
     >>> print(f"v = {units['v']:.4g} m/s, t = {units['t']:.4g} s")
     v = 1.542e+06 m/s, t = 6.484e-07 s
-    >>> print(f"p = {units['p']:.4g} Pa")   # B²/μ₀
+    >>> print(f"p = {units['p']:.4g} Pa")  # B²/μ₀
     p = 7.958e+05 Pa
     """
     density = n * 1e20
@@ -579,9 +601,13 @@ def struphy_units(
     if scale not in ("light", "alfvén", "cyclotron", "thermal", None):
         raise ValueError(f"unknown velocity_scale {velocity_scale!r}")
     if scale in ("alfvén", "cyclotron", "thermal") and mass_number is None:
-        raise ValueError(f'velocity_scale "{scale}" needs the mass_number of the bulk species')
+        raise ValueError(
+            f'velocity_scale "{scale}" needs the mass_number of the bulk species'
+        )
     if scale == "cyclotron" and charge_number is None:
-        raise ValueError('velocity_scale "cyclotron" needs the charge_number of the bulk species')
+        raise ValueError(
+            'velocity_scale "cyclotron" needs the charge_number of the bulk species'
+        )
     if scale == "thermal" and kBT is None:
         raise ValueError('velocity_scale "thermal" needs kBT')
     if scale is None:

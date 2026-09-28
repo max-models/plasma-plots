@@ -140,10 +140,13 @@ def plasma_light_wave(k, plasma_frequency=1.0, c=1.0):
 
     Examples
     --------
-    >>> print(round(float(plasma_light_wave(1.0, plasma_frequency=1.0).real), 6))   # √2
+    >>> # √2
+    >>> print(round(float(plasma_light_wave(1.0, plasma_frequency=1.0).real), 6))
     1.414214
     """
-    k, wp, c = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (k, plasma_frequency, c)))
+    k, wp, c = np.broadcast_arrays(
+        *(np.asarray(v, dtype=float) for v in (k, plasma_frequency, c))
+    )
     return _complex(np.sqrt(wp**2 + c**2 * k**2))
 
 
@@ -188,7 +191,9 @@ def magnetosonic_speeds(theta=0.0, alfven_speed=1.0, sound_speed=0.5):
     >>> print({name: round(float(s), 4) for name, s in v.items()})
     {'shear Alfvén': 0.0, 'slow': 0.0, 'fast': 1.118}
     """
-    theta, va, cs = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (theta, alfven_speed, sound_speed)))
+    theta, va, cs = np.broadcast_arrays(
+        *(np.asarray(v, dtype=float) for v in (theta, alfven_speed, sound_speed))
+    )
     cos2 = np.cos(theta) ** 2
     total = va**2 + cs**2
     fast2 = (total + np.sqrt(np.maximum(total**2 - 4 * va**2 * cs**2 * cos2, 0.0))) / 2
@@ -287,7 +292,11 @@ def dissipative_alfven(k, alfven_speed=1.0, resistivity=0.0, viscosity=0.0, thet
     k = np.asarray(k, dtype=float)
     eta, nu = np.asarray(resistivity, dtype=float), np.asarray(viscosity, dtype=float)
     k_par = k * np.cos(theta)
-    root = np.sqrt((k_par**2 * np.asarray(alfven_speed) ** 2 - (eta - nu) ** 2 * k**4 / 4).astype(complex))
+    root = np.sqrt(
+        (
+            k_par**2 * np.asarray(alfven_speed) ** 2 - (eta - nu) ** 2 * k**4 / 4
+        ).astype(complex)
+    )
     damping = -0.5j * (eta + nu) * k**2
     return {"forward": _complex(damping + root), "backward": _complex(damping - root)}
 
@@ -329,7 +338,9 @@ def hall_mhd_parallel(k, alfven_speed=1.0, ion_inertial_length=1.0):
     {'whistler': 1.618, 'ion cyclotron': 0.618}
     """
     k = np.abs(np.asarray(k, dtype=float))
-    va, d = np.asarray(alfven_speed, dtype=float), np.asarray(ion_inertial_length, dtype=float)
+    va, d = np.asarray(alfven_speed, dtype=float), np.asarray(
+        ion_inertial_length, dtype=float
+    )
     root = np.sqrt(1 + (k * d) ** 2 / 4)
     return {
         "whistler": _complex(k * va * (root + k * d / 2)),
@@ -375,7 +386,9 @@ class Species(NamedTuple):
     cyclotron_frequency: float
 
 
-def electron_ion(plasma_frequency=1.0, cyclotron_frequency=1.0, mass_ratio=1836.15267343, charge=1):
+def electron_ion(
+    plasma_frequency=1.0, cyclotron_frequency=1.0, mass_ratio=1836.15267343, charge=1
+):
     """Build the species of a quasi-neutral electron–ion plasma from the electron frequencies.
 
     With the ion charge number Z and mass ratio μ = m_i/m_e, quasi-neutrality n_i = n_e/Z gives
@@ -400,7 +413,11 @@ def electron_ion(plasma_frequency=1.0, cyclotron_frequency=1.0, mass_ratio=1836.
     Examples
     --------
     >>> electrons, ions = electron_ion(2.0, 1.0, mass_ratio=100.0)
-    >>> print(electrons.cyclotron_frequency, round(ions.plasma_frequency, 4), ions.cyclotron_frequency)
+    >>> print(
+    ...     electrons.cyclotron_frequency,
+    ...     round(ions.plasma_frequency, 4),
+    ...     ions.cyclotron_frequency,
+    ... )
     -1.0 0.2 0.01
     """
     wce = abs(float(cyclotron_frequency))
@@ -415,9 +432,13 @@ def electron_ion(plasma_frequency=1.0, cyclotron_frequency=1.0, mass_ratio=1836.
 
 def _species_list(species):
     """A list of (ω_p, Ω) pairs from one species or a sequence of species."""
-    if isinstance(species, Species) or (len(species) == 2 and all(np.ndim(s) == 0 for s in species)):
+    if isinstance(species, Species) or (
+        len(species) == 2 and all(np.ndim(s) == 0 for s in species)
+    ):
         species = [species]
-    return [(np.asarray(s[0], dtype=float), np.asarray(s[1], dtype=float)) for s in species]
+    return [
+        (np.asarray(s[0], dtype=float), np.asarray(s[1], dtype=float)) for s in species
+    ]
 
 
 def stix(omega, species):
@@ -445,7 +466,7 @@ def stix(omega, species):
 
     Examples
     --------
-    >>> s = stix(2.0, Species(1.0, -1.0))     # electrons, ω = 2 ω_pe = 2 |Ω_e|
+    >>> s = stix(2.0, Species(1.0, -1.0))  # electrons, ω = 2 ω_pe = 2 |Ω_e|
     >>> print({name: round(float(v), 4) for name, v in s.items()})
     {'S': 0.6667, 'D': -0.1667, 'P': 0.75, 'R': 0.5, 'L': 0.8333}
     """
@@ -498,7 +519,8 @@ def refractive_index(omega, theta, species):
     Examples
     --------
     >>> plus, minus = refractive_index(2.0, np.pi / 2, Species(1.0, -1.0))
-    >>> print(round(float(plus), 4), round(float(minus), 4))     # O mode P, X mode RL/S
+    >>> # O mode P, X mode RL/S
+    >>> print(round(float(plus), 4), round(float(minus), 4))
     0.75 0.625
     """
     s = stix(omega, species)
@@ -554,7 +576,9 @@ def appleton_hartree(omega, theta, plasma_frequency=1.0, cyclotron_frequency=1.0
 
     Examples
     --------
-    >>> n2 = appleton_hartree(2.0, np.pi / 2, plasma_frequency=1.0, cyclotron_frequency=1.0)
+    >>> n2 = appleton_hartree(
+    ...     2.0, np.pi / 2, plasma_frequency=1.0, cyclotron_frequency=1.0
+    ... )
     >>> print({name: round(float(v), 4) for name, v in n2.items()})
     {'O': 0.75, 'X': 0.625}
     """
@@ -658,7 +682,9 @@ def cold_plasma_waves(k, theta, species, c=1.0):
     {'branch 1': 0.4569, 'branch 2': 1.1994, 'branch 3': 2.1889, 'branch 4': 2.3583}
     """
     q, sp, pp, g, species = _cold_polynomials(species)
-    k, theta = np.broadcast_arrays(np.asarray(k, dtype=float), np.asarray(theta, dtype=float))
+    k, theta = np.broadcast_arrays(
+        np.asarray(k, dtype=float), np.asarray(theta, dtype=float)
+    )
     degree = len(species) + 3
 
     def padded(p):
@@ -683,7 +709,11 @@ def _polish_cold_roots(omega, n, sin2, cos2, species):
         s = stix(w, species)
         S, P, R, L = s["S"], s["P"], s["R"], s["L"]
         n2 = n / w**2
-        return (S * sin2 + P * cos2) * n2**2 - (R * L * sin2 + P * S * (1 + cos2)) * n2 + P * R * L
+        return (
+            (S * sin2 + P * cos2) * n2**2
+            - (R * L * sin2 + P * S * (1 + cos2)) * n2
+            + P * R * L
+        )
 
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         for _ in range(3):
@@ -766,9 +796,12 @@ def resonances(theta, species):
 
     Examples
     --------
-    >>> print(np.round(resonances(np.pi / 2, Species(1.0, -1.0)), 4))   # upper hybrid, √2
+    >>> # upper hybrid, √2
+    >>> print(np.round(resonances(np.pi / 2, Species(1.0, -1.0)), 4))
     [1.4142]
-    >>> print(np.round(resonances(0.0, electron_ion(1.0, 1.0, mass_ratio=100.0)), 4))
+    >>> print(
+    ...     np.round(resonances(0.0, electron_ion(1.0, 1.0, mass_ratio=100.0)), 4)
+    ... )
     [0.01 1.  ]
     """
     q, sp, pp, _, species = _cold_polynomials(species)
@@ -821,7 +854,9 @@ def faraday_rotation(omega, length, species, c=1.0):
     s = stix(np.asarray(omega, dtype=float), species)
     with np.errstate(invalid="ignore"):
         n_r, n_l = np.sqrt(s["R"]), np.sqrt(s["L"])
-    return np.asarray(np.asarray(omega) * (n_l - n_r) * np.asarray(length) / (2 * np.asarray(c)))[()]
+    return np.asarray(
+        np.asarray(omega) * (n_l - n_r) * np.asarray(length) / (2 * np.asarray(c))
+    )[()]
 
 
 def group_velocity(omega_of_k, k, step=None):
@@ -848,12 +883,18 @@ def group_velocity(omega_of_k, k, step=None):
 
     Examples
     --------
-    >>> v = group_velocity(lambda k: plasma_light_wave(k, plasma_frequency=1.0), 1.0)
-    >>> print(round(float(v.real), 6))    # c²k/ω = 1/√2
+    >>> v = group_velocity(
+    ...     lambda k: plasma_light_wave(k, plasma_frequency=1.0), 1.0
+    ... )
+    >>> print(round(float(v.real), 6))  # c²k/ω = 1/√2
     0.707107
     """
     k = np.asarray(k, dtype=float)
-    h = np.maximum(1.0, np.abs(k)) * 1e-6 if step is None else np.asarray(step, dtype=float)
+    h = (
+        np.maximum(1.0, np.abs(k)) * 1e-6
+        if step is None
+        else np.asarray(step, dtype=float)
+    )
     upper, lower = omega_of_k(k + h), omega_of_k(k - h)
 
     def derivative(a, b):
@@ -914,7 +955,9 @@ def cavity_modes(lengths, c=1.0, max_index=6, max_frequency=None):
     Examples
     --------
     >>> modes = cavity_modes((1.0, 1.0, 1.0), max_index=2)
-    >>> for w, idx, kind in list(zip(modes["omega"], modes["indices"], modes["kind"]))[:4]:
+    >>> for w, idx, kind in list(
+    ...     zip(modes["omega"], modes["indices"], modes["kind"])
+    ... )[:4]:
     ...     print(round(float(w / np.pi), 4), idx, kind)
     1.4142 [0 1 1] TE
     1.4142 [1 0 1] TE
@@ -924,7 +967,9 @@ def cavity_modes(lengths, c=1.0, max_index=6, max_frequency=None):
     lengths = np.asarray(lengths, dtype=float)
     if lengths.shape not in ((2,), (3,)):
         raise ValueError(f"lengths must have 2 or 3 entries; got {lengths.shape}")
-    grid = np.stack(np.meshgrid(*[np.arange(max_index + 1)] * len(lengths), indexing="ij"), axis=-1)
+    grid = np.stack(
+        np.meshgrid(*[np.arange(max_index + 1)] * len(lengths), indexing="ij"), axis=-1
+    )
     indices = grid.reshape(-1, len(lengths))
     if len(lengths) == 3:
         tm = (indices[:, 0] >= 1) & (indices[:, 1] >= 1)
@@ -1040,7 +1085,10 @@ def hasegawa_wakatani(ky, kx=0.0, adiabaticity=1.0, gradient=1.0, viscosity=0.0)
     0.4551 0.0987
     """
     ky, kx, alpha, kappa, nu = np.broadcast_arrays(
-        *(np.asarray(v, dtype=float) for v in (ky, kx, adiabaticity, gradient, viscosity))
+        *(
+            np.asarray(v, dtype=float)
+            for v in (ky, kx, adiabaticity, gradient, viscosity)
+        )
     )
     k2 = kx**2 + ky**2
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -1140,7 +1188,9 @@ def alfven_continuum(r, m, n, q, major_radius=1.0, alfven_speed=1.0):
     [0.3333 0.2    0.    ]
     """
     r = np.asarray(r, dtype=float)
-    return _complex(np.abs(parallel_wavenumber(r, m, n, q, major_radius)) * _of_r(alfven_speed, r))
+    return _complex(
+        np.abs(parallel_wavenumber(r, m, n, q, major_radius)) * _of_r(alfven_speed, r)
+    )
 
 
 def slow_continuum(r, m, n, q, major_radius=1.0, alfven_speed=1.0, sound_speed=0.5):
@@ -1179,7 +1229,7 @@ def slow_continuum(r, m, n, q, major_radius=1.0, alfven_speed=1.0, sound_speed=0
     Examples
     --------
     >>> w = slow_continuum(0.0, m=1, n=0, q=1.0, alfven_speed=1.0, sound_speed=1.0)
-    >>> print(round(float(w.real), 4))     # 1/√2
+    >>> print(round(float(w.real), 4))  # 1/√2
     0.7071
     """
     r = np.asarray(r, dtype=float)
@@ -1220,4 +1270,7 @@ def tae_frequency(q, major_radius=1.0, alfven_speed=1.0):
     >>> print(round(float(tae_frequency(1.5, major_radius=3.0)), 4))
     0.1111
     """
-    return np.asarray(np.asarray(alfven_speed, dtype=float) / (2 * np.abs(q) * np.asarray(major_radius)))[()]
+    return np.asarray(
+        np.asarray(alfven_speed, dtype=float)
+        / (2 * np.abs(q) * np.asarray(major_radius))
+    )[()]

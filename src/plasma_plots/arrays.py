@@ -68,13 +68,20 @@ def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
 
     Examples
     --------
-    >>> logical_dims(phi)                    # Struphy
+    >>> logical_dims(phi)  # Struphy
     ('eta1', 'eta2', 'eta3')
-    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))  # GVEC, Boozer
+    >>> # GVEC, Boozer
+    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))
     ('rho', 'theta_B', 'zeta_B')
     """
     dims, coords = set(data.dims), set(data.coords)
-    return max(LOGICAL_DIMS, key=lambda names: (sum(n in dims for n in names), sum(n in coords for n in names)))
+    return max(
+        LOGICAL_DIMS,
+        key=lambda names: (
+            sum(n in dims for n in names),
+            sum(n in coords for n in names),
+        ),
+    )
 
 
 def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
@@ -100,7 +107,9 @@ def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
     return None if period is None else float(period)
 
 
-def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> xr.DataArray:
+def validate_array(
+    data: xr.DataArray, *, required_dims: Sequence[str] = ()
+) -> xr.DataArray:
     """Check that ``data`` is an xarray.DataArray with the required dimensions.
 
     Parameters
@@ -126,7 +135,9 @@ def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> 
         raise TypeError(f"expected xarray.DataArray, got {type(data).__name__}")
     missing = tuple(dim for dim in required_dims if dim not in data.dims)
     if missing:
-        raise ValueError(f"missing dimensions {missing}; available dimensions are {data.dims}")
+        raise ValueError(
+            f"missing dimensions {missing}; available dimensions are {data.dims}"
+        )
     return data
 
 
@@ -207,13 +218,18 @@ def map_coordinate(
 
     Examples
     --------
-    >>> map_coordinate(T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m").plasma.plot.lineout(x="r", t=-1)
-    >>> map_coordinate(n, "eta1", 2 * np.pi, units="m")   # a length of 2π along eta1
+    >>> map_coordinate(
+    ...     T, "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m"
+    ... ).plasma.plot.lineout(x="r", t=-1)
+    >>> # a length of 2π along eta1
+    >>> map_coordinate(n, "eta1", 2 * np.pi, units="m")
     """
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")
     values = np.asarray(data[dim], dtype=float)
-    mapped = np.asarray(mapping(values) if callable(mapping) else mapping * values, dtype=float)
+    mapped = np.asarray(
+        mapping(values) if callable(mapping) else mapping * values, dtype=float
+    )
     attrs = {"long_name": label if label is not None else (name or dim)}
     if units:
         attrs["units"] = units
@@ -242,7 +258,9 @@ def value_label(data: xr.DataArray) -> str:
     return f"{label} [{unit}]" if label else f"[{unit}]"
 
 
-def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE) -> list[str]:
+def scalar_names(
+    scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE
+) -> list[str]:
     """The names of the scalar time series to use from a collection.
 
     Parameters
@@ -265,7 +283,9 @@ def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_E
     KeyError
         If one of ``names`` is not in ``scalars``.
     """
-    available = tuple(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys())
+    available = tuple(
+        scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys()
+    )
     if names is not None:
         missing = [name for name in names if name not in available]
         if missing:
@@ -326,7 +346,9 @@ def save_scalars(
     for array in arrays:
         validate_array(array, required_dims=("t",))
         if array.dims != ("t",):
-            raise ValueError(f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}")
+            raise ValueError(
+                f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}"
+            )
     if arrays:
         arrays = xr.align(*arrays, join="exact")
         time = np.asarray(arrays[0].coords["t"])
@@ -335,7 +357,9 @@ def save_scalars(
         time, values = np.zeros(0), np.zeros((0, 0))
     fmt = (fmt or os.path.splitext(path)[1].lstrip(".") or "csv").lower()
     if fmt == "npz":
-        np.savez(path, t=time, **{name: values[:, i] for i, name in enumerate(selected)})
+        np.savez(
+            path, t=time, **{name: values[:, i] for i, name in enumerate(selected)}
+        )
     elif fmt == "csv":
         np.savetxt(
             path,
@@ -428,7 +452,11 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
         if periodicity(current, axis) == "open":
             first = data.isel({dim: [0]})
             step = float(data[dim][1] - data[dim][0]) if dim in data.coords else 1.0
-            end = float(data[dim][-1]) + step if dim in data.coords else float(data.sizes[dim])
+            end = (
+                float(data[dim][-1]) + step
+                if dim in data.coords
+                else float(data.sizes[dim])
+            )
             data = xr.concat(
                 [data, first.assign_coords({dim: [end]})],
                 dim=dim,
@@ -439,7 +467,9 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
     return data
 
 
-def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None) -> np.ndarray:
+def logical_derivative(
+    values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None
+) -> np.ndarray:
     """The derivative ``∂ values / ∂ coordinate`` along ``axis``.
 
     Around a periodic direction on a uniform grid (``kind`` ``"open"`` or ``"closed"``, see
@@ -468,17 +498,27 @@ def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, ki
     spacing = np.diff(coordinate)
     uniform = len(spacing) > 0 and np.allclose(spacing, spacing[0])
     if kind is None or not uniform:
-        return np.gradient(values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1)
-    unique = np.take(values, range(values.shape[axis] - 1), axis=axis) if kind == "closed" else values
+        return np.gradient(
+            values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1
+        )
+    unique = (
+        np.take(values, range(values.shape[axis] - 1), axis=axis)
+        if kind == "closed"
+        else values
+    )
     n = unique.shape[axis]
     wavenumbers = 2 * np.pi * np.fft.fftfreq(n, d=spacing[0])
     if n % 2 == 0:
         wavenumbers[n // 2] = 0.0  # the Nyquist mode has no well-defined derivative
     shape = [1] * unique.ndim
     shape[axis] = n
-    derivative = np.fft.ifft(1j * wavenumbers.reshape(shape) * np.fft.fft(unique, axis=axis), axis=axis).real
+    derivative = np.fft.ifft(
+        1j * wavenumbers.reshape(shape) * np.fft.fft(unique, axis=axis), axis=axis
+    ).real
     if kind == "closed":
-        derivative = np.concatenate([derivative, np.take(derivative, [0], axis=axis)], axis=axis)
+        derivative = np.concatenate(
+            [derivative, np.take(derivative, [0], axis=axis)], axis=axis
+        )
     return derivative
 
 
@@ -515,7 +555,15 @@ def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
             f"a numerical Jacobian needs at least two points along each of {spatial}; "
             f"{missing + short} have fewer (pass a struphy domain instead)"
         )
-    points = [np.asarray(data.coords[name].transpose(*spatial), dtype=float) for name in ("X", "Y", "Z")]
+    points = [
+        np.asarray(data.coords[name].transpose(*spatial), dtype=float)
+        for name in ("X", "Y", "Z")
+    ]
     axes = [np.asarray(data[d], dtype=float) for d in spatial]
     kinds = [periodicity(np.stack(points, axis=-1), axis) for axis in range(3)]
-    return np.array([[logical_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)] for a in range(3)])
+    return np.array(
+        [
+            [logical_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)]
+            for a in range(3)
+        ]
+    )

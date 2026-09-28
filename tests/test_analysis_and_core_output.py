@@ -7,16 +7,20 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from plasma_plots.analysis import spatial_average, velocity_moments
 from struphy.post_processing.arrays import data_array
 from struphy.post_processing.output import Output
 from struphy.post_processing.tests.test_output import write_tree
-from plasma_plots.analysis import spatial_average, velocity_moments
 
 F = "kinetic_ions/f"
 
 
 def gaussian(v, density, mean, variance):
-    return density * np.exp(-((v - mean) ** 2) / (2 * variance)) / np.sqrt(2 * np.pi * variance)
+    return (
+        density
+        * np.exp(-((v - mean) ** 2) / (2 * variance))
+        / np.sqrt(2 * np.pi * variance)
+    )
 
 
 def binned(values, dims, coords, name="f"):
@@ -42,15 +46,21 @@ def test_moments_of_a_maxwellian_recover_its_parameters():
     )
     moments = velocity_moments(f)
     assert moments.density.dims == ("t", "eta1")
-    np.testing.assert_allclose(moments.density, np.broadcast_to(density[:, :, 0], (2, 3)), rtol=1e-8)
-    np.testing.assert_allclose(moments.mean_v1, np.broadcast_to(mean[:, :, 0], (2, 3)), atol=1e-8)
+    np.testing.assert_allclose(
+        moments.density, np.broadcast_to(density[:, :, 0], (2, 3)), rtol=1e-8
+    )
+    np.testing.assert_allclose(
+        moments.mean_v1, np.broadcast_to(mean[:, :, 0], (2, 3)), atol=1e-8
+    )
     np.testing.assert_allclose(moments.variance_v1, 0.64, rtol=1e-8)
 
 
 def test_moments_over_two_velocity_dimensions_are_taken_per_direction():
     v1, v2 = np.linspace(-9, 9, 181), np.linspace(-6, 6, 121)
     f = binned(
-        (gaussian(v1[:, None], 1.0, 1.0, 0.5) * gaussian(v2[None, :], 3.0, -0.5, 0.25))[None],
+        (gaussian(v1[:, None], 1.0, 1.0, 0.5) * gaussian(v2[None, :], 3.0, -0.5, 0.25))[
+            None
+        ],
         ("t", "v1", "v2"),
         {"t": [0.0], "v1": v1, "v2": v2},
     )
@@ -71,7 +81,9 @@ def test_moments_over_two_velocity_dimensions_are_taken_per_direction():
 
 def test_one_velocity_dimension_can_be_selected():
     v1, v2 = np.linspace(-9, 9, 181), np.linspace(-6, 6, 121)
-    f = binned(np.ones((1, 181, 121)), ("t", "v1", "v2"), {"t": [0.0], "v1": v1, "v2": v2})
+    f = binned(
+        np.ones((1, 181, 121)), ("t", "v1", "v2"), {"t": [0.0], "v1": v1, "v2": v2}
+    )
     moments = velocity_moments(f, dims="v2")
     assert moments.density.dims == ("t", "v1")
     assert "mean_v1" not in moments
@@ -79,7 +91,9 @@ def test_one_velocity_dimension_can_be_selected():
 
 def test_delta_f_has_only_a_density():
     v = np.linspace(-3, 3, 7)
-    delta_f = binned(np.ones((1, 7)), ("t", "v1"), {"t": [0.0], "v1": v}, name="delta_f")
+    delta_f = binned(
+        np.ones((1, 7)), ("t", "v1"), {"t": [0.0], "v1": v}, name="delta_f"
+    )
     assert tuple(velocity_moments(delta_f).data_vars) == ("density",)
 
 
@@ -101,7 +115,9 @@ def test_moments_carry_the_run_and_a_label():
 
 
 def test_moments_reject_missing_velocity_dimensions_and_single_bins():
-    no_velocity = binned(np.ones((2, 3)), ("t", "eta1"), {"t": [0.0, 1.0], "eta1": [0.1, 0.2, 0.3]})
+    no_velocity = binned(
+        np.ones((2, 3)), ("t", "eta1"), {"t": [0.0, 1.0], "eta1": [0.1, 0.2, 0.3]}
+    )
     with pytest.raises(ValueError, match="none of the dimensions"):
         velocity_moments(no_velocity)
     with pytest.raises(ValueError, match="no dimensions"):
@@ -173,10 +189,14 @@ def test_coordinates_are_converted_and_values_left_alone(run):
     np.testing.assert_allclose(f.t, run.evaluate(F).t * units.t)
     assert f.t.attrs["units"] == "s"
     assert "t_seconds" not in f.coords
-    np.testing.assert_array_equal(f.eta1, run.evaluate(F).eta1)  # logical coordinates are dimensionless
+    np.testing.assert_array_equal(
+        f.eta1, run.evaluate(F).eta1
+    )  # logical coordinates are dimensionless
     np.testing.assert_array_equal(f, run.evaluate(F))
     assert "units" not in f.attrs
-    assert run.evaluate(F).v1.attrs.get("units") is None  # the run's own product is untouched
+    assert (
+        run.evaluate(F).v1.attrs.get("units") is None
+    )  # the run's own product is untouched
     assert "t_seconds" in run.evaluate(F).coords
 
 
@@ -197,7 +217,9 @@ def test_values_are_converted_with_a_named_unit(run):
 
 def test_values_are_converted_with_a_composite_unit(run):
     field = run.to_si("em_fields/E", run.units.v * run.units.B, label="V/m")
-    np.testing.assert_allclose(field, run.evaluate("em_fields/E") * run.units.v * run.units.B)
+    np.testing.assert_allclose(
+        field, run.evaluate("em_fields/E") * run.units.v * run.units.B
+    )
     assert field.attrs["units"] == "V/m"
 
 
@@ -259,7 +281,9 @@ def test_summary_lists_every_region_with_times(profiled):
     assert summary.calls.sel(region="setup: total").item() == 1
     assert summary.total_time.sel(region="kernel: k").item() >= 0.03
     assert summary.mean_time.sel(region="kernel: k").item() >= 0.01
-    assert summary.fraction.sel(region="scope_profiler.session").item() == pytest.approx(1.0)
+    assert summary.fraction.sel(
+        region="scope_profiler.session"
+    ).item() == pytest.approx(1.0)
     assert 0 < summary.fraction.sel(region="prop: A").item() <= 1.0
     assert summary.attrs["run"] == profiled.label
     assert summary.attrs["num_ranks"] == 1
@@ -308,8 +332,12 @@ def test_runs_are_compared_side_by_side(tmp_path, capfd):
     assert table.sel(run=table.run.values[1], region="prop: A").item() == 2
     assert np.isnan(table.sel(run=table.run.values[1], region="setup: total").item())
     assert table.name == "calls"
-    assert first.profile.compare(second, prefix="kernel:").region.values.tolist() == ["kernel: k"]
-    assert first.profile.compare(second.profile).shape == table.shape  # a Profile works as well as an Output
+    assert first.profile.compare(second, prefix="kernel:").region.values.tolist() == [
+        "kernel: k"
+    ]
+    assert (
+        first.profile.compare(second.profile).shape == table.shape
+    )  # a Profile works as well as an Output
 
     with pytest.raises(ValueError, match="cannot compare"):
         first.profile.compare(second, metric="size")

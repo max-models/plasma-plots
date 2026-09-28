@@ -4,7 +4,8 @@ agreement with scipy where it is installed."""
 import numpy as np
 import pytest
 
-from plasma_plots.theory.special import elliptic_e, elliptic_k, faddeeva, plasma_dispersion
+from plasma_plots.theory.special import (elliptic_e, elliptic_k, faddeeva,
+                                         plasma_dispersion)
 
 
 def test_exact_values_and_identities():
@@ -18,7 +19,11 @@ def test_exact_values_and_identities():
     np.testing.assert_allclose(plasma_dispersion(z, derivative=1), numeric, rtol=1e-7)
     # the asymptotic expansion on the real axis, where the Landau term exp(−ζ²) is negligible
     x = np.array([30.0, 50.0])
-    np.testing.assert_allclose(plasma_dispersion(x).real, -1 / x - 1 / (2 * x**3) - 3 / (4 * x**5) - 15 / (8 * x**7), rtol=1e-10)
+    np.testing.assert_allclose(
+        plasma_dispersion(x).real,
+        -1 / x - 1 / (2 * x**3) - 3 / (4 * x**5) - 15 / (8 * x**7),
+        rtol=1e-10,
+    )
     assert elliptic_k(0.0) == pytest.approx(np.pi / 2)
     assert elliptic_e(0.0) == pytest.approx(np.pi / 2)
     assert elliptic_e(1.0) == pytest.approx(1.0)
@@ -31,7 +36,9 @@ def test_exact_values_and_identities():
 def test_agrees_with_scipy():
     special = pytest.importorskip("scipy.special")
     x = np.linspace(-30, 30, 241)
-    y = np.concatenate([-np.logspace(-3, np.log10(5), 30)[::-1], [0.0], np.logspace(-3, 1.5, 40)])
+    y = np.concatenate(
+        [-np.logspace(-3, np.log10(5), 30)[::-1], [0.0], np.logspace(-3, 1.5, 40)]
+    )
     z = x[:, None] + 1j * y[None]
     reference = special.wofz(z)
     finite = np.abs(reference) < 1e150

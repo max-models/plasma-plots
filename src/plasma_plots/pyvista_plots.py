@@ -17,7 +17,8 @@ import numpy as np
 import xarray as xr
 
 from .analysis import ORBIT_CLASSES, classify_orbits
-from .arrays import close_periodic, logical_dims, mapping_jacobian, validate_array, value_label
+from .arrays import (close_periodic, logical_dims, mapping_jacobian,
+                     validate_array, value_label)
 from .mpi import rank_zero
 
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
@@ -27,12 +28,16 @@ def _pv():
     try:
         import pyvista
     except ImportError as error:  # pragma: no cover
-        raise ImportError('PyVista plots need the optional extra: pip install "plasma-plots[pyvista]"') from error
+        raise ImportError(
+            'PyVista plots need the optional extra: pip install "plasma-plots[pyvista]"'
+        ) from error
     return pyvista
 
 
 def _label(data):
-    return data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
+    return (
+        data.attrs.get("label") or data.attrs.get("long_name") or data.name or "value"
+    )
 
 
 def _plotter(plotter):
@@ -49,15 +54,25 @@ def _spatial(data: xr.DataArray, *, extra=()) -> xr.DataArray:
     spatial = logical_dims(data)
     others = set(data.dims) - {*extra, *spatial}
     if others:
-        raise ValueError(f"select every dimension except {(*extra, *spatial)} first; {sorted(others)} remain")
+        raise ValueError(
+            f"select every dimension except {(*extra, *spatial)} first; {sorted(others)} remain"
+        )
     missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
     if missing:
-        raise ValueError(f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}")
+        raise ValueError(
+            f"3-D views need physical coordinates X, Y, Z on {data.name!r}; missing {missing}"
+        )
     absent = [dim for dim in spatial if dim not in data.dims]
     if len(absent) > 1:
-        raise ValueError(f"3-D views need at least two of {spatial}; {data.name!r} has dims {data.dims}")
+        raise ValueError(
+            f"3-D views need at least two of {spatial}; {data.name!r} has dims {data.dims}"
+        )
     for dim in absent:
-        data = data.expand_dims(dim) if dim in data.coords else data.expand_dims({dim: [0.0]})
+        data = (
+            data.expand_dims(dim)
+            if dim in data.coords
+            else data.expand_dims({dim: [0.0]})
+        )
     coords = {}
     for name in ("X", "Y", "Z"):
         coordinate = data.coords[name]
@@ -102,7 +117,9 @@ def _camera(plotter, grid):
     if normal is None:
         return
     axis = int(np.abs(normal).argmax())
-    if abs(normal[axis]) > 0.999:  # an axis-aligned plane: keep both in-plane axes pointing right/up
+    if (
+        abs(normal[axis]) > 0.999
+    ):  # an axis-aligned plane: keep both in-plane axes pointing right/up
         (plotter.view_yz, plotter.view_xz, plotter.view_xy)[axis]()
     else:
         up = (0.0, 0.0, 1.0) if abs(normal[2]) < 0.9 else (0.0, 1.0, 0.0)
@@ -111,7 +128,10 @@ def _camera(plotter, grid):
 
 
 def _points(data: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    return tuple(np.asarray(data.coords[name].transpose(*logical_dims(data)), dtype=float) for name in ("X", "Y", "Z"))
+    return tuple(
+        np.asarray(data.coords[name].transpose(*logical_dims(data)), dtype=float)
+        for name in ("X", "Y", "Z")
+    )
 
 
 def structured_grid(data: xr.DataArray, *, name: str | None = None):
@@ -149,12 +169,16 @@ def structured_grid(data: xr.DataArray, *, name: str | None = None):
     """
     pv = _pv()
     vector = "component" in data.dims
-    data = close_periodic(_spatial(data, extra=("component",) if vector else ()), logical_dims(data))
+    data = close_periodic(
+        _spatial(data, extra=("component",) if vector else ()), logical_dims(data)
+    )
     grid = pv.StructuredGrid(*_points(data))
     name = name or _label(data)
     if vector:
         if data.sizes["component"] != 3:
-            raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+            raise ValueError(
+                f"a vector field needs 3 components; got {data.sizes['component']}"
+            )
         vectors = np.stack([np.asarray(c).ravel(order="F") for c in data], axis=-1)
         grid.point_data[name] = vectors
         grid.point_data[f"|{name}|"] = np.linalg.norm(vectors, axis=1)
@@ -193,11 +217,15 @@ def push_forward(data: xr.DataArray) -> xr.DataArray:
 
     Examples
     --------
-    >>> B_xyz = push_forward(out.evaluate("em_fields/b_field", representation="v").isel(t=-1))
+    >>> B_xyz = push_forward(
+    ...     out.evaluate("em_fields/b_field", representation="v").isel(t=-1)
+    ... )
     """
     data = _spatial(data, extra=("component",))
     if data.sizes["component"] != 3:
-        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
+        raise ValueError(
+            f"a vector field needs 3 components; got {data.sizes['component']}"
+        )
     short = [dim for dim in logical_dims(data) if data.sizes[dim] < 2]
     if short:
         raise ValueError(f"pushing forward needs at least two points along {short}")
@@ -212,7 +240,9 @@ def _vector_grid(data, components, name):
     if components == "contravariant":
         data = push_forward(data)
     elif components != "cartesian":
-        raise ValueError(f'components must be "cartesian" or "contravariant"; got {components!r}')
+        raise ValueError(
+            f'components must be "cartesian" or "contravariant"; got {components!r}'
+        )
     return structured_grid(data, name=name)
 
 
@@ -221,7 +251,9 @@ def _vtk_text(text: str) -> str:
     it becomes ``\\vert`` (``$|B|$`` shows as |B|, not as the raw string)."""
     import re
 
-    return re.sub(r"\$[^$]*\$", lambda math: math.group(0).replace("|", r"\vert "), text)
+    return re.sub(
+        r"\$[^$]*\$", lambda math: math.group(0).replace("|", r"\vert "), text
+    )
 
 
 def _bar(title):
@@ -318,7 +350,9 @@ def _add_context(plotter, grid, show_domain, drawn=()):
     faces = [
         face
         for face in boundary_faces(_grid_points(grid))
-        if not any(points.shape == face.shape and np.allclose(points, face) for points in drawn)
+        if not any(
+            points.shape == face.shape and np.allclose(points, face) for points in drawn
+        )
     ]
     for i, face in enumerate(faces):
         surface = pv.StructuredGrid(face[..., 0], face[..., 1], face[..., 2])
@@ -407,7 +441,9 @@ def pyvista_isosurface(
     grid = structured_grid(data)
     name = grid.active_scalars_name
     lo, hi = _clim(grid[name], clim, symmetric=symmetric, robust=robust)
-    levels = np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    levels = (
+        np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    )
     own = plotter is None
     plotter = _plotter(plotter)
     contours = grid.contour(isosurfaces=list(levels), scalars=name)
@@ -436,7 +472,9 @@ def pyvista_isosurface(
                 scalar_bar_args=bar,
                 name="isosurface",
             )
-    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
+    return _finish(
+        plotter, _label(data) if title is None else title, grid if own else None
+    )
 
 
 def _cut_indices(data, cuts):
@@ -444,11 +482,15 @@ def _cut_indices(data, cuts):
     for dim, positions in (cuts or {}).items():
         if dim not in logical_dims(data):
             first, second, third = logical_dims(data)
-            raise ValueError(f"cuts are along {first}, {second} or {third}; got {dim!r}")
+            raise ValueError(
+                f"cuts are along {first}, {second} or {third}; got {dim!r}"
+            )
         coordinate = np.asarray(data[dim], dtype=float)
         chosen = []
         # not via numpy: a list like [0.0, -1] would turn the index -1 into the coordinate -1.0
-        for position in positions if isinstance(positions, (list, tuple)) else [positions]:
+        for position in (
+            positions if isinstance(positions, (list, tuple)) else [positions]
+        ):
             if position in (
                 "first",
                 "last",
@@ -466,7 +508,9 @@ def _cut_indices(data, cuts):
     return indices
 
 
-def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[xr.DataArray]:
+def prepare_slices_3d(
+    data: xr.DataArray, *, cuts: dict | None = None
+) -> list[xr.DataArray]:
     """The logical cuts of a scalar ``(eta1, eta2, eta3)`` field that :func:`pyvista_slices` draws.
 
     ``cuts`` maps ``eta1``/``eta2``/``eta3`` to one position or a list: a float is the nearest
@@ -500,7 +544,11 @@ def prepare_slices_3d(data: xr.DataArray, *, cuts: dict | None = None) -> list[x
         if 1 in data.shape:
             return [data]
         cuts = {dim: data.sizes[dim] // 2 for dim in logical_dims(data)}
-    return [data.isel({dim: [index]}) for dim, indices in _cut_indices(data, cuts).items() for index in indices]
+    return [
+        data.isel({dim: [index]})
+        for dim, indices in _cut_indices(data, cuts).items()
+        for index in indices
+    ]
 
 
 @rank_zero
@@ -579,7 +627,12 @@ def pyvista_slices(
     grid = structured_grid(data)
     surfaces = [structured_grid(piece, name=_label(data)) for piece in pieces]
     if not (is_flat(grid) and len(pieces) == 1 and pieces[0].shape == data.shape):
-        _add_context(plotter, grid, show_domain, drawn=[_grid_points(surface) for surface in surfaces])
+        _add_context(
+            plotter,
+            grid,
+            show_domain,
+            drawn=[_grid_points(surface) for surface in surfaces],
+        )
     for i, surface in enumerate(surfaces):
         plotter.add_mesh(
             surface,
@@ -592,7 +645,9 @@ def pyvista_slices(
             scalar_bar_args=_bar(value_label(data)),
             name=f"slice{i}",
         )
-    return _finish(plotter, _label(data) if title is None else title, grid if own else None)
+    return _finish(
+        plotter, _label(data) if title is None else title, grid if own else None
+    )
 
 
 @rank_zero
@@ -662,7 +717,11 @@ def pyvista_glyphs(
         raise ValueError("stride must be positive")
     name = _label(data)
     full = _vector_grid(data, components, name)
-    thinned = _vector_grid(data.isel({dim: slice(None, None, stride) for dim in logical_dims(data)}), components, name)
+    thinned = _vector_grid(
+        data.isel({dim: slice(None, None, stride) for dim in logical_dims(data)}),
+        components,
+        name,
+    )
     magnitude = thinned[f"|{name}|"]
     peak = float(magnitude.max()) if magnitude.size else 0.0
     length = 0.1 * full.length if scale is None else scale
@@ -754,7 +813,12 @@ def pyvista_streamlines(
     Examples
     --------
     >>> pyvista_streamlines(B.isel(t=-1)).show()
-    >>> pyvista_streamlines(B.isel(t=-1), source_center=(3.0, 0.0, 0.0), source_radius=0.5, tube_radius=0.01).show()
+    >>> pyvista_streamlines(
+    ...     B.isel(t=-1),
+    ...     source_center=(3.0, 0.0, 0.0),
+    ...     source_radius=0.5,
+    ...     tube_radius=0.01,
+    ... ).show()
     """
     pv = _pv()
     name = _label(data)
@@ -765,7 +829,9 @@ def pyvista_streamlines(
     # ~1e-5), with small steps for thin curved cells; lines are colored by the real magnitude.
     vectors = np.asarray(grid[name])
     norm = np.linalg.norm(vectors, axis=1, keepdims=True)
-    grid["_direction"] = np.divide(vectors, norm, out=np.zeros_like(vectors), where=norm > 0)
+    grid["_direction"] = np.divide(
+        vectors, norm, out=np.zeros_like(vectors), where=norm > 0
+    )
     tracing = dict(
         vectors="_direction",
         max_length=max_length,
@@ -779,12 +845,18 @@ def pyvista_streamlines(
         # Seed at grid points: a sphere around the bounding-box centre can lie outside a
         # curved domain (e.g. a torus sector), and would miss a 2-D plane entirely.
         rng = np.random.default_rng(0)
-        seeds = rng.choice(grid.n_points, size=min(n_points, grid.n_points), replace=False)
-        lines = grid.streamlines_from_source(pv.PolyData(np.asarray(grid.points)[np.sort(seeds)]), **tracing)
+        seeds = rng.choice(
+            grid.n_points, size=min(n_points, grid.n_points), replace=False
+        )
+        lines = grid.streamlines_from_source(
+            pv.PolyData(np.asarray(grid.points)[np.sort(seeds)]), **tracing
+        )
     else:
         lines = grid.streamlines(
             n_points=n_points,
-            source_radius=(0.25 * grid.length if source_radius is None else source_radius),
+            source_radius=(
+                0.25 * grid.length if source_radius is None else source_radius
+            ),
             source_center=grid.center if source_center is None else source_center,
             **tracing,
         )
@@ -851,11 +923,15 @@ def orbit_polylines(orbits: xr.Dataset, *, color_by: str = "t", max_markers: int
     if color_by == "t":
         colors = np.broadcast_to(np.asarray(subset.t)[:, None], alive.shape)
     elif color_by == "classification":
-        colors = np.broadcast_to(np.asarray(classify_orbits(subset))[None, :], alive.shape)
+        colors = np.broadcast_to(
+            np.asarray(classify_orbits(subset))[None, :], alive.shape
+        )
     elif color_by in subset.data_vars:
         colors = np.asarray(subset[color_by].transpose("t", "marker"))
     else:
-        raise ValueError(f'color_by must be "t", "classification" or a variable of {tuple(subset.data_vars)}')
+        raise ValueError(
+            f'color_by must be "t", "classification" or a variable of {tuple(subset.data_vars)}'
+        )
     points, cells, scalars = [], [], []
     for marker in range(positions.shape[1]):
         keep = np.flatnonzero(alive[:, marker])
@@ -927,12 +1003,16 @@ def pyvista_orbits(
     Examples
     --------
     >>> pyvista_orbits(out.kinetic_ions.orbits, color_by="classification").show()
-    >>> pyvista_orbits(out.kinetic_ions.orbits, color_by="v_par", domain=phi, tube_radius=0.01).show()
+    >>> pyvista_orbits(
+    ...     out.kinetic_ions.orbits, color_by="v_par", domain=phi, tube_radius=0.01
+    ... ).show()
     """
     lines = orbit_polylines(orbits, color_by=color_by, max_markers=max_markers)
     plotter = _plotter(plotter)
     if domain is not None:
-        spatial = domain.isel({d: 0 for d in domain.dims if d not in logical_dims(domain)})
+        spatial = domain.isel(
+            {d: 0 for d in domain.dims if d not in logical_dims(domain)}
+        )
         _add_context(plotter, structured_grid(spatial), True)
     if lines.n_points and color_by == "classification":
         legend = []
@@ -1018,7 +1098,9 @@ def pyvista_domain(
     >>> pyvista_domain(out.domain, n3=1, surface=False).show()
     """
     pv = _pv()
-    fine = [np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)]
+    fine = [
+        np.linspace(0.0, 1.0, max((n - 1) * resolution + 1, 1)) for n in (n1, n2, n3)
+    ]
     x, y, z = (np.asarray(c, dtype=float) for c in domain(*fine, squeeze_out=False))
     grid = pv.StructuredGrid(x, y, z)
     own = plotter is None
@@ -1090,7 +1172,9 @@ def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
         target = path / f"{stem}_{index:04d}.vts"
         structured_grid(data.isel(t=index), name=name).save(str(target))
         written.append(str(target))
-        entries.append(f'    <DataSet timestep="{float(data.t[index])!r}" file="{target.name}"/>')
+        entries.append(
+            f'    <DataSet timestep="{float(data.t[index])!r}" file="{target.name}"/>'
+        )
     collection = path / f"{stem}.pvd"
     collection.write_text(
         '<?xml version="1.0"?>\n<VTKFile type="Collection" version="0.1">\n  <Collection>\n'

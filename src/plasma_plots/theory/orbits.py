@@ -51,7 +51,9 @@ def _out(value):
 def _vector(value):
     value = np.asarray(value, dtype=float)
     if value.ndim == 0 or value.shape[-1] != 3:
-        raise ValueError(f"vectors need a trailing axis of length 3; got shape {value.shape}")
+        raise ValueError(
+            f"vectors need a trailing axis of length 3; got shape {value.shape}"
+        )
     return value
 
 
@@ -89,7 +91,9 @@ def gyrofrequency(field, charge=1.0, mass=1.0):
     >>> print(gyrofrequency(2.0, charge=-1.0, mass=0.5))
     -4.0
     """
-    return _out(np.asarray(charge, dtype=float) * np.abs(np.asarray(field, dtype=float)) / mass)
+    return _out(
+        np.asarray(charge, dtype=float) * np.abs(np.asarray(field, dtype=float)) / mass
+    )
 
 
 def gyroradius(perpendicular_speed, field, charge=1.0, mass=1.0):
@@ -121,7 +125,11 @@ def gyroradius(perpendicular_speed, field, charge=1.0, mass=1.0):
     1.5
     """
     speed = np.abs(np.asarray(perpendicular_speed, dtype=float))
-    return _out(mass * speed / np.abs(np.asarray(charge, dtype=float) * np.asarray(field, dtype=float)))
+    return _out(
+        mass
+        * speed
+        / np.abs(np.asarray(charge, dtype=float) * np.asarray(field, dtype=float))
+    )
 
 
 def magnetic_moment(perpendicular_speed, field, mass=1.0):
@@ -222,7 +230,8 @@ def grad_b_drift(perpendicular_speed, B, grad_B, charge=1.0, mass=1.0):
 
     Examples
     --------
-    >>> print(grad_b_drift(1.0, [0.0, 0.0, 1.0], [0.1, 0.0, 0.0]))   # B along z, ∇B along x
+    >>> # B along z, ∇B along x
+    >>> print(grad_b_drift(1.0, [0.0, 0.0, 1.0], [0.1, 0.0, 0.0]))
     [0.   0.05 0.  ]
     """
     B, grad_B = _vector(B), _vector(grad_B)
@@ -247,8 +256,12 @@ def _trapped_fraction_exact(epsilon):
     weight = 1 + eps * np.cos(_THETA)  # ∝ R ∝ 1/B, for concentric circles
     b = 1 / weight
     lam_max = 1 - eps
-    lam = lam_max * (1 - _S_NODES[:, None] ** 2)  # λ = λ_max (1 − s²) removes the endpoint singularity
-    root = np.mean(np.sqrt(np.clip(1 - lam * b, 0, None)) * weight, axis=-1)  # ⟨√(1 − λb)⟩
+    lam = lam_max * (
+        1 - _S_NODES[:, None] ** 2
+    )  # λ = λ_max (1 − s²) removes the endpoint singularity
+    root = np.mean(
+        np.sqrt(np.clip(1 - lam * b, 0, None)) * weight, axis=-1
+    )  # ⟨√(1 − λb)⟩
     integrand = lam[..., 0] * 2 * lam_max[..., 0] * _S_NODES / root
     b2 = np.mean(b**2 * weight, axis=-1)[..., 0]
     return 1 - 0.75 * b2 * np.sum(_S_WEIGHTS * integrand, axis=-1)
@@ -289,8 +302,10 @@ def trapped_fraction(epsilon, approximation="exact"):
 
     Examples
     --------
-    >>> print(f"{trapped_fraction(0.1):.4f}, {trapped_fraction(0.1, 'lin-liu'):.4f}, "
-    ...       f"{trapped_fraction(0.1, 'sqrt'):.4f}")
+    >>> fractions = [
+    ...     trapped_fraction(0.1, a) for a in ("exact", "lin-liu", "sqrt")
+    ... ]
+    >>> print(", ".join(f"{f:.4f}" for f in fractions))
     0.4492, 0.4431, 0.4617
     """
     eps = np.asarray(epsilon, dtype=float)
@@ -298,13 +313,17 @@ def trapped_fraction(epsilon, approximation="exact"):
         return _out(1.46 * np.sqrt(eps))
     if approximation == "lin-liu":
         with np.errstate(divide="ignore", invalid="ignore"):
-            value = 1 - (1 - eps) ** 2 / (np.sqrt(1 - eps**2) * (1 + 1.46 * np.sqrt(eps)))
+            value = 1 - (1 - eps) ** 2 / (
+                np.sqrt(1 - eps**2) * (1 + 1.46 * np.sqrt(eps))
+            )
         return _out(np.where(eps == 1, 1.0, value))
     if approximation == "exact":
         with np.errstate(divide="ignore", invalid="ignore"):
             value = _trapped_fraction_exact(np.where(eps == 1, 0.5, eps))
         return _out(np.where(eps == 1, 1.0, np.where(eps == 0, 0.0, value)))
-    raise ValueError(f"approximation must be 'exact', 'lin-liu' or 'sqrt'; got {approximation!r}")
+    raise ValueError(
+        f"approximation must be 'exact', 'lin-liu' or 'sqrt'; got {approximation!r}"
+    )
 
 
 def pitch_parameter(pitch, epsilon, theta=0.0):
@@ -373,7 +392,9 @@ def trapping_boundary(epsilon, quantity="lambda", theta=0.0):
 
     Examples
     --------
-    >>> print(f"{trapping_boundary(0.1):.2f}, {trapping_boundary(0.1, 'pitch'):.4f}")
+    >>> print(
+    ...     f"{trapping_boundary(0.1):.2f}, {trapping_boundary(0.1, 'pitch'):.4f}"
+    ... )
     0.90, 0.4264
     """
     eps = np.asarray(epsilon, dtype=float)
@@ -451,7 +472,8 @@ def bounce_frequency(speed, kappa2, epsilon, safety_factor, major_radius):
 
     Examples
     --------
-    >>> print(f"{bounce_frequency(1.0, 0.0, 0.02, 1.0, 1.0):.4f}")   # √(ε/2) deeply trapped
+    >>> # √(ε/2) deeply trapped
+    >>> print(f"{bounce_frequency(1.0, 0.0, 0.02, 1.0, 1.0):.4f}")
     0.1000
     """
     k2 = np.asarray(kappa2, dtype=float)
@@ -459,7 +481,12 @@ def bounce_frequency(speed, kappa2, epsilon, safety_factor, major_radius):
     eps = np.asarray(epsilon, dtype=float)
     with np.errstate(invalid="ignore", divide="ignore"):
         k = elliptic_k(np.where((k2 >= 0) & (k2 <= 1), k2, np.nan))
-        omega = np.pi * speed * np.sqrt(2 * eps) / (4 * np.abs(safety_factor) * major_radius * k)
+        omega = (
+            np.pi
+            * speed
+            * np.sqrt(2 * eps)
+            / (4 * np.abs(safety_factor) * major_radius * k)
+        )
     return _out(omega)
 
 
@@ -494,7 +521,8 @@ def transit_frequency(speed, kappa2, epsilon, safety_factor, major_radius):
 
     Examples
     --------
-    >>> print(f"{transit_frequency(1.0, 50.0, 0.01, 1.0, 1.0):.4f}")   # ≈ v∥/(qR₀) = 1
+    >>> # ≈ v∥/(qR₀) = 1
+    >>> print(f"{transit_frequency(1.0, 50.0, 0.01, 1.0, 1.0):.4f}")
     0.9950
     """
     k2 = np.asarray(kappa2, dtype=float)
@@ -503,7 +531,13 @@ def transit_frequency(speed, kappa2, epsilon, safety_factor, major_radius):
     with np.errstate(invalid="ignore", divide="ignore"):
         k2 = np.where(k2 >= 1, k2, np.nan)
         k = elliptic_k(1 / k2)
-        omega = np.pi * np.sqrt(k2) * speed * np.sqrt(2 * eps) / (2 * np.abs(safety_factor) * major_radius * k)
+        omega = (
+            np.pi
+            * np.sqrt(k2)
+            * speed
+            * np.sqrt(2 * eps)
+            / (2 * np.abs(safety_factor) * major_radius * k)
+        )
     return _out(omega)
 
 

@@ -52,7 +52,8 @@ def faddeeva(z):
 
     Examples
     --------
-    >>> round(faddeeva(0.0).real, 12), round(faddeeva(1j).real, 6)   # erfc(1) e¹ at z = i
+    >>> # erfc(1) e¹ at z = i
+    >>> round(faddeeva(0.0).real, 12), round(faddeeva(1j).real, 6)
     (1.0, 0.427584)
     """
     z = np.asarray(z, dtype=complex)
@@ -60,7 +61,9 @@ def faddeeva(z):
     upper = np.where(lower, -z, z)
     denominator = _LENGTH - 1j * upper
     ratio = (_LENGTH + 1j * upper) / denominator
-    w = 2 * np.polyval(_COEFFICIENTS, ratio) / denominator**2 + 1 / (_SQRT_PI * denominator)
+    w = 2 * np.polyval(_COEFFICIENTS, ratio) / denominator**2 + 1 / (
+        _SQRT_PI * denominator
+    )
     with np.errstate(over="ignore", invalid="ignore"):
         w = np.where(lower, 2 * np.exp(-(z**2)) - w, w)
     return _out(w)
@@ -96,7 +99,7 @@ def plasma_dispersion(zeta, derivative: int = 0):
 
     Examples
     --------
-    >>> round(plasma_dispersion(0.0).imag, 6)   # i √π at the origin
+    >>> round(plasma_dispersion(0.0).imag, 6)  # i √π at the origin
     1.772454
     >>> plasma_dispersion(0.0, derivative=1)
     (-2+0j)
@@ -125,7 +128,7 @@ def elliptic_k(m):
 
     Examples
     --------
-    >>> round(float(elliptic_k(0.0)), 12)   # π/2
+    >>> round(float(elliptic_k(0.0)), 12)  # π/2
     1.570796326795
     """
     m = np.asarray(m, dtype=float)

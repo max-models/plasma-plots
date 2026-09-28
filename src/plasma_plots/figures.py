@@ -48,11 +48,15 @@ class Figure:
         ``fit_results``).
     """
 
-    def __init__(self, nrows, ncols, *, backend, sharex, sharey, figsize, title, **options):
+    def __init__(
+        self, nrows, ncols, *, backend, sharex, sharey, figsize, title, **options
+    ):
         from .mpi import is_plotting_rank
 
         self.backend = backend
-        self._plotly = resolve_backend(backend) == "plotly"  # before the block makes every plot Matplotlib
+        self._plotly = (
+            resolve_backend(backend) == "plotly"
+        )  # before the block makes every plot Matplotlib
         self.results = []
         self._result = None
         self._title = title
@@ -65,12 +69,25 @@ class Figure:
         from .plotting import PLOT_STYLE
 
         if figsize is None:
-            figsize = (PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75 + 2.0 * (ncols > 2) * (ncols - 2),
-                       3.2 * nrows + 0.8)
+            figsize = (
+                PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75
+                + 2.0 * (ncols > 2) * (ncols - 2),
+                3.2 * nrows + 0.8,
+            )
         with plt.rc_context(PLOT_STYLE):
-            self._fig, axes = plt.subplots(nrows, ncols, sharex=sharex, sharey=sharey, figsize=figsize,
-                                           squeeze=False, layout="constrained", **options)
-        self._fig._plasma_composed = True  # the plots in it leave the title and layout to the figure
+            self._fig, axes = plt.subplots(
+                nrows,
+                ncols,
+                sharex=sharex,
+                sharey=sharey,
+                figsize=figsize,
+                squeeze=False,
+                layout="constrained",
+                **options,
+            )
+        self._fig._plasma_composed = (
+            True  # the plots in it leave the title and layout to the figure
+        )
         self.axes = axes
 
     def __getitem__(self, index):
@@ -109,10 +126,16 @@ class Figure:
         fig = self._fig
         if self._title:
             fig.suptitle(self._title)
-        empty = [ax for ax in self.axes.ravel() if not ax.has_data() and not ax.get_legend() and ax.get_visible()]
+        empty = [
+            ax
+            for ax in self.axes.ravel()
+            if not ax.has_data() and not ax.get_legend() and ax.get_visible()
+        ]
         for ax in empty:  # panels left empty are not drawn
             ax.set_visible(False)
-        fits = [fit for result in self.results for fit in getattr(result, "fit_results", [])]
+        fits = [
+            fit for result in self.results for fit in getattr(result, "fit_results", [])
+        ]
         try:
             if not self._plotly:
                 return PlotResult(fig, self.axes, [], fits)
@@ -127,7 +150,9 @@ class Figure:
                 plt.close(fig)
             return PlotResult(converted, None, list(converted.data), fits)
         finally:
-            if not final:  # a snapshot inside the block: later plots may still fill these panels
+            if (
+                not final
+            ):  # a snapshot inside the block: later plots may still fill these panels
                 for ax in empty:
                     ax.set_visible(True)
 
@@ -190,7 +215,6 @@ class Figure:
         return f"{type(self).__name__}(panels={shape}, backend={self.backend!r})"
 
 
-
 def figure(
     nrows: int = 1,
     ncols: int = 1,
@@ -241,5 +265,13 @@ def figure(
     >>> fig.save("energies.html")
     >>> fig.results[0].fit_results[0].rate
     """
-    return Figure(nrows, ncols, backend=backend, sharex=sharex, sharey=sharey, figsize=figsize, title=title,
-                  **options)
+    return Figure(
+        nrows,
+        ncols,
+        backend=backend,
+        sharex=sharex,
+        sharey=sharey,
+        figsize=figsize,
+        title=title,
+        **options,
+    )

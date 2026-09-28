@@ -12,5 +12,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "accessor_pages.py"
 
 
 def test_accessor_pages_are_up_to_date():
-    result = subprocess.run([sys.executable, str(SCRIPT), "--check"], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--check"], capture_output=True, text=True
+    )
     assert result.returncode == 0, result.stdout + result.stderr

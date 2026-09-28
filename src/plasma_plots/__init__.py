@@ -17,15 +17,23 @@ guide, ``python -m plasma_plots api`` an index of every method and function with
 
 A post-processing pipeline
 --------------------------
->>> from struphy import Output                     # doctest: +SKIP
->>> out = Output("sim_1")                          # the run's output folder
->>> out.plot.energies().save("energies.png")       # the energy budget and its drift
->>> phi = out.evaluate("em_fields/phi")            # dims (t, eta1, eta2, eta3), coordinates X, Y, Z
->>> phi.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0).save("phi.png")
->>> phi.plasma.plot.animation(x="eta1", y="eta2", eta3=0).save("phi.gif", writer="pillow")
->>> modes = phi.plasma.analysis.mode_spectrum()    # complex amplitudes over mode numbers m, n
->>> phi.plasma.plot.mode_amplitudes(top=4, fit=True)  # the strongest (m, n) over time
->>> out.kinetic_ions.orbits.plasma.plot.poloidal()  # guiding-center orbits, by orbit class
+>>> from struphy import Output  # doctest: +SKIP
+>>> out = Output("sim_1")  # the run's output folder
+>>> out.plot.energies().save("energies.png")  # the energy budget and its drift
+>>> # dims (t, eta1, eta2, eta3), coordinates X, Y, Z
+>>> phi = out.evaluate("em_fields/phi")
+>>> phi.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0).save(
+...     "phi.png"
+... )
+>>> phi.plasma.plot.animation(x="eta1", y="eta2", eta3=0).save(
+...     "phi.gif", writer="pillow"
+... )
+>>> # complex amplitudes over mode numbers m, n
+>>> modes = phi.plasma.analysis.mode_spectrum()
+>>> # the strongest (m, n) over time
+>>> phi.plasma.plot.mode_amplitudes(top=4, fit=True)
+>>> # guiding-center orbits, by orbit class
+>>> out.kinetic_ions.orbits.plasma.plot.poloidal()
 
 Selecting what to show
 ----------------------
@@ -118,22 +126,29 @@ Runs as is, on synthetic data:
 >>> x = np.linspace(0.0, 1.0, 64, endpoint=False)
 >>> phi = xr.DataArray(
 ...     0.01 * np.exp(0.1 * t)[:, None] * np.sin(2 * np.pi * x)[None],
-...     dims=("t", "eta1"), coords={"t": t, "eta1": x}, name="phi",
+...     dims=("t", "eta1"),
+...     coords={"t": t, "eta1": x},
+...     name="phi",
 ... )
->>> amplitude = phi.plasma.analysis.project_mode(dim="eta1", number=1)    # the k = 1 amplitude over t
->>> round(float(amplitude.plasma.analysis.growth_rate(window=(5.0, 20.0)).rate), 3)
+>>> # the k = 1 amplitude over t
+>>> amplitude = phi.plasma.analysis.project_mode(dim="eta1", number=1)
+>>> round(
+...     float(amplitude.plasma.analysis.growth_rate(window=(5.0, 20.0)).rate),
+...     3,
+... )
 0.1
->>> result = phi.plasma.plot.slice(x="eta1", y="t")                        # a space-time map
+>>> result = phi.plasma.plot.slice(x="eta1", y="t")  # a space-time map
 >>> type(result).__name__
 'PlotResult'
 """
 
-from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
+from . import \
+    output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
-from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
-from .figures import figure
 from .desc import from_desc
+from .figures import figure
 from .gvec import from_gvec
+from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .plotly_backend import get_backend, set_backend
 from .plotting import save_figure
 

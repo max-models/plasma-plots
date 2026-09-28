@@ -70,7 +70,9 @@ def _method(method: str) -> str:
     name = str(method).lower().replace("-", "_").replace(" ", "_")
     name = _ALIASES.get(name, name)
     if name not in _STABILITY_LIMITS:
-        raise ValueError(f"unknown method {method!r}; choose one of {', '.join(_METHODS)}")
+        raise ValueError(
+            f"unknown method {method!r}; choose one of {', '.join(_METHODS)}"
+        )
     return name
 
 
@@ -81,12 +83,18 @@ def _factor_and_phase(theta, method: str):
     if name in _RATIONAL:
         numerator, denominator = _RATIONAL[name]
         z = 1j * theta
-        g = np.polynomial.polynomial.polyval(z, numerator) / np.polynomial.polynomial.polyval(z, denominator)
+        g = np.polynomial.polynomial.polyval(
+            z, numerator
+        ) / np.polynomial.polynomial.polyval(z, denominator)
         # G = Π(1 − z/r) / Π(1 − z/q) since G(0) = 1; each factor moves on a straight line from 1 that
         # misses 0, so its principal argument is continuous and the sum is the unwrapped phase
         phase = np.zeros_like(theta)
         for coefficients, sign in ((numerator, 1.0), (denominator, -1.0)):
-            for root in np.polynomial.polynomial.polyroots(coefficients) if len(coefficients) > 1 else []:
+            for root in (
+                np.polynomial.polynomial.polyroots(coefficients)
+                if len(coefficients) > 1
+                else []
+            ):
                 phase = phase + sign * np.angle(1 - z / root)
         return g, phase
     a = np.abs(theta)
@@ -241,7 +249,9 @@ def amplitude_error(omega_dt, method: str):
     P = np.polynomial.Polynomial
     numerator, denominator = (P(c) for c in _RATIONAL[name])
     reflect = P([0.0, -1.0])
-    difference = (numerator * numerator(reflect) - denominator * denominator(reflect)).coef.copy()
+    difference = (
+        numerator * numerator(reflect) - denominator * denominator(reflect)
+    ).coef.copy()
     difference[0] = 0.0
     z = 1j * theta
     squared_minus_one = (P(difference)(z) / np.abs(denominator(z)) ** 2).real
@@ -406,7 +416,9 @@ _FD_SECOND = {2: (1.0,), 4: (16 / 12, -1 / 12), 6: (270 / 180, -27 / 180, 2 / 18
 
 def _cardinal_bspline(n: int, x: float) -> float:
     """The cardinal B-spline of degree n (support [0, n + 1]) at x."""
-    return sum((-1) ** i * comb(n + 1, i) * max(x - i, 0.0) ** n for i in range(n + 2)) / factorial(n)
+    return sum(
+        (-1) ** i * comb(n + 1, i) * max(x - i, 0.0) ** n for i in range(n + 2)
+    ) / factorial(n)
 
 
 def _spline_mass_symbol(theta, degree: int):
@@ -481,7 +493,9 @@ def spline_galerkin_dispersion(k, dx, degree: int, c=1.0):
     Examples
     --------
     >>> theta = np.pi / 4
-    >>> print(np.round(spline_galerkin_dispersion(theta, 1.0, [1, 2, 3]) / theta, 6))
+    >>> print(
+    ...     np.round(spline_galerkin_dispersion(theta, 1.0, [1, 2, 3]) / theta, 6)
+    ... )
     [1.025859 1.0003   1.000005]
     """
     degrees = np.asarray(degree)
@@ -493,7 +507,9 @@ def spline_galerkin_dispersion(k, dx, degree: int, c=1.0):
     result = np.zeros(np.broadcast(theta, degrees).shape)
     for p in np.unique(degrees).tolist():
         ratio = _spline_mass_symbol(theta, p - 1) / _spline_mass_symbol(theta, p)
-        result = np.where(degrees == p, 2 * np.abs(np.sin(theta / 2)) * np.sqrt(ratio), result)
+        result = np.where(
+            degrees == p, 2 * np.abs(np.sin(theta / 2)) * np.sqrt(ratio), result
+        )
     return (np.asarray(c, dtype=float) * result / dx)[()]
 
 
