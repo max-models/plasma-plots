@@ -91,6 +91,7 @@ export default defineConfig({
 						{ label: 'Recipes', slug: 'guides/recipes' },
 						{ label: 'MHD slab waves', slug: 'guides/real-example' },
 						{ label: 'GVEC equilibria', slug: 'guides/gvec' },
+						{ label: 'DESC equilibria', slug: 'guides/desc' },
 						{ label: 'Theory toolbox', slug: 'guides/theory' },
 					],
 				},

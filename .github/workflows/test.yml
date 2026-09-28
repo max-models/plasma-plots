@@ -42,7 +42,7 @@ jobs:
         run: pip install ./struphy
 
       - name: Install plasma-plots with dev dependencies
-        run: pip install -e ".[dev,profiling,pyvista]"
+        run: pip install -e ".[dev,profiling,pyvista,desc]"
 
       # The PyVista tests build scenes off-screen, which needs a virtual display
       # and Mesa's software OpenGL. Tests marked `simulation` (real struphy runs,

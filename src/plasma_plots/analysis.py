@@ -1068,8 +1068,9 @@ def surface_average(data: xr.DataArray, *, jacobian=None, domain=None, quadratur
     drop = [f"{d}_weight" for d in (poloidal, toroidal) if f"{d}_weight" in out.coords]
     out = out.drop_vars(drop)
     out.attrs = {**_provenance(data), "label": f"⟨{_label(data)}⟩"}
-    if "nfp" in data.attrs:
-        out.attrs["nfp"] = data.attrs["nfp"]
+    for name in ("units", "nfp"):  # an average keeps the units
+        if name in data.attrs:
+            out.attrs[name] = data.attrs[name]
     return out
 
 

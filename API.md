@@ -23,6 +23,10 @@ at https://struphy-hub.github.io/plasma-plots.
   become `rho`, `theta`/`theta_B`/`theta_P`, `zeta`/`zeta_B` (angles in radians, with a
   `period`), `pos` the `X`, `Y`, `Z` coordinates, `xyz` the `component`; call
   `plasma_plots.from_gvec(ds)` once on the Dataset to give every variable its geometry.
+- **DESC.** `plasma_plots.from_desc(eq, names, rho=, theta=, zeta=, sfl=None|"pest")` evaluates a
+  DESC equilibrium into a Dataset over `rho`, `theta`/`theta_P`, `zeta` with `X`, `Y`, `Z`
+  coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
+  the Jacobian.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`); Matplotlib animations a `FuncAnimation`;
   PyVista views a `pyvista.Plotter`; analysis methods labeled xarray objects (which have
@@ -423,6 +427,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
 - `plasma_plots.arrays`: `logical_dims`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
+- `plasma_plots.desc`: `from_desc`
 - `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `save_vtk`, `save_movie`
 
 ## Theory: plasma_plots.theory

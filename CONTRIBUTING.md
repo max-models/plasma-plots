@@ -44,14 +44,21 @@ tokamak, and W7-X), so it needs `pip install gvec`, which builds GVEC's Fortran 
 LAPACK and CMake). W7-X takes about a minute; `PLASMA_PLOTS_SKIP_W7X=1` leaves it out, but then
 the page misses its figures.
 
+The [DESC equilibria](https://struphy-hub.github.io/plasma-plots/guides/desc/) guide evaluates the
+example equilibria that DESC ships (`scripts/generate_desc_figures.py`: W7-X, the precise QA and QH
+stellarators, NCSX, HELIOTRON, ESTELL and the tokamak DSHAPE), so it needs `pip install desc-opt`
+(pure Python, on JAX; the `desc` extra). It takes about two minutes. `tests/test_desc.py` needs it
+too, and is skipped without it.
+
 Figures aren't checked into git, so generate them before building or
 running the site locally:
 
 ```bash
 struphy compile -y   # only needed for generate_real_example_figures.py
 pip install gvec     # only needed for generate_gvec_figures.py
+pip install desc-opt # only needed for generate_desc_figures.py (and tests/test_desc.py)
 pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
-make figures       # runs the three scripts, renders docs/src/assets/figures/ and docs/public/plotly/
+make figures       # runs the four scripts, renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```

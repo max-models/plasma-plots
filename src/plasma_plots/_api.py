@@ -40,6 +40,10 @@ at https://struphy-hub.github.io/plasma-plots.
   become `rho`, `theta`/`theta_B`/`theta_P`, `zeta`/`zeta_B` (angles in radians, with a
   `period`), `pos` the `X`, `Y`, `Z` coordinates, `xyz` the `component`; call
   `plasma_plots.from_gvec(ds)` once on the Dataset to give every variable its geometry.
+- **DESC.** `plasma_plots.from_desc(eq, names, rho=, theta=, zeta=, sfl=None|"pest")` evaluates a
+  DESC equilibrium into a Dataset over `rho`, `theta`/`theta_P`, `zeta` with `X`, `Y`, `Z`
+  coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
+  the Jacobian.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`); Matplotlib animations a `FuncAnimation`;
   PyVista views a `pyvista.Plotter`; analysis methods labeled xarray objects (which have
@@ -118,7 +122,7 @@ RESULTS = [
     "plasma_plots.plotting.View",
 ]
 # the modules of plain functions behind the accessors, for arrays from anywhere
-MODULES = ["plotting", "spectral_plots", "analysis", "spectral", "arrays", "gvec", "pyvista_plots"]
+MODULES = ["plotting", "spectral_plots", "analysis", "spectral", "arrays", "gvec", "desc", "pyvista_plots"]
 THEORY = ["kinetic", "waves", "parameters", "orbits", "exact", "numerics", "special"]
 
 

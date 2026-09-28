@@ -1,0 +1,351 @@
+---
+title: DESC equilibria
+description: Poloidal planes, quasi-symmetric flux surfaces, mode spectra, profiles, currents and interactive 3-D views of DESC's example equilibria.
+---
+
+import { Code } from 'astro:components';
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PyVistaScene from '../../../components/PyVistaScene.astro';
+import numbers from '../../../assets/desc/numbers.txt?raw';
+import script from '../../../../../scripts/generate_desc_figures.py?raw';
+import fig_qh from '../../../assets/figures/desc_3d_qh.png';
+import fig_cutaway from '../../../assets/figures/desc_3d_cutaway.png';
+import fig_fieldlines from '../../../assets/figures/desc_3d_fieldlines.png';
+
+[DESC](https://desc-docs.readthedocs.io) computes 3-D MHD equilibria and evaluates any of several
+hundred quantities of them on a grid of flux coordinates, `eq.compute(names, grid)`, as flat
+arrays over the grid's nodes. `plasma_plots.from_desc` evaluates an equilibrium on a grid and
+returns an `xarray.Dataset` in the layout the rest of plasma-plots reads, the same as for
+[GVEC](/plasma-plots/guides/gvec/):
+
+```python
+import desc.examples
+import plasma_plots
+
+w7x = desc.examples.get("W7-X")  # or desc.io.load("path/to/eq.h5")
+ev = plasma_plots.from_desc(
+    w7x,
+    ["|B|", "iota", "p", "sqrt(g)", "D_Mercier", "theta_PEST"],
+    rho=17,
+    theta=64,
+    zeta=40,
+)
+ev["|B|"].plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0)
+```
+
+Every figure on this page comes from the equilibria that DESC ships with (`desc.examples`), made
+while the docs are built (`scripts/generate_desc_figures.py`, at the end of the page). Evaluating
+needs DESC (`pip install desc-opt`, or `pip install "plasma-plots[desc]"`); the Dataset it returns
+does not, and `ev.to_netcdf("w7x.nc")` saves it for plotting elsewhere.
+
+## Reading DESC's quantities
+
+`rho`, `theta` and `zeta` each take a number of points (spread over `[0, 1]`, `[0, 2π)` and one
+field period `[0, 2π/nfp)`) or the values themselves, which may cover the whole torus. What
+`from_desc` makes of DESC's output:
+
+| DESC | plasma-plots |
+|---|---|
+| flat arrays over the grid's nodes | dimensions `rho`, `theta`, `zeta`: select with `rho=0.5`, draw with `x="zeta"` |
+| `"X"`, `"Y"`, `"Z"` | the coordinates `X`, `Y`, `Z` of every variable: `coords="physical"`, `plane="RZ"`, 3-D views, gradients |
+| vectors (`"B"`, `"J"`, ...) in cylindrical `(R, φ, Z)` components | Cartesian components along `component`, as for Struphy's and GVEC's vectors |
+| profiles (`"iota"`, `"p"`, `"D_Mercier"`) and global quantities (`"V"`) | variables over `rho` alone, and scalars |
+| `"theta_PEST"` | the coordinate `theta_P`, for lines of constant PEST angle |
+| `label`, `units`, `description` of DESC's list of variables | `label` (`$\iota$`), `units` and `long_name`, for axes and color bars |
+| `eq.NFP` | the `nfp` attribute; the angles get a `period` (2π, 2π/nfp) |
+
+The variables keep DESC's names, so `ev["|B|"]` and `ev["sqrt(g)"]` (DESC's Jacobian); names
+that are identifiers also work as attributes, `ev.iota`. `sfl="pest"` evaluates on a grid in the
+PEST angle instead, over `(rho, theta_P, zeta)`; DESC finds its own `theta` of each point with
+`eq.map_coordinates`, and it becomes a coordinate.
+
+## Poloidal planes
+
+```python
+planes = plasma_plots.from_desc(
+    w7x,
+    ["|B|", "theta_PEST"],
+    rho=13,
+    theta=96,
+    zeta=np.linspace(0, np.pi / w7x.NFP, 3),
+)
+planes["|B|"].plasma.plot.panels(
+    sweep="zeta",
+    coords="physical",
+    plane="RZ",
+    nrows=1,
+    ncols=3,
+    overlays={"coordinate_lines": {"rho": 4, "theta_P": 12}},
+)
+```
+
+W7-X over half a field period, from the bean-shaped plane at `zeta = 0` to the triangular one,
+with four flux surfaces and twelve lines of constant PEST angle. `coordinate_lines` draws lines of
+constant value of either drawn dimension (`{"rho": 4, "theta": 8}` for DESC's own angle), or
+contour lines of another coordinate over them, here `theta_P`.
+
+![|B| in three poloidal planes of W7-X over half a field period, with flux surfaces and lines of constant PEST angle](../../../assets/figures/desc_w7x_planes.png)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+One plane, with `backend="plotly"` (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+ev["|B|"].plasma.plot.slice(
+    coords="physical",
+    plane="RZ",
+    zeta=0.0,
+    overlays={"coordinate_lines": {"rho": 4, "theta_P": 12}},
+    backend="plotly",
+)
+```
+
+<PlotlyChart src="/plotly/plotly_desc_poloidal_plane.json" />
+
+</details>
+
+DESC's examples side by side, each at `zeta = 0`, in one figure with
+[`plasma_plots.figure`](/plasma-plots/guides/timeseries/#several-plots-in-one-figure):
+
+```python
+gallery = ["precise_QA", "precise_QH", "NCSX", "HELIOTRON", "ESTELL", "DSHAPE"]
+with plasma_plots.figure(2, 3, figsize=(12, 8)) as fig:
+    for ax, name in zip(fig, gallery):
+        plane = plasma_plots.from_desc(
+            desc.examples.get(name),
+            ["|B|", "theta_PEST"],
+            rho=9,
+            theta=64,
+            zeta=[0.0],
+        )
+        plane["|B|"].plasma.plot.slice(
+            coords="physical",
+            plane="RZ",
+            zeta=0.0,
+            title=name,
+            overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}},
+            ax=ax,
+        )
+```
+
+![|B| at zeta = 0 of six DESC examples: precise_QA, precise_QH, NCSX, HELIOTRON, ESTELL and the tokamak DSHAPE](../../../assets/figures/desc_gallery.png)
+
+## On a flux surface
+
+```python
+qa, qh = desc.examples.get("precise_QA"), desc.examples.get("precise_QH")
+surfaces = {
+    name: plasma_plots.from_desc(
+        eq, "|B|", rho=[0.5, 1.0], theta=64, zeta=64, sfl="pest"
+    )
+    for name, eq in (("precise_QA", qa), ("precise_QH", qh))
+}
+with plasma_plots.figure(1, 2, figsize=(12, 4.5)) as fig:
+    for ax, (name, surface) in zip(fig, surfaces.items()):
+        surface["|B|"].plasma.plot.slice(
+            x="zeta", y="theta_P", rho=1.0, levels=12, title=name, ax=ax
+        )
+```
+
+|B| on the last flux surface of the precise quasi-axisymmetric (left) and quasi-helically
+symmetric (right) stellarators, over one field period in the PEST angle: its contours run almost
+straight in the toroidal and in the helical direction. `levels=12` adds the contour lines.
+Quasi-symmetry is a property of |B| in Boozer angles; in the PEST angle, as here, the contours are
+close to straight but not exactly.
+
+![|B| on the last flux surface of precise_QA and precise_QH over the PEST angle, with contour lines](../../../assets/figures/desc_surfaces.png)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+```python
+surfaces["precise_QH"]["|B|"].plasma.plot.slice(
+    x="zeta", y="theta_P", rho=1.0, levels=12, backend="plotly"
+)
+```
+
+<PlotlyChart src="/plotly/plotly_desc_qh_surface.json" />
+
+</details>
+
+The same surfaces as Fourier amplitudes over poloidal `m` and toroidal `n`:
+
+```python
+for name, surface in surfaces.items():
+    surface["|B|"].plasma.plot.mode_map(
+        rho=1.0, m_range=(-4, 4), n_range=(-16, 16)
+    )
+```
+
+The transform takes the angles' periods from the Dataset, so `n` is the full-torus mode number, a
+multiple of nfp (2 for precise_QA, 4 for precise_QH). The quasi-axisymmetric spectrum sits on
+`n = 0`, the quasi-helical one on the line `n = -nfp · m`. See
+[Spectral analysis](/plasma-plots/guides/spectral/) for the other mode tools, e.g.
+`mode_spectrum()` for the complex amplitudes.
+
+![The Fourier amplitudes of |B| on the last flux surface of precise_QA and precise_QH over (m, n)](../../../assets/figures/desc_mode_maps.png)
+
+## Profiles
+
+```python
+from plasma_plots.analysis import surface_average
+
+with plasma_plots.figure(2, 2) as fig:
+    ev.iota.plasma.plot.lineout(rationals=4, ax=fig[0])
+    ev.p.plasma.plot.lineout(ax=fig[1])
+    # singular on the axis
+    ev.D_Mercier.sel(rho=slice(0.1, None)).plasma.plot.lineout(ax=fig[2])
+    ev["|B|"].plasma.analysis.surface_average(
+        jacobian=ev["sqrt(g)"]
+    ).plasma.plot.lineout(ax=fig[3])
+```
+
+W7-X's rotational transform, pressure, Mercier criterion (positive where stable) and flux-surface
+average of |B|. DESC's ι of W7-X is negative, a matter of the equilibrium's orientation; the
+rational surfaces keep the sign, `-10/11`. `rationals=4` marks the lowest-order rational values `n/m` of
+ι that the profile reaches, with `n` a multiple of nfp, and
+`ev.iota.plasma.analysis.rational_surfaces(count=4)` returns them. `surface_average` is
+`⟨f⟩ = ∫ f √g dθ dζ / ∫ √g dθ dζ`, with DESC's Jacobian `"sqrt(g)"`.
+
+![W7-X's rotational transform with a rational surface, the pressure, the Mercier criterion and the flux-surface average of |B|](../../../assets/figures/desc_profiles.png)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+```python
+ev.iota.plasma.plot.lineout(rationals=4, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_desc_iota.json" />
+
+</details>
+
+For a tokamak, DESC's DSHAPE, the safety factor `q = 1/ι` works the same way:
+
+```python
+dshape = desc.examples.get("DSHAPE")
+tok = plasma_plots.from_desc(
+    dshape, ["|B|", "iota", "theta_PEST"], rho=17, theta=64, zeta=[0.0]
+)
+q = (1 / tok.iota).rename("q")
+q.attrs = {"label": "$q$", "nfp": 1}
+with plasma_plots.figure(1, 2) as fig:
+    tok["|B|"].plasma.plot.slice(
+        coords="physical",
+        plane="RZ",
+        zeta=0.0,
+        overlays={"coordinate_lines": {"rho": 5, "theta_P": 12}},
+        ax=fig[0],
+    )
+    q.plasma.plot.lineout(rationals=4, ax=fig[1])
+```
+
+![|B| in DSHAPE's poloidal plane with flux surfaces and PEST angles, and its safety factor with the rational surfaces 1/1, 3/2, 2/1 and 3/1](../../../assets/figures/desc_tokamak.png)
+
+## Currents
+
+Any of DESC's quantities over the grid draws the same way, e.g. the magnitude of the current
+density in W7-X's bean-shaped plane:
+
+```python
+fields = plasma_plots.from_desc(
+    w7x, ["|J|", "theta_PEST"], rho=np.linspace(0.05, 1, 20), theta=64, zeta=24
+)
+fields["|J|"].plasma.plot.slice(
+    coords="physical",
+    plane="RZ",
+    zeta=0.0,
+    overlays={"coordinate_lines": {"rho": 4, "theta_P": 12}},
+)
+```
+
+![The magnitude of the current density in W7-X's plane at zeta = 0, with flux surfaces and PEST angles](../../../assets/figures/desc_current.png)
+
+The vectors (`"J"`, `"B"`, `"grad(|B|)"`, ...) come in Cartesian components: with `"J"` among
+the names, `fields.J.sel(component="z")` is the vertical current density, and plasma-plots' vector calculus on the
+mapped domain (`.plasma.analysis.divergence()`, `.curl()`, see
+[Diagnostics](/plasma-plots/guides/analysis/)) applies to them as to any other.
+
+## Integrals
+
+```python
+import xarray as xr
+from plasma_plots.analysis import volume_integral
+
+fine = plasma_plots.from_desc(
+    w7x, ["|B|", "sqrt(g)", "V"], rho=33, theta=64, zeta=48
+)
+volume = (
+    volume_integral(xr.ones_like(fine["sqrt(g)"]), jacobian=fine["sqrt(g)"])
+    * w7x.NFP
+)
+```
+
+`volume_integral` integrates over the sampled grid, one field period here, so multiply by `nfp`
+for the whole device. On the uniform grid the angles get the rectangle rule, which is exact for
+their Fourier modes, and the radius the trapezoidal rule. `jacobian=` takes DESC's `"sqrt(g)"`;
+without it, `√g` comes from the geometry. For W7-X, against DESC's own numbers:
+
+<Code code={numbers} lang="text" title="docs/src/assets/desc/numbers.txt (written by the script)" />
+
+## In 3-D
+
+With PyVista (see [3-D views](/plasma-plots/guides/3d-views/)), on a grid over the whole torus
+(every field period). `cuts` take `rho`, `theta` and `zeta` like Struphy's `eta1`, `eta2`, `eta3`.
+precise_QH's last flux surface, all four field periods:
+
+```python
+qh_torus = plasma_plots.from_desc(
+    qh,
+    "|B|",
+    rho=[1.0],
+    theta=64,
+    zeta=np.linspace(0, 2 * np.pi, 32 * qh.NFP, endpoint=False),
+)
+qh_torus["|B|"].plasma.plot.slices_3d().show()
+```
+
+<PyVistaScene src="/pyvista/desc_3d_qh.html" image={fig_qh} alt="|B| on the last flux surface of the precise quasi-helically symmetric stellarator" />
+
+W7-X, with an inner surface and three poloidal cuts inside the translucent outer surface:
+
+```python
+torus = plasma_plots.from_desc(
+    w7x,
+    ["|B|", "B"],
+    rho=9,
+    theta=48,
+    zeta=np.linspace(0, 2 * np.pi, 32 * w7x.NFP, endpoint=False),
+)
+torus["|B|"].plasma.plot.slices_3d(
+    cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}
+).show()
+```
+
+<PyVistaScene src="/pyvista/desc_3d_cutaway.html" image={fig_cutaway} alt="|B| on the surface rho = 0.5 of W7-X and on three poloidal cuts, in the translucent last flux surface" />
+
+Magnetic field lines, traced through DESC's `B` from a small sphere of seeds next to the axis:
+
+```python
+axis = torus.isel(rho=0, theta=0, zeta=0)
+torus.B.plasma.plot.streamlines(
+    n_points=40,
+    source_center=(float(axis.X) + 0.2, float(axis.Y), float(axis.Z)),
+    source_radius=0.15,
+    tube_radius=0.02,
+).show()
+```
+
+<PyVistaScene src="/pyvista/desc_3d_fieldlines.html" image={fig_fieldlines} alt="Magnetic field lines of W7-X, colored by |B|" />
+
+## The script behind this page
+
+It loads DESC's examples, evaluates them and writes every figure above, in about two minutes.
+
+<details>
+<summary>`scripts/generate_desc_figures.py`, unedited</summary>
+
+<Code code={script} lang="python" title="scripts/generate_desc_figures.py" />
+
+</details>

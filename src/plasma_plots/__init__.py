@@ -73,6 +73,9 @@ What is where
   attaches the geometry to every variable; poloidal planes with
   ``overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}}`` (and ``plane="X1X2"``), ι with
   ``plot.lineout(rationals=4)`` and ``analysis.rational_surfaces``.
+* DESC equilibria: ``plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64,
+  zeta=40)`` evaluates them into the same flux-coordinate Datasets (``sfl="pest"`` for the PEST
+  angle ``theta_P``); DESC's names stay, ``ev["|B|"].plasma.plot...``.
 * Analytic theory to compare with (plain functions, not accessors): ``plasma_plots.theory.kinetic``
   (Landau damping, beam instabilities, Weibel), ``.waves`` (MHD, Hall-MHD and cold-plasma waves,
   drift waves, continua), ``.parameters`` (plasma parameters, Struphy's units), ``.orbits``,
@@ -129,6 +132,7 @@ from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy
 from .accessors import PlasmaAccessor
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .figures import figure
+from .desc import from_desc
 from .gvec import from_gvec
 from .plotly_backend import get_backend, set_backend
 from .plotting import save_figure
@@ -137,6 +141,7 @@ __all__ = [
     "SkippedPlot",
     "PlasmaAccessor",
     "figure",
+    "from_desc",
     "from_gvec",
     "get_backend",
     "is_plotting_rank",
