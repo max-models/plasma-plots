@@ -67,7 +67,8 @@ TOROIDAL = ("zeta", "zeta_B")
 
 def _label(symbol: str) -> str:
     """A GVEC ``symbol`` as a mathtext label that Matplotlib and VTK both render: without
-    ``\\left``/``\\right`` (``|B|`` rather than ``\\left|B\\right|``) and ``\\text`` as ``\\mathrm``."""
+    ``\\left``/``\\right`` (``|B|`` rather than ``\\left|B\\right|``) and ``\\text`` as ``\\mathrm``.
+    """
     for sizing in (r"\left", r"\right"):
         symbol = symbol.replace(sizing, "")
     return "$" + symbol.replace(r"\text{", r"\mathrm{") + "$"
@@ -90,7 +91,9 @@ def is_gvec(data: xr.DataArray | xr.Dataset) -> bool:
     """
     gvec_dims = [d for d in GVEC_DIMS if d in data.dims]
     return any(
-        name in data.coords and data.coords[name].dims == (dim,) for dim in gvec_dims for name in AXES[dim]
+        name in data.coords and data.coords[name].dims == (dim,)
+        for dim in gvec_dims
+        for name in AXES[dim]
     )
 
 
@@ -101,7 +104,11 @@ def _nfp(ds: xr.Dataset, nfp):
         return int(ds["N_FP"])
     if "nfp" in ds.attrs:
         return int(ds.attrs["nfp"])
-    for name in TOROIDAL:  # a uniform grid over one field period, as gvec.Evaluations makes by default
+    for (
+        name
+    ) in (
+        TOROIDAL
+    ):  # a uniform grid over one field period, as gvec.Evaluations makes by default
         if name in ds.coords and ds.coords[name].ndim == 1 and ds.coords[name].size > 2:
             zeta = np.asarray(ds.coords[name], dtype=float)
             step = np.diff(zeta)
@@ -112,7 +119,9 @@ def _nfp(ds: xr.Dataset, nfp):
     return None
 
 
-def from_gvec(data: xr.DataArray | xr.Dataset, *, nfp: int | None = None) -> xr.DataArray | xr.Dataset:
+def from_gvec(
+    data: xr.DataArray | xr.Dataset, *, nfp: int | None = None
+) -> xr.DataArray | xr.Dataset:
     """Return GVEC evaluations in plasma-plots' conventions; see :mod:`plasma_plots.gvec`.
 
     Data that is not in GVEC's layout (see :func:`is_gvec`) comes back with only the steps that
@@ -159,12 +168,19 @@ def from_gvec(data: xr.DataArray | xr.Dataset, *, nfp: int | None = None) -> xr.
     nfp = _nfp(ds, nfp)
 
     # --- the grid's own variables become coordinates of every field --- #
-    grid = [n for n in GRID_VARIABLES if n in ds.data_vars and set(ds[n].dims) & set(GVEC_DIMS)]
+    grid = [
+        n
+        for n in GRID_VARIABLES
+        if n in ds.data_vars and set(ds[n].dims) & set(GVEC_DIMS)
+    ]
     ds = ds.set_coords(grid)
     if "pos" in ds.data_vars and "xyz" in ds["pos"].dims:
         pos = ds["pos"]
         ds = ds.assign_coords(
-            {axis: pos.sel(xyz=component, drop=True) for axis, component in zip("XYZ", "xyz")}
+            {
+                axis: pos.sel(xyz=component, drop=True)
+                for axis, component in zip("XYZ", "xyz")
+            }
         ).drop_vars("pos")
         for axis in "XYZ":
             ds[axis].attrs = {"label": f"${axis}$"}
@@ -186,7 +202,9 @@ def from_gvec(data: xr.DataArray | xr.Dataset, *, nfp: int | None = None) -> xr.
         weight = f"{dim}_weight"
         if weight in ds.coords:
             ds = ds.rename_vars({weight: f"{name}_weight"})
-            if dim == "tor" and nfp is not None:  # GVEC's weight integrates over all field periods
+            if (
+                dim == "tor" and nfp is not None
+            ):  # GVEC's weight integrates over all field periods
                 ds = ds.assign_coords({f"{name}_weight": ds[f"{name}_weight"] / nfp})
     if "xyz" in ds.dims:
         ds = ds.rename({"xyz": "component"})

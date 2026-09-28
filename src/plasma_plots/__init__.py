@@ -142,12 +142,13 @@ Runs as is, on synthetic data:
 'PlotResult'
 """
 
-from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
+from . import \
+    output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
-from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
-from .figures import figure
 from .desc import from_desc
+from .figures import figure
 from .gvec import from_gvec
+from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .plotly_backend import get_backend, set_backend
 from .plotting import save_figure
 

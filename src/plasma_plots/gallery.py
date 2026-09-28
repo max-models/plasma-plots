@@ -27,8 +27,11 @@ import plotly.graph_objects as go
 
 try:
     from struphy import set_logging_level as _set_logging_level
-    from struphy.utils.mpi_launch import launched_under_mpi as _launched_under_mpi
-except ImportError:  # the figure helpers work without struphy; the example scripts always have it
+    from struphy.utils.mpi_launch import \
+        launched_under_mpi as _launched_under_mpi
+except (
+    ImportError
+):  # the figure helpers work without struphy; the example scripts always have it
     _set_logging_level = None
 
     def _launched_under_mpi() -> bool:
@@ -105,14 +108,18 @@ def _plot_durations(*args, metrics=("total",), **kwargs):
     metrics = tuple(metrics)
     data_filepath = kwargs.pop("data_filepath", None)
     if not data_filepath or len(metrics) == 1:
-        return plot_durations(*args, metric=metrics[0], data_filepath=data_filepath, **kwargs)
+        return plot_durations(
+            *args, metric=metrics[0], data_filepath=data_filepath, **kwargs
+        )
 
     path = Path(data_filepath)
     payloads = []
     results = []
     for metric in metrics:
         temporary_path = path.with_name(f"{path.stem}.{metric}{path.suffix}")
-        results.extend(plot_durations(*args, metric=metric, data_filepath=temporary_path, **kwargs))
+        results.extend(
+            plot_durations(*args, metric=metric, data_filepath=temporary_path, **kwargs)
+        )
         payloads.append(json.loads(temporary_path.read_text()))
         temporary_path.unlink()
 
@@ -135,14 +142,22 @@ def _scientific_ticks(figure) -> None:
 
     figure.for_each_xaxis(default)
     figure.for_each_yaxis(default)
-    figure.for_each_scene(lambda scene: [default(axis) for axis in (scene.xaxis, scene.yaxis, scene.zaxis)])
+    figure.for_each_scene(
+        lambda scene: [
+            default(axis) for axis in (scene.xaxis, scene.yaxis, scene.zaxis)
+        ]
+    )
     figure.for_each_coloraxis(lambda coloraxis: default(coloraxis.colorbar))
     for trace in figure.data:
         # Touching `colorbar` on a trace that has none would make Plotly draw an empty one.
         marker = getattr(trace, "marker", None)
         if marker is not None and marker.showscale:
             default(marker.colorbar)
-        if "colorbar" in trace._valid_props and trace.showscale is not False and trace.type != "scatter":
+        if (
+            "colorbar" in trace._valid_props
+            and trace.showscale is not False
+            and trace.type != "scatter"
+        ):
             default(trace.colorbar)
 
 
@@ -204,11 +219,15 @@ def save_figure(
     if static_data is not None:
         still = go.Figure(data=static_data, layout=figure.layout)
         if static_active is not None and still.layout.sliders:
-            still.layout.sliders[0].active = static_active  # the slider shows the still's frame
+            still.layout.sliders[0].active = (
+                static_active  # the slider shows the still's frame
+            )
         still.write_image(png_path, width=width, height=height, scale=2)
     elif static_z is not None:
         initial_z = figure.data[0].z
-        initial_active = figure.layout.sliders[0].active if figure.layout.sliders else None
+        initial_active = (
+            figure.layout.sliders[0].active if figure.layout.sliders else None
+        )
         figure.data[0].z = static_z
         if static_active is not None and figure.layout.sliders:
             figure.layout.sliders[0].active = static_active
@@ -545,7 +564,9 @@ def heatmap_movie(
             **extra,
         )
 
-    frames = [go.Frame(name=f"{labels[i]:.1f}", data=[heatmap(frames_data[i])]) for i in picks]
+    frames = [
+        go.Frame(name=f"{labels[i]:.1f}", data=[heatmap(frames_data[i])]) for i in picks
+    ]
     figure = go.Figure(
         data=[heatmap(frames_data[0], colorbar={"title": colorbar_title})],
         frames=frames,
@@ -642,7 +663,11 @@ def merge_metadata(stem: str, **fields) -> Path:
     metadata.update(fields)
     # NaN and Infinity are not valid JSON: Python writes them anyway, and the site build then fails to
     # parse the file. A non-finite result is a broken run, so stop here and name it.
-    broken = [key for key, value in metadata.items() if isinstance(value, float) and not np.isfinite(value)]
+    broken = [
+        key
+        for key, value in metadata.items()
+        if isinstance(value, float) and not np.isfinite(value)
+    ]
     if broken:
         raise RuntimeError(
             f"Non-finite values in the metadata of {stem}: {', '.join(broken)}; refusing to publish the run"
@@ -677,7 +702,8 @@ def export_profiling(sim, stem: str) -> dict:
     >>> profiling = export_profiling(sim, "weak-landau-damping")
     >>> merge_metadata("weak-landau-damping", **profiling)
     """
-    from scope_profiler import plot_gantt, read_h5, write_region_statistics_json
+    from scope_profiler import (plot_gantt, read_h5,
+                                write_region_statistics_json)
 
     barrier()  # the ranks write the profiling file together
     profile_h5_path = Path(f"{stem}-profile.h5")
@@ -713,7 +739,9 @@ def export_profiling(sim, stem: str) -> dict:
     # for regions that never call each other); the chart reads a missing pair as null, so dropping
     # them cuts the file ~10x with no change on the page.
     durations_payload = json.loads(durations_path.read_text())
-    durations_payload["bars"] = [bar for bar in durations_payload["bars"] if bar["value_seconds"]]
+    durations_payload["bars"] = [
+        bar for bar in durations_payload["bars"] if bar["value_seconds"]
+    ]
     durations_path.write_text(json.dumps(durations_payload))
 
     plot_gantt(
@@ -727,16 +755,20 @@ def export_profiling(sim, stem: str) -> dict:
     # Keep the run's recorded host alongside its time and rank count for the gallery summary.
     # Read it from the profile, since exports can be regenerated on a different machine.
     region_stats_payload = json.loads(region_stats_path.read_text())
-    region_stats_payload["files"][0]["hostname"] = profile_reader.metadata.get("hostname")
+    region_stats_payload["files"][0]["hostname"] = profile_reader.metadata.get(
+        "hostname"
+    )
     region_stats_path.write_text(json.dumps(region_stats_payload))
 
     gantt_payload = json.loads(gantt_path.read_text())
     if len(gantt_payload["intervals"]) > GANTT_MAX_INTERVALS:
-        gantt_payload["intervals"] = sorted(gantt_payload["intervals"], key=lambda c: c["start_seconds"])[
-            :GANTT_MAX_INTERVALS
-        ]
+        gantt_payload["intervals"] = sorted(
+            gantt_payload["intervals"], key=lambda c: c["start_seconds"]
+        )[:GANTT_MAX_INTERVALS]
         gantt_path.write_text(json.dumps(gantt_payload))
 
     print(f"Saved {profile_h5_path.resolve()}")
-    print(f"Saved {durations_path.resolve()}, {gantt_path.resolve()}, {region_stats_path.resolve()}")
+    print(
+        f"Saved {durations_path.resolve()}, {gantt_path.resolve()}, {region_stats_path.resolve()}"
+    )
     return fields

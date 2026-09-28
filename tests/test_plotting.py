@@ -8,17 +8,17 @@ import xarray as xr
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
-from struphy.post_processing.arrays import data_array  # noqa: E402
 from plasma_plots.plotting import GrowthFit  # noqa: E402
 from plasma_plots.plotting import (InteractiveSliceViewer, View,
-                                    animate_slices, convergence_order, drift,
-                                    growth_rate, logical_grids, physical_grids,
-                                    plot_convergence, plot_dispersion,
-                                    plot_lineout, plot_panels, plot_scalars,
-                                    plot_slice, plot_timeseries, plot_vector,
-                                    plot_volume_slices, power_spectrum,
-                                    pyvista_volume, relative_error,
-                                    save_all_scalars, save_frames)
+                                   animate_slices, convergence_order, drift,
+                                   growth_rate, logical_grids, physical_grids,
+                                   plot_convergence, plot_dispersion,
+                                   plot_lineout, plot_panels, plot_scalars,
+                                   plot_slice, plot_timeseries, plot_vector,
+                                   plot_volume_slices, power_spectrum,
+                                   pyvista_volume, relative_error,
+                                   save_all_scalars, save_frames)
+from struphy.post_processing.arrays import data_array  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:Animation was deleted")
 
@@ -47,13 +47,22 @@ def phase_space(nt=6):
 def physical_field():
     coords = {"t": [0, 1], "eta1": range(3), "eta2": range(4), "eta3": range(5)}
     grids = np.meshgrid(coords["eta1"], coords["eta2"], coords["eta3"], indexing="ij")
-    coords.update({name: (("eta1", "eta2", "eta3"), grid) for name, grid in zip(("X", "Y", "Z"), grids)})
-    return data_array(np.ones((2, 3, 4, 5)), ("t", "eta1", "eta2", "eta3"), coords, name="phi")
+    coords.update(
+        {
+            name: (("eta1", "eta2", "eta3"), grid)
+            for name, grid in zip(("X", "Y", "Z"), grids)
+        }
+    )
+    return data_array(
+        np.ones((2, 3, 4, 5)), ("t", "eta1", "eta2", "eta3"), coords, name="phi"
+    )
 
 
 def scalar_dataset():
     t = np.linspace(0, 1, 6)
-    return xr.Dataset({"en_tot": ("t", 2 + 0.02 * t), "en_e": ("t", 1 + 0.1 * t)}, coords={"t": t})
+    return xr.Dataset(
+        {"en_tot": ("t", 2 + 0.02 * t), "en_e": ("t", 1 + 0.1 * t)}, coords={"t": t}
+    )
 
 
 def orbits_dataset(n_t=5, n_m=6):
@@ -150,7 +159,13 @@ def test_plot_slice_accepts_named_value_and_index_selection():
 def test_plot_slice_physical_coordinates_are_intrinsic():
     result = plot_slice(
         physical_field(),
-        view=View(x="eta1", y="eta2", isel={"t": 0, "eta3": 2}, coordinates="physical", plane="XY"),
+        view=View(
+            x="eta1",
+            y="eta2",
+            isel={"t": 0, "eta3": 2},
+            coordinates="physical",
+            plane="XY",
+        ),
     )
     assert result.ax.get_xlabel() == "X"
     assert result.ax.get_aspect() == 1.0
@@ -175,7 +190,9 @@ def test_panels_use_one_recipe_and_keep_full_title():
 
 
 def test_viewer_builds_controls_for_every_non_display_dimension():
-    viewer = InteractiveSliceViewer(physical_field(), view=View(x="eta1", y="eta2", coordinates="physical"))
+    viewer = InteractiveSliceViewer(
+        physical_field(), view=View(x="eta1", y="eta2", coordinates="physical")
+    )
     result = viewer.draw()
     assert set(viewer.sliders) == {"t", "eta3"}
     viewer.sliders["eta3"].set_val(3)
@@ -211,7 +228,9 @@ def test_notebook_display_shows_the_figure_once(monkeypatch, shown):
     import IPython.display
 
     displayed = []
-    monkeypatch.setattr(matplotlib, "get_backend", lambda: "module://matplotlib_inline.backend_inline")
+    monkeypatch.setattr(
+        matplotlib, "get_backend", lambda: "module://matplotlib_inline.backend_inline"
+    )
     monkeypatch.setattr(IPython.display, "display", displayed.append)
     monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
     result = plot_timeseries(scalar_dataset().en_tot, logy=False)
@@ -219,12 +238,16 @@ def test_notebook_display_shows_the_figure_once(monkeypatch, shown):
         result.show()
     result._ipython_display_()
     assert displayed == ([] if shown else [result.fig])
-    assert (result.fig.number in plt.get_fignums()) == shown, "the inline backend must not show it again"
+    assert (
+        result.fig.number in plt.get_fignums()
+    ) == shown, "the inline backend must not show it again"
 
 
 def test_slice_can_display_the_sweep_dimension():
     data = phase_space()
-    result = plot_slice(data.isel(v1=slice(None)), view=View(x="t", y="eta1", isel={"v1": 0}))
+    result = plot_slice(
+        data.isel(v1=slice(None)), view=View(x="t", y="eta1", isel={"v1": 0})
+    )
     assert result.ax.get_xlabel() == "$t$ [s]"
     with pytest.raises(ValueError, match="display it as x or y"):
         plot_slice(data, view=View(x="eta1", y="v1"))
@@ -266,13 +289,17 @@ def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("shared_clim", [True, False])
-def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, shared_clim):
+def test_explicit_color_limits_work_for_all_renderers(
+    tmp_path, monkeypatch, shared_clim
+):
     from matplotlib.figure import Figure
 
     import plasma_plots  # noqa: F401
 
     data = phase_space(nt=2)
-    options = dict(x="eta1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm")
+    options = dict(
+        x="eta1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm"
+    )
     panels = data.plasma.plot.panels(nrows=1, ncols=2, **options)
     animation = data.plasma.plot.animation(**options)
     viewer = data.plasma.plot.viewer(**options)
@@ -285,7 +312,9 @@ def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, sha
     monkeypatch.setattr(
         Figure,
         "savefig",
-        lambda fig, *args, **kwargs: captured.append(fig.axes[0].collections[0].get_clim()),
+        lambda fig, *args, **kwargs: captured.append(
+            fig.axes[0].collections[0].get_clim()
+        ),
     )
     data.plasma.plot.frames(tmp_path, **options)
     assert captured == [(-5, 100), (-5, 100)]
@@ -349,7 +378,9 @@ def test_marker_scatter_selects_a_time_and_colors_by_a_variable():
     markers = orbits_dataset(n_t=5, n_m=6)
     result = markers.plasma.plot.scatter(x="x", y="y", color="weight", t=-1)
     assert result.artists[0].get_offsets().shape == (6, 2)
-    assert result.fig.axes[-1].get_ylabel()  # the colorbar carries the color variable's label
+    assert result.fig.axes[
+        -1
+    ].get_ylabel()  # the colorbar carries the color variable's label
 
 
 def test_marker_scatter_rejects_unknown_variables_and_unresolved_dimensions():
@@ -362,7 +393,9 @@ def test_marker_scatter_rejects_unknown_variables_and_unresolved_dimensions():
 
 def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
     eta1, eta2 = np.linspace(0, 1, 5), np.linspace(0, 1, 5)
-    field = data_array(np.ones((5, 5)), ("eta1", "eta2"), {"eta1": eta1, "eta2": eta2}, name="phi")
+    field = data_array(
+        np.ones((5, 5)), ("eta1", "eta2"), {"eta1": eta1, "eta2": eta2}, name="phi"
+    )
     n_t, n_m = 4, 3
     track = np.linspace(0.2, 0.8, n_t)[:, None] * np.ones((1, n_m))
     orbits = xr.Dataset(
@@ -374,7 +407,9 @@ def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
     assert len(result.artists) == 1 + n_m  # the field mesh, plus one path per marker
 
     with pytest.raises(ValueError, match="missing required quantities"):
-        field.plasma.plot.overlay_orbits(orbits.rename({"eta1": "px"}), x="eta1", y="eta2")
+        field.plasma.plot.overlay_orbits(
+            orbits.rename({"eta1": "px"}), x="eta1", y="eta2"
+        )
 
 
 def test_array_data_mirrors_what_array_plot_would_render():
@@ -409,7 +444,9 @@ def test_array_data_mirrors_what_array_plot_would_render():
 
 def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
     eta1, eta2 = np.linspace(0, 1, 5), np.linspace(0, 1, 5)
-    field = data_array(np.ones((5, 5)), ("eta1", "eta2"), {"eta1": eta1, "eta2": eta2}, name="phi")
+    field = data_array(
+        np.ones((5, 5)), ("eta1", "eta2"), {"eta1": eta1, "eta2": eta2}, name="phi"
+    )
     n_t, n_m = 4, 6
     track = np.linspace(0.2, 0.8, n_t)[:, None] * np.ones((1, n_m))
     orbits = xr.Dataset(
@@ -417,7 +454,9 @@ def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
         coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
     )
 
-    field_slice, orbit_subset = field.plasma.data.overlay_orbits(orbits, x="eta1", y="eta2", max_markers=3)
+    field_slice, orbit_subset = field.plasma.data.overlay_orbits(
+        orbits, x="eta1", y="eta2", max_markers=3
+    )
     assert field_slice.dims == ("eta1", "eta2")
     assert orbit_subset.sizes["marker"] == 3
 
@@ -458,7 +497,9 @@ def dispersive_wave(
     for k in ks:
         w = omega(k)
         values += np.cos(k * X - w * T) + np.cos(k * X + w * T)
-    return data_array(values, ("t", "eta1"), {"t": t, "eta1": x}, name="phi", label=r"$\phi$")
+    return data_array(
+        values, ("t", "eta1"), {"t": t, "eta1": x}, name="phi", label=r"$\phi$"
+    )
 
 
 def test_power_spectrum_recovers_a_known_dispersion_branch():
@@ -489,7 +530,9 @@ def test_power_spectrum_requires_dim_for_ambiguous_arrays():
 
 def test_plot_dispersion_overlays_named_branches():
     field = dispersive_wave()
-    result = field.plasma.plot.dispersion(branches={"Bohm-Gross": lambda k: np.sqrt(1.0 + 3.0 * k**2)})
+    result = field.plasma.plot.dispersion(
+        branches={"Bohm-Gross": lambda k: np.sqrt(1.0 + 3.0 * k**2)}
+    )
     assert len(result.artists) == 2  # the spectrum mesh, plus the branch line
     assert result.ax.get_legend() is not None
 

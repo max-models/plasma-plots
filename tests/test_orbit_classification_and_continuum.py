@@ -7,12 +7,12 @@ import xarray as xr
 
 matplotlib.use("Agg")
 import plasma_plots  # noqa: E402, F401  (registers the accessors)
+from plasma_plots.analysis import classify_orbits  # noqa: E402
+from plasma_plots.plotting import plot_continuous_spectrum  # noqa: E402
+from plasma_plots.plotting import (plot_orbit_classification,
+                                   prepare_continuous_spectrum)
 from struphy.dispersion_relations.analytic import (  # noqa: E402
     MhdContinousSpectraCylinder, MhdContinousSpectraShearedSlab)
-from plasma_plots.analysis import classify_orbits  # noqa: E402
-from plasma_plots.plotting import (plot_continuous_spectrum,  # noqa: E402
-                                    plot_orbit_classification,
-                                    prepare_continuous_spectrum)
 
 
 def guiding_center_orbits():
@@ -70,7 +70,12 @@ def test_plot_orbit_classification_colors_each_class_and_counts_them():
 
     data = orbits.plasma.data.orbit_classification()
     assert set(data.data_vars) == {"v_par", "mu", "classification"}
-    assert data["v_par"].values.tolist() == [1.0, -0.5, 2.0, 0.3]  # initial time by default
+    assert data["v_par"].values.tolist() == [
+        1.0,
+        -0.5,
+        2.0,
+        0.3,
+    ]  # initial time by default
     assert len(orbits.plasma.plot.orbit_classification(t=-1).artists) == 3
 
 

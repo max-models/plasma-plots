@@ -7,11 +7,16 @@ import pytest
 
 
 def run(code):
-    return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
+    return subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    ).stdout
 
 
 def test_importing_plasma_plots_does_not_import_struphy():
-    assert run("import sys, plasma_plots; print('struphy' in sys.modules)").strip() == "False"
+    assert (
+        run("import sys, plasma_plots; print('struphy' in sys.modules)").strip()
+        == "False"
+    )
 
 
 @pytest.mark.parametrize(

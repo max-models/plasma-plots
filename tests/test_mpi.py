@@ -12,10 +12,19 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 import plasma_plots  # noqa: E402,F401  (registers array.plasma)
 from plasma_plots.arrays import save_scalars  # noqa: E402
-from plasma_plots.mpi import SkippedPlot, is_plotting_rank, mpi_rank  # noqa: E402
-from plasma_plots.plotting import InteractiveSliceViewer, plot_timeseries, save_all_scalars  # noqa: E402
+from plasma_plots.mpi import (SkippedPlot, is_plotting_rank,  # noqa: E402
+                              mpi_rank)
+from plasma_plots.plotting import (InteractiveSliceViewer,  # noqa: E402
+                                   plot_timeseries, save_all_scalars)
 
-LAUNCHER_VARS = ("OMPI_COMM_WORLD_RANK", "PMI_RANK", "PMIX_RANK", "MV2_COMM_WORLD_RANK", "PALS_RANKID", "ALPS_APP_PE")
+LAUNCHER_VARS = (
+    "OMPI_COMM_WORLD_RANK",
+    "PMI_RANK",
+    "PMIX_RANK",
+    "MV2_COMM_WORLD_RANK",
+    "PALS_RANKID",
+    "ALPS_APP_PE",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -98,7 +107,9 @@ def test_viewer_is_skipped_on_other_ranks(monkeypatch, field):
 
 def test_files_are_written_by_rank_zero_only(monkeypatch, scalars, tmp_path):
     monkeypatch.setenv("PMIX_RANK", "1")
-    assert save_scalars(scalars, str(tmp_path / "scalars.csv")) == str(tmp_path / "scalars.csv")
+    assert save_scalars(scalars, str(tmp_path / "scalars.csv")) == str(
+        tmp_path / "scalars.csv"
+    )
     assert list(save_all_scalars(scalars, tmp_path / "out")) == []
     assert not list(tmp_path.iterdir())
     monkeypatch.setenv("PMIX_RANK", "0")

@@ -12,13 +12,22 @@ from plasma_plots import pyvista_plots as p3  # noqa: E402
 
 
 def torus_coords(n1=6, n2=12, n3=16, R0=3.0, full=True):
-    eta1, eta2, eta3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.linspace(0, 1, n3)
+    eta1, eta2, eta3 = (
+        np.linspace(0, 1, n1),
+        np.linspace(0, 1, n2),
+        np.linspace(0, 1, n3),
+    )
     E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, (2 * np.pi if full else np.pi) * E3
     X = (R0 + r * np.cos(theta)) * np.cos(phi)
     Y = (R0 + r * np.cos(theta)) * np.sin(phi)
     Z = r * np.sin(theta)
-    return {"eta1": eta1, "eta2": eta2, "eta3": eta3, **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (X, Y, Z))}}
+    return {
+        "eta1": eta1,
+        "eta2": eta2,
+        "eta3": eta3,
+        **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (X, Y, Z))},
+    }
 
 
 def scalar(coords, t=None):
@@ -26,24 +35,47 @@ def scalar(coords, t=None):
     Z = coords["Z"][1]
     values = np.broadcast_to(Z, shape).copy()
     if t is None:
-        return xr.DataArray(values, dims=("eta1", "eta2", "eta3"), coords=coords, name="p", attrs={"label": "p"})
+        return xr.DataArray(
+            values,
+            dims=("eta1", "eta2", "eta3"),
+            coords=coords,
+            name="p",
+            attrs={"label": "p"},
+        )
     stacked = np.stack([values * (1 + ti) for ti in t])
-    return xr.DataArray(stacked, dims=("t", "eta1", "eta2", "eta3"), coords={"t": t, **coords}, name="p", attrs={"label": "p"})
+    return xr.DataArray(
+        stacked,
+        dims=("t", "eta1", "eta2", "eta3"),
+        coords={"t": t, **coords},
+        name="p",
+        attrs={"label": "p"},
+    )
 
 
 def plane_coords(n1=10, n2=12):
     """A 2-D run: a square in the x-y plane, eta3 with a single point."""
     eta1, eta2, eta3 = np.linspace(0, 1, n1), np.linspace(0, 1, n2), np.array([0.5])
     E1, E2, _ = np.meshgrid(eta1, eta2, eta3, indexing="ij")
-    return {"eta1": eta1, "eta2": eta2, "eta3": eta3, "X": (("eta1", "eta2", "eta3"), 2 * E1 - 1),
-            "Y": (("eta1", "eta2", "eta3"), 2 * E2 - 1), "Z": (("eta1", "eta2", "eta3"), 0 * E1)}
+    return {
+        "eta1": eta1,
+        "eta2": eta2,
+        "eta3": eta3,
+        "X": (("eta1", "eta2", "eta3"), 2 * E1 - 1),
+        "Y": (("eta1", "eta2", "eta3"), 2 * E2 - 1),
+        "Z": (("eta1", "eta2", "eta3"), 0 * E1),
+    }
 
 
 def vortex(coords):
     X, Y = coords["X"][1], coords["Y"][1]
     u = np.stack([-Y, X, 0 * X])
-    return xr.DataArray(u, dims=("component", "eta1", "eta2", "eta3"), coords={"component": [0, 1, 2], **coords},
-                        name="u", attrs={"label": "u"})
+    return xr.DataArray(
+        u,
+        dims=("component", "eta1", "eta2", "eta3"),
+        coords={"component": [0, 1, 2], **coords},
+        name="u",
+        attrs={"label": "u"},
+    )
 
 
 def actor_names(plotter):
@@ -79,15 +111,27 @@ def test_a_selected_away_spatial_dimension_comes_back_flat():
 def test_push_forward_recovers_cartesian_components():
     coords = torus_coords(n1=20, n2=40, n3=48)
     X, Y, Z = (coords[n][1] for n in "XYZ")
-    E1, E2, E3 = np.meshgrid(coords["eta1"], coords["eta2"], coords["eta3"], indexing="ij")
+    E1, E2, E3 = np.meshgrid(
+        coords["eta1"], coords["eta2"], coords["eta3"], indexing="ij"
+    )
     r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, 2 * np.pi * E3
     R = 3.0 + r * np.cos(theta)
     # the analytic Jacobian dX_a/de_i of torus_coords' mapping
-    jac = np.array([
-        [0.8 * np.cos(theta) * np.cos(phi), -2 * np.pi * r * np.sin(theta) * np.cos(phi), -2 * np.pi * R * np.sin(phi)],
-        [0.8 * np.cos(theta) * np.sin(phi), -2 * np.pi * r * np.sin(theta) * np.sin(phi), 2 * np.pi * R * np.cos(phi)],
-        [0.8 * np.sin(theta), 2 * np.pi * r * np.cos(theta), 0 * E1],
-    ])
+    jac = np.array(
+        [
+            [
+                0.8 * np.cos(theta) * np.cos(phi),
+                -2 * np.pi * r * np.sin(theta) * np.cos(phi),
+                -2 * np.pi * R * np.sin(phi),
+            ],
+            [
+                0.8 * np.cos(theta) * np.sin(phi),
+                -2 * np.pi * r * np.sin(theta) * np.sin(phi),
+                2 * np.pi * R * np.cos(phi),
+            ],
+            [0.8 * np.sin(theta), 2 * np.pi * r * np.cos(theta), 0 * E1],
+        ]
+    )
     cartesian = np.stack([-Y, X, 0 * X])  # a toroidal field
     inverse = np.linalg.inv(np.moveaxis(jac, (0, 1), (-2, -1)))
     contravariant = np.einsum("...ia,a...->i...", inverse, cartesian)
@@ -119,17 +163,25 @@ def test_isosurface_is_a_surface_in_3d_and_contour_lines_in_2d():
     flat = scalar(plane_coords()).copy(data=np.asarray(plane_coords()["X"][1]))
     plotter = p3.pyvista_isosurface(flat, values=3)
     assert {"plane", "isosurface"} <= actor_names(plotter)
-    assert np.allclose(np.abs(plotter.camera.direction), (0, 0, 1))  # looking at the plane
+    assert np.allclose(
+        np.abs(plotter.camera.direction), (0, 0, 1)
+    )  # looking at the plane
     plotter.close()
 
 
 def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
     field = scalar(torus_coords())
-    assert [piece.shape for piece in p3.prepare_slices_3d(field)] == [(1, 12, 16), (6, 1, 16), (6, 12, 1)]
+    assert [piece.shape for piece in p3.prepare_slices_3d(field)] == [
+        (1, 12, 16),
+        (6, 1, 16),
+        (6, 12, 1),
+    ]
     cuts = p3.prepare_slices_3d(field, cuts={"eta3": [0.0, -1], "eta1": 2})
     assert [piece.shape for piece in cuts] == [(6, 12, 1), (6, 12, 1), (1, 12, 16)]
     assert cuts[1].eta3.item() == 1.0
-    assert p3.prepare_slices_3d(field, cuts={"eta3": "last"})[0].eta3.item() == 1.0   # still accepted
+    assert (
+        p3.prepare_slices_3d(field, cuts={"eta3": "last"})[0].eta3.item() == 1.0
+    )  # still accepted
     with pytest.raises(ValueError, match="eta1, eta2 or eta3"):
         p3.prepare_slices_3d(field, cuts={"t": 0})
 
@@ -149,7 +201,9 @@ def test_glyphs_and_streamlines_for_a_2d_vector_field():
     plotter = flow.plasma.plot.streamlines(n_points=10)
     assert "streamlines" in actor_names(plotter)
     lines = plotter.renderer.actors["streamlines"].mapper.dataset
-    np.testing.assert_allclose(lines.points[:, 2], 0.0, atol=1e-12)  # stays on the plane
+    np.testing.assert_allclose(
+        lines.points[:, 2], 0.0, atol=1e-12
+    )  # stays on the plane
     plotter.close()
     with pytest.raises(ValueError, match="cartesian"):
         flow.plasma.plot.glyphs(components="covariant")
@@ -159,8 +213,12 @@ def test_orbit_polylines_drop_lost_samples_and_color_by_class():
     t = np.linspace(0, 1, 5)
     x = np.array([[3.0, 3.1], [3.1, 3.2], [3.2, 0.0], [3.3, 0.0], [3.4, 0.0]])
     orbits = xr.Dataset(
-        {"x": (("t", "marker"), x), "y": (("t", "marker"), np.where(x == 0, 0, 0.5)),
-         "z": (("t", "marker"), np.where(x == 0, 0, 0.1)), "v_par": (("t", "marker"), np.where(x == 0, 0, 1.0))},
+        {
+            "x": (("t", "marker"), x),
+            "y": (("t", "marker"), np.where(x == 0, 0, 0.5)),
+            "z": (("t", "marker"), np.where(x == 0, 0, 0.1)),
+            "v_par": (("t", "marker"), np.where(x == 0, 0, 1.0)),
+        },
         coords={"t": t, "marker": [0, 1]},
     )
     lines = p3.orbit_polylines(orbits)
@@ -183,7 +241,9 @@ def test_domain_wireframe_draws_only_boundary_lines():
     wires = plotter.renderer.actors["wireframe"].mapper.dataset
     assert wires.n_lines > 0
     plotter.close()
-    flat = p3.pyvista_domain(cylinder, n1=4, n2=8, n3=1, resolution=2)  # a 2-D cross-section
+    flat = p3.pyvista_domain(
+        cylinder, n1=4, n2=8, n3=1, resolution=2
+    )  # a 2-D cross-section
     assert "wireframe" in actor_names(flat)
     flat.close()
 
@@ -193,7 +253,9 @@ def test_save_movie_writes_one_frame_per_step(tmp_path):
     from PIL import Image
 
     field = scalar(plane_coords(), t=[0.0, 0.5, 1.0, 1.5])
-    path = field.plasma.plot.movie(tmp_path / "movie.gif", kind="isosurface", step=2, values=3)
+    path = field.plasma.plot.movie(
+        tmp_path / "movie.gif", kind="isosurface", step=2, values=3
+    )
     assert Image.open(path).n_frames == 2
     with pytest.raises(ValueError, match="kind"):
         p3.save_movie(field, tmp_path / "x.gif", kind="volume")

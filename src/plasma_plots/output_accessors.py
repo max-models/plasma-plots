@@ -325,9 +325,13 @@ class OutputPlots:
         """
         from .plotting import show_equilibrium
 
-        return show_equilibrium(self._output.equil, self._output.domain, scalars=scalars, cmap=cmap)
+        return show_equilibrium(
+            self._output.equil, self._output.domain, scalars=scalars, cmap=cmap
+        )
 
-    def domain_3d(self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True):
+    def domain_3d(
+        self, *, n1: int = 8, n2: int = 32, n3: int = 32, surface: bool = True
+    ):
         """Draw a PyVista wireframe of this run's mapping (``out.domain``); call ``.show()`` on it.
 
         Returns
@@ -438,7 +442,9 @@ def _linear_mhd_energies(output, velocity, b_field, pressure, gamma):
 
     domain, equil = output.domain, output.equil
     if not hasattr(equil, "_domain"):
-        equil.domain = domain  # the equilibrium profiles are pulled back to this run's mapping
+        equil.domain = (
+            domain  # the equilibrium profiles are pulled back to this run's mapping
+        )
     fields = {
         name: array(value, representation)
         for name, value, representation in (
@@ -518,7 +524,9 @@ class OutputAnalysis:
     def _array(self, product):
         return self._output.evaluate(product) if isinstance(product, str) else product
 
-    def fft(self, product, *, dim: str, detrend: bool = False, window: str | None = None):
+    def fft(
+        self, product, *, dim: str, detrend: bool = False, window: str | None = None
+    ):
         """Compute two-sided Fourier coefficients of a product along ``dim``.
 
         Parameters
@@ -570,7 +578,9 @@ class OutputAnalysis:
 
         return time_fft(self._array(product), detrend=detrend, window=window)
 
-    def filter_time(self, product, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0):
+    def filter_time(
+        self, product, *, dims=None, omega_min: float = 1e-8, pad_bins: int = 0
+    ):
         """Reconstruct the dominant temporal frequency band of a product.
 
         Parameters
@@ -595,7 +605,9 @@ class OutputAnalysis:
         """
         from .spectral import filter_time
 
-        return filter_time(self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins)
+        return filter_time(
+            self._array(product), dims=dims, omega_min=omega_min, pad_bins=pad_bins
+        )
 
     def linear_mhd_energies(
         self,
@@ -693,7 +705,9 @@ class OutputAnalysis:
         """
         return _quadrature_grid(self._output)
 
-    def mode_spectrum(self, product, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0):
+    def mode_spectrum(
+        self, product, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0
+    ):
         """Compute complex amplitudes of a product over poloidal/toroidal mode numbers.
 
         Parameters
@@ -718,7 +732,9 @@ class OutputAnalysis:
         """
         from .spectral import mode_spectrum
 
-        return mode_spectrum(self._array(product), dims=dims, names=names, periods=periods)
+        return mode_spectrum(
+            self._array(product), dims=dims, names=names, periods=periods
+        )
 
 
 _OUTPUT_MODULE = "struphy.post_processing.output"

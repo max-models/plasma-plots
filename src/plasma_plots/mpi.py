@@ -51,7 +51,12 @@ def mpi_rank() -> int:
     >>> mpi_rank()  # in a serial run
     0
     """
-    if os.environ.get(_OVERRIDE_ENV_VAR, "").strip().lower() in ("0", "false", "no", "off"):
+    if os.environ.get(_OVERRIDE_ENV_VAR, "").strip().lower() in (
+        "0",
+        "false",
+        "no",
+        "off",
+    ):
         return 0
     mpi = sys.modules.get("mpi4py.MPI")
     if mpi is not None:

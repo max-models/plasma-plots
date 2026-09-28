@@ -22,15 +22,26 @@ def close_figures():
 
 def series():
     t = np.linspace(0, 10, 101)
-    energy = xr.DataArray(1e-4 * np.exp(0.4 * t), dims="t", coords={"t": t}, name="en_E", attrs={"label": "$E$"})
+    energy = xr.DataArray(
+        1e-4 * np.exp(0.4 * t),
+        dims="t",
+        coords={"t": t},
+        name="en_E",
+        attrs={"label": "$E$"},
+    )
     total = xr.DataArray(1 + 1e-6 * t**2, dims="t", coords={"t": t}, name="en_tot")
     return energy, total
 
 
 def wave():
     x, t = np.linspace(0, 1, 16, endpoint=False), np.linspace(0, 20, 80)
-    return xr.DataArray(np.cos(2 * np.pi * 3 * x[None] - 1.2 * t[:, None]), dims=("t", "eta1"),
-                        coords={"t": t, "eta1": x}, name="u", attrs={"run": "a run"})
+    return xr.DataArray(
+        np.cos(2 * np.pi * 3 * x[None] - 1.2 * t[:, None]),
+        dims=("t", "eta1"),
+        coords={"t": t, "eta1": x},
+        name="u",
+        attrs={"run": "a run"},
+    )
 
 
 def test_panels_draw_into_one_matplotlib_figure_and_keep_their_results():
@@ -40,7 +51,9 @@ def test_panels_draw_into_one_matplotlib_figure_and_keep_their_results():
         total.plasma.plot.timeseries(logy=False, ax=fig[1])
     assert isinstance(fig.result, PlotResult) and fig.fig is fig[0].figure
     assert fig[0].get_shared_x_axes().joined(fig[0], fig[1])
-    assert len(fig.results) == 2 and fig.results[0].fit_results[0].rate == pytest.approx(0.4)
+    assert len(fig.results) == 2 and fig.results[0].fit_results[
+        0
+    ].rate == pytest.approx(0.4)
     assert fig.result.fit_results[0].rate == pytest.approx(0.4)
     assert fig.fig.get_suptitle() == "energies"
 
@@ -70,8 +83,13 @@ def test_panels_leave_title_and_layout_to_the_figure_and_keep_their_colorbars():
         u.plasma.plot.dispersion(dim="eta1", kmin=0, vmin=-8, vmax=0, ax=fig[0])
         (2 * u).plasma.plot.dispersion(dim="eta1", kmin=0, vmin=-8, vmax=0, ax=fig[1])
     assert isinstance(fig.fig, go.Figure)
-    assert [trace.coloraxis for trace in fig.fig.data if trace.type == "heatmap"] == ["coloraxis", "coloraxis2"]
-    with plasma_plots.figure(1, 2) as mixed:  # lineout calls tight_layout: not on a composed figure
+    assert [trace.coloraxis for trace in fig.fig.data if trace.type == "heatmap"] == [
+        "coloraxis",
+        "coloraxis2",
+    ]
+    with plasma_plots.figure(
+        1, 2
+    ) as mixed:  # lineout calls tight_layout: not on a composed figure
         u.plasma.plot.slice(x="eta1", y="t", ax=mixed[0])
         u.plasma.plot.lineout(x="eta1", t=-1, ax=mixed[1])
     assert mixed.fig.get_suptitle() == ""  # no panel's run label as the figure's title
@@ -84,7 +102,9 @@ def test_inside_a_figure_every_plot_draws_with_matplotlib_whatever_the_default()
     try:
         with plasma_plots.figure(1, 1, backend="matplotlib") as fig:
             result = energy.plasma.plot.timeseries(ax=fig[0])
-        assert isinstance(result.fig, matplotlib.figure.Figure) and isinstance(fig.fig, matplotlib.figure.Figure)
+        assert isinstance(result.fig, matplotlib.figure.Figure) and isinstance(
+            fig.fig, matplotlib.figure.Figure
+        )
         with plasma_plots.figure() as default:  # the default backend finishes it
             energy.plasma.plot.timeseries(ax=default[0])
         assert not isinstance(default.fig, matplotlib.figure.Figure)
@@ -111,7 +131,9 @@ def test_saving_inside_the_block_saves_what_is_drawn_so_far(backend, tmp_path):
         total.plasma.plot.timeseries(logy=False, ax=fig[1])
         fig.save(tmp_path / f"inside.{suffix}")
     assert fig[1].get_visible()  # a snapshot left the empty panel for the later plot
-    assert (tmp_path / f"half.{suffix}").stat().st_size and (tmp_path / f"inside.{suffix}").stat().st_size
+    assert (tmp_path / f"half.{suffix}").stat().st_size and (
+        tmp_path / f"inside.{suffix}"
+    ).stat().st_size
     if backend == "plotly":
         assert len(fig.fig.data) == 2
 

@@ -6,7 +6,7 @@ import xarray as xr
 
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
 from plasma_plots.analysis import (BranchFit, fit_dispersion_branches,
-                                    power_spectrum)
+                                   power_spectrum)
 
 
 def multi_branch_field(
@@ -37,13 +37,19 @@ def multi_branch_field(
             phase = rng.uniform(0.0, 2 * np.pi, size=(len(k_modes), 1, 1))
             values += np.cos(K * X[None] + sign * v * K * T[None] + phase).sum(axis=0)
     return xr.DataArray(
-        values, dims=("t", "eta3"), coords={"t": t, "eta3": x}, name="field", attrs={"label": "field"}
+        values,
+        dims=("t", "eta3"),
+        coords={"t": t, "eta3": x},
+        name="field",
+        attrs={"label": "field"},
     )
 
 
 def test_fit_dispersion_branches_recovers_a_single_branch_velocity():
     spectrum = power_spectrum(multi_branch_field([1.0]))
-    (branch,) = fit_dispersion_branches(spectrum, n_branches=1, noise_level=0.3, order=3)
+    (branch,) = fit_dispersion_branches(
+        spectrum, n_branches=1, noise_level=0.3, order=3
+    )
     assert isinstance(branch, BranchFit)
     assert branch.velocity == pytest.approx(1.0, rel=0.01)
     assert branch.k.shape == branch.omega.shape
@@ -80,6 +86,10 @@ def test_fit_dispersion_branches_raises_when_nothing_matches():
 def test_accessor_fit_branches_matches_the_function():
     field = multi_branch_field([1.0])
     spectrum = field.plasma.analysis.dispersion()
-    via_accessor = spectrum.plasma.analysis.fit_branches(n_branches=1, noise_level=0.3, order=3)
-    via_function = fit_dispersion_branches(spectrum, n_branches=1, noise_level=0.3, order=3)
+    via_accessor = spectrum.plasma.analysis.fit_branches(
+        n_branches=1, noise_level=0.3, order=3
+    )
+    via_function = fit_dispersion_branches(
+        spectrum, n_branches=1, noise_level=0.3, order=3
+    )
     assert via_accessor[0].velocity == pytest.approx(via_function[0].velocity)

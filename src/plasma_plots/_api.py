@@ -97,7 +97,11 @@ ACCESSORS = [
     ("dataset.plasma.data", "dataset.plasma.data", "accessors.DatasetData"),
     ("out.plot (a Struphy Output)", "out.plot", "output_accessors.OutputPlots"),
     ("out.plot.profile", "out.plot.profile", "output_accessors.ProfilePlots"),
-    ("out.analysis (a Struphy Output)", "out.analysis", "output_accessors.OutputAnalysis"),
+    (
+        "out.analysis (a Struphy Output)",
+        "out.analysis",
+        "output_accessors.OutputAnalysis",
+    ),
 ]
 TOP_LEVEL = [
     "plasma_plots.figure",
@@ -122,7 +126,16 @@ RESULTS = [
     "plasma_plots.plotting.View",
 ]
 # the modules of plain functions behind the accessors, for arrays from anywhere
-MODULES = ["plotting", "spectral_plots", "analysis", "spectral", "arrays", "gvec", "desc", "pyvista_plots"]
+MODULES = [
+    "plotting",
+    "spectral_plots",
+    "analysis",
+    "spectral",
+    "arrays",
+    "gvec",
+    "desc",
+    "pyvista_plots",
+]
 THEORY = ["kinetic", "waves", "parameters", "orbits", "exact", "numerics", "special"]
 
 
@@ -178,7 +191,9 @@ def examples(function, limit=2) -> list[str]:
             statements[-1].append(stripped[4:].strip())
     found, comment = [], None
     for lines in statements:
-        if lines[0].startswith("#"):  # a comment of its own line belongs to the next statement
+        if lines[0].startswith(
+            "#"
+        ):  # a comment of its own line belongs to the next statement
             comment = lines[0]
             continue
         if not lines[0].startswith(("import ", "from ")):
@@ -199,12 +214,18 @@ def _one_line(lines: list[str]) -> str:
 
 
 def _with_examples(name, function) -> list[str]:
-    return [_line(name, function)] + [f"  - e.g. `{code}`" for code in examples(function)]
+    return [_line(name, function)] + [
+        f"  - e.g. `{code}`" for code in examples(function)
+    ]
 
 
 def _resolve(path):
     module, _, rest = path.partition(".")
-    obj = importlib.import_module(f"plasma_plots.{module}") if module != "plasma_plots" else None
+    obj = (
+        importlib.import_module(f"plasma_plots.{module}")
+        if module != "plasma_plots"
+        else None
+    )
     if obj is None:
         import plasma_plots as obj
     for part in rest.split("."):
@@ -216,7 +237,9 @@ def _public_functions(module):
     return [
         (name, obj)
         for name, obj in vars(module).items()
-        if not name.startswith("_") and inspect.isfunction(obj) and obj.__module__ == module.__name__
+        if not name.startswith("_")
+        and inspect.isfunction(obj)
+        and obj.__module__ == module.__name__
     ]
 
 
@@ -250,7 +273,9 @@ def api_index() -> str:
         out += _with_examples(path, _resolve(path))
     out.append("")
     out.append("## Result types\n")
-    out.append("What the methods return, with their fields (`help()` on the class explains each).\n")
+    out.append(
+        "What the methods return, with their fields (`help()` on the class explains each).\n"
+    )
     for path in RESULTS:
         cls = _resolve(path)
         fields = [f.name for f in dataclasses.fields(cls) if not f.name.startswith("_")]
@@ -265,10 +290,14 @@ def api_index() -> str:
         module = importlib.import_module(f"plasma_plots.{name}")
         names = [fname for fname, _ in _public_functions(module)]
         if names:
-            out.append(f"- `plasma_plots.{name}`: " + ", ".join(f"`{n}`" for n in names))
+            out.append(
+                f"- `plasma_plots.{name}`: " + ", ".join(f"`{n}`" for n in names)
+            )
     out.append("")
     out.append("## Theory: plasma_plots.theory\n")
-    out.append("Analytic results to compare with, plain numpy; complex ω for dispersion relations.\n")
+    out.append(
+        "Analytic results to compare with, plain numpy; complex ω for dispersion relations.\n"
+    )
     for name in THEORY:
         module = importlib.import_module(f"plasma_plots.theory.{name}")
         out.append(f"### plasma_plots.theory.{name}\n")
