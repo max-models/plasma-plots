@@ -46,7 +46,20 @@ result.save("energy.json")     # the figure JSON, e.g. for a website
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
 that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`
 saves the same way, with the same defaults and only on rank 0: `PlotResult(figure).save("page.html")`
-(`from struphy_plots.plotting import PlotResult`). A space-time map of a `(t, z)` field is
+(`from struphy_plots.plotting import PlotResult`).
+
+To write the page, the image and the figure JSON at once, as a website needs them, use
+`save_figure`. It takes a plot's result or a figure of your own, and saves nothing on other ranks:
+
+```python
+from struphy_plots import save_figure
+
+save_figure(result, "energy", show=True)              # energy.html, energy.png, energy.plotly.json
+save_figure(movie, "phase-space", frame=-1)           # the image shows the last frame
+save_figure(my_figure, "orbits", formats=("html",))   # a plotly.graph_objects.Figure, only the page
+```
+
+A space-time map of a `(t, z)` field is
 a slice with time as one of its axes:
 `e_x.struphy.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
 

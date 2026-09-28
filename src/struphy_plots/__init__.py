@@ -125,5 +125,15 @@ from .accessors import StruphyAccessor
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .figures import figure
 from .plotly_backend import get_backend, set_backend
+from .plotting import save_figure
 
-__all__ = ["SkippedPlot", "StruphyAccessor", "figure", "get_backend", "is_plotting_rank", "mpi_rank", "set_backend"]
+__all__ = [
+    "SkippedPlot",
+    "StruphyAccessor",
+    "figure",
+    "get_backend",
+    "is_plotting_rank",
+    "mpi_rank",
+    "save_figure",
+    "set_backend",
+]

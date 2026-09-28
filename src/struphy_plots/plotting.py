@@ -302,6 +302,95 @@ class PlotResult:
         return f"{type(self).__name__}(fig={self.fig!r})"
 
 
+def save_figure(
+    figure,
+    name,
+    *,
+    formats=("html", "png", "plotly.json"),
+    show: bool = False,
+    frame: int | None = None,
+    still=None,
+    width: int = 1100,
+    height: int = 650,
+    scale: float = 2.0,
+) -> list[str]:
+    """Save a figure in several formats at once, as ``<name>.<format>``.
+
+    The defaults write an interactive page, an image and the figure JSON of a Plotly figure: the
+    three files a web page needs. Like :meth:`PlotResult.save`, this does nothing on MPI ranks
+    other than 0.
+
+    Parameters
+    ----------
+    figure : PlotResult, Figure, plotly.graph_objects.Figure or matplotlib.figure.Figure
+        What to save: the result of a plot (e.g. with ``backend="plotly"``), a figure of
+        :func:`struphy_plots.figure`, or a figure made some other way.
+    name : str or pathlib.Path
+        The files' path without the format, e.g. ``"maxwell-wave"`` or ``"figures/energy"``.
+    formats : sequence of str, optional
+        The formats, each appended to ``name`` after a dot; the last extension picks how it is
+        written, as in :meth:`PlotResult.save`. Default: ``("html", "png", "plotly.json")``.
+    show : bool, optional
+        Show the figure first. Default: ``False``.
+    frame : int, optional
+        For the image of a Plotly animation: the frame it shows (e.g. ``-1`` for the last). The
+        page and the JSON keep the whole animation. Default: the first frame.
+    still : plotly.graph_objects.Figure, optional
+        A figure that the image shows instead, e.g. a view of an animation that is none of its
+        frames. The page and the JSON keep ``figure``.
+    width : int, optional
+        Width of an image of a Plotly figure, in layout pixels. Default: 1100.
+    height : int, optional
+        Height of an image of a Plotly figure, in layout pixels. Default: 650.
+    scale : float, optional
+        Resolution factor of an image of a Plotly figure. Default: 2.
+
+    Returns
+    -------
+    list of str
+        The paths written; empty on MPI ranks other than 0.
+
+    See Also
+    --------
+    PlotResult.save : Save one file.
+
+    Examples
+    --------
+    >>> dispersion = spectrum.struphy.plot.dispersion(kmin=0, backend="plotly")
+    >>> save_figure(dispersion, "maxwell-wave", show=True)   # maxwell-wave.html, .png, .plotly.json
+    >>> save_figure(movie, "phase-space", frame=len(movie.fig.frames) // 2)
+    >>> save_figure(go.Figure(go.Scatter(x=t, y=energy)), "energy", formats=("html",))
+    """
+    from .mpi import is_plotting_rank
+
+    def as_result(obj):
+        return obj if hasattr(obj, "save") and hasattr(obj, "show") else PlotResult(obj)
+
+    result = as_result(figure)
+    if show:
+        result.show()
+    if not is_plotting_rank():
+        return []
+    image = {"width": width, "height": height, "scale": scale}
+    written = []
+    for fmt in formats:
+        path = f"{name}.{fmt}"
+        extension = fmt.rsplit(".", 1)[-1].lower()
+        if extension in ("html", "htm", "json"):
+            written.append(result.save(path))
+        elif still is not None:
+            written.append(as_result(still).save(path, **_image_options(as_result(still), image)))
+        else:
+            written.append(result.save(path, frame=frame, **_image_options(result, image)))
+    return [str(path) for path in written]
+
+
+def _image_options(result, image):
+    """Width, height and scale apply to a Plotly image; a Matplotlib image keeps its own size."""
+    fig = getattr(result, "fig", None)
+    return image if fig is None or type(fig).__module__.startswith("plotly") else {}
+
+
 def _detach_figure(fig):
     """Take a figure out of pyplot under the inline backend, which would show it as a still image."""
     import matplotlib
