@@ -27,7 +27,9 @@ In Python, `import struphy_plots; help(struphy_plots)` (or `python -m struphy_pl
 printing an accessor lists its methods (`print(phi.struphy.plot)`), and `help()`
 on a method shows every parameter. For language models and coding agents, the
 documentation is available as plain text at
-https://struphy-hub.github.io/struphy-plots/llms.txt.
+https://struphy-hub.github.io/struphy-plots/llms.txt. [API.md](API.md) (or
+`python -m struphy_plots api`) is a one-page index of every accessor method and function, and
+[AGENTS.md](AGENTS.md) explains the code for agents working on it.
 
 Direct plotting functions are available from
 `struphy_plots.plotting`; analysis functions are in `struphy_plots.analysis`.

@@ -13,7 +13,7 @@ from elsewhere, ``import struphy_plots`` first; without it, ``.struphy`` raises
 
 Printing an accessor lists its methods (``print(phi.struphy.plot)``), and ``help()`` on a method
 shows every parameter (``help(phi.struphy.plot.slice)``). ``python -m struphy_plots`` prints this
-guide.
+guide, ``python -m struphy_plots api`` an index of every method and function with its signature.
 
 A post-processing pipeline
 --------------------------
