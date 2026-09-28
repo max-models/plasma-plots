@@ -14,6 +14,7 @@ lint:
 # full compiled struphy runtime -- see CONTRIBUTING.md). Not checked into
 # git -- run this before building the docs site.
 figures:
+	python3 scripts/api_index.py
 	python3 scripts/generate_docs_figures.py
 	python3 scripts/generate_real_example_figures.py
 
@@ -27,5 +28,5 @@ docs-dev: figures
 	cd docs && npm run dev
 
 clean:
-	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista
+	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista docs/public/llms-api.txt
 	find . -name '__pycache__' -not -path './docs/node_modules/*' -exec rm -rf {} +

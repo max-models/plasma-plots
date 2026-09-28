@@ -97,20 +97,25 @@ class Figure:
         return False
 
     def _finish(self):
+        self._result = self._drawn(final=True)
+
+    def _drawn(self, *, final):
+        """The figure as drawn so far; ``final`` hides empty panels and releases a converted figure."""
         from .mpi import SkippedPlot, mpi_rank
         from .plotting import PlotResult
 
         if self.axes is None:
-            self._result = SkippedPlot("figure", mpi_rank())
-            return
+            return SkippedPlot("figure", mpi_rank())
         fig = self._fig
         if self._title:
             fig.suptitle(self._title)
-        for ax in self.axes.ravel():  # panels left empty are not drawn
-            if not ax.has_data() and not ax.get_legend() and ax.get_visible():
-                ax.set_visible(False)
+        empty = [ax for ax in self.axes.ravel() if not ax.has_data() and not ax.get_legend() and ax.get_visible()]
+        for ax in empty:  # panels left empty are not drawn
+            ax.set_visible(False)
         fits = [fit for result in self.results for fit in getattr(result, "fit_results", [])]
-        if self._plotly:
+        try:
+            if not self._plotly:
+                return PlotResult(fig, self.axes, [], fits)
             import matplotlib.pyplot as plt
 
             from .plotly_backend import _plotly, to_plotly
@@ -118,27 +123,28 @@ class Figure:
             _plotly()
             with _offscreen():
                 converted = to_plotly(fig)
-            plt.close(fig)
-            self._result = PlotResult(converted, None, list(converted.data), fits)
-        else:
-            self._result = PlotResult(fig, self.axes, [], fits)
+            if final:
+                plt.close(fig)
+            return PlotResult(converted, None, list(converted.data), fits)
+        finally:
+            if not final:  # a snapshot inside the block: later plots may still fill these panels
+                for ax in empty:
+                    ax.set_visible(True)
 
     @property
     def result(self):
-        """The finished figure, as a :class:`~struphy_plots.plotting.PlotResult`.
+        """The figure, as a :class:`~struphy_plots.plotting.PlotResult`.
+
+        After the ``with`` block the finished figure; inside it, the figure as drawn so far, so
+        that ``fig.save(...)`` works in either place.
 
         Returns
         -------
         PlotResult or SkippedPlot
             The figure, Matplotlib or Plotly, with the ``fit_results`` of every panel.
-
-        Raises
-        ------
-        RuntimeError
-            Inside the ``with`` block, before the figure is finished.
         """
         if self._result is None:
-            raise RuntimeError("the figure is finished at the end of its with block")
+            return self._drawn(final=False)
         return self._result
 
     @property
@@ -147,7 +153,9 @@ class Figure:
         return self.result.fig
 
     def save(self, path, **kwargs):
-        """Save the finished figure, as :meth:`PlotResult.save <struphy_plots.plotting.PlotResult.save>` does.
+        """Save the figure, as :meth:`PlotResult.save <struphy_plots.plotting.PlotResult.save>` does.
+
+        Inside the ``with`` block it saves the panels drawn so far.
 
         Parameters
         ----------

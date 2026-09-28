@@ -92,13 +92,28 @@ def test_inside_a_figure_every_plot_draws_with_matplotlib_whatever_the_default()
         struphy_plots.set_backend(previous)
 
 
-def test_empty_panels_are_hidden_and_the_result_waits_for_the_block():
+def test_empty_panels_are_hidden_when_the_figure_is_finished():
     energy, _ = series()
     with struphy_plots.figure(1, 2) as fig:
-        with pytest.raises(RuntimeError, match="with block"):
-            fig.result
         energy.struphy.plot.timeseries(ax=fig[0])
     assert fig[0].get_visible() and not fig[1].get_visible()
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
+def test_saving_inside_the_block_saves_what_is_drawn_so_far(backend, tmp_path):
+    if backend == "plotly":
+        pytest.importorskip("plotly")
+    energy, total = series()
+    suffix = "png" if backend == "matplotlib" else "json"
+    with struphy_plots.figure(2, 1, backend=backend) as fig:
+        energy.struphy.plot.timeseries(ax=fig[0])
+        fig.save(tmp_path / f"half.{suffix}")  # the second panel is still empty
+        total.struphy.plot.timeseries(logy=False, ax=fig[1])
+        fig.save(tmp_path / f"inside.{suffix}")
+    assert fig[1].get_visible()  # a snapshot left the empty panel for the later plot
+    assert (tmp_path / f"half.{suffix}").stat().st_size and (tmp_path / f"inside.{suffix}").stat().st_size
+    if backend == "plotly":
+        assert len(fig.fig.data) == 2
 
 
 def test_other_mpi_ranks_draw_nothing(monkeypatch, tmp_path):

@@ -49,10 +49,16 @@ export default defineConfig({
 						'- Select every dimension a plot does not draw by keyword: an integer is a position (`t=-1` the last), a float the nearest coordinate value.',
 						'- In Python, `import struphy_plots; help(struphy_plots)` (or `python -m struphy_plots`) gives an overview, printing an accessor (e.g. `print(phi.struphy.plot)`) lists its methods, and `help()` on a method shows every parameter.',
 						'- `struphy_plots.theory` has analytic results to compare runs with: kinetic, fluid, MHD and cold-plasma dispersion relations and growth rates (complex ω), plasma parameters and Struphy units, orbits, exact solutions, and the errors of the numerical schemes. Plain numpy; its functions work directly as `branches=`, `reference=` and `theory=` of the plots.',
+						'- Start with the API index (/llms-api.txt, the same as `python -m struphy_plots api`): the conventions every method shares, then every accessor method and function with its signature and one-line summary, in about 40 kB.',
 						'- The Reference pages list every accessor method and function with all parameters (also as plain text at /api/struphy_plots/llms.txt); the Guides show them with figures.',
 					].join('\n'),
 					promote: ['guides/getting-started', 'guides/data', 'reference', 'reference/**'],
 					optionalLinks: [
+						{
+							label: 'API index',
+							url: 'https://struphy-hub.github.io/struphy-plots/llms-api.txt',
+							description: 'the conventions, then every accessor method and function with its signature and summary, one line each (about 40 kB)',
+						},
 						{
 							label: 'API reference',
 							url: 'https://struphy-hub.github.io/struphy-plots/api/struphy_plots/llms.txt',
