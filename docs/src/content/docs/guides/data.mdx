@@ -23,8 +23,10 @@ so you can work with it directly:
 - export it with `.to_dataframe()`, `.to_netcdf()` or `.values`
 
 ```python
-last = n.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)    # 2-D, with X and Y
-cut = n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)             # 1-D, along eta1
+# 2-D, with X and Y
+last = n.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
+# 1-D, along eta1
+cut = n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
 ```
 
 ## Selecting by name
@@ -79,16 +81,17 @@ directly. For the ring from the
 
 ```python
 last = n.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
-densest = last.isel(last.argmax(...))                  # the densest point, with its X and Y
+densest = last.isel(last.argmax(...))  # the densest point, with its X and Y
 print(float(densest.X), float(densest.Y))
 
 cut = n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
-radius = 0.1 + 0.9 * cut.eta1                           # this mapping's minor radius
+radius = 0.1 + 0.9 * cut.eta1  # this mapping's minor radius
 inside = radius.where(cut >= 0.2)
-width = float(inside.max() - inside.min())              # the ring's width along the cut
+width = float(inside.max() - inside.min())  # the ring's width along the cut
 
-frames = n.plasma.data.view(coords="physical", plane="XY", eta3=0)    # (t, eta1, eta2)
-peak_over_time = frames.max("t")                        # the largest density each point reached
+# (t, eta1, eta2)
+frames = n.plasma.data.view(coords="physical", plane="XY", eta3=0)
+peak_over_time = frames.max("t")  # the largest density each point reached
 ```
 
 The same selections drawn with plain matplotlib:
@@ -106,10 +109,10 @@ ax_cut.axvspan(float(inside.min()), float(inside.max()), alpha=0.25)
 ## Exports
 
 ```python
-last.to_dataframe()                          # a pandas table, one row per point, with X and Y
-last.to_netcdf("ring_last.nc")               # a self-describing file with all coordinates
-np.save("ring_last.npy", last.values)        # the bare numbers
-n.plasma.data.to_vtk("ring")                 # one .vts per time and a .pvd for ParaView
+last.to_dataframe()  # a pandas table, one row per point, with X and Y
+last.to_netcdf("ring_last.nc")  # a self-describing file with all coordinates
+np.save("ring_last.npy", last.values)  # the bare numbers
+n.plasma.data.to_vtk("ring")  # one .vts per time and a .pvd for ParaView
 ```
 
 ## Other plotting libraries
@@ -124,8 +127,11 @@ import plotly.express as px
 
 selected = field.plasma.data.slice(x="eta1", y="eta2", t=-1)
 px.imshow(
-    selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2,
-    origin="lower", color_continuous_scale="viridis",
+    selected.transpose("eta2", "eta1"),
+    x=selected.eta1,
+    y=selected.eta2,
+    origin="lower",
+    color_continuous_scale="viridis",
 )
 ```
 

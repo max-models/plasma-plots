@@ -78,6 +78,12 @@ CI regenerates the figures the same way (with the same heavy struphy install
 as the test suite, since the real-example page still needs it) on every push
 to `devel`, before deploying to GitHub Pages.
 
+The docs site shows about 80 characters of code before a block scrolls sideways, so the
+` ```python ` blocks of the guides are formatted with `ruff format` at 79 characters (not the
+package's 120): run `python scripts/format_docs_snippets.py` after editing them, and
+`tests/test_docs_snippets.py` fails until you do. A trailing comment that doesn't fit its line
+moves above the statement. The scripts included with `<Code>` aren't covered.
+
 ## Docstrings and the API reference
 
 The API reference on the docs site is generated from the docstrings by

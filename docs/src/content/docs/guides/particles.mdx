@@ -96,9 +96,12 @@ markers.plasma.plot.trajectories(max_markers=200, backend="plotly")
 ## Orbit classification
 
 ```python
-codes = orbits.plasma.analysis.classify_orbits()         # per marker: 0 passing, 1 trapped, -1 lost
-orbits.plasma.plot.orbit_classification()                # initial v_par against mu, colored by class
-orbits.plasma.plot.orbit_classification(x="p_phi")       # the canonical-momentum diagram
+# per marker: 0 passing, 1 trapped, -1 lost
+codes = orbits.plasma.analysis.classify_orbits()
+# initial v_par against mu, colored by class
+orbits.plasma.plot.orbit_classification()
+# the canonical-momentum diagram
+orbits.plasma.plot.orbit_classification(x="p_phi")
 ```
 
 For guiding-center orbits (Particles5D or Particles5Dvperp), `classify_orbits`
@@ -117,8 +120,8 @@ class's count and fraction. `x="p_phi"` gives the canonical-momentum view when
 ## Orbits in the poloidal plane
 
 ```python
-orbits.plasma.plot.poloidal(boundary=field)      # R = sqrt(x² + y²) against z
-orbits.plasma.plot.quantities(markers=4)          # v_par and the drift of mu over time
+orbits.plasma.plot.poloidal(boundary=field)  # R = sqrt(x² + y²) against z
+orbits.plasma.plot.quantities(markers=4)  # v_par and the drift of mu over time
 ```
 
 `poloidal()` projects each orbit onto the poloidal plane, colored as passing,
@@ -200,7 +203,9 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-markers.plasma.plot.scatter(x="x", y="y", color="density", t=-1, backend="plotly")
+markers.plasma.plot.scatter(
+    x="x", y="y", color="density", t=-1, backend="plotly"
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_scatter.json" />
@@ -217,8 +222,13 @@ position, to follow where fluid parcels go:
 
 ```python
 markers.plasma.plot.scatter(
-    x="x", y="y", color="x", color_at=0, t=-1,
-    background=density.isel(eta3=0), background_options={"cmap": "Blues"},
+    x="x",
+    y="y",
+    color="x",
+    color_at=0,
+    t=-1,
+    background=density.isel(eta3=0),
+    background_options={"cmap": "Blues"},
 )
 ```
 
@@ -232,7 +242,11 @@ Markers that leave the domain disappear, and the axes limits stay fixed:
 
 ```python
 anim = markers.plasma.plot.animation(
-    x="x", y="y", color="x", color_at=0, background=density.isel(eta3=0),
+    x="x",
+    y="y",
+    color="x",
+    color_at=0,
+    background=density.isel(eta3=0),
     background_options={"cmap": "Blues"},
 )
 anim.save("dam_break.gif", writer="pillow", fps=8)
@@ -252,8 +266,14 @@ For orbits, a few more options:
 
 ```python
 anim = orbits.plasma.plot.animation(
-    x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
-    background=psi, background_options={"levels": 6, "fill": False, "cmap": "Greys"},
+    x="R",
+    y="z",
+    color="classification",
+    trail=60,
+    paths=True,
+    max_frames=80,
+    background=psi,
+    background_options={"levels": 6, "fill": False, "cmap": "Greys"},
 )
 ```
 
@@ -266,8 +286,17 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
-                               background=psi, background_options={"levels": 6, "fill": False, "cmap": "Greys"}, backend="plotly")
+orbits.plasma.plot.animation(
+    x="R",
+    y="z",
+    color="classification",
+    trail=60,
+    paths=True,
+    max_frames=80,
+    background=psi,
+    background_options={"levels": 6, "fill": False, "cmap": "Greys"},
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_orbits_animation.json" height="560px" />
@@ -285,7 +314,8 @@ lines of a stream function, shows what the markers should follow:
 ```python
 markers.plasma.plot.paths(
     near=[(x, 0.25) for x in np.linspace(0.28, 0.46, 6)],
-    background=psi, background_options={"levels": 12, "fill": False, "cmap": "Greys"},
+    background=psi,
+    background_options={"levels": 12, "fill": False, "cmap": "Greys"},
 )
 ```
 
@@ -314,7 +344,9 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-field.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1, backend="plotly")
+field.plasma.plot.overlay_orbits(
+    orbits, x="eta1", y="eta2", t=-1, backend="plotly"
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_overlay_orbits.json" />

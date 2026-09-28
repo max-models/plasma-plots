@@ -22,9 +22,23 @@ saved with `to_netcdf` and opened again, so plotting a saved equilibrium does no
 import gvec
 import plasma_plots
 
-state = gvec.find_state("path/to/run")      # or run.state after gvec.run(params)
-ev = plasma_plots.from_gvec(state.evaluate(
-    "mod_B", "pos", "X1", "X2", "Jac", "iota", "p", "theta_P", "N_FP", rho=17, theta=64, zeta=40))
+state = gvec.find_state("path/to/run")  # or run.state after gvec.run(params)
+ev = plasma_plots.from_gvec(
+    state.evaluate(
+        "mod_B",
+        "pos",
+        "X1",
+        "X2",
+        "Jac",
+        "iota",
+        "p",
+        "theta_P",
+        "N_FP",
+        rho=17,
+        theta=64,
+        zeta=40,
+    )
+)
 ```
 
 Every figure on this page comes from real GVEC runs, made while the docs are built
@@ -55,8 +69,14 @@ data as on Struphy's, e.g. `ev.mod_B.plasma.analysis.gradient()`.
 ## Poloidal planes
 
 ```python
-ev.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3,
-                            overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}})
+ev.mod_B.plasma.plot.panels(
+    sweep="zeta",
+    coords="physical",
+    plane="RZ",
+    nrows=1,
+    ncols=3,
+    overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}},
+)
 ```
 
 The field in the `(R, Z)` plane at three toroidal angles of one field period of the stellarator,
@@ -78,8 +98,13 @@ The data behind one of these planes: `ev.mod_B.plasma.data.slice(coords="physica
 One plane, with `backend="plotly"` (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-ev.mod_B.plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0,
-                           overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}}, backend="plotly")
+ev.mod_B.plasma.plot.slice(
+    coords="physical",
+    plane="RZ",
+    zeta=0.0,
+    overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}},
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_gvec_poloidal_plane.json" />
@@ -90,10 +115,27 @@ The same for W7-X, from the bean-shaped plane at `zeta = 0` over half a field pe
 triangular one:
 
 ```python
-planes = plasma_plots.from_gvec(w7x.evaluate("mod_B", "pos", "X1", "X2", "theta_P", "N_FP", rho=13, theta=96,
-                                             zeta=np.linspace(0, np.pi / w7x.nfp, 3)))
-planes.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3,
-                                overlays={"coordinate_lines": {"rho": 4, "theta_P": 12}})
+planes = plasma_plots.from_gvec(
+    w7x.evaluate(
+        "mod_B",
+        "pos",
+        "X1",
+        "X2",
+        "theta_P",
+        "N_FP",
+        rho=13,
+        theta=96,
+        zeta=np.linspace(0, np.pi / w7x.nfp, 3),
+    )
+)
+planes.mod_B.plasma.plot.panels(
+    sweep="zeta",
+    coords="physical",
+    plane="RZ",
+    nrows=1,
+    ncols=3,
+    overlays={"coordinate_lines": {"rho": 4, "theta_P": 12}},
+)
 ```
 
 ![|B| in three poloidal planes of W7-X over half a field period, bean-shaped to triangular](../../../assets/figures/gvec_w7x_planes.png)
@@ -101,11 +143,24 @@ planes.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nro
 ## On a flux surface
 
 ```python
-boozer = plasma_plots.from_gvec(state.evaluate_sfl(
-    "mod_B", "pos", "N_FP", rho=np.linspace(0.1, 1.0, 10), theta=64, zeta=40, sfl="boozer"))
+boozer = plasma_plots.from_gvec(
+    state.evaluate_sfl(
+        "mod_B",
+        "pos",
+        "N_FP",
+        rho=np.linspace(0.1, 1.0, 10),
+        theta=64,
+        zeta=40,
+        sfl="boozer",
+    )
+)
 with plasma_plots.figure(1, 2) as fig:
-    ev.mod_B.plasma.plot.slice(x="zeta", y="theta", rho=0.5, levels=12, ax=fig[0])
-    boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5, levels=12, ax=fig[1])
+    ev.mod_B.plasma.plot.slice(
+        x="zeta", y="theta", rho=0.5, levels=12, ax=fig[0]
+    )
+    boozer.mod_B.plasma.plot.slice(
+        x="zeta_B", y="theta_B", rho=0.5, levels=12, ax=fig[1]
+    )
 ```
 
 A surface is a logical slice at one `rho`: here |B| on the surface `rho = 0.5`, over GVEC's
@@ -120,7 +175,9 @@ The data behind these plots: `boozer.mod_B.plasma.data.slice(x="zeta_B", y="thet
 <summary>The same plot with Plotly</summary>
 
 ```python
-boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5, levels=12, backend="plotly")
+boozer.mod_B.plasma.plot.slice(
+    x="zeta_B", y="theta_B", rho=0.5, levels=12, backend="plotly"
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_gvec_boozer_surface.json" />
@@ -131,8 +188,12 @@ A Boozer grid carries GVEC's logical angles as coordinates, so `coordinate_lines
 are constant, the way GVEC's own Boozer tutorial shows the transform:
 
 ```python
-boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5,
-                               overlays={"coordinate_lines": {"theta": 12, "zeta": 8}})
+boozer.mod_B.plasma.plot.slice(
+    x="zeta_B",
+    y="theta_B",
+    rho=0.5,
+    overlays={"coordinate_lines": {"theta": 12, "zeta": 8}},
+)
 ```
 
 ![|B| over the Boozer angles, with lines of constant logical angles theta and zeta](../../../assets/figures/gvec_boozer_grid.png)
@@ -172,7 +233,8 @@ with plasma_plots.figure(2, 2) as fig:
     ev.iota.plasma.plot.lineout(rationals=4, ax=fig[0])
     ev.p.plasma.plot.lineout(ax=fig[1])
     ev.plasma.analysis.surface_average("mod_B").plasma.plot.lineout(ax=fig[2])
-    ev.mod_B.plasma.plot.lineout(x="zeta", rho=0, theta=0, ax=fig[3])     # on the magnetic axis
+    # on the magnetic axis
+    ev.mod_B.plasma.plot.lineout(x="zeta", rho=0, theta=0, ax=fig[3])
 ```
 
 `rationals=4` marks the four lowest-order rational values `n/m` of ι that the profile reaches,
@@ -206,13 +268,30 @@ For a tokamak, the safety factor `q = 1/ι` works the same way; here with the to
 plane next to it:
 
 ```python
-tok = plasma_plots.from_gvec(tokamak.evaluate("mod_B", "pos", "X1", "X2", "iota", "theta_P", "N_FP",
-                                              rho=17, theta=64, zeta=[0.0]))
+tok = plasma_plots.from_gvec(
+    tokamak.evaluate(
+        "mod_B",
+        "pos",
+        "X1",
+        "X2",
+        "iota",
+        "theta_P",
+        "N_FP",
+        rho=17,
+        theta=64,
+        zeta=[0.0],
+    )
+)
 q = (1 / tok.iota).rename("q")
 q.attrs = {"label": "$q$", "nfp": 1}
 with plasma_plots.figure(1, 2) as fig:
-    tok.mod_B.plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0,
-                                overlays={"coordinate_lines": {"rho": 5, "theta_P": 12}}, ax=fig[0])
+    tok.mod_B.plasma.plot.slice(
+        coords="physical",
+        plane="RZ",
+        zeta=0.0,
+        overlays={"coordinate_lines": {"rho": 5, "theta_P": 12}},
+        ax=fig[0],
+    )
     q.plasma.plot.lineout(rationals=4, ax=fig[1])
 ```
 
@@ -224,8 +303,14 @@ with plasma_plots.figure(1, 2) as fig:
 import xarray as xr
 from plasma_plots.analysis import volume_integral
 
-gauss = plasma_plots.from_gvec(state.evaluate("mod_B", "Jac", "pos", "N_FP", rho="int", theta="int", zeta="int"))
-volume = volume_integral(xr.ones_like(gauss.Jac), jacobian=gauss.Jac) * gauss.nfp
+gauss = plasma_plots.from_gvec(
+    state.evaluate(
+        "mod_B", "Jac", "pos", "N_FP", rho="int", theta="int", zeta="int"
+    )
+)
+volume = (
+    volume_integral(xr.ones_like(gauss.Jac), jacobian=gauss.Jac) * gauss.nfp
+)
 ```
 
 `volume_integral` integrates over the sampled grid, which covers one field period, so multiply by
@@ -244,8 +329,17 @@ With PyVista (see [3-D views](/plasma-plots/guides/3d-views/)), on a grid over t
 Struphy's `eta1`, `eta2`, `eta3`.
 
 ```python
-torus = plasma_plots.from_gvec(state.evaluate(
-    "mod_B", "B", "pos", "N_FP", rho=9, theta=48, zeta=np.linspace(0, 2 * np.pi, 32 * state.nfp, endpoint=False)))
+torus = plasma_plots.from_gvec(
+    state.evaluate(
+        "mod_B",
+        "B",
+        "pos",
+        "N_FP",
+        rho=9,
+        theta=48,
+        zeta=np.linspace(0, 2 * np.pi, 32 * state.nfp, endpoint=False),
+    )
+)
 torus.mod_B.plasma.plot.slices_3d(cuts={"rho": [1.0]}).show()
 ```
 
@@ -256,7 +350,9 @@ torus.mod_B.plasma.plot.slices_3d(cuts={"rho": [1.0]}).show()
 An inner surface and three poloidal cuts, inside the translucent outer surface:
 
 ```python
-torus.mod_B.plasma.plot.slices_3d(cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}).show()
+torus.mod_B.plasma.plot.slices_3d(
+    cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}
+).show()
 ```
 
 <PyVistaScene src="/pyvista/gvec_3d_cutaway.html" image={fig_cutaway} alt="|B| on the surface rho = 0.5 and on three poloidal cuts, in the translucent last flux surface" />
@@ -265,8 +361,12 @@ Magnetic field lines, traced through GVEC's `B` from a small sphere of seeds nex
 
 ```python
 axis = torus.isel(rho=0, theta=0, zeta=0)
-torus.B.plasma.plot.streamlines(n_points=40, source_center=(float(axis.X) + 0.35, float(axis.Y), float(axis.Z)),
-                                source_radius=0.25, tube_radius=0.015).show()
+torus.B.plasma.plot.streamlines(
+    n_points=40,
+    source_center=(float(axis.X) + 0.35, float(axis.Y), float(axis.Z)),
+    source_radius=0.25,
+    tube_radius=0.015,
+).show()
 ```
 
 <PyVistaScene src="/pyvista/gvec_3d_fieldlines.html" image={fig_fieldlines} alt="Magnetic field lines of the stellarator, colored by |B|" />
@@ -274,8 +374,16 @@ torus.B.plasma.plot.streamlines(n_points=40, source_center=(float(axis.X) + 0.35
 And W7-X's last flux surface, all five field periods:
 
 ```python
-surface = plasma_plots.from_gvec(w7x.evaluate(
-    "mod_B", "pos", "N_FP", rho=[1.0], theta=64, zeta=np.linspace(0, 2 * np.pi, 48 * w7x.nfp, endpoint=False)))
+surface = plasma_plots.from_gvec(
+    w7x.evaluate(
+        "mod_B",
+        "pos",
+        "N_FP",
+        rho=[1.0],
+        theta=64,
+        zeta=np.linspace(0, 2 * np.pi, 48 * w7x.nfp, endpoint=False),
+    )
+)
 surface.mod_B.plasma.plot.slices_3d().show()
 ```
 

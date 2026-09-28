@@ -42,7 +42,12 @@ out.plot.equilibrium_3d(scalars="p0", cmap="viridis")
   with energetic ions driving a wave:
 
   ```python
-  out.plot.energies(groups={"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]})
+  out.plot.energies(
+      groups={
+          "wave": ["en_U", "en_B", "en_p"],
+          "energetic ions": ["en_fv", "en_fB"],
+      }
+  )
   ```
 
   Where energy only moves between the two groups, the wave's gain and minus
@@ -81,10 +86,20 @@ precision. Its purpose is to measure the energy of fields that were never
 simulated, such as a filtered mode:
 
 ```python
-etas, weights = out.analysis.quadrature_grid()        # Gauss points and weights per direction
-u = out.evaluate("mhd/velocity", eta1=etas["eta1"], eta2=etas["eta2"], eta3=etas["eta3"], representation="2")
+# Gauss points and weights per direction
+etas, weights = out.analysis.quadrature_grid()
+u = out.evaluate(
+    "mhd/velocity",
+    eta1=etas["eta1"],
+    eta2=etas["eta2"],
+    eta3=etas["eta3"],
+    representation="2",
+)
 mode = u.plasma.analysis.filter_time(pad_bins=1).filtered
-out.analysis.linear_mhd_energies(velocity=mode, b_field=None, pressure=None).en_U   # energy in that mode
+# energy in that mode
+out.analysis.linear_mhd_energies(
+    velocity=mode, b_field=None, pressure=None
+).en_U
 ```
 
 Fields must be in their FEEC space's own representation: 2-form components

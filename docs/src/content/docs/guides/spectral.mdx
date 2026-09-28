@@ -52,12 +52,19 @@ power follows these conventions too.
 ## Power spectra
 
 ```python
-spectrum = phi.plasma.analysis.time_fft(detrend=True)    # Dataset: coefficients, power
-spectrum.power.mean(("eta1", "eta2", "eta3"))                   # power per bin, averaged over space
-phi.plasma.analysis.spectral_peaks(n_peaks=2)            # peak frequencies, refined below the bin spacing
+# Dataset: coefficients, power
+spectrum = phi.plasma.analysis.time_fft(detrend=True)
+# power per bin, averaged over space
+spectrum.power.mean(("eta1", "eta2", "eta3"))
+# peak frequencies, refined below the bin spacing
+phi.plasma.analysis.spectral_peaks(n_peaks=2)
 
-band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
-phi.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap-centre estimate": omega_tae})
+band = phi.plasma.analysis.filter_time(
+    dims=("eta1", "eta2", "eta3"), pad_bins=3
+)
+phi.plasma.plot.power_spectrum(
+    peaks=2, band=band, frequencies={"TAE gap-centre estimate": omega_tae}
+)
 ```
 
 `time_fft` returns complex `coefficients` and one-sided `power`, with `t`
@@ -82,9 +89,11 @@ keeps the zero frequency. `pad_bins` widens the band. That matters for a
 growing or damped mode, whose line is broader than one bin:
 
 ```python
-band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
-band.filtered                  # same dims, coordinates and units as phi
-band.spectrum                  # reduced power, dominant_frequency, omega_lo/hi, has_peak
+band = phi.plasma.analysis.filter_time(
+    dims=("eta1", "eta2", "eta3"), pad_bins=3
+)
+band.filtered  # same dims, coordinates and units as phi
+band.spectrum  # reduced power, dominant_frequency, omega_lo/hi, has_peak
 phi.plasma.plot.filtered(band, eta1=0.4, eta2=0.0, eta3=0.0)
 ```
 
@@ -103,8 +112,9 @@ eigenfrequency.
 `eta2` → m and toroidal `eta3` → n by default, and keeps every other dimension:
 
 ```python
-modes = phi.plasma.analysis.mode_spectrum()           # complex, (t, eta1, m, n)
-amplitudes = modes.plasma.analysis.mode_amplitudes(top=4)  # (t, eta1, mode), labels like "(10, -1)"
+modes = phi.plasma.analysis.mode_spectrum()  # complex, (t, eta1, m, n)
+# (t, eta1, mode), labels like "(10, -1)"
+amplitudes = modes.plasma.analysis.mode_amplitudes(top=4)
 phi.plasma.plot.mode_amplitudes(top=2, fit=(100, 500))
 phi.plasma.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3))
 ```
@@ -126,7 +136,12 @@ interface, since a radial average would cancel the displacement:
 
 ```python
 n.sel(eta1=0.59, method="nearest").plasma.plot.mode_amplitudes(
-    dims="eta2", names="m", relative=True, top=3, fit=(8, 20), eta3=0,
+    dims="eta2",
+    names="m",
+    relative=True,
+    top=3,
+    fit=(8, 20),
+    eta3=0,
 )
 ```
 
@@ -146,8 +161,10 @@ Struphy's `MhdContinousSpectraCylinder`, as for the
 
 ```python
 phi.plasma.plot.radial_power(
-    x_of=lambda eta1: 0.1 + 0.9 * eta1, xlabel="r/a",
-    continuum=(alfven_continuum, [(10, 6), (11, 6)]), omega_max=0.3,
+    x_of=lambda eta1: 0.1 + 0.9 * eta1,
+    xlabel="r/a",
+    continuum=(alfven_continuum, [(10, 6), (11, 6)]),
+    omega_max=0.3,
 )
 ```
 
@@ -171,8 +188,11 @@ from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
 from plasma_plots.plotting import plot_continuous_spectrum
 
 plot_continuous_spectrum(
-    MhdContinousSpectraCylinder(), np.linspace(0.05, 1, 300), [(10, 6), (11, 6)],
-    frequencies={"measured TAE frequency": omega}, xlabel="r",
+    MhdContinousSpectraCylinder(),
+    np.linspace(0.05, 1, 300),
+    [(10, 6), (11, 6)],
+    frequencies={"measured TAE frequency": omega},
+    xlabel="r",
 )
 ```
 
@@ -194,8 +214,13 @@ refined peak frequency. `mode_profiles` combines it with `mode_spectrum` to show
 the radial profile of each harmonic:
 
 ```python
-omega = float(phi.plasma.analysis.spectral_peaks(n_peaks=1, window="hann").omega_refined[0])
-structure = phi.plasma.analysis.mode_structure(omega)      # complex, (eta1, eta2, eta3)
+omega = float(
+    phi.plasma.analysis.spectral_peaks(n_peaks=1, window="hann").omega_refined[
+        0
+    ]
+)
+# complex, (eta1, eta2, eta3)
+structure = phi.plasma.analysis.mode_structure(omega)
 phi.plasma.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
 ```
 
@@ -211,7 +236,9 @@ time. `scale` multiplies the mode numbers, so `scale=(1, 6)` labels a sixth of
 a torus (`tor_period=6`) with full-torus toroidal mode numbers:
 
 ```python
-phi.plasma.plot.mode_profiles(t=-1, scale=(1, 6), x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
+phi.plasma.plot.mode_profiles(
+    t=-1, scale=(1, 6), x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2
+)
 ```
 
 ![Radial amplitude of each harmonic at the last time, with full-torus n](../../../assets/figures/mode_profiles_snapshot.png)
@@ -223,7 +250,9 @@ The filtered mode, drawn in its torus sector with the
 [3-D views](/plasma-plots/guides/3d-views/):
 
 ```python
-band.filtered.isel(t=-1).plasma.plot.slices_3d(cuts={"eta3": [0, 0.5, 1], "eta1": 0.44}, cmap="RdBu_r")
+band.filtered.isel(t=-1).plasma.plot.slices_3d(
+    cuts={"eta3": [0, 0.5, 1], "eta1": 0.44}, cmap="RdBu_r"
+)
 ```
 
 <PyVistaScene src="/pyvista/spectral_tae_3d.html" image={fig_tae_3d} alt="The filtered TAE on poloidal cuts and a flux surface of the torus sector" />
@@ -237,7 +266,8 @@ fits a sum of growing or damped oscillations directly instead: the frequency
 and growth (or damping) rate of each mode, with no bin limit:
 
 ```python
-fit = probe.plasma.analysis.matrix_pencil(n_modes=1)    # omega, gamma, amplitude, phase per mode
+# omega, gamma, amplitude, phase per mode
+fit = probe.plasma.analysis.matrix_pencil(n_modes=1)
 probe.plasma.plot.pencil_fit(n_modes=1)
 ```
 

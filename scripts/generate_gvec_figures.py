@@ -216,19 +216,13 @@ except ImportError as exc:  # pragma: no cover - optional
     print(f"skipped the 3-D views (pyvista unavailable): {exc}")
 
 # =============================================================================
-# W7-X (GVEC's examples/parameter-w7x.toml, five field periods): planes and its last surface
+# W7-X (GVEC's examples/parameter-w7x.toml, in scripts/data; five field periods): planes and its last surface
 # =============================================================================
 if not os.environ.get("PLASMA_PLOTS_SKIP_W7X"):
     from gvec.util import read_parameters
 
-    toml = Path(gvec.__file__).resolve().parent / "examples" / "parameter-w7x.toml"
-    if not toml.exists():  # the sdist does not install the examples: fetch the file
-        import urllib.request
-
-        toml = WORK / "parameter-w7x.toml"
-        urllib.request.urlretrieve(
-            "https://gitlab.mpcdf.mpg.de/gvec-group/gvec/-/raw/main/python/examples/parameter-w7x.toml", toml)
-    w7x = equilibrium(read_parameters(toml), "w7x")
+    # a copy of the file: the sdist does not install GVEC's examples
+    w7x = equilibrium(read_parameters(ROOT / "scripts" / "data" / "gvec-parameter-w7x.toml"), "w7x")
     planes = plasma_plots.from_gvec(w7x.evaluate("mod_B", "pos", "X1", "X2", "theta_P", "N_FP", rho=13, theta=96,
                                                  zeta=np.linspace(0, np.pi / w7x.nfp, 3)))
     save(planes.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3,

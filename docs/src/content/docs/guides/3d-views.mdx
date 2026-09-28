@@ -58,7 +58,9 @@ it off).
 sit in physical space. On a torus, cuts in `eta3` are poloidal cross-sections:
 
 ```python
-phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0)
+phi.plasma.plot.slices_3d(
+    cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0
+)
 ```
 
 <PyVistaScene src="/pyvista/3d_slices.html" image={fig_slices} alt="Poloidal cross-sections of a mode in a torus" />
@@ -82,7 +84,9 @@ each direction is drawn. All cuts share one color scale.
 a sphere around `source_center`:
 
 ```python
-b.plasma.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35)
+b.plasma.plot.streamlines(
+    n_points=60, source_center=(3.5, 0, 0), source_radius=0.35
+)
 ```
 
 <PyVistaScene src="/pyvista/3d_streamlines.html" image={fig_streamlines} alt="Magnetic field lines in a torus" />
@@ -127,6 +131,7 @@ checking a geometry and its orientation:
 out.plot.domain_3d(n1=6, n2=24, n3=36)
 # or, for any struphy domain object:
 from plasma_plots.pyvista_plots import pyvista_domain
+
 pyvista_domain(domain, n1=6, n2=24, n3=36)
 ```
 
@@ -161,8 +166,15 @@ which comes with the `pyvista` extra) or a video such as `.mp4` (needs
 camera stays fixed after the first frame:
 
 ```python
-phi.plasma.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
-phi_2d.plasma.plot.movie("mode_2d.gif", kind="isosurface", values=7, cmap="RdBu_r")
+phi.plasma.plot.movie(
+    "mode.gif",
+    kind="slices",
+    cuts={"eta3": [0, 0.25, 0.5, 0.75]},
+    cmap="RdBu_r",
+)
+phi_2d.plasma.plot.movie(
+    "mode_2d.gif", kind="isosurface", values=7, cmap="RdBu_r"
+)
 ```
 
 ![A mode rotating through poloidal cross-sections](/plasma-plots/figures/3d_slices.gif)

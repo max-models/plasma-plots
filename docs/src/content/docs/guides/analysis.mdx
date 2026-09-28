@@ -40,8 +40,9 @@ frequency far finer than a spectrum's bins:
 
 ```python
 fit = probe.plasma.analysis.oscillation_frequency(window=(0.0, 30.0))
-fit.omega, fit.period, fit.times       # the crossings used
-probe.plasma.analysis.oscillation_frequency(method="peaks")    # from the maxima instead
+fit.omega, fit.period, fit.times  # the crossings used
+# from the maxima instead
+probe.plasma.analysis.oscillation_frequency(method="peaks")
 ```
 
 `method="peaks"` uses the maxima, for a signal that does not cross its mean. The peaks of an
@@ -86,12 +87,16 @@ others with `args=`. The result is a function of the remaining dimensions,
 usually `t`:
 
 ```python
-exact = lambda x, t: heat_kernel(x, t)                  # a 1-D profile over eta1 and t
-T.plasma.analysis.error(exact, relative=True)           # relative RMS error over time
-T.plasma.analysis.error(exact, norm="max")              # largest pointwise error
-T.plasma.analysis.error(exact, norm="pointwise")        # the difference itself, for a slice plot
+exact = lambda x, t: heat_kernel(x, t)  # a 1-D profile over eta1 and t
+T.plasma.analysis.error(exact, relative=True)  # relative RMS error over time
+T.plasma.analysis.error(exact, norm="max")  # largest pointwise error
+# the difference itself, for a slice plot
+T.plasma.analysis.error(exact, norm="pointwise")
 
-u.plasma.analysis.error(lambda x, y, z, t: np.sin(x - t), norm="l2", weighted=True)    # ∫|u - u_exact|² dV
+# ∫|u - u_exact|² dV
+u.plasma.analysis.error(
+    lambda x, y, z, t: np.sin(x - t), norm="l2", weighted=True
+)
 ```
 
 `norm` is `"rms"` (default), `"max"`, `"l1"`, `"l2"` or `"pointwise"`, taken
@@ -103,7 +108,9 @@ integrates over the physical volume with |√g| (taken from `domain=` or the
 divides by the same norm of the exact solution.
 
 ```python
-errors = [run.evaluate("T").plasma.analysis.error(exact).isel(t=-1) for run in runs]
+errors = [
+    run.evaluate("T").plasma.analysis.error(exact).isel(t=-1) for run in runs
+]
 plot_convergence(resolutions, errors)
 ```
 
@@ -125,8 +132,11 @@ for `kind="cos"`, and a complex amplitude (magnitude and phase) for
 compute by hand, without a full FFT:
 
 ```python
-amplitude = e1.plasma.analysis.project_mode(dim="eta1", number=1)                # sine amplitude over t
-phase = np.angle(rho.plasma.analysis.project_mode(dim="eta2", number=3, kind="complex"))
+# sine amplitude over t
+amplitude = e1.plasma.analysis.project_mode(dim="eta1", number=1)
+phase = np.angle(
+    rho.plasma.analysis.project_mode(dim="eta2", number=3, kind="complex")
+)
 ```
 
 The grid has to cover one full period. For a binned distribution function, each
@@ -137,9 +147,11 @@ once, use the [mode spectrum](/plasma-plots/guides/spectral/#mode-numbers).
 ## Convergence studies
 
 ```python
-errors = xr.DataArray(l2_errors, dims="n", coords={"n": [8, 16, 32, 64, 128]}, name="scheme A")
-errors.plasma.plot.convergence(other_errors)    # fit the observed order of each
-errors.plasma.plot.convergence(order=2)         # or draw a reference slope
+errors = xr.DataArray(
+    l2_errors, dims="n", coords={"n": [8, 16, 32, 64, 128]}, name="scheme A"
+)
+errors.plasma.plot.convergence(other_errors)  # fit the observed order of each
+errors.plasma.plot.convergence(order=2)  # or draw a reference slope
 ```
 
 `plot.convergence` draws 1-D errors over their resolution (or step size) log-log, one series per
@@ -160,7 +172,8 @@ figures.
 ## Gradients on mapped domains
 
 ```python
-E = -phi.plasma.analysis.gradient()                  # Cartesian components (x, y, z), over time
+# Cartesian components (x, y, z), over time
+E = -phi.plasma.analysis.gradient()
 E.plasma.plot.vector(x="eta1", y="eta2", t=-1, eta3=0)
 ```
 
@@ -181,8 +194,8 @@ round-off on a torus:
 
 ```python
 B = out.evaluate("b_field_xyz")
-div_B = B.plasma.analysis.divergence()              # should stay at round-off
-J = B.plasma.analysis.curl()                        # the current, in Cartesian components
+div_B = B.plasma.analysis.divergence()  # should stay at round-off
+J = B.plasma.analysis.curl()  # the current, in Cartesian components
 vorticity = u.plasma.analysis.curl().sel(component=2)
 div_B.plasma.analysis.norm().plasma.plot.timeseries()
 ```
@@ -195,7 +208,9 @@ field lines, for example drawn over another field with
 
 ```python
 A = B.plasma.analysis.flux_function()
-J.sel(component=2).plasma.plot.slice(coords="physical", plane="XY", eta3=0, overlays={"contours_of": A})
+J.sel(component=2).plasma.plot.slice(
+    coords="physical", plane="XY", eta3=0, overlays={"contours_of": A}
+)
 ```
 
 ## Local components
@@ -209,7 +224,9 @@ about a circular axis at major radius `R0` (and height `Z0`). Both need the
 ```python
 u = out.evaluate("velocity_xyz")
 local = u.plasma.analysis.toroidal_components(R0=3.0)
-local.sel(component="poloidal").plasma.plot.slice(coords="physical", plane="RZ", eta3=0, cmap="RdBu_r", symmetric=True)
+local.sel(component="poloidal").plasma.plot.slice(
+    coords="physical", plane="RZ", eta3=0, cmap="RdBu_r", symmetric=True
+)
 
 E = -phi.plasma.analysis.gradient()
 E_R = E.plasma.analysis.cylindrical_components().sel(component="R")
@@ -220,8 +237,11 @@ in the `X`-`Y` plane as coordinates, e.g. for profiles against the physical
 radius:
 
 ```python
-n_polar = n.plasma.analysis.polar_coordinates(center=(0.0, 0.0)).isel(t=-1, eta3=0)
-radial_profile = n_polar.groupby_bins("r", 24).mean(...)     # average over rings of equal radius
+n_polar = n.plasma.analysis.polar_coordinates(center=(0.0, 0.0)).isel(
+    t=-1, eta3=0
+)
+# average over rings of equal radius
+radial_profile = n_polar.groupby_bins("r", 24).mean(...)
 ```
 
 ## Volume integrals and field energies
@@ -229,9 +249,10 @@ radial_profile = n_polar.groupby_bins("r", 24).mean(...)     # average over ring
 ```python
 from plasma_plots.analysis import field_energy, volume_integral
 
-volume_integral(density)                                   # ∫ n dV, over time
-field_energy(u_xyz)                                        # ½ ∫ |u|² dV of Cartesian components
-field_energy(u_2form, form=2, weight=n0, domain=out.domain)   # ½ uᵀ M2n u, as LinearMHD's en_U
+volume_integral(density)  # ∫ n dV, over time
+field_energy(u_xyz)  # ½ ∫ |u|² dV of Cartesian components
+# ½ uᵀ M2n u, as LinearMHD's en_U
+field_energy(u_2form, form=2, weight=n0, domain=out.domain)
 ```
 
 Both integrate over the logical grid with the volume element |√g|, as a
@@ -259,7 +280,9 @@ growth rates from short records, see
 [Spectral analysis](/plasma-plots/guides/spectral/).
 
 ```python
-field.plasma.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
+field.plasma.plot.dispersion(
+    dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)}
+)
 ```
 
 `.plot.dispersion(...)` is a plain space-time FFT of a `(t, dim)` field —
@@ -290,7 +313,11 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-field.plasma.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)}, backend="plotly")
+field.plasma.plot.dispersion(
+    dim="eta1",
+    branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)},
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_dispersion.json" />
@@ -307,9 +334,13 @@ with the measured `omega`, `omega_theory` and their `relative_error`:
 
 ```python
 spectrum = phi.plasma.analysis.dispersion()
-traced = spectrum.plasma.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5)).dropna("k")
+traced = spectrum.plasma.analysis.trace_branch(
+    bohm_gross, window=0.2, k_range=(1.5, 5.5)
+).dropna("k")
 phi.plasma.plot.dispersion(
-    branches={"Bohm-Gross": bohm_gross}, frequencies={"plasma frequency": 1.0}, points={"traced": traced},
+    branches={"Bohm-Gross": bohm_gross},
+    frequencies={"plasma frequency": 1.0},
+    points={"traced": traced},
 )
 ```
 
@@ -334,8 +365,14 @@ were made:
 ```python
 spectrum = e_x.plasma.analysis.dispersion(dim="z")
 fits = spectrum.plasma.analysis.fit_branches(n_branches=1)
-fits[0].velocity                       # ≈ 1, the speed of light
-spectrum.plasma.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=fits, dynamic_range=12, omega_max=25)
+fits[0].velocity  # ≈ 1, the speed of light
+spectrum.plasma.plot.dispersion(
+    kmin=0,
+    branches={"light, ω = k": lambda k: k},
+    fits=fits,
+    dynamic_range=12,
+    omega_max=25,
+)
 ```
 
 ![Broadband light waves, with the theoretical and the fitted branch](../../../assets/figures/dispersion_fits.png)
@@ -347,7 +384,14 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-spectrum.plasma.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=fits, dynamic_range=12, omega_max=25, backend="plotly")
+spectrum.plasma.plot.dispersion(
+    kmin=0,
+    branches={"light, ω = k": lambda k: k},
+    fits=fits,
+    dynamic_range=12,
+    omega_max=25,
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_dispersion_fits.json" />
