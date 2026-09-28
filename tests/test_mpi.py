@@ -10,10 +10,10 @@ import xarray as xr
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
-import struphy_plots  # noqa: E402,F401  (registers array.struphy)
-from struphy_plots.arrays import save_scalars  # noqa: E402
-from struphy_plots.mpi import SkippedPlot, is_plotting_rank, mpi_rank  # noqa: E402
-from struphy_plots.plotting import InteractiveSliceViewer, plot_timeseries, save_all_scalars  # noqa: E402
+import plasma_plots  # noqa: E402,F401  (registers array.plasma)
+from plasma_plots.arrays import save_scalars  # noqa: E402
+from plasma_plots.mpi import SkippedPlot, is_plotting_rank, mpi_rank  # noqa: E402
+from plasma_plots.plotting import InteractiveSliceViewer, plot_timeseries, save_all_scalars  # noqa: E402
 
 LAUNCHER_VARS = ("OMPI_COMM_WORLD_RANK", "PMI_RANK", "PMIX_RANK", "MV2_COMM_WORLD_RANK", "PALS_RANKID", "ALPS_APP_PE")
 
@@ -63,13 +63,13 @@ def test_struphy_mpi_zero_plots_on_every_process(monkeypatch):
 
 def test_rank_zero_draws(monkeypatch, field):
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "0")
-    assert not isinstance(field.struphy.plot.slice(x="e1", y="e2", t=-1), SkippedPlot)
+    assert not isinstance(field.plasma.plot.slice(x="e1", y="e2", t=-1), SkippedPlot)
     assert plt.get_fignums()
 
 
 def test_other_ranks_draw_nothing(monkeypatch, field, tmp_path):
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
-    plot = field.struphy.plot
+    plot = field.plasma.plot
     results = [
         plot.slice(x="e1", y="e2", t=-1),
         plot.view(x="e1", y="e2").slice(t=0),
@@ -107,13 +107,13 @@ def test_files_are_written_by_rank_zero_only(monkeypatch, scalars, tmp_path):
 
 def test_analysis_runs_on_every_rank(monkeypatch, scalars):
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
-    assert scalars.en_E.struphy.analysis.growth_rate().rate == pytest.approx(1.0)
+    assert scalars.en_E.plasma.analysis.growth_rate().rate == pytest.approx(1.0)
 
 
 def test_every_plotting_module_skips_other_ranks(monkeypatch, field):
-    from struphy_plots.plotting import plot_energy_budget
-    from struphy_plots.pyvista_plots import pyvista_isosurface, save_vtk
-    from struphy_plots.spectral_plots import plot_power_spectrum
+    from plasma_plots.plotting import plot_energy_budget
+    from plasma_plots.pyvista_plots import pyvista_isosurface, save_vtk
+    from plasma_plots.spectral_plots import plot_power_spectrum
 
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
     for plot in (plot_power_spectrum, pyvista_isosurface, save_vtk, plot_energy_budget):

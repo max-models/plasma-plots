@@ -14,20 +14,20 @@ import fig_domain from '../../../assets/figures/3d_domain.png';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
-struphy-plots and its `.struphy` accessors. For other xarray data, run
-`import struphy_plots` first (see
-[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
 :::
 
 These views draw a field where it actually lives: on the physical `X`, `Y`,
 `Z` points that every Struphy field product carries. On a mapped domain
 (a torus, a cylinder, a stellarator) that is what makes them different from
-the logical-coordinate [field plots](/struphy-plots/guides/field-plots/).
+the logical-coordinate [field plots](/plasma-plots/guides/field-plots/).
 
 They need the optional PyVista extra:
 
 ```bash
-pip install "struphy-plots[pyvista]"
+pip install "plasma-plots[pyvista]"
 ```
 
 On this page, the 3-D figures have an **Interactive 3-D view** button that loads the
@@ -43,7 +43,7 @@ for the 2-D plots, e.g. `t=-1`.
 ## Isosurfaces
 
 ```python
-phi.struphy.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0)
+phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0)
 ```
 
 `values` is a number of evenly spaced levels or a list of explicit levels. The
@@ -58,7 +58,7 @@ it off).
 sit in physical space. On a torus, cuts in `eta3` are poloidal cross-sections:
 
 ```python
-phi.struphy.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0)
+phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0)
 ```
 
 <PyVistaScene src="/pyvista/3d_slices.html" image={fig_slices} alt="Poloidal cross-sections of a mode in a torus" />
@@ -67,7 +67,7 @@ A cut in `eta1` shows the field on one flux surface, the usual way to see a
 mode's poloidal and toroidal structure:
 
 ```python
-phi.struphy.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0)
+phi.plasma.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0)
 ```
 
 <PyVistaScene src="/pyvista/3d_flux_surface.html" image={fig_flux_surface} alt="A mode on one flux surface" />
@@ -82,7 +82,7 @@ each direction is drawn. All cuts share one color scale.
 a sphere around `source_center`:
 
 ```python
-b.struphy.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35)
+b.plasma.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35)
 ```
 
 <PyVistaScene src="/pyvista/3d_streamlines.html" image={fig_streamlines} alt="Magnetic field lines in a torus" />
@@ -91,7 +91,7 @@ b.struphy.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius
 selecting a single `eta1` shows the field on one surface:
 
 ```python
-b.isel(eta1=[24]).struphy.plot.glyphs(stride=3, scale=0.5)
+b.isel(eta1=[24]).plasma.plot.glyphs(stride=3, scale=0.5)
 ```
 
 <PyVistaScene src="/pyvista/3d_glyphs.html" image={fig_glyphs} alt="Magnetic field arrows on a flux surface" />
@@ -101,17 +101,17 @@ Both expect Cartesian (x, y, z) components, as in the `*_phy` products of
 `out.evaluate(name, eta1=..., eta2=..., eta3=..., representation="v")`, pass
 `components="contravariant"`. They are then pushed forward with the mapping's
 Jacobian, differentiated numerically from `X`, `Y`, `Z`
-(`struphy_plots.pyvista_plots.push_forward`).
+(`plasma_plots.pyvista_plots.push_forward`).
 
 ## Orbits
 
 `orbits_3d()` draws marker orbits as lines (or tubes, with `tube_radius`),
-colored by time, by [orbit class](/struphy-plots/reference/dataset/#struphy_plots.accessors.DatasetAnalysis.classify_orbits), or by
+colored by time, by [orbit class](/plasma-plots/reference/dataset/#plasma_plots.accessors.DatasetAnalysis.classify_orbits), or by
 any saved quantity such as `"v_par"` or `"weight"`. Samples where a marker has
 left the domain are dropped. Pass any field as `domain=` to draw its boundary:
 
 ```python
-orbits.struphy.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0))
+orbits.plasma.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0))
 ```
 
 <PyVistaScene src="/pyvista/3d_orbits.html" image={fig_orbits} alt="Guiding-center orbits colored as passing, trapped or lost" />
@@ -126,7 +126,7 @@ checking a geometry and its orientation:
 ```python
 out.plot.domain_3d(n1=6, n2=24, n3=36)
 # or, for any struphy domain object:
-from struphy_plots.pyvista_plots import pyvista_domain
+from plasma_plots.pyvista_plots import pyvista_domain
 pyvista_domain(domain, n1=6, n2=24, n3=36)
 ```
 
@@ -145,8 +145,8 @@ itself, and the camera looks straight at it:
 - `glyphs()` draws arrows in the plane.
 
 ```python
-phi.struphy.plot.isosurface(values=7, cmap="RdBu_r", t=0)
-u.struphy.plot.streamlines(n_points=80)
+phi.plasma.plot.isosurface(values=7, cmap="RdBu_r", t=0)
+u.plasma.plot.streamlines(n_points=80)
 ```
 
 ![Contour lines over a 2-D cylinder cross-section](../../../assets/figures/2d_isosurface.png)
@@ -161,26 +161,26 @@ which comes with the `pyvista` extra) or a video such as `.mp4` (needs
 camera stays fixed after the first frame:
 
 ```python
-phi.struphy.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
-phi_2d.struphy.plot.movie("mode_2d.gif", kind="isosurface", values=7, cmap="RdBu_r")
+phi.plasma.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
+phi_2d.plasma.plot.movie("mode_2d.gif", kind="isosurface", values=7, cmap="RdBu_r")
 ```
 
-![A mode rotating through poloidal cross-sections](/struphy-plots/figures/3d_slices.gif)
+![A mode rotating through poloidal cross-sections](/plasma-plots/figures/3d_slices.gif)
 
-![A rotating mode in a 2-D cross-section](/struphy-plots/figures/2d_isosurface.gif)
+![A rotating mode in a 2-D cross-section](/plasma-plots/figures/2d_isosurface.gif)
 
 ## Your own PyVista pipeline
 
-`field.struphy.data.grid(t=-1)` returns the field as a
+`field.plasma.data.grid(t=-1)` returns the field as a
 `pyvista.StructuredGrid` on its physical points. Vector fields also get their
 magnitude as `"|name|"`. You can hand the grid to any PyVista filter:
 
 ```python
-grid = phi.struphy.data.grid(t=-1)
+grid = phi.plasma.data.grid(t=-1)
 grid.contour([0.5]).plot(cmap="RdBu_r")
 ```
 
-For ParaView, `field.struphy.data.to_vtk("frames")` writes one `.vts`
+For ParaView, `field.plasma.data.to_vtk("frames")` writes one `.vts`
 structured grid per time and a `.pvd` collection that ParaView opens as a time
 series. Any array works, e.g. a filtered mode from
 `filter_time(...).filtered`.

@@ -6,11 +6,11 @@ import pytest
 import xarray as xr
 
 matplotlib.use("Agg")
-import struphy_plots  # noqa: E402, F401  (registers the accessors)
+import plasma_plots  # noqa: E402, F401  (registers the accessors)
 from struphy.dispersion_relations.analytic import (  # noqa: E402
     MhdContinousSpectraCylinder, MhdContinousSpectraShearedSlab)
-from struphy_plots.analysis import classify_orbits  # noqa: E402
-from struphy_plots.plotting import (plot_continuous_spectrum,  # noqa: E402
+from plasma_plots.analysis import classify_orbits  # noqa: E402
+from plasma_plots.plotting import (plot_continuous_spectrum,  # noqa: E402
                                     plot_orbit_classification,
                                     prepare_continuous_spectrum)
 
@@ -51,7 +51,7 @@ def test_classify_orbits_matches_struphy_criteria():
     assert codes.dims == ("marker",)
     assert codes.values.tolist() == [0, 1, -1, 0]
     assert codes.attrs["flag_meanings"] == "passing trapped lost"
-    assert codes.equals(guiding_center_orbits().struphy.analysis.classify_orbits())
+    assert codes.equals(guiding_center_orbits().plasma.analysis.classify_orbits())
 
 
 def test_classify_orbits_requires_parallel_velocity():
@@ -68,18 +68,18 @@ def test_plot_orbit_classification_colors_each_class_and_counts_them():
     assert labels[0].startswith("passing (2, 50%)")
     assert result.ax.get_ylabel().startswith(r"$\mu$")
 
-    data = orbits.struphy.data.orbit_classification()
+    data = orbits.plasma.data.orbit_classification()
     assert set(data.data_vars) == {"v_par", "mu", "classification"}
     assert data["v_par"].values.tolist() == [1.0, -0.5, 2.0, 0.3]  # initial time by default
-    assert len(orbits.struphy.plot.orbit_classification(t=-1).artists) == 3
+    assert len(orbits.plasma.plot.orbit_classification(t=-1).artists) == 3
 
 
 def test_orbit_classification_defaults_to_v_perp_without_mu():
     orbits = guiding_center_orbits().rename({"mu": "v_perp"})
-    data = orbits.struphy.data.orbit_classification()
+    data = orbits.plasma.data.orbit_classification()
     assert "v_perp" in data.data_vars
     with pytest.raises(ValueError, match="not data variables"):
-        guiding_center_orbits().struphy.data.orbit_classification(x="p_phi")
+        guiding_center_orbits().plasma.data.orbit_classification(x="p_phi")
 
 
 def test_prepare_continuous_spectrum_evaluates_struphy_slab_continua():

@@ -9,8 +9,8 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 from struphy.post_processing.arrays import data_array  # noqa: E402
-from struphy_plots.plotting import GrowthFit  # noqa: E402
-from struphy_plots.plotting import (InteractiveSliceViewer, View,
+from plasma_plots.plotting import GrowthFit  # noqa: E402
+from plasma_plots.plotting import (InteractiveSliceViewer, View,
                                     animate_slices, convergence_order, drift,
                                     growth_rate, logical_grids, physical_grids,
                                     plot_convergence, plot_dispersion,
@@ -71,7 +71,7 @@ def orbits_dataset(n_t=5, n_m=6):
 def test_lineout_vector_and_orthogonal_volume_slices_render():
     line = plot_lineout(phase_space().isel(t=0, eta1=0))
     assert len(line.artists) == 1
-    assert len(phase_space().struphy.plot.lineout(x="v1", t=0, eta1=0).artists) == 1
+    assert len(phase_space().plasma.plot.lineout(x="v1", t=0, eta1=0).artists) == 1
 
     vector = data_array(
         np.ones((2, 3, 4)),
@@ -79,7 +79,7 @@ def test_lineout_vector_and_orthogonal_volume_slices_render():
         {"component": [0, 1], "eta1": range(3), "eta2": range(4)},
     )
     assert len(plot_vector(vector, x="eta1", y="eta2").artists) == 1
-    assert len(vector.struphy.plot.vector(x="eta1", y="eta2").artists) == 1
+    assert len(vector.plasma.plot.vector(x="eta1", y="eta2").artists) == 1
     assert len(plot_volume_slices(physical_field().isel(t=0)).artists) == 3
 
 
@@ -233,11 +233,11 @@ def test_slice_can_display_the_sweep_dimension():
 def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeypatch):
     from matplotlib.figure import Figure
 
-    import struphy_plots  # noqa: F401
+    import plasma_plots  # noqa: F401
 
     data = phase_space(nt=3).astype(float)
     data[1] = data[1] * 100  # extrema in a frame omitted by panels and export
-    view = data.struphy.plot.view(x="eta1", y="v1", cmap="plasma", equal_aspect=True)
+    view = data.plasma.plot.view(x="eta1", y="v1", cmap="plasma", equal_aspect=True)
     limits = (float(data.min()), float(data.max()))
     assert plt.get_fignums() == []
     snapshot = view.slice(t=-1)
@@ -269,13 +269,13 @@ def test_every_presentation_uses_the_full_selected_color_range(tmp_path, monkeyp
 def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, shared_clim):
     from matplotlib.figure import Figure
 
-    import struphy_plots  # noqa: F401
+    import plasma_plots  # noqa: F401
 
     data = phase_space(nt=2)
     options = dict(x="eta1", y="v1", vmin=-5, vmax=100, shared_clim=shared_clim, cmap="coolwarm")
-    panels = data.struphy.plot.panels(nrows=1, ncols=2, **options)
-    animation = data.struphy.plot.animation(**options)
-    viewer = data.struphy.plot.viewer(**options)
+    panels = data.plasma.plot.panels(nrows=1, ncols=2, **options)
+    animation = data.plasma.plot.animation(**options)
+    viewer = data.plasma.plot.viewer(**options)
     viewer.draw()
     viewer.sliders["t"].set_val(1)
     for mesh in [*panels.artists, animation._func(1)[0], viewer.result.artists[0]]:
@@ -287,15 +287,15 @@ def test_explicit_color_limits_work_for_all_renderers(tmp_path, monkeypatch, sha
         "savefig",
         lambda fig, *args, **kwargs: captured.append(fig.axes[0].collections[0].get_clim()),
     )
-    data.struphy.plot.frames(tmp_path, **options)
+    data.plasma.plot.frames(tmp_path, **options)
     assert captured == [(-5, 100), (-5, 100)]
 
 
 def test_per_frame_scaling_is_explicit_and_supports_a_fixed_lower_limit():
-    import struphy_plots  # noqa: F401
+    import plasma_plots  # noqa: F401
 
     data = phase_space(nt=2)
-    view = data.struphy.plot.view(x="eta1", y="v1", shared_clim=False, vmin=-1)
+    view = data.plasma.plot.view(x="eta1", y="v1", shared_clim=False, vmin=-1)
     panels = view.panels(nrows=1, ncols=2)
     animation = view.animation()
     for index in range(2):
@@ -347,7 +347,7 @@ def test_plot_convergence_with_explicit_order_draws_a_reference_instead_of_fitti
 
 def test_marker_scatter_selects_a_time_and_colors_by_a_variable():
     markers = orbits_dataset(n_t=5, n_m=6)
-    result = markers.struphy.plot.scatter(x="x", y="y", color="weight", t=-1)
+    result = markers.plasma.plot.scatter(x="x", y="y", color="weight", t=-1)
     assert result.artists[0].get_offsets().shape == (6, 2)
     assert result.fig.axes[-1].get_ylabel()  # the colorbar carries the color variable's label
 
@@ -355,9 +355,9 @@ def test_marker_scatter_selects_a_time_and_colors_by_a_variable():
 def test_marker_scatter_rejects_unknown_variables_and_unresolved_dimensions():
     markers = orbits_dataset()
     with pytest.raises(ValueError, match="not data variables"):
-        markers.struphy.plot.scatter(x="missing", y="y")
+        markers.plasma.plot.scatter(x="missing", y="y")
     with pytest.raises(ValueError, match="select every dimension"):
-        markers.struphy.plot.scatter(x="x", y="y")
+        markers.plasma.plot.scatter(x="x", y="y")
 
 
 def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
@@ -370,41 +370,41 @@ def test_overlay_orbits_draws_one_path_per_marker_over_the_field_slice():
         coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
     )
 
-    result = field.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2")
+    result = field.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2")
     assert len(result.artists) == 1 + n_m  # the field mesh, plus one path per marker
 
     with pytest.raises(ValueError, match="missing required quantities"):
-        field.struphy.plot.overlay_orbits(orbits.rename({"eta1": "px"}), x="eta1", y="eta2")
+        field.plasma.plot.overlay_orbits(orbits.rename({"eta1": "px"}), x="eta1", y="eta2")
 
 
 def test_array_data_mirrors_what_array_plot_would_render():
     data = phase_space(nt=4)
-    assert data.struphy.data.lineout(x="eta1", t=0, v1=0).dims == ("eta1",)
-    assert data.struphy.data.slice(x="eta1", y="v1", t=-1).dims == ("eta1", "v1")
-    assert data.struphy.data.view(x="eta1", y="v1").dims == ("t", "eta1", "v1")
+    assert data.plasma.data.lineout(x="eta1", t=0, v1=0).dims == ("eta1",)
+    assert data.plasma.data.slice(x="eta1", y="v1", t=-1).dims == ("eta1", "v1")
+    assert data.plasma.data.view(x="eta1", y="v1").dims == ("t", "eta1", "v1")
 
     vector = data_array(
         np.ones((2, 3, 4)),
         ("component", "eta1", "eta2"),
         {"component": [0, 1], "eta1": range(3), "eta2": range(4)},
     )
-    assert vector.struphy.data.vector(x="eta1", y="eta2", stride=2).sizes == {
+    assert vector.plasma.data.vector(x="eta1", y="eta2", stride=2).sizes == {
         "component": 2,
         "eta1": 2,
         "eta2": 2,
     }
 
-    assert set(physical_field().isel(t=0).struphy.data.volume_slices()) == {
+    assert set(physical_field().isel(t=0).plasma.data.volume_slices()) == {
         "eta1",
         "eta2",
         "eta3",
     }
 
     energy = data_array([1.0, 2.0, 4.0], ("t",), {"t": [0, 1, 2]})
-    diff = energy.struphy.data.compare(energy * 2, mode="difference")
+    diff = energy.plasma.data.compare(energy * 2, mode="difference")
     np.testing.assert_allclose(diff.values, -energy.values)
 
-    assert energy.struphy.data.timeseries() == [energy]
+    assert energy.plasma.data.timeseries() == [energy]
 
 
 def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
@@ -417,7 +417,7 @@ def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
         coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
     )
 
-    field_slice, orbit_subset = field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", max_markers=3)
+    field_slice, orbit_subset = field.plasma.data.overlay_orbits(orbits, x="eta1", y="eta2", max_markers=3)
     assert field_slice.dims == ("eta1", "eta2")
     assert orbit_subset.sizes["marker"] == 3
 
@@ -425,7 +425,7 @@ def test_array_data_overlay_orbits_returns_the_field_slice_and_orbit_subset():
 def test_dataset_data_mirrors_what_dataset_plot_would_render():
     orbits = orbits_dataset(n_t=4, n_m=5)
 
-    scattered = orbits.struphy.data.scatter(x="x", y="y", color="weight", t=-1)
+    scattered = orbits.plasma.data.scatter(x="x", y="y", color="weight", t=-1)
     assert scattered.sizes == {"marker": 5}
     assert set(scattered.data_vars) >= {"x", "y", "weight"}
     assert scattered.to_dataframe().shape == (
@@ -434,14 +434,14 @@ def test_dataset_data_mirrors_what_dataset_plot_would_render():
     )  # x, y, weight, plus the t coordinate column
 
     with pytest.raises(ValueError, match="not data variables"):
-        orbits.struphy.data.scatter(x="missing", y="y")
+        orbits.plasma.data.scatter(x="missing", y="y")
 
     n_t, n_m = 4, 5
     with_z = xr.Dataset(
         {name: (("t", "marker"), np.zeros((n_t, n_m))) for name in ("x", "y", "z")},
         coords={"t": np.arange(n_t), "marker": np.arange(n_m)},
     )
-    assert with_z.struphy.data.trajectories(max_markers=3).sizes["marker"] == 3
+    assert with_z.plasma.data.trajectories(max_markers=3).sizes["marker"] == 3
 
 
 def dispersive_wave(
@@ -489,9 +489,9 @@ def test_power_spectrum_requires_dim_for_ambiguous_arrays():
 
 def test_plot_dispersion_overlays_named_branches():
     field = dispersive_wave()
-    result = field.struphy.plot.dispersion(branches={"Bohm-Gross": lambda k: np.sqrt(1.0 + 3.0 * k**2)})
+    result = field.plasma.plot.dispersion(branches={"Bohm-Gross": lambda k: np.sqrt(1.0 + 3.0 * k**2)})
     assert len(result.artists) == 2  # the spectrum mesh, plus the branch line
     assert result.ax.get_legend() is not None
 
-    spectrum = field.struphy.data.dispersion()
-    assert spectrum.equals(field.struphy.analysis.dispersion())
+    spectrum = field.plasma.data.dispersion()
+    assert spectrum.equals(field.plasma.analysis.dispersion())

@@ -1,18 +1,18 @@
 ---
 title: Selecting data
-description: array.struphy.data returns the data behind every plot, for your own analysis, plots and exports.
+description: array.plasma.data returns the data behind every plot, for your own analysis, plots and exports.
 ---
 
 import PlotlyChart from '../../../components/PlotlyChart.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
-struphy-plots and its `.struphy` accessors. For other xarray data, run
-`import struphy_plots` first (see
-[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
 :::
 
-Every plot on `array.struphy.plot` has a twin on `array.struphy.data`. The twin
+Every plot on `array.plasma.plot` has a twin on `array.plasma.data`. The twin
 takes the same arguments and does the same selection, but returns the
 `xarray` object the plot would draw instead of a figure. The result keeps the
 coordinates (including the physical `X`, `Y`, `Z`), the units and the labels,
@@ -23,8 +23,8 @@ so you can work with it directly:
 - export it with `.to_dataframe()`, `.to_netcdf()` or `.values`
 
 ```python
-last = n.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)   # 2-D, with X and Y
-cut = n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)            # 1-D, along eta1
+last = n.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)    # 2-D, with X and Y
+cut = n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)             # 1-D, along eta1
 ```
 
 ## Selecting by name
@@ -69,25 +69,25 @@ those (`selected.transpose("eta2", "eta1")`, or `.T`).
 | `dataset.plot.scatter(...)` | `dataset.data.scatter(...)` | the positions and colors per marker |
 | `plot.trajectories(...)` | `data.trajectories(...)` | the marker subset |
 
-The full signatures are in the [`struphy.data` reference](/struphy-plots/reference/data/).
+The full signatures are in the [`struphy.data` reference](/plasma-plots/reference/data/).
 
 ## Analysis on the selection
 
 The selection is an ordinary `DataArray`, so xarray and numpy work on it
 directly. For the ring from the
-[contour-line example](/struphy-plots/guides/field-plots/#contour-lines):
+[contour-line example](/plasma-plots/guides/field-plots/#contour-lines):
 
 ```python
-last = n.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
+last = n.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
 densest = last.isel(last.argmax(...))                  # the densest point, with its X and Y
 print(float(densest.X), float(densest.Y))
 
-cut = n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
+cut = n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
 radius = 0.1 + 0.9 * cut.eta1                           # this mapping's minor radius
 inside = radius.where(cut >= 0.2)
 width = float(inside.max() - inside.min())              # the ring's width along the cut
 
-frames = n.struphy.data.view(coords="physical", plane="XY", eta3=0)   # (t, eta1, eta2)
+frames = n.plasma.data.view(coords="physical", plane="XY", eta3=0)    # (t, eta1, eta2)
 peak_over_time = frames.max("t")                        # the largest density each point reached
 ```
 
@@ -109,20 +109,20 @@ ax_cut.axvspan(float(inside.min()), float(inside.max()), alpha=0.25)
 last.to_dataframe()                          # a pandas table, one row per point, with X and Y
 last.to_netcdf("ring_last.nc")               # a self-describing file with all coordinates
 np.save("ring_last.npy", last.values)        # the bare numbers
-n.struphy.data.to_vtk("ring")                # one .vts per time and a .pvd for ParaView
+n.plasma.data.to_vtk("ring")                 # one .vts per time and a .pvd for ParaView
 ```
 
 ## Other plotting libraries
 
-`struphy-plots` never depends on another plotting library. The selected data goes to any of
+`plasma-plots` never depends on another plotting library. The selected data goes to any of
 them; for Plotly there is also a shortcut, `backend="plotly"`, which draws every plot as an
-interactive Plotly figure (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+interactive Plotly figure (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 Built by hand, a 2-D slice as a Plotly heatmap:
 
 ```python
 import plotly.express as px
 
-selected = field.struphy.data.slice(x="eta1", y="eta2", t=-1)
+selected = field.plasma.data.slice(x="eta1", y="eta2", t=-1)
 px.imshow(
     selected.transpose("eta2", "eta1"), x=selected.eta1, y=selected.eta2,
     origin="lower", color_continuous_scale="viridis",

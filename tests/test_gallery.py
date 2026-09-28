@@ -8,7 +8,7 @@ import xarray as xr
 
 go = pytest.importorskip("plotly.graph_objects")
 
-from struphy_plots import gallery  # noqa: E402
+from plasma_plots import gallery  # noqa: E402
 
 
 @pytest.fixture

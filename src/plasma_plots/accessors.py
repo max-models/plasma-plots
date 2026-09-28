@@ -1,12 +1,12 @@
-"""The ``.struphy`` accessor: plots, diagnostics and plot data of a single labeled array or dataset.
+"""The ``.plasma`` accessor: plots, diagnostics and plot data of a single labeled array or dataset.
 
 Every product of an :class:`~struphy.Output` carries this accessor after importing
-``struphy_plots``, and so does every array derived from one:
+``plasma_plots``, and so does every array derived from one:
 
-- ``array.struphy.plot`` (:class:`ArrayPlots`), ``array.struphy.analysis`` (:class:`ArrayAnalysis`)
-  and ``array.struphy.data`` (:class:`ArrayData`) for an ``xarray.DataArray``;
-- ``dataset.struphy.plot`` (:class:`DatasetPlots`), ``dataset.struphy.analysis``
-  (:class:`DatasetAnalysis`) and ``dataset.struphy.data`` (:class:`DatasetData`) for an
+- ``array.plasma.plot`` (:class:`ArrayPlots`), ``array.plasma.analysis`` (:class:`ArrayAnalysis`)
+  and ``array.plasma.data`` (:class:`ArrayData`) for an ``xarray.DataArray``;
+- ``dataset.plasma.plot`` (:class:`DatasetPlots`), ``dataset.plasma.analysis``
+  (:class:`DatasetAnalysis`) and ``dataset.plasma.data`` (:class:`DatasetData`) for an
   ``xarray.Dataset``, e.g. an orbits product.
 
 Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
@@ -15,10 +15,10 @@ position (``t=0`` the first, ``t=-1`` the last), and a float is the nearest coor
 
 Examples
 --------
->>> import struphy_plots
->>> phi.struphy.plot.slice(x="eta1", y="eta2", t=-1)
->>> energy.struphy.analysis.growth_rate(window=(0.0, 5.0))
->>> orbits.struphy.plot.trajectories()
+>>> import plasma_plots
+>>> phi.plasma.plot.slice(x="eta1", y="eta2", t=-1)
+>>> energy.plasma.analysis.growth_rate(window=(0.0, 5.0))
+>>> orbits.plasma.plot.trajectories()
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ class _ArrayAccessor:
 
 
 class ArrayPlots(_ArrayAccessor):
-    """Plots of one array, as ``array.struphy.plot.<kind>(...)``.
+    """Plots of one array, as ``array.plasma.plot.<kind>(...)``.
 
     Dimensions that are neither displayed nor swept are selected by naming them: an integer is a
     position (``t=0`` the first, ``t=-1`` the last), and a float is the nearest coordinate value
@@ -87,8 +87,8 @@ class ArrayPlots(_ArrayAccessor):
 
     Examples
     --------
-    >>> phi.struphy.plot.slice(x="eta1", y="eta2", t=-1)
-    >>> phi.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
+    >>> phi.plasma.plot.slice(x="eta1", y="eta2", t=-1)
+    >>> phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
     """
 
     @with_backend
@@ -121,25 +121,25 @@ class ArrayPlots(_ArrayAccessor):
             ``(t, values)`` pair, or a mapping of labels to these.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
         PlotResult
             The figure, the axes, the drawn lines, and in ``fit_results`` one
-            :class:`~struphy_plots.analysis.FitResult` (or ``None``) per series.
+            :class:`~plasma_plots.analysis.FitResult` (or ``None``) per series.
 
         See Also
         --------
-        struphy_plots.plotting.plot_timeseries : The function behind this method.
+        plasma_plots.plotting.plot_timeseries : The function behind this method.
         ArrayData.timeseries : The validated series, without plotting them.
         ArrayAnalysis.growth_rate : The same fit, without plotting it.
 
         Examples
         --------
-        >>> energy.struphy.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)
-        >>> energy.struphy.plot.timeseries(other_run_energy)
+        >>> energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)
+        >>> energy.plasma.plot.timeseries(other_run_energy)
         """
         from .analysis import GrowthFit
         from .plotting import plot_timeseries
@@ -181,8 +181,8 @@ class ArrayPlots(_ArrayAccessor):
             nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -191,13 +191,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_lineout : The function behind this method.
+        plasma_plots.plotting.plot_lineout : The function behind this method.
         ArrayData.lineout : The selected profile, without plotting it.
 
         Examples
         --------
-        >>> phi.struphy.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
-        >>> T.struphy.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
+        >>> phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
+        >>> T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
         """
         from .plotting import _select, plot_lineout
 
@@ -243,8 +243,8 @@ class ArrayPlots(_ArrayAccessor):
             float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
-            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
-            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            ``result.fig``; needs plotly, see :mod:`plasma_plots.plotly_backend`). Default: the
+            one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -254,13 +254,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.animate_lines : The function behind this method.
+        plasma_plots.plotting.animate_lines : The function behind this method.
         ArrayPlots.lineout : One frame, as a static plot.
 
         Examples
         --------
-        >>> T.struphy.plot.line_animation(reference={"exact": exact}, step=2)
-        >>> u.struphy.plot.line_animation(x="eta1", alongside=[n, [en_U, en_B]], alongside_logy=True, eta2=0, eta3=0)
+        >>> T.plasma.plot.line_animation(reference={"exact": exact}, step=2)
+        >>> u.plasma.plot.line_animation(x="eta1", alongside=[n, [en_U, en_B]], alongside_logy=True, eta2=0, eta3=0)
         """
         from .plotting import _select, animate_lines
 
@@ -303,8 +303,8 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -313,13 +313,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_measured_vs_theory : The function behind this method.
+        plasma_plots.plotting.plot_measured_vs_theory : The function behind this method.
         ArrayAnalysis.trace_branch : Measured frequencies of a dispersion branch, to plot here.
 
         Examples
         --------
-        >>> traced = spectrum.struphy.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))
-        >>> traced.omega.struphy.plot.against_theory(bohm_gross)
+        >>> traced = spectrum.plasma.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))
+        >>> traced.omega.plasma.plot.against_theory(bohm_gross)
         """
         from .plotting import plot_measured_vs_theory
 
@@ -357,8 +357,8 @@ class ArrayPlots(_ArrayAccessor):
             The horizontal axis label. Default: the coordinate's label.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -372,13 +372,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_convergence : The function behind this method.
-        struphy_plots.analysis.convergence_order : The fitted order, without plotting it.
+        plasma_plots.plotting.plot_convergence : The function behind this method.
+        plasma_plots.analysis.convergence_order : The fitted order, without plotting it.
 
         Examples
         --------
         >>> errors = xr.DataArray(l2_errors, dims="n", coords={"n": [16, 32, 64, 128]}, name="L2 error")
-        >>> errors.struphy.plot.convergence(max_errors, backend="plotly")
+        >>> errors.plasma.plot.convergence(max_errors, backend="plotly")
         """
         from .arrays import axis_label
         from .plotting import _label, plot_convergence
@@ -425,8 +425,8 @@ class ArrayPlots(_ArrayAccessor):
             an integer is a position, a float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -435,12 +435,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_vector : The function behind this method.
+        plasma_plots.plotting.plot_vector : The function behind this method.
         ArrayData.vector : The selected, strided components, without plotting them.
 
         Examples
         --------
-        >>> E.struphy.plot.vector(x="eta1", y="eta2", t=-1, eta3=0)
+        >>> E.plasma.plot.vector(x="eta1", y="eta2", t=-1, eta3=0)
         """
         from .plotting import _select, plot_vector
 
@@ -473,8 +473,8 @@ class ArrayPlots(_ArrayAccessor):
             position, a float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -483,12 +483,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_volume_slices : The function behind this method.
+        plasma_plots.plotting.plot_volume_slices : The function behind this method.
         ArrayData.volume_slices : The three planes, without plotting them.
 
         Examples
         --------
-        >>> density.struphy.plot.volume_slices(t=-1)
+        >>> density.plasma.plot.volume_slices(t=-1)
         """
         from .plotting import _select, plot_volume_slices
 
@@ -511,12 +511,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.pyvista_volume : The function behind this method.
+        plasma_plots.plotting.pyvista_volume : The function behind this method.
         ArrayPlots.isosurface : Contour surfaces instead of a volume rendering.
 
         Examples
         --------
-        >>> density.struphy.plot.volume(cmap="viridis", opacity="linear", t=-1).show()
+        >>> density.plasma.plot.volume(cmap="viridis", opacity="linear", t=-1).show()
         """
         from .plotting import _select, pyvista_volume
 
@@ -559,12 +559,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.pyvista_isosurface : The function behind this method.
+        plasma_plots.pyvista_plots.pyvista_isosurface : The function behind this method.
         ArrayPlots.slices_3d : Surfaces of constant logical coordinate instead.
 
         Examples
         --------
-        >>> phi.struphy.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0).show()
+        >>> phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0).show()
         """
         from .pyvista_plots import pyvista_isosurface
 
@@ -612,12 +612,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.pyvista_slices : The function behind this method.
+        plasma_plots.pyvista_plots.pyvista_slices : The function behind this method.
         ArrayData.slices_3d : The cuts, without drawing them.
 
         Examples
         --------
-        >>> phi.struphy.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0).show()
+        >>> phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0).show()
         """
         from .pyvista_plots import pyvista_slices
 
@@ -662,12 +662,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.pyvista_glyphs : The function behind this method.
+        plasma_plots.pyvista_plots.pyvista_glyphs : The function behind this method.
         ArrayPlots.streamlines : Field lines of the same field.
 
         Examples
         --------
-        >>> B.struphy.plot.glyphs(stride=3, t=-1).show()
+        >>> B.plasma.plot.glyphs(stride=3, t=-1).show()
         """
         from .pyvista_plots import pyvista_glyphs
 
@@ -712,12 +712,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.pyvista_streamlines : The function behind this method.
+        plasma_plots.pyvista_plots.pyvista_streamlines : The function behind this method.
         ArrayPlots.glyphs : Arrows of the same field.
 
         Examples
         --------
-        >>> B.struphy.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), t=-1).show()
+        >>> B.plasma.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), t=-1).show()
         """
         from .pyvista_plots import pyvista_streamlines
 
@@ -763,11 +763,11 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.save_movie : The function behind this method.
+        plasma_plots.pyvista_plots.save_movie : The function behind this method.
 
         Examples
         --------
-        >>> phi.struphy.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
+        >>> phi.plasma.plot.movie("mode.gif", kind="slices", cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r")
         """
         from .pyvista_plots import save_movie
 
@@ -798,8 +798,8 @@ class ArrayPlots(_ArrayAccessor):
             The array to compare with, e.g. a reference run; aligned with this one first.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -808,12 +808,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_compare : The function behind this method.
+        plasma_plots.plotting.plot_compare : The function behind this method.
         ArrayData.compare : The difference or ratio, without plotting it.
 
         Examples
         --------
-        >>> field.struphy.plot.compare(reference_field, mode="ratio")
+        >>> field.plasma.plot.compare(reference_field, mode="ratio")
         """
         from .plotting import plot_compare
 
@@ -850,8 +850,8 @@ class ArrayPlots(_ArrayAccessor):
             float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -860,12 +860,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_field_with_orbits : The function behind this method.
+        plasma_plots.plotting.plot_field_with_orbits : The function behind this method.
         ArrayData.overlay_orbits : The slice and orbits, without plotting them.
 
         Examples
         --------
-        >>> phi.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1, eta3=0)
+        >>> phi.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1, eta3=0)
         """
         from .plotting import plot_field_with_orbits
 
@@ -900,14 +900,14 @@ class ArrayPlots(_ArrayAccessor):
         callable ``omega(k)``, or an explicit ``(k, omega)`` pair), to compare against, e.g.
         ``{"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)}``. ``frequencies`` draws labeled
         horizontal lines (cutoffs), ``points`` measured points (``(k, omega)`` pairs or
-        :func:`struphy_plots.spectral.trace_branch` results).
+        :func:`plasma_plots.spectral.trace_branch` results).
 
         Parameters
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -916,15 +916,15 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_dispersion : The function behind this method.
+        plasma_plots.plotting.plot_dispersion : The function behind this method.
         ArrayAnalysis.dispersion : Just the spectrum, without plotting it.
 
         Examples
         --------
-        >>> E.struphy.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
-        >>> spectrum = E.struphy.analysis.dispersion(dim="eta1")          # or pass the spectrum itself
-        >>> fits = spectrum.struphy.analysis.fit_branches(n_branches=1)
-        >>> spectrum.struphy.plot.dispersion(kmin=0, fits=fits, dynamic_range=15, backend="plotly")
+        >>> E.plasma.plot.dispersion(dim="eta1", branches={"Bohm-Gross": lambda k: np.sqrt(1 + 3 * k**2)})
+        >>> spectrum = E.plasma.analysis.dispersion(dim="eta1")           # or pass the spectrum itself
+        >>> fits = spectrum.plasma.analysis.fit_branches(n_branches=1)
+        >>> spectrum.plasma.plot.dispersion(kmin=0, fits=fits, dynamic_range=15, backend="plotly")
         """
         from .plotting import plot_dispersion
 
@@ -984,8 +984,8 @@ class ArrayPlots(_ArrayAccessor):
             integer is a position, a float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -995,14 +995,14 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_power_spectrum : The function behind this method.
+        plasma_plots.spectral_plots.plot_power_spectrum : The function behind this method.
         ArrayAnalysis.time_fft : The spectrum, without plotting it.
         ArrayAnalysis.spectral_peaks : The peaks, without plotting them.
 
         Examples
         --------
-        >>> band = phi.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
-        >>> phi.struphy.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap": omega_tae})
+        >>> band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
+        >>> phi.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap": omega_tae})
         """
         from .spectral_plots import plot_power_spectrum
 
@@ -1031,8 +1031,8 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1041,14 +1041,14 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_filtered : The function behind this method.
+        plasma_plots.spectral_plots.plot_filtered : The function behind this method.
         ArrayAnalysis.filter_time : The dominant band, reconstructed.
         ArrayAnalysis.band_filter : A chosen band, reconstructed.
 
         Examples
         --------
-        >>> band = phi.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
-        >>> phi.struphy.plot.filtered(band, eta1=0.4, eta2=0.0, eta3=0.0)
+        >>> band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
+        >>> phi.plasma.plot.filtered(band, eta1=0.4, eta2=0.0, eta3=0.0)
         """
         from .spectral_plots import plot_filtered
 
@@ -1089,8 +1089,8 @@ class ArrayPlots(_ArrayAccessor):
             nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1099,13 +1099,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_spectrogram : The function behind this method.
-        struphy_plots.spectral.spectrogram : The spectra it plots.
+        plasma_plots.spectral_plots.plot_spectrogram : The function behind this method.
+        plasma_plots.spectral.spectrogram : The spectra it plots.
         ArrayAnalysis.spectrogram : The spectra, without plotting them.
 
         Examples
         --------
-        >>> signal.struphy.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45)
+        >>> signal.plasma.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45)
         """
         from .spectral import spectrogram
         from .spectral_plots import plot_spectrogram
@@ -1167,8 +1167,8 @@ class ArrayPlots(_ArrayAccessor):
             nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1178,13 +1178,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_mode_amplitudes : The function behind this method.
-        struphy_plots.spectral.mode_spectrum : The decomposition into modes.
-        struphy_plots.spectral.mode_amplitudes : Real amplitudes of the modes.
+        plasma_plots.spectral_plots.plot_mode_amplitudes : The function behind this method.
+        plasma_plots.spectral.mode_spectrum : The decomposition into modes.
+        plasma_plots.spectral.mode_amplitudes : Real amplitudes of the modes.
 
         Examples
         --------
-        >>> phi.struphy.plot.mode_amplitudes(top=2, fit=(100, 500))
+        >>> phi.plasma.plot.mode_amplitudes(top=2, fit=(100, 500))
         """
         from .spectral import mode_amplitudes, mode_spectrum
         from .spectral_plots import plot_mode_amplitudes
@@ -1231,8 +1231,8 @@ class ArrayPlots(_ArrayAccessor):
             position, a float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1241,12 +1241,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_mode_map : The function behind this method.
-        struphy_plots.spectral.mode_spectrum : The decomposition into modes.
+        plasma_plots.spectral_plots.plot_mode_map : The function behind this method.
+        plasma_plots.spectral.mode_spectrum : The decomposition into modes.
 
         Examples
         --------
-        >>> phi.struphy.plot.mode_map(t=-1, m_range=(0, 16))
+        >>> phi.plasma.plot.mode_map(t=-1, m_range=(0, 16))
         """
         from .spectral import mode_spectrum
         from .spectral_plots import plot_mode_map
@@ -1289,8 +1289,8 @@ class ArrayPlots(_ArrayAccessor):
             coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1299,12 +1299,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_radial_power : The function behind this method.
-        struphy_plots.spectral.time_fft : The transform it plots the power of.
+        plasma_plots.spectral_plots.plot_radial_power : The function behind this method.
+        plasma_plots.spectral.time_fft : The transform it plots the power of.
 
         Examples
         --------
-        >>> phi.struphy.plot.radial_power(x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=0.5)
+        >>> phi.plasma.plot.radial_power(x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=0.5)
         """
         from .spectral import time_fft
         from .spectral_plots import plot_radial_power
@@ -1357,8 +1357,8 @@ class ArrayPlots(_ArrayAccessor):
             a float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1372,14 +1372,14 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_mode_profiles : The function behind this method.
+        plasma_plots.spectral_plots.plot_mode_profiles : The function behind this method.
         ArrayAnalysis.mode_structure : The complex amplitude at one frequency.
         ArrayAnalysis.mode_spectrum : The decomposition into modes.
 
         Examples
         --------
-        >>> phi.struphy.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
-        >>> phi.struphy.plot.mode_profiles(t=-1, scale=(1, 6))
+        >>> phi.plasma.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)
+        >>> phi.plasma.plot.mode_profiles(t=-1, scale=(1, 6))
         """
         from .spectral import mode_amplitudes, mode_spectrum, mode_structure
         from .spectral_plots import plot_mode_profiles
@@ -1425,8 +1425,8 @@ class ArrayPlots(_ArrayAccessor):
             float the nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1435,12 +1435,12 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_profiles : The function behind this method.
+        plasma_plots.plotting.plot_profiles : The function behind this method.
         ArrayPlots.lineout : A single profile.
 
         Examples
         --------
-        >>> T.struphy.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
+        >>> T.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
         """
         from .plotting import _select, plot_profiles
 
@@ -1480,8 +1480,8 @@ class ArrayPlots(_ArrayAccessor):
             The largest angular frequency shown. Default: all.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1491,13 +1491,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.cross_spectrum : The function behind this method.
-        struphy_plots.spectral_plots.plot_cross_spectrum : The plot of its result.
+        plasma_plots.spectral.cross_spectrum : The function behind this method.
+        plasma_plots.spectral_plots.plot_cross_spectrum : The plot of its result.
         ArrayAnalysis.cross_spectrum : The spectrum, without plotting it.
 
         Examples
         --------
-        >>> u.struphy.plot.cross_spectrum(b, dims="eta3", omega_max=1.5)
+        >>> u.plasma.plot.cross_spectrum(b, dims="eta3", omega_max=1.5)
         """
         from .spectral import cross_spectrum
         from .spectral_plots import plot_cross_spectrum
@@ -1528,8 +1528,8 @@ class ArrayPlots(_ArrayAccessor):
             nearest coordinate value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1539,13 +1539,13 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.matrix_pencil : The function behind this method.
-        struphy_plots.spectral_plots.plot_pencil_fit : The plot of its result.
+        plasma_plots.spectral.matrix_pencil : The function behind this method.
+        plasma_plots.spectral_plots.plot_pencil_fit : The plot of its result.
         ArrayAnalysis.matrix_pencil : The fit, without plotting it.
 
         Examples
         --------
-        >>> probe.struphy.plot.pencil_fit(n_modes=1)
+        >>> probe.plasma.plot.pencil_fit(n_modes=1)
         """
         from .spectral import matrix_pencil
         from .spectral_plots import plot_pencil_fit
@@ -1650,12 +1650,12 @@ class ArrayPlots(_ArrayAccessor):
         See Also
         --------
         SliceView : What the configured view can draw.
-        struphy_plots.plotting.plot_slice : The function that draws one slice.
+        plasma_plots.plotting.plot_slice : The function that draws one slice.
         ArrayData.view : The selected data, sweep included, without plotting it.
 
         Examples
         --------
-        >>> view = f.struphy.plot.view(x="eta1", y="v1", cmap="RdBu_r")
+        >>> view = f.plasma.plot.view(x="eta1", y="v1", cmap="RdBu_r")
         >>> view.slice(t=-1)
         >>> view.panels(nrows=2, ncols=3)
         >>> view.save_frames("frames")
@@ -1720,8 +1720,8 @@ class ArrayPlots(_ArrayAccessor):
             The axes to draw into. Default: a new figure.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1731,13 +1731,13 @@ class ArrayPlots(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.view : The configured view this method draws, and its options.
-        struphy_plots.plotting.plot_slice : The function that draws the slice.
+        plasma_plots.plotting.plot_slice : The function that draws the slice.
         ArrayData.slice : The selected slice, without plotting it.
 
         Examples
         --------
-        >>> phi.struphy.plot.slice(x="eta1", y="eta2", t=-1)
-        >>> n.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])
+        >>> phi.plasma.plot.slice(x="eta1", y="eta2", t=-1)
+        >>> n.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])
         """
         return self.view(
             x=x,
@@ -1803,8 +1803,8 @@ class ArrayPlots(_ArrayAccessor):
             The number of panel columns. Default: 4.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1814,11 +1814,11 @@ class ArrayPlots(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.view : The configured view this method draws, and its options.
-        struphy_plots.plotting.plot_panels : The function that draws the panels.
+        plasma_plots.plotting.plot_panels : The function that draws the panels.
 
         Examples
         --------
-        >>> phi.struphy.plot.panels(x="eta1", y="eta2", nrows=2, ncols=3, eta3=0)
+        >>> phi.plasma.plot.panels(x="eta1", y="eta2", nrows=2, ncols=3, eta3=0)
         """
         return self.view(
             x=x,
@@ -1877,23 +1877,23 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
-            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
-            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            ``result.fig``; needs plotly, see :mod:`plasma_plots.plotly_backend`). Default: the
+            one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
-        struphy_plots.plotting.InteractiveSliceViewer or PlotResult
+        plasma_plots.plotting.InteractiveSliceViewer or PlotResult
             The viewer, with sliders for the unselected dimensions; with ``backend="plotly"`` a
             result whose Plotly figure has one slider (one unselected dimension at most).
 
         See Also
         --------
         ArrayPlots.view : The configured view this method draws, and its options.
-        struphy_plots.plotting.InteractiveSliceViewer : The viewer class.
+        plasma_plots.plotting.InteractiveSliceViewer : The viewer class.
 
         Examples
         --------
-        >>> viewer = phi.struphy.plot.viewer(x="eta1", y="eta2")
+        >>> viewer = phi.plasma.plot.viewer(x="eta1", y="eta2")
         """
         return self.view(
             x=x,
@@ -1967,8 +1967,8 @@ class ArrayPlots(_ArrayAccessor):
             and options.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
-            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
-            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            ``result.fig``; needs plotly, see :mod:`plasma_plots.plotly_backend`). Default: the
+            one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1979,13 +1979,13 @@ class ArrayPlots(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.view : The configured view this method draws, and its options.
-        struphy_plots.plotting.animate_slices : The function that animates one array.
-        struphy_plots.plotting.animate_fields : The function that animates several side by side.
+        plasma_plots.plotting.animate_slices : The function that animates one array.
+        plasma_plots.plotting.animate_fields : The function that animates several side by side.
 
         Examples
         --------
-        >>> n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])
-        >>> vorticity.struphy.plot.animation(alongside=[density], eta3=0)
+        >>> n.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])
+        >>> vorticity.plasma.plot.animation(alongside=[density], eta3=0)
         """
         return self.view(
             x=x,
@@ -2063,11 +2063,11 @@ class ArrayPlots(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.view : The configured view this method draws, and its options.
-        struphy_plots.plotting.save_frames : The function that writes the frames.
+        plasma_plots.plotting.save_frames : The function that writes the frames.
 
         Examples
         --------
-        >>> phi.struphy.plot.frames("frames", x="eta1", y="eta2", eta3=0, step=5)
+        >>> phi.plasma.plot.frames("frames", x="eta1", y="eta2", eta3=0, step=5)
         """
         return self.view(
             x=x,
@@ -2107,8 +2107,8 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -2117,7 +2117,7 @@ class ArrayPlots(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.plot_marker_trajectories : The function behind this method.
+        plasma_plots.plotting.plot_marker_trajectories : The function behind this method.
         ArrayData.trajectories : The plotted markers, without plotting them.
         DatasetPlots.trajectories : The same for an orbits Dataset.
         """
@@ -2129,14 +2129,14 @@ class ArrayPlots(_ArrayAccessor):
 class ArrayData(_ArrayAccessor):
     """The data behind each plot in :class:`ArrayPlots`, without rendering it.
 
-    Every method here mirrors one on ``array.struphy.plot`` and returns the plain, already
+    Every method here mirrors one on ``array.plasma.plot`` and returns the plain, already
     selected ``xarray`` object (or a small tuple/dict of them) that method would have drawn —
     useful to hand to a different plotting library (Plotly, bokeh, ...), or to inspect directly.
 
     Examples
     --------
-    >>> phi.struphy.data.slice(x="eta1", y="eta2", t=-1)
-    >>> n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
+    >>> phi.plasma.data.slice(x="eta1", y="eta2", t=-1)
+    >>> n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
     """
 
     def lineout(self, *, x: str | None = None, **selection) -> xr.DataArray:
@@ -2163,12 +2163,12 @@ class ArrayData(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.plotting.prepare_lineout : The check behind this method.
+        plasma_plots.plotting.prepare_lineout : The check behind this method.
         ArrayPlots.lineout : The plot of this profile.
 
         Examples
         --------
-        >>> n.struphy.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
+        >>> n.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
         """
         from .plotting import _select, prepare_lineout
 
@@ -2195,7 +2195,7 @@ class ArrayData(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.vector : The plot of these components.
-        struphy_plots.plotting.prepare_vector : The function that prepares them.
+        plasma_plots.plotting.prepare_vector : The function that prepares them.
         """
         from .plotting import _select, prepare_vector
 
@@ -2213,7 +2213,7 @@ class ArrayData(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.volume_slices : The plot of these planes.
-        struphy_plots.plotting.prepare_volume_slices : The function that prepares them.
+        plasma_plots.plotting.prepare_volume_slices : The function that prepares them.
         """
         from .plotting import _select, prepare_volume_slices
 
@@ -2239,12 +2239,12 @@ class ArrayData(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.structured_grid : The function behind this method.
+        plasma_plots.pyvista_plots.structured_grid : The function behind this method.
         ArrayData.to_vtk : Write the grid to files instead.
 
         Examples
         --------
-        >>> grid = phi.struphy.data.grid(t=-1)
+        >>> grid = phi.plasma.data.grid(t=-1)
         """
         from .plotting import _select
         from .pyvista_plots import structured_grid
@@ -2272,12 +2272,12 @@ class ArrayData(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.pyvista_plots.save_vtk : The function behind this method.
+        plasma_plots.pyvista_plots.save_vtk : The function behind this method.
         ArrayData.grid : One time as a PyVista grid, in memory.
 
         Examples
         --------
-        >>> field.struphy.data.to_vtk("frames")
+        >>> field.plasma.data.to_vtk("frames")
         """
         from .plotting import _select
         from .pyvista_plots import save_vtk
@@ -2296,7 +2296,7 @@ class ArrayData(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.slices_3d : The drawing of these cuts.
-        struphy_plots.pyvista_plots.prepare_slices_3d : The function that prepares them.
+        plasma_plots.pyvista_plots.prepare_slices_3d : The function that prepares them.
         """
         from .plotting import _select
         from .pyvista_plots import prepare_slices_3d
@@ -2320,11 +2320,11 @@ class ArrayData(_ArrayAccessor):
         See Also
         --------
         ArrayPlots.compare : The plot of this difference or ratio.
-        struphy_plots.plotting.prepare_compare : The function that computes it.
+        plasma_plots.plotting.prepare_compare : The function that computes it.
 
         Examples
         --------
-        >>> field.struphy.data.compare(reference_field, mode="ratio")
+        >>> field.plasma.data.compare(reference_field, mode="ratio")
         """
         from .plotting import prepare_compare
 
@@ -2364,7 +2364,7 @@ class ArrayData(_ArrayAccessor):
 
         Examples
         --------
-        >>> n.struphy.data.view(coords="physical", plane="XY", eta3=0)
+        >>> n.plasma.data.view(coords="physical", plane="XY", eta3=0)
         """
         from .plotting import prepare_view
 
@@ -2394,8 +2394,8 @@ class ArrayData(_ArrayAccessor):
 
         Examples
         --------
-        >>> phi.struphy.data.slice(x="eta1", y="eta2", t=-1)
-        >>> n.struphy.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
+        >>> phi.plasma.data.slice(x="eta1", y="eta2", t=-1)
+        >>> n.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
         """
         from .plotting import _slice_data
 
@@ -2416,13 +2416,13 @@ class ArrayData(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.power_spectrum : The function behind this method.
+        plasma_plots.analysis.power_spectrum : The function behind this method.
         ArrayPlots.dispersion : The plot of this spectrum.
         ArrayAnalysis.dispersion : The same spectrum.
 
         Examples
         --------
-        >>> field.struphy.data.dispersion(dim="eta1")
+        >>> field.plasma.data.dispersion(dim="eta1")
         """
         from .analysis import power_spectrum
 
@@ -2449,7 +2449,7 @@ class ArrayData(_ArrayAccessor):
 
         Examples
         --------
-        >>> field, paths = field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
+        >>> field, paths = field.plasma.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
         """
         from .plotting import prepare_orbits
 
@@ -2496,7 +2496,7 @@ class ArrayData(_ArrayAccessor):
 
         Examples
         --------
-        >>> energy.struphy.data.timeseries(other_run_energy)
+        >>> energy.plasma.data.timeseries(other_run_energy)
         """
         from .plotting import _items, validate_array
 
@@ -2507,15 +2507,15 @@ class ArrayData(_ArrayAccessor):
 
 
 class ArrayAnalysis(_ArrayAccessor):
-    """Quantitative diagnostics of one array, as ``array.struphy.analysis.<quantity>(...)``.
+    """Quantitative diagnostics of one array, as ``array.plasma.analysis.<quantity>(...)``.
 
-    Each method applies a function of :mod:`struphy_plots.analysis` or
-    :mod:`struphy_plots.spectral` to this array; see there for the definitions and conventions.
+    Each method applies a function of :mod:`plasma_plots.analysis` or
+    :mod:`plasma_plots.spectral` to this array; see there for the definitions and conventions.
 
     Examples
     --------
-    >>> energy.struphy.analysis.growth_rate(window=(0.0, 5.0))
-    >>> phi.struphy.analysis.time_fft(detrend=True)
+    >>> energy.plasma.analysis.growth_rate(window=(0.0, 5.0))
+    >>> phi.plasma.analysis.time_fft(detrend=True)
     """
 
     def growth_rate(
@@ -2543,13 +2543,13 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.growth_rate : The function behind this method.
+        plasma_plots.analysis.growth_rate : The function behind this method.
         ArrayAnalysis.damping_rate : The same fit to the envelope of an oscillating series.
         ArrayPlots.timeseries : The series with the fit drawn (``fit=``).
 
         Examples
         --------
-        >>> energy.struphy.analysis.growth_rate(window=(0.0, 5.0), amplitude=True).rate
+        >>> energy.plasma.analysis.growth_rate(window=(0.0, 5.0), amplitude=True).rate
         """
         from .analysis import GrowthFit, growth_rate
 
@@ -2583,13 +2583,13 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.damping_rate : The function behind this method.
+        plasma_plots.analysis.damping_rate : The function behind this method.
         ArrayAnalysis.growth_rate : The same fit to the series itself.
         ArrayAnalysis.envelope : The peaks that are fitted.
 
         Examples
         --------
-        >>> energy.struphy.analysis.damping_rate(amplitude=True).rate
+        >>> energy.plasma.analysis.damping_rate(amplitude=True).rate
         """
         from .analysis import GrowthFit, damping_rate
 
@@ -2615,12 +2615,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.oscillation_frequency : The function behind this method.
+        plasma_plots.analysis.oscillation_frequency : The function behind this method.
         ArrayAnalysis.damping_rate : The decay of the same oscillation.
 
         Examples
         --------
-        >>> probe.struphy.analysis.oscillation_frequency(window=(5.0, 40.0)).omega
+        >>> probe.plasma.analysis.oscillation_frequency(window=(5.0, 40.0)).omega
         """
         from .analysis import oscillation_frequency
 
@@ -2644,12 +2644,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.arrays.map_coordinate : The function behind this method.
+        plasma_plots.arrays.map_coordinate : The function behind this method.
 
         Examples
         --------
-        >>> r_T = T.struphy.analysis.map_coordinate("eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m")
-        >>> r_T.struphy.plot.profiles(x="r", eta2=0, eta3=0)
+        >>> r_T = T.plasma.analysis.map_coordinate("eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m")
+        >>> r_T.plasma.plot.profiles(x="r", eta2=0, eta3=0)
         """
         from .arrays import map_coordinate
 
@@ -2665,7 +2665,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.envelope : The function behind this method.
+        plasma_plots.analysis.envelope : The function behind this method.
         """
         from .analysis import envelope
 
@@ -2681,11 +2681,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.norm : The function behind this method.
+        plasma_plots.analysis.norm : The function behind this method.
 
         Examples
         --------
-        >>> div_B.struphy.analysis.norm()
+        >>> div_B.plasma.analysis.norm()
         """
         from .analysis import norm
 
@@ -2701,12 +2701,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.drift : The function behind this method.
+        plasma_plots.analysis.drift : The function behind this method.
         ArrayAnalysis.relative_error : The absolute relative deviation.
 
         Examples
         --------
-        >>> energy.struphy.analysis.drift().struphy.plot.timeseries()
+        >>> energy.plasma.analysis.drift().plasma.plot.timeseries()
         """
         from .analysis import drift
 
@@ -2722,12 +2722,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.relative_error : The function behind this method.
+        plasma_plots.analysis.relative_error : The function behind this method.
         ArrayAnalysis.drift : The signed deviation.
 
         Examples
         --------
-        >>> energy.struphy.analysis.relative_error(ref=exact_solution)
+        >>> energy.plasma.analysis.relative_error(ref=exact_solution)
         """
         from .analysis import relative_error
 
@@ -2745,11 +2745,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.spatial_average : The function behind this method.
+        plasma_plots.analysis.spatial_average : The function behind this method.
 
         Examples
         --------
-        >>> distribution.struphy.analysis.spatial_average()
+        >>> distribution.plasma.analysis.spatial_average()
         """
         from .analysis import spatial_average
 
@@ -2758,7 +2758,7 @@ class ArrayAnalysis(_ArrayAccessor):
     def velocity_moments(self, *, dims=None) -> xr.Dataset:
         """Return density, mean velocity and variance of a binned distribution over its velocity dimensions.
 
-        See :func:`struphy_plots.analysis.velocity_moments` for the definitions.
+        See :func:`plasma_plots.analysis.velocity_moments` for the definitions.
 
         Returns
         -------
@@ -2767,11 +2767,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.velocity_moments : The function behind this method.
+        plasma_plots.analysis.velocity_moments : The function behind this method.
 
         Examples
         --------
-        >>> distribution.struphy.analysis.velocity_moments()
+        >>> distribution.plasma.analysis.velocity_moments()
         """
         from .analysis import velocity_moments
 
@@ -2793,13 +2793,13 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.power_spectrum : The function behind this method, and the definition.
+        plasma_plots.analysis.power_spectrum : The function behind this method, and the definition.
         ArrayPlots.dispersion : The plot of this spectrum.
         ArrayAnalysis.fit_branches : Straight branches fitted to it.
 
         Examples
         --------
-        >>> spectrum = E.isel(eta2=0, eta3=0).struphy.analysis.dispersion()
+        >>> spectrum = E.isel(eta2=0, eta3=0).plasma.analysis.dispersion()
         """
         from .analysis import power_spectrum
 
@@ -2822,13 +2822,13 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.fit_dispersion_branches : The function behind this method.
+        plasma_plots.analysis.fit_dispersion_branches : The function behind this method.
         ArrayAnalysis.dispersion : The spectrum to fit.
         ArrayAnalysis.trace_branch : The measured frequency along a curved branch.
 
         Examples
         --------
-        >>> field.struphy.analysis.dispersion().struphy.analysis.fit_branches(n_branches=2)
+        >>> field.plasma.analysis.dispersion().plasma.analysis.fit_branches(n_branches=2)
         """
         from .analysis import fit_dispersion_branches
 
@@ -2840,7 +2840,7 @@ class ArrayAnalysis(_ArrayAccessor):
             order=order,
         )
 
-    # Spectral diagnostics: see struphy_plots.spectral for the definitions and conventions.
+    # Spectral diagnostics: see plasma_plots.spectral for the definitions and conventions.
 
     def fft(self, *, dim: str, detrend: bool = False, window: str | None = None) -> xr.DataArray:
         """Return the two-sided Fourier coefficients along ``dim``.
@@ -2852,12 +2852,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.fft : The function behind this method.
+        plasma_plots.spectral.fft : The function behind this method.
         ArrayAnalysis.time_fft : The one-sided transform in time.
 
         Examples
         --------
-        >>> phi.struphy.analysis.fft(dim="eta1")
+        >>> phi.plasma.analysis.fft(dim="eta1")
         """
         from .spectral import fft
 
@@ -2873,12 +2873,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.time_fft : The function behind this method.
+        plasma_plots.spectral.time_fft : The function behind this method.
         ArrayPlots.power_spectrum : The plot of the power.
 
         Examples
         --------
-        >>> phi.struphy.analysis.time_fft(detrend=True)
+        >>> phi.plasma.analysis.time_fft(detrend=True)
         """
         from .spectral import time_fft
 
@@ -2894,12 +2894,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.filter_time : The function behind this method.
+        plasma_plots.spectral.filter_time : The function behind this method.
         ArrayPlots.filtered : A probe of the signal against the reconstruction.
 
         Examples
         --------
-        >>> band = phi.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
+        >>> band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
         """
         from .spectral import filter_time
 
@@ -2915,12 +2915,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.band_filter : The function behind this method.
+        plasma_plots.spectral.band_filter : The function behind this method.
         ArrayAnalysis.filter_time : The dominant band, found automatically.
 
         Examples
         --------
-        >>> phi.struphy.analysis.band_filter(0.08, 0.11)
+        >>> phi.plasma.analysis.band_filter(0.08, 0.11)
         """
         from .spectral import band_filter
 
@@ -2944,12 +2944,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.spectral_peaks : The function behind this method.
+        plasma_plots.spectral.spectral_peaks : The function behind this method.
         ArrayPlots.power_spectrum : The spectrum with the peaks labeled (``peaks=``).
 
         Examples
         --------
-        >>> phi.struphy.analysis.spectral_peaks(n_peaks=2)
+        >>> phi.plasma.analysis.spectral_peaks(n_peaks=2)
         """
         from .spectral import spectral_peaks
 
@@ -2972,12 +2972,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.spectrogram : The function behind this method.
+        plasma_plots.spectral.spectrogram : The function behind this method.
         ArrayPlots.spectrogram : The plot of these spectra.
 
         Examples
         --------
-        >>> signal.struphy.analysis.spectrogram(length=200.0, step=10.0)
+        >>> signal.plasma.analysis.spectrogram(length=200.0, step=10.0)
         """
         from .spectral import spectrogram
 
@@ -2993,12 +2993,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.mode_spectrum : The function behind this method.
+        plasma_plots.spectral.mode_spectrum : The function behind this method.
         ArrayAnalysis.mode_amplitudes : Real amplitudes of this spectrum.
 
         Examples
         --------
-        >>> modes = phi.struphy.analysis.mode_spectrum()
+        >>> modes = phi.plasma.analysis.mode_spectrum()
         """
         from .spectral import mode_spectrum
 
@@ -3014,12 +3014,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.mode_amplitudes : The function behind this method.
+        plasma_plots.spectral.mode_amplitudes : The function behind this method.
         ArrayAnalysis.mode_spectrum : The spectrum this is applied to.
 
         Examples
         --------
-        >>> phi.struphy.analysis.mode_spectrum().struphy.analysis.mode_amplitudes(top=4)
+        >>> phi.plasma.analysis.mode_spectrum().plasma.analysis.mode_amplitudes(top=4)
         """
         from .spectral import mode_amplitudes
 
@@ -3035,12 +3035,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.mode_structure : The function behind this method.
+        plasma_plots.spectral.mode_structure : The function behind this method.
         ArrayPlots.mode_profiles : The harmonics of this eigenfunction (``omega=``).
 
         Examples
         --------
-        >>> phi.struphy.analysis.mode_structure(omega)
+        >>> phi.plasma.analysis.mode_structure(omega)
         """
         from .spectral import mode_structure
 
@@ -3061,12 +3061,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.cross_spectrum : The function behind this method.
+        plasma_plots.spectral.cross_spectrum : The function behind this method.
         ArrayPlots.cross_spectrum : The plot of this spectrum.
 
         Examples
         --------
-        >>> u.struphy.analysis.cross_spectrum(b, dims="eta3")
+        >>> u.plasma.analysis.cross_spectrum(b, dims="eta3")
         """
         from .spectral import cross_spectrum
 
@@ -3082,12 +3082,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.matrix_pencil : The function behind this method.
+        plasma_plots.spectral.matrix_pencil : The function behind this method.
         ArrayPlots.pencil_fit : The plot of this fit.
 
         Examples
         --------
-        >>> probe.struphy.analysis.matrix_pencil(n_modes=1)
+        >>> probe.plasma.analysis.matrix_pencil(n_modes=1)
         """
         from .spectral import matrix_pencil
 
@@ -3103,11 +3103,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.gradient : The function behind this method.
+        plasma_plots.analysis.gradient : The function behind this method.
 
         Examples
         --------
-        >>> phi.struphy.analysis.gradient()
+        >>> phi.plasma.analysis.gradient()
         """
         from .analysis import gradient
 
@@ -3133,12 +3133,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.error : The function behind this method.
+        plasma_plots.analysis.error : The function behind this method.
 
         Examples
         --------
-        >>> T.struphy.analysis.error(exact, relative=True)
-        >>> T.struphy.analysis.error(exact, norm="max")
+        >>> T.plasma.analysis.error(exact, relative=True)
+        >>> T.plasma.analysis.error(exact, norm="max")
         """
         from .analysis import error
 
@@ -3171,11 +3171,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.project_mode : The function behind this method.
+        plasma_plots.analysis.project_mode : The function behind this method.
 
         Examples
         --------
-        >>> rho.struphy.analysis.project_mode(dim="eta2", number=3, kind="complex")
+        >>> rho.plasma.analysis.project_mode(dim="eta2", number=3, kind="complex")
         """
         from .analysis import project_mode
 
@@ -3198,11 +3198,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.divergence : The function behind this method.
+        plasma_plots.analysis.divergence : The function behind this method.
 
         Examples
         --------
-        >>> B.struphy.analysis.divergence()
+        >>> B.plasma.analysis.divergence()
         """
         from .analysis import divergence
 
@@ -3218,11 +3218,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.curl : The function behind this method.
+        plasma_plots.analysis.curl : The function behind this method.
 
         Examples
         --------
-        >>> B.struphy.analysis.curl()
+        >>> B.plasma.analysis.curl()
         """
         from .analysis import curl
 
@@ -3238,11 +3238,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.flux_function : The function behind this method.
+        plasma_plots.analysis.flux_function : The function behind this method.
 
         Examples
         --------
-        >>> B.struphy.analysis.flux_function()
+        >>> B.plasma.analysis.flux_function()
         """
         from .analysis import flux_function
 
@@ -3258,12 +3258,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.cylindrical_components : The function behind this method.
+        plasma_plots.analysis.cylindrical_components : The function behind this method.
         ArrayAnalysis.toroidal_components : Components about a magnetic axis.
 
         Examples
         --------
-        >>> E.struphy.analysis.cylindrical_components()
+        >>> E.plasma.analysis.cylindrical_components()
         """
         from .analysis import cylindrical_components
 
@@ -3279,12 +3279,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.toroidal_components : The function behind this method.
+        plasma_plots.analysis.toroidal_components : The function behind this method.
         ArrayAnalysis.cylindrical_components : Components about the ``Z`` axis.
 
         Examples
         --------
-        >>> u.struphy.analysis.toroidal_components(R0=3.0)
+        >>> u.plasma.analysis.toroidal_components(R0=3.0)
         """
         from .analysis import toroidal_components
 
@@ -3300,11 +3300,11 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.analysis.polar_coordinates : The function behind this method.
+        plasma_plots.analysis.polar_coordinates : The function behind this method.
 
         Examples
         --------
-        >>> n.struphy.analysis.polar_coordinates(center=(0.0, 0.0))
+        >>> n.plasma.analysis.polar_coordinates(center=(0.0, 0.0))
         """
         from .analysis import polar_coordinates
 
@@ -3320,12 +3320,12 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.trace_branch : The function behind this method.
+        plasma_plots.spectral.trace_branch : The function behind this method.
         ArrayPlots.against_theory : The measured frequencies against the theory.
 
         Examples
         --------
-        >>> spectrum.struphy.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5))
+        >>> spectrum.plasma.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5))
         """
         from .spectral import trace_branch
 
@@ -3341,23 +3341,23 @@ class ArrayAnalysis(_ArrayAccessor):
 
         See Also
         --------
-        struphy_plots.spectral.drop_periodic_endpoint : The function behind this method.
+        plasma_plots.spectral.drop_periodic_endpoint : The function behind this method.
         """
         from .spectral import drop_periodic_endpoint
 
         return drop_periodic_endpoint(self._array, dim, period=period)
 
 
-@xr.register_dataarray_accessor("struphy")
-class StruphyAccessor:
-    """Struphy diagnostics of one array: ``array.struphy.plot``, ``.analysis`` and ``.data``.
+@xr.register_dataarray_accessor("plasma")
+class PlasmaAccessor:
+    """Struphy diagnostics of one array: ``array.plasma.plot``, ``.analysis`` and ``.data``.
 
-    Registered on every ``xarray.DataArray`` when ``struphy_plots`` is imported.
+    Registered on every ``xarray.DataArray`` when ``plasma_plots`` is imported.
 
     Examples
     --------
-    >>> import struphy_plots
-    >>> phi.struphy.plot.slice(x="eta1", y="eta2", t=-1)
+    >>> import plasma_plots
+    >>> phi.plasma.plot.slice(x="eta1", y="eta2", t=-1)
     """
 
     def __init__(self, array: xr.DataArray):
@@ -3365,29 +3365,29 @@ class StruphyAccessor:
 
     @property
     def plot(self) -> "ArrayPlots":
-        """Plots of this array, e.g. ``array.struphy.plot.slice(x="eta1", y="v1", t=-1)``."""
+        """Plots of this array, e.g. ``array.plasma.plot.slice(x="eta1", y="v1", t=-1)``."""
         return ArrayPlots(self._array)
 
     @property
     def analysis(self) -> "ArrayAnalysis":
-        """Diagnostics of this array, e.g. ``array.struphy.analysis.growth_rate()``."""
+        """Diagnostics of this array, e.g. ``array.plasma.analysis.growth_rate()``."""
         return ArrayAnalysis(self._array)
 
     @property
     def data(self) -> "ArrayData":
         """The data behind each plot, without rendering it.
 
-        E.g. for a different plotting library: ``array.struphy.data.slice(x="eta1", y="v1", t=-1)``.
+        E.g. for a different plotting library: ``array.plasma.data.slice(x="eta1", y="v1", t=-1)``.
         """
         return ArrayData(self._array)
 
 
 class DatasetAnalysis:
-    """Quantitative diagnostics of one dataset, as ``dataset.struphy.analysis.<quantity>(...)``.
+    """Quantitative diagnostics of one dataset, as ``dataset.plasma.analysis.<quantity>(...)``.
 
     Examples
     --------
-    >>> orbits.struphy.analysis.classify_orbits()
+    >>> orbits.plasma.analysis.classify_orbits()
     """
 
     def __init__(self, dataset: xr.Dataset):
@@ -3396,7 +3396,7 @@ class DatasetAnalysis:
     def classify_orbits(self, *, v_par: str = "v_par") -> xr.DataArray:
         """Classify each marker of this guiding-center orbits product: passing (0), trapped (1) or lost (-1).
 
-        See :func:`struphy_plots.analysis.classify_orbits` for the criteria.
+        See :func:`plasma_plots.analysis.classify_orbits` for the criteria.
 
         Returns
         -------
@@ -3405,12 +3405,12 @@ class DatasetAnalysis:
 
         See Also
         --------
-        struphy_plots.analysis.classify_orbits : The function behind this method.
+        plasma_plots.analysis.classify_orbits : The function behind this method.
         DatasetPlots.orbit_classification : The markers in a phase-space plane, colored by class.
 
         Examples
         --------
-        >>> orbits.struphy.analysis.classify_orbits()
+        >>> orbits.plasma.analysis.classify_orbits()
         """
         from .analysis import classify_orbits
 
@@ -3426,11 +3426,11 @@ class DatasetAnalysis:
 
         See Also
         --------
-        struphy_plots.analysis.orbit_invariants : The function behind this method.
+        plasma_plots.analysis.orbit_invariants : The function behind this method.
 
         Examples
         --------
-        >>> orbits.struphy.analysis.orbit_invariants(absB=absB_xyz)
+        >>> orbits.plasma.analysis.orbit_invariants(absB=absB_xyz)
         """
         from .analysis import orbit_invariants
 
@@ -3446,12 +3446,12 @@ class DatasetAnalysis:
 
         See Also
         --------
-        struphy_plots.analysis.bounce_period : The function behind this method.
+        plasma_plots.analysis.bounce_period : The function behind this method.
         DatasetAnalysis.classify_orbits : Which markers are trapped.
 
         Examples
         --------
-        >>> orbits.struphy.analysis.bounce_period()
+        >>> orbits.plasma.analysis.bounce_period()
         """
         from .analysis import bounce_period
 
@@ -3459,15 +3459,15 @@ class DatasetAnalysis:
 
 
 class DatasetPlots:
-    """Plots of one dataset, as ``dataset.struphy.plot.<kind>(...)``.
+    """Plots of one dataset, as ``dataset.plasma.plot.<kind>(...)``.
 
     Most of them are for an orbits product, with one ``(t, marker)`` variable per saved
     quantity; others plot the Dataset results of a spectral analysis.
 
     Examples
     --------
-    >>> orbits.struphy.plot.trajectories()
-    >>> orbits.struphy.plot.orbit_classification()
+    >>> orbits.plasma.plot.trajectories()
+    >>> orbits.plasma.plot.orbit_classification()
     """
 
     def __init__(self, dataset: xr.Dataset):
@@ -3480,12 +3480,12 @@ class DatasetPlots:
         Parameters
         ----------
         **options
-            The keyword options of :func:`struphy_plots.spectral_plots.plot_power_spectrum`,
+            The keyword options of :func:`plasma_plots.spectral_plots.plot_power_spectrum`,
             e.g. ``peaks=2``.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3495,12 +3495,12 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_power_spectrum : The function behind this method.
+        plasma_plots.spectral_plots.plot_power_spectrum : The function behind this method.
         ArrayAnalysis.time_fft : The Dataset to plot.
 
         Examples
         --------
-        >>> phi.struphy.analysis.time_fft(detrend=True).struphy.plot.power_spectrum(peaks=2)
+        >>> phi.plasma.analysis.time_fft(detrend=True).plasma.plot.power_spectrum(peaks=2)
         """
         from .spectral_plots import plot_power_spectrum
 
@@ -3514,8 +3514,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3525,12 +3525,12 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.spectral_plots.plot_cross_spectrum : The function behind this method.
+        plasma_plots.spectral_plots.plot_cross_spectrum : The function behind this method.
         ArrayAnalysis.cross_spectrum : The Dataset to plot.
 
         Examples
         --------
-        >>> u.struphy.analysis.cross_spectrum(b, dims="eta3").struphy.plot.cross_spectrum(omega_max=1.5)
+        >>> u.plasma.analysis.cross_spectrum(b, dims="eta3").plasma.plot.cross_spectrum(omega_max=1.5)
         """
         from .spectral_plots import plot_cross_spectrum
 
@@ -3551,8 +3551,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3561,13 +3561,13 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_marker_trajectories : The function behind this method.
+        plasma_plots.plotting.plot_marker_trajectories : The function behind this method.
         DatasetData.trajectories : The plotted markers, without plotting them.
         DatasetPlots.orbits_3d : Interactive PyVista orbit lines.
 
         Examples
         --------
-        >>> orbits.struphy.plot.trajectories(max_markers=200)
+        >>> orbits.plasma.plot.trajectories(max_markers=200)
         """
         from .plotting import plot_marker_trajectories
 
@@ -3600,8 +3600,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3610,14 +3610,14 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_marker_scatter : The function behind this method.
+        plasma_plots.plotting.plot_marker_scatter : The function behind this method.
         DatasetData.scatter : The selected markers, without plotting them.
         DatasetPlots.animation : The markers moving over time.
 
         Examples
         --------
-        >>> markers.struphy.plot.scatter(x="x", y="y", color="density", t=-1)
-        >>> markers.struphy.plot.scatter(x="x", y="y", color="tracer", color_at=0, t=-1)
+        >>> markers.plasma.plot.scatter(x="x", y="y", color="density", t=-1)
+        >>> markers.plasma.plot.scatter(x="x", y="y", color="tracer", color_at=0, t=-1)
         """
         from .plotting import plot_marker_scatter
 
@@ -3655,8 +3655,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3666,14 +3666,14 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_orbit_classification : The function behind this method.
+        plasma_plots.plotting.plot_orbit_classification : The function behind this method.
         DatasetData.orbit_classification : The plotted values, without plotting them.
         DatasetAnalysis.classify_orbits : The classification alone.
 
         Examples
         --------
-        >>> orbits.struphy.plot.orbit_classification()
-        >>> orbits.struphy.plot.orbit_classification(x="p_phi")
+        >>> orbits.plasma.plot.orbit_classification()
+        >>> orbits.plasma.plot.orbit_classification(x="p_phi")
         """
         from .plotting import plot_orbit_classification
 
@@ -3706,8 +3706,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
-            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
-            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            ``result.fig``; needs plotly, see :mod:`plasma_plots.plotly_backend`). Default: the
+            one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3717,13 +3717,13 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.animate_markers : The function behind this method.
+        plasma_plots.plotting.animate_markers : The function behind this method.
         DatasetPlots.scatter : One frame, as a static plot.
 
         Examples
         --------
-        >>> markers.struphy.plot.animation(x="x", y="y", color="density", background=n, step=2)
-        >>> orbits.struphy.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)
+        >>> markers.plasma.plot.animation(x="x", y="y", color="density", background=n, step=2)
+        >>> orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)
         """
         from .plotting import animate_markers
 
@@ -3766,8 +3766,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3777,11 +3777,11 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_marker_paths : The function behind this method.
+        plasma_plots.plotting.plot_marker_paths : The function behind this method.
 
         Examples
         --------
-        >>> orbits.struphy.plot.paths(markers=4, background=psi.isel(t=0))
+        >>> orbits.plasma.plot.paths(markers=4, background=psi.isel(t=0))
         """
         from .plotting import plot_marker_paths
 
@@ -3815,8 +3815,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3825,12 +3825,12 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_orbit_poloidal : The function behind this method.
+        plasma_plots.plotting.plot_orbit_poloidal : The function behind this method.
         DatasetPlots.orbit_grid : One panel per marker.
 
         Examples
         --------
-        >>> orbits.struphy.plot.poloidal(boundary=field)
+        >>> orbits.plasma.plot.poloidal(boundary=field)
         """
         from .plotting import plot_orbit_poloidal
 
@@ -3857,8 +3857,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3868,13 +3868,13 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_orbit_grid : The function behind this method.
+        plasma_plots.plotting.plot_orbit_grid : The function behind this method.
         DatasetPlots.poloidal : All orbits in one panel.
 
         Examples
         --------
-        >>> orbits.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=field)
-        >>> orbits.struphy.plot.orbit_grid(markers=[3, 17, 42])
+        >>> orbits.plasma.plot.orbit_grid(markers=8, ncols=4, boundary=field)
+        >>> orbits.plasma.plot.orbit_grid(markers=[3, 17, 42])
         """
         from .plotting import plot_orbit_grid
 
@@ -3897,8 +3897,8 @@ class DatasetPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3907,11 +3907,11 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_orbit_quantities : The function behind this method.
+        plasma_plots.plotting.plot_orbit_quantities : The function behind this method.
 
         Examples
         --------
-        >>> orbits.struphy.plot.quantities(markers=4)
+        >>> orbits.plasma.plot.quantities(markers=4)
         """
         from .plotting import plot_orbit_quantities
 
@@ -3939,12 +3939,12 @@ class DatasetPlots:
 
         See Also
         --------
-        struphy_plots.pyvista_plots.pyvista_orbits : The function behind this method.
+        plasma_plots.pyvista_plots.pyvista_orbits : The function behind this method.
         DatasetPlots.trajectories : A static Matplotlib overview.
 
         Examples
         --------
-        >>> orbits.struphy.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0)).show()
+        >>> orbits.plasma.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0)).show()
         """
         from .pyvista_plots import pyvista_orbits
 
@@ -3965,7 +3965,7 @@ class DatasetData:
 
     Examples
     --------
-    >>> markers.struphy.data.scatter(x="x", y="y", t=-1).to_dataframe()
+    >>> markers.plasma.data.scatter(x="x", y="y", t=-1).to_dataframe()
     """
 
     def __init__(self, dataset: xr.Dataset):
@@ -3990,7 +3990,7 @@ class DatasetData:
 
         Examples
         --------
-        >>> markers.struphy.data.trajectories(max_markers=50)
+        >>> markers.plasma.data.trajectories(max_markers=50)
         """
         from .plotting import prepare_orbits
 
@@ -4008,13 +4008,13 @@ class DatasetData:
 
         See Also
         --------
-        struphy_plots.plotting.prepare_marker_scatter : The function behind this method.
+        plasma_plots.plotting.prepare_marker_scatter : The function behind this method.
         DatasetPlots.scatter : The plot of these markers.
 
         Examples
         --------
-        >>> markers.struphy.data.scatter(x="x", y="y", color="density", t=-1).to_dataframe()
-        >>> markers.struphy.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)   # colored by the start
+        >>> markers.plasma.data.scatter(x="x", y="y", color="density", t=-1).to_dataframe()
+        >>> markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)    # colored by the start
         """
         from .plotting import prepare_marker_scatter
 
@@ -4033,28 +4033,28 @@ class DatasetData:
         See Also
         --------
         DatasetPlots.orbit_classification : The plot of these values.
-        struphy_plots.plotting.prepare_orbit_classification : The function that prepares them.
+        plasma_plots.plotting.prepare_orbit_classification : The function that prepares them.
 
         Examples
         --------
-        >>> orbits.struphy.data.orbit_classification(x="p_phi")
+        >>> orbits.plasma.data.orbit_classification(x="p_phi")
         """
         from .plotting import prepare_orbit_classification
 
         return prepare_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t)
 
 
-@xr.register_dataset_accessor("struphy")
-class StruphyDatasetAccessor:
-    """Struphy diagnostics of one dataset, e.g. an ``orbits`` product: ``dataset.struphy.plot``.
+@xr.register_dataset_accessor("plasma")
+class PlasmaDatasetAccessor:
+    """Struphy diagnostics of one dataset, e.g. an ``orbits`` product: ``dataset.plasma.plot``.
 
-    Also ``dataset.struphy.analysis`` and ``dataset.struphy.data``. Registered on every
-    ``xarray.Dataset`` when ``struphy_plots`` is imported.
+    Also ``dataset.plasma.analysis`` and ``dataset.plasma.data``. Registered on every
+    ``xarray.Dataset`` when ``plasma_plots`` is imported.
 
     Examples
     --------
-    >>> orbits.struphy.plot.trajectories()
-    >>> orbits.struphy.analysis.classify_orbits()
+    >>> orbits.plasma.plot.trajectories()
+    >>> orbits.plasma.analysis.classify_orbits()
     """
 
     def __init__(self, dataset: xr.Dataset):
@@ -4062,30 +4062,30 @@ class StruphyDatasetAccessor:
 
     @property
     def plot(self) -> "DatasetPlots":
-        """Plots of this dataset, e.g. ``orbits.struphy.plot.trajectories()``."""
+        """Plots of this dataset, e.g. ``orbits.plasma.plot.trajectories()``."""
         return DatasetPlots(self._dataset)
 
     @property
     def data(self) -> "DatasetData":
-        """The data behind each plot, without rendering it: ``orbits.struphy.data.scatter(...)``."""
+        """The data behind each plot, without rendering it: ``orbits.plasma.data.scatter(...)``."""
         return DatasetData(self._dataset)
 
     @property
     def analysis(self) -> "DatasetAnalysis":
-        """Diagnostics of this dataset, e.g. ``orbits.struphy.analysis.classify_orbits()``."""
+        """Diagnostics of this dataset, e.g. ``orbits.plasma.analysis.classify_orbits()``."""
         return DatasetAnalysis(self._dataset)
 
 
 class SliceView:
     """A configured array view, shared by static, interactive and exported plots.
 
-    Construct with ``array.struphy.plot.view(...)`` (:meth:`ArrayPlots.view`), which sets its
+    Construct with ``array.plasma.plot.view(...)`` (:meth:`ArrayPlots.view`), which sets its
     selection and rendering options. Configuration does not create figures or copy the
     underlying array.
 
     Examples
     --------
-    >>> view = phi.struphy.plot.view(x="eta1", y="eta2", cmap="RdBu_r", symmetric=True)
+    >>> view = phi.plasma.plot.view(x="eta1", y="eta2", cmap="RdBu_r", symmetric=True)
     >>> view.slice(t=-1)
     >>> view.animation(step=2)
     """
@@ -4114,8 +4114,8 @@ class SliceView:
             value.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4124,7 +4124,7 @@ class SliceView:
 
         See Also
         --------
-        struphy_plots.plotting.plot_slice : The function behind this method.
+        plasma_plots.plotting.plot_slice : The function behind this method.
 
         Examples
         --------
@@ -4152,8 +4152,8 @@ class SliceView:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4162,7 +4162,7 @@ class SliceView:
 
         See Also
         --------
-        struphy_plots.plotting.plot_panels : The function behind this method.
+        plasma_plots.plotting.plot_panels : The function behind this method.
 
         Examples
         --------
@@ -4182,18 +4182,18 @@ class SliceView:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
-            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
-            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            ``result.fig``; needs plotly, see :mod:`plasma_plots.plotly_backend`). Default: the
+            one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
-        struphy_plots.plotting.InteractiveSliceViewer or PlotResult
+        plasma_plots.plotting.InteractiveSliceViewer or PlotResult
             The viewer, with this view's rendering options; with ``backend="plotly"`` a result
             whose Plotly figure has one slider (one unselected dimension at most).
 
         See Also
         --------
-        struphy_plots.plotting.InteractiveSliceViewer : The viewer class.
+        plasma_plots.plotting.InteractiveSliceViewer : The viewer class.
         """
         from .plotting import InteractiveSliceViewer
 
@@ -4214,8 +4214,8 @@ class SliceView:
             its own color limits.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure with a slider (in
-            ``result.fig``; needs plotly, see :mod:`struphy_plots.plotly_backend`). Default: the
-            one set with :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            ``result.fig``; needs plotly, see :mod:`plasma_plots.plotly_backend`). Default: the
+            one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4225,8 +4225,8 @@ class SliceView:
 
         See Also
         --------
-        struphy_plots.plotting.animate_slices : The function behind this method.
-        struphy_plots.plotting.animate_fields : The function used with ``alongside``.
+        plasma_plots.plotting.animate_slices : The function behind this method.
+        plasma_plots.plotting.animate_fields : The function used with ``alongside``.
 
         Examples
         --------
@@ -4262,7 +4262,7 @@ class SliceView:
 
         See Also
         --------
-        struphy_plots.plotting.save_frames : The function behind this method.
+        plasma_plots.plotting.save_frames : The function behind this method.
 
         Examples
         --------
@@ -4297,8 +4297,8 @@ def _complete_docstrings():
     ):
         complete_class(cls)
         add_menu(cls)
-    add_menu(StruphyAccessor)
-    add_menu(StruphyDatasetAccessor)
+    add_menu(PlasmaAccessor)
+    add_menu(PlasmaDatasetAccessor)
 
 
 _complete_docstrings()

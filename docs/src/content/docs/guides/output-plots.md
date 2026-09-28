@@ -5,12 +5,12 @@ description: Scalar overviews and equilibrium plots for an entire Struphy run.
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
-struphy-plots and its `.struphy` accessors. For other xarray data, run
-`import struphy_plots` first (see
-[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
 :::
 
-`OutputPlots`, from `struphy_plots.output_accessors`, works on a Struphy
+`OutputPlots`, from `plasma_plots.output_accessors`, works on a Struphy
 `Output` object rather than a single array, and gives you overview plots for
 a whole run. Struphy's `Output` has it as `out.plot`, so
 `out.plot()` is a quick default (the scalar overview).
@@ -33,7 +33,7 @@ out.plot.equilibrium_3d(scalars="p0", cmap="viridis")
   ![Overview of every scalar time series in one run](../../../assets/figures/scalars.png)
 
   To write every scalar to disk at once, use
-  `struphy_plots.plotting.save_all_scalars(out.scalars, "plots/scalars")`. It
+  `plasma_plots.plotting.save_all_scalars(out.scalars, "plots/scalars")`. It
   writes a CSV table, this overview, and one figure per scalar.
 
 - **`energies(parts=None, total="en_tot", groups=None)`** — the run's energy
@@ -58,17 +58,17 @@ out.plot.equilibrium_3d(scalars="p0", cmap="viridis")
 
 - **`equilibrium_3d(scalars="p0", cmap="viridis")`** — interactive 3-D
   equilibrium view via PyVista. Requires
-  `pip install "struphy-plots[pyvista]"`.
+  `pip install "plasma-plots[pyvista]"`.
 
   ![A 3-D equilibrium view shaded by a scalar field](../../../assets/figures/equilibrium_3d.png)
 
 - **`domain_3d(n1=8, n2=32, n3=32, surface=True)`** — a PyVista wireframe of
   the run's mapping (`out.domain`), for checking its geometry. See
-  [3-D views](/struphy-plots/guides/3d-views/#the-domain).
+  [3-D views](/plasma-plots/guides/3d-views/#the-domain).
 
   ![Wireframe of a toroidal mapping](../../../assets/figures/3d_domain.png)
 
-See the [`out.plot` and `out.analysis` reference](/struphy-plots/reference/output/) for full
+See the [`out.plot` and `out.analysis` reference](/plasma-plots/reference/output/) for full
 signatures.
 
 ## Energies from fields
@@ -83,14 +83,14 @@ simulated, such as a filtered mode:
 ```python
 etas, weights = out.analysis.quadrature_grid()        # Gauss points and weights per direction
 u = out.evaluate("mhd/velocity", eta1=etas["eta1"], eta2=etas["eta2"], eta3=etas["eta3"], representation="2")
-mode = u.struphy.analysis.filter_time(pad_bins=1).filtered
+mode = u.plasma.analysis.filter_time(pad_bins=1).filtered
 out.analysis.linear_mhd_energies(velocity=mode, b_field=None, pressure=None).en_U   # energy in that mode
 ```
 
 Fields must be in their FEEC space's own representation: 2-form components
 for velocity and magnetic field, a 3-form for pressure. The default
 post-processing products use other representations (`"norm"`, `"0"`). For
-other models, `struphy_plots.analysis.field_energy` and `volume_integral`
+other models, `plasma_plots.analysis.field_energy` and `volume_integral`
 compute the same kinds of integrals for any form. See the
-[Diagnostics guide](/struphy-plots/guides/analysis/#volume-integrals-and-field-energies).
+[Diagnostics guide](/plasma-plots/guides/analysis/#volume-integrals-and-field-energies).
 

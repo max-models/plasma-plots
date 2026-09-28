@@ -13,11 +13,11 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 go = pytest.importorskip("plotly.graph_objects")
 
-import struphy_plots  # noqa: E402
-from struphy_plots import accessors, output_accessors  # noqa: E402
-from struphy_plots.mpi import SkippedPlot  # noqa: E402
-from struphy_plots.plotly_backend import ConversionWarning, plotly_text, to_plotly  # noqa: E402
-from struphy_plots.plotting import PlotResult, plot_slice  # noqa: E402
+import plasma_plots  # noqa: E402
+from plasma_plots import accessors, output_accessors  # noqa: E402
+from plasma_plots.mpi import SkippedPlot  # noqa: E402
+from plasma_plots.plotly_backend import ConversionWarning, plotly_text, to_plotly  # noqa: E402
+from plasma_plots.plotting import PlotResult, plot_slice  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:The input coordinates to pcolormesh")
 
@@ -29,7 +29,7 @@ def strict_and_clean():
         warnings.simplefilter("error", ConversionWarning)
         yield
     plt.close("all")
-    assert struphy_plots.get_backend() == "matplotlib"
+    assert plasma_plots.get_backend() == "matplotlib"
 
 
 def torus_field(nt=5, n1=6, n2=12, n3=4):
@@ -79,50 +79,50 @@ def cases():
     vec = xr.concat([phi, 0.5 * phi], dim="component").transpose("t", "component", ...).rename("E")
     k = np.linspace(0.5, 3, 6)
     measured = xr.DataArray(np.sqrt(1 + 3 * k**2) * 1.01, dims="k", coords={"k": k}, name="omega")
-    band = phi.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
+    band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
     other = e * 1.5
     return {
-        "timeseries": lambda **b: e.struphy.plot.timeseries(other, fit=(2.0, 8.0), reference=lambda t: 1e-4 * np.exp(0.4 * t), **b),
-        "lineout": lambda **b: phi.struphy.plot.lineout(x="eta1", t=-1, eta2=0, eta3=0, reference=lambda x: x, **b),
-        "line_animation": lambda **b: phi.struphy.plot.line_animation(x="eta1", eta2=0, eta3=0, **b),
-        "against_theory": lambda **b: measured.struphy.plot.against_theory(lambda k: np.sqrt(1 + 3 * k**2), **b),
-        "vector": lambda **b: vec.struphy.plot.vector(x="eta1", y="eta2", t=-1, eta3=0, **b),
-        "volume_slices": lambda **b: phi.struphy.plot.volume_slices(t=-1, **b),
-        "compare": lambda **b: phi.isel(eta2=0, eta3=0, t=-1).struphy.plot.compare(phi.isel(eta2=0, eta3=0, t=0), **b),
-        "overlay_orbits": lambda **b: phi.struphy.plot.overlay_orbits(o, x="eta1", y="eta2", t=-1, eta3=0, **b),
-        "dispersion": lambda **b: u.struphy.plot.dispersion(dim="eta1", branches={"w": lambda k: 0.3 * np.abs(k)},
+        "timeseries": lambda **b: e.plasma.plot.timeseries(other, fit=(2.0, 8.0), reference=lambda t: 1e-4 * np.exp(0.4 * t), **b),
+        "lineout": lambda **b: phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0, eta3=0, reference=lambda x: x, **b),
+        "line_animation": lambda **b: phi.plasma.plot.line_animation(x="eta1", eta2=0, eta3=0, **b),
+        "against_theory": lambda **b: measured.plasma.plot.against_theory(lambda k: np.sqrt(1 + 3 * k**2), **b),
+        "vector": lambda **b: vec.plasma.plot.vector(x="eta1", y="eta2", t=-1, eta3=0, **b),
+        "volume_slices": lambda **b: phi.plasma.plot.volume_slices(t=-1, **b),
+        "compare": lambda **b: phi.isel(eta2=0, eta3=0, t=-1).plasma.plot.compare(phi.isel(eta2=0, eta3=0, t=0), **b),
+        "overlay_orbits": lambda **b: phi.plasma.plot.overlay_orbits(o, x="eta1", y="eta2", t=-1, eta3=0, **b),
+        "dispersion": lambda **b: u.plasma.plot.dispersion(dim="eta1", branches={"w": lambda k: 0.3 * np.abs(k)},
                                                            frequencies={"cut": 0.5}, **b),
-        "power_spectrum": lambda **b: probe.struphy.plot.power_spectrum(peaks=2, band=(0.8, 1.0), frequencies={"x": 0.3}, **b),
-        "filtered": lambda **b: phi.struphy.plot.filtered(band, eta1=0.5, eta2=0.0, eta3=0.0, **b),
-        "spectrogram": lambda **b: probe.struphy.plot.spectrogram(length=100, step=20, **b),
-        "mode_amplitudes": lambda **b: phi.struphy.plot.mode_amplitudes(top=2, fit=True, **b),
-        "mode_map": lambda **b: phi.struphy.plot.mode_map(t=-1, **b),
-        "radial_power": lambda **b: phi.struphy.plot.radial_power(**b),
-        "mode_profiles": lambda **b: phi.struphy.plot.mode_profiles(0.8, top=2, **b),
-        "profiles": lambda **b: phi.struphy.plot.profiles(x="eta1", eta2=0, eta3=0, **b),
-        "cross_spectrum": lambda **b: u.struphy.plot.cross_spectrum(u.roll(eta1=2), dims="eta1", **b),
-        "pencil_fit": lambda **b: probe.sel(t=slice(0, 20)).struphy.plot.pencil_fit(n_modes=2, **b),
-        "slice": lambda **b: phi.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=4, **b),
-        "slice_physical": lambda **b: phi.struphy.plot.slice(coords="physical", plane="RZ", t=-1, eta3=0,
+        "power_spectrum": lambda **b: probe.plasma.plot.power_spectrum(peaks=2, band=(0.8, 1.0), frequencies={"x": 0.3}, **b),
+        "filtered": lambda **b: phi.plasma.plot.filtered(band, eta1=0.5, eta2=0.0, eta3=0.0, **b),
+        "spectrogram": lambda **b: probe.plasma.plot.spectrogram(length=100, step=20, **b),
+        "mode_amplitudes": lambda **b: phi.plasma.plot.mode_amplitudes(top=2, fit=True, **b),
+        "mode_map": lambda **b: phi.plasma.plot.mode_map(t=-1, **b),
+        "radial_power": lambda **b: phi.plasma.plot.radial_power(**b),
+        "mode_profiles": lambda **b: phi.plasma.plot.mode_profiles(0.8, top=2, **b),
+        "profiles": lambda **b: phi.plasma.plot.profiles(x="eta1", eta2=0, eta3=0, **b),
+        "cross_spectrum": lambda **b: u.plasma.plot.cross_spectrum(u.roll(eta1=2), dims="eta1", **b),
+        "pencil_fit": lambda **b: probe.sel(t=slice(0, 20)).plasma.plot.pencil_fit(n_modes=2, **b),
+        "slice": lambda **b: phi.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=4, **b),
+        "slice_physical": lambda **b: phi.plasma.plot.slice(coords="physical", plane="RZ", t=-1, eta3=0,
                                                              overlays={"boundary": True, "points": {"o": (3.0, 0.0)}}, **b),
-        "panels": lambda **b: phi.struphy.plot.panels(x="eta1", y="eta2", nrows=1, ncols=2, eta3=0, **b),
-        "viewer": lambda **b: phi.struphy.plot.viewer(x="eta1", y="eta2", eta3=0, **b),
-        "animation": lambda **b: phi.struphy.plot.animation(coords="physical", plane="RZ", eta3=0, **b),
-        "trajectories": lambda **b: o.struphy.plot.trajectories(**b),
-        "view_slice": lambda **b: phi.struphy.plot.view(x="eta1", y="eta2", eta3=0).slice(t=-1, **b),
-        "view_panels": lambda **b: phi.struphy.plot.view(x="eta1", y="eta2", eta3=0).panels(nrows=1, ncols=2, **b),
-        "view_viewer": lambda **b: phi.struphy.plot.view(x="eta1", y="eta2", eta3=0).viewer(**b),
-        "view_animation": lambda **b: phi.struphy.plot.view(x="eta1", y="eta2", eta3=0).animation(alongside=[phi**2], **b),
-        "ds_power_spectrum": lambda **b: probe.struphy.analysis.time_fft().struphy.plot.power_spectrum(peaks=1, **b),
-        "ds_cross_spectrum": lambda **b: u.struphy.analysis.cross_spectrum(u.roll(eta1=2), dims="eta1").struphy.plot.cross_spectrum(**b),
-        "ds_trajectories": lambda **b: o.struphy.plot.trajectories(**b),
-        "ds_scatter": lambda **b: o.struphy.plot.scatter(x="eta1", y="eta2", color="v_par", t=-1, background=phi.isel(eta3=0), **b),
-        "ds_orbit_classification": lambda **b: o.struphy.plot.orbit_classification(**b),
-        "ds_animation": lambda **b: o.struphy.plot.animation(x="eta1", y="eta2", color="v_par", step=10, **b),
-        "ds_paths": lambda **b: o.struphy.plot.paths(x="eta1", y="eta2", markers=2, background=phi.isel(eta3=0), **b),
-        "ds_poloidal": lambda **b: o.struphy.plot.poloidal(color_by="t", boundary=phi.isel(t=0), **b),
-        "ds_orbit_grid": lambda **b: o.struphy.plot.orbit_grid(markers=2, ncols=2, **b),
-        "ds_quantities": lambda **b: o.struphy.plot.quantities(markers=2, **b),
+        "panels": lambda **b: phi.plasma.plot.panels(x="eta1", y="eta2", nrows=1, ncols=2, eta3=0, **b),
+        "viewer": lambda **b: phi.plasma.plot.viewer(x="eta1", y="eta2", eta3=0, **b),
+        "animation": lambda **b: phi.plasma.plot.animation(coords="physical", plane="RZ", eta3=0, **b),
+        "trajectories": lambda **b: o.plasma.plot.trajectories(**b),
+        "view_slice": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).slice(t=-1, **b),
+        "view_panels": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).panels(nrows=1, ncols=2, **b),
+        "view_viewer": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).viewer(**b),
+        "view_animation": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).animation(alongside=[phi**2], **b),
+        "ds_power_spectrum": lambda **b: probe.plasma.analysis.time_fft().plasma.plot.power_spectrum(peaks=1, **b),
+        "ds_cross_spectrum": lambda **b: u.plasma.analysis.cross_spectrum(u.roll(eta1=2), dims="eta1").plasma.plot.cross_spectrum(**b),
+        "ds_trajectories": lambda **b: o.plasma.plot.trajectories(**b),
+        "ds_scatter": lambda **b: o.plasma.plot.scatter(x="eta1", y="eta2", color="v_par", t=-1, background=phi.isel(eta3=0), **b),
+        "ds_orbit_classification": lambda **b: o.plasma.plot.orbit_classification(**b),
+        "ds_animation": lambda **b: o.plasma.plot.animation(x="eta1", y="eta2", color="v_par", step=10, **b),
+        "ds_paths": lambda **b: o.plasma.plot.paths(x="eta1", y="eta2", markers=2, background=phi.isel(eta3=0), **b),
+        "ds_poloidal": lambda **b: o.plasma.plot.poloidal(color_by="t", boundary=phi.isel(t=0), **b),
+        "ds_orbit_grid": lambda **b: o.plasma.plot.orbit_grid(markers=2, ncols=2, **b),
+        "ds_quantities": lambda **b: o.plasma.plot.quantities(markers=2, **b),
     }
 
 
@@ -162,8 +162,8 @@ def test_every_matplotlib_plot_method_has_the_backend_option():
 
 def test_a_logical_slice_is_a_heatmap_of_exactly_the_selected_data_and_limits():
     phi = torus_field()
-    result = phi.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, symmetric=True, backend="plotly")
-    selected = phi.struphy.data.slice(x="eta1", y="eta2", t=-1, eta3=0)
+    result = phi.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, symmetric=True, backend="plotly")
+    selected = phi.plasma.data.slice(x="eta1", y="eta2", t=-1, eta3=0)
     heatmap = result.fig.data[0]
     assert heatmap.type == "heatmap"
     np.testing.assert_allclose(np.asarray(heatmap.z), selected.values.T)  # rows along y
@@ -178,11 +178,11 @@ def test_a_logical_slice_is_a_heatmap_of_exactly_the_selected_data_and_limits():
 
 def test_a_physical_slice_is_an_image_under_the_values_at_the_cell_centers():
     phi = torus_field()
-    result = phi.struphy.plot.slice(coords="physical", plane="RZ", t=-1, eta3=0, backend="plotly")
+    result = phi.plasma.plot.slice(coords="physical", plane="RZ", t=-1, eta3=0, backend="plotly")
     (image,) = result.fig.layout.images
     assert image.source.startswith("data:image/png;base64,") and image.xref == "x"
     hover = result.fig.data[0]
-    selected = phi.struphy.data.slice(coords="physical", plane="RZ", t=-1, eta3=0)
+    selected = phi.plasma.data.slice(coords="physical", plane="RZ", t=-1, eta3=0)
     assert sorted(np.asarray(hover.marker.color)) == pytest.approx(sorted(selected.values.ravel()))
     assert hover.marker.opacity == 0
     assert result.fig.layout.yaxis.scaleanchor == "x"  # equal aspect, as in Matplotlib
@@ -190,8 +190,8 @@ def test_a_physical_slice_is_an_image_under_the_values_at_the_cell_centers():
 
 def test_fits_and_their_data_are_kept():
     series = energy()
-    mpl = series.struphy.plot.timeseries(fit=(2.0, 8.0))
-    result = series.struphy.plot.timeseries(fit=(2.0, 8.0), backend="plotly")
+    mpl = series.plasma.plot.timeseries(fit=(2.0, 8.0))
+    result = series.plasma.plot.timeseries(fit=(2.0, 8.0), backend="plotly")
     assert result.fit_results[0].rate == pytest.approx(mpl.fit_results[0].rate)
     line, fit = result.fig.data[:2]
     np.testing.assert_allclose(np.asarray(line.y), series.values)
@@ -205,7 +205,7 @@ def test_fits_and_their_data_are_kept():
 
 def test_animation_frames_are_the_sweep_with_labeled_slider():
     phi = torus_field()
-    result = phi.struphy.plot.animation(x="eta1", y="eta2", eta3=0, step=2, backend="plotly")
+    result = phi.plasma.plot.animation(x="eta1", y="eta2", eta3=0, step=2, backend="plotly")
     frames = result.fig.frames
     assert len(frames) == 3  # t positions 0, 2, 4
     slider = result.fig.layout.sliders[0]
@@ -219,31 +219,31 @@ def test_animation_frames_are_the_sweep_with_labeled_slider():
 
 def test_the_viewer_slides_over_the_one_remaining_dimension():
     phi = torus_field()
-    result = phi.struphy.plot.viewer(x="eta1", y="eta2", t=-1, backend="plotly")
+    result = phi.plasma.plot.viewer(x="eta1", y="eta2", t=-1, backend="plotly")
     assert len(result.fig.frames) == phi.sizes["eta3"]
     assert result.fig.layout.sliders[0].currentvalue.prefix == "eta3 = "
     assert not result.fig.layout.updatemenus  # a viewer, not an animation: no Play button
     with pytest.raises(ValueError, match="one slider"):
-        phi.struphy.plot.viewer(x="eta1", y="eta2", backend="plotly")
+        phi.plasma.plot.viewer(x="eta1", y="eta2", backend="plotly")
 
 
 def test_an_axes_cannot_be_combined_with_plotly():
     _, ax = plt.subplots()
     with pytest.raises(TypeError, match="ax="):
-        energy().struphy.plot.timeseries(ax=ax, backend="plotly")
+        energy().plasma.plot.timeseries(ax=ax, backend="plotly")
     with pytest.raises(ValueError, match="unknown backend"):
-        energy().struphy.plot.timeseries(backend="bokeh")
+        energy().plasma.plot.timeseries(backend="bokeh")
 
 
 def test_the_default_backend_applies_to_every_plot_and_nested_calls_draw_once():
-    previous = struphy_plots.set_backend("plotly")
+    previous = plasma_plots.set_backend("plotly")
     try:
-        result = torus_field().struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0)  # calls SliceView.slice
+        result = torus_field().plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0)  # calls SliceView.slice
         assert isinstance(result.fig, go.Figure)
-        mpl = torus_field().struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, backend="matplotlib")
+        mpl = torus_field().plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, backend="matplotlib")
         assert isinstance(mpl.fig, matplotlib.figure.Figure)
     finally:
-        assert struphy_plots.set_backend(previous) == "plotly"
+        assert plasma_plots.set_backend(previous) == "plotly"
 
 
 def test_other_mpi_ranks_skip_the_conversion(monkeypatch):
@@ -252,11 +252,11 @@ def test_other_mpi_ranks_skip_the_conversion(monkeypatch):
     monkeypatch.delitem(sys.modules, "mpi4py.MPI", raising=False)  # the rank from the launcher variable
     monkeypatch.delenv("STRUPHY_MPI", raising=False)
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
-    assert isinstance(energy().struphy.plot.timeseries(backend="plotly"), SkippedPlot)
+    assert isinstance(energy().plasma.plot.timeseries(backend="plotly"), SkippedPlot)
 
 
 def test_saving_writes_html_and_json(tmp_path):
-    result = energy().struphy.plot.timeseries(backend="plotly")
+    result = energy().plasma.plot.timeseries(backend="plotly")
     html = result.save(tmp_path / "energy.html")
     assert "plotly" in (tmp_path / "energy.html").read_text()[:5000].lower() and html.endswith(".html")
     result.save(tmp_path / "energy.json")
@@ -290,10 +290,10 @@ def test_mathtext_becomes_plotly_text(text, expected):
 
 
 def test_frames_store_what_changes_and_the_figure_what_they_share():
-    heatmaps = torus_field().struphy.plot.animation(x="eta1", y="eta2", eta3=0, backend="plotly").fig
+    heatmaps = torus_field().plasma.plot.animation(x="eta1", y="eta2", eta3=0, backend="plotly").fig
     assert all(frame.data[0].x is None and frame.data[0].z is not None for frame in heatmaps.frames)
     assert heatmaps.data[0].x is not None  # the grid, once
-    markers = orbits().struphy.plot.animation(x="eta1", y="eta2", step=10, backend="plotly").fig
+    markers = orbits().plasma.plot.animation(x="eta1", y="eta2", step=10, backend="plotly").fig
     positions = [np.asarray(frame.data[0].x) for frame in markers.frames]
     assert len(positions) == 3 and not np.allclose(positions[0], positions[1])
 
@@ -314,12 +314,12 @@ def light_waves():
 
 @pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
 def test_a_spectrum_plots_its_positive_quadrant_with_branches_and_fits(backend):
-    spectrum = light_waves().struphy.analysis.dispersion(dim="z")
-    fits = spectrum.struphy.analysis.fit_branches(n_branches=1)
+    spectrum = light_waves().plasma.analysis.dispersion(dim="z")
+    fits = spectrum.plasma.analysis.fit_branches(n_branches=1)
     assert abs(fits[0].velocity - 1) < 0.02
-    result = spectrum.struphy.plot.dispersion(kmin=0, branches={"light": lambda k: k}, fits=fits,
+    result = spectrum.plasma.plot.dispersion(kmin=0, branches={"light": lambda k: k}, fits=fits,
                                               dynamic_range=12, backend=backend)
-    direct = light_waves().struphy.plot.dispersion(dim="z", kmin=0, dynamic_range=12, backend=backend)
+    direct = light_waves().plasma.plot.dispersion(dim="z", kmin=0, dynamic_range=12, backend=backend)
     if backend == "matplotlib":
         mesh, light, fit = result.artists
         assert np.min(mesh.get_coordinates()[..., 0]) >= -np.diff(spectrum.k.values)[0]  # k >= 0 cells only
@@ -345,7 +345,7 @@ def phase_space_f():
 @pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
 def test_slices_take_their_own_axis_and_colorbar_labels(backend):
     f = phase_space_f()
-    result = f.mean("eta1").struphy.plot.slice(x="t", y="v1", vmin=0.0, xlabel="time [ms]", ylabel="v",
+    result = f.mean("eta1").plasma.plot.slice(x="t", y="v1", vmin=0.0, xlabel="time [ms]", ylabel="v",
                                                colorbar_label="f(v, t)", backend=backend)
     if backend == "matplotlib":
         ax = result.ax
@@ -360,14 +360,14 @@ def test_slices_take_their_own_axis_and_colorbar_labels(backend):
 
 def test_an_animation_keeps_at_most_max_frames_first_and_last_included():
     f = phase_space_f()
-    result = f.struphy.plot.animation(x="eta1", y="v1", max_frames=3, xlabel="x", backend="plotly")
+    result = f.plasma.plot.animation(x="eta1", y="v1", max_frames=3, xlabel="x", backend="plotly")
     frames, steps = result.fig.frames, result.fig.layout.sliders[0].steps
     assert len(frames) == len(steps) == 3
     assert [step.label for step in steps] == [f"{v:.4g}" for v in f.t.values[[0, 3, 6]]]
     np.testing.assert_allclose(np.asarray(frames[-1].data[0].z), f.isel(t=-1).transpose("v1", "eta1").values)
     assert result.fig.layout.xaxis.title.text == "x"
     with pytest.raises(ValueError, match="max_frames"):
-        f.struphy.plot.animation(x="eta1", y="v1", max_frames=0, backend="plotly")
+        f.plasma.plot.animation(x="eta1", y="v1", max_frames=0, backend="plotly")
 
 
 def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch):
@@ -379,7 +379,7 @@ def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch)
 
     monkeypatch.setattr(go.Figure, "write_image", write_image)
     f = phase_space_f()
-    movie = f.struphy.plot.animation(x="eta1", y="v1", max_frames=3, backend="plotly")
+    movie = f.plasma.plot.animation(x="eta1", y="v1", max_frames=3, backend="plotly")
     first = np.asarray(movie.fig.data[0].z).copy()
     movie.save(tmp_path / "movie.png", frame=1, width=800, height=650, scale=2)
     z, active, kwargs = shown[-1]
@@ -392,7 +392,7 @@ def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch)
     text = (tmp_path / "movie.html").read_text()
     assert "cdn.plot.ly" in text and page.endswith("movie.html")
     with pytest.raises(ValueError, match="no frames"):
-        energy().struphy.plot.timeseries(backend="plotly").save(tmp_path / "e.png", frame=0)
+        energy().plasma.plot.timeseries(backend="plotly").save(tmp_path / "e.png", frame=0)
 
 
 def test_the_image_of_a_frame_updates_the_traces_the_frame_names(tmp_path, monkeypatch):
@@ -432,7 +432,7 @@ def growing_blob(nt=5):
 
 def test_a_contour_level_the_field_reaches_only_later_is_hidden_until_then():
     blob = growing_blob()
-    result = blob.struphy.plot.animation(x="eta1", y="eta2", levels=[0.9], shared_clim=False, backend="plotly")
+    result = blob.plasma.plot.animation(x="eta1", y="eta2", levels=[0.9], shared_clim=False, backend="plotly")
     level = next(j for j, trace in enumerate(result.fig.data) if trace.name == "level 0.9")
     shown = []
     for frame in result.fig.frames:
@@ -444,7 +444,7 @@ def test_a_contour_level_the_field_reaches_only_later_is_hidden_until_then():
 
 def test_traces_that_never_change_are_stored_once_in_the_figure():
     blob = growing_blob()
-    result = blob.struphy.plot.animation(x="eta1", y="eta2", overlays={"boundary": True, "points": {"c": (0.5, 0.5)}},
+    result = blob.plasma.plot.animation(x="eta1", y="eta2", overlays={"boundary": True, "points": {"c": (0.5, 0.5)}},
                                          backend="plotly")
     figure = result.fig
     heatmap = next(j for j, trace in enumerate(figure.data) if trace.type == "heatmap")
@@ -469,7 +469,7 @@ def travelling_profile():
 def test_a_line_animation_runs_companion_panels_in_sync(backend):
     u, energy = travelling_profile()
     n = (1 + u).rename("n")
-    result = u.struphy.plot.line_animation(x="x", alongside=[n, [energy, 0.5 * energy]], alongside_logy=True,
+    result = u.plasma.plot.line_animation(x="x", alongside=[n, [energy, 0.5 * energy]], alongside_logy=True,
                                            max_frames=6, backend=backend)
     if backend == "matplotlib":
         fig = result._fig
@@ -494,9 +494,9 @@ def test_a_line_animation_runs_companion_panels_in_sync(backend):
 def test_a_companion_must_be_a_profile_or_time_series():
     u, energy = travelling_profile()
     with pytest.raises(ValueError, match="alongside panel"):
-        u.struphy.plot.line_animation(x="x", alongside=[u.expand_dims(y=[0.0, 1.0])])
+        u.plasma.plot.line_animation(x="x", alongside=[u.expand_dims(y=[0.0, 1.0])])
     with pytest.raises(ValueError, match="alongside panel"):
-        u.struphy.plot.line_animation(x="x", alongside=[[u, energy]])
+        u.plasma.plot.line_animation(x="x", alongside=[[u, energy]])
 
 
 def banana_orbits(nt=60, nm=4):
@@ -513,7 +513,7 @@ def banana_orbits(nt=60, nm=4):
 @pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
 def test_marker_animations_take_classes_trails_paths_and_major_radius(backend):
     orbits = banana_orbits()
-    result = orbits.struphy.plot.animation(x="R", y="z", color="classification", trail=10, paths=True,
+    result = orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=10, paths=True,
                                            max_frames=5, backend=backend)
     if backend == "matplotlib":
         ax = result._fig.axes[0]
@@ -543,7 +543,7 @@ def test_a_background_without_time_is_drawn_once():
         "Y": (("eta1", "eta2"), 0 * E1), "Z": (("eta1", "eta2"), E1 * np.sin(2 * np.pi * E2))}, name="psi")
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", "The input coordinates to pcolormesh")
-        animation = orbits.struphy.plot.animation(x="R", y="z", background=psi, max_frames=4)
+        animation = orbits.plasma.plot.animation(x="R", y="z", background=psi, max_frames=4)
         mesh = next(c for c in animation._fig.axes[0].collections if type(c).__name__ == "QuadMesh")
         animation._func(list(animation.new_frame_seq())[-1])
     assert mesh in animation._fig.axes[0].collections  # not redrawn
@@ -551,12 +551,12 @@ def test_a_background_without_time_is_drawn_once():
 
 def test_trail_must_be_a_positive_integer():
     with pytest.raises(ValueError, match="trail"):
-        banana_orbits().struphy.plot.animation(x="R", y="z", trail=0)
+        banana_orbits().plasma.plot.animation(x="R", y="z", trail=0)
 
 
 @pytest.mark.parametrize("backend", ["matplotlib", "plotly"])
 def test_a_slice_of_contour_lines_only_has_a_colorbar_of_its_colormap(backend):
-    result = growing_blob().struphy.plot.slice(x="eta1", y="eta2", t=-1, levels=5, fill=False, cmap="magma",
+    result = growing_blob().plasma.plot.slice(x="eta1", y="eta2", t=-1, levels=5, fill=False, cmap="magma",
                                                backend=backend)
     if backend == "matplotlib":
         colorbar = result.fig.axes[-1]._colorbar

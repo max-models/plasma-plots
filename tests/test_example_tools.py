@@ -11,10 +11,10 @@ import xarray as xr  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 from matplotlib.animation import FuncAnimation  # noqa: E402
 
-import struphy_plots  # noqa: E402, F401
-from struphy_plots import spectral as sp  # noqa: E402
-from struphy_plots.analysis import gradient  # noqa: E402
-from struphy_plots.plotting import animate_fields, animate_markers, plot_marker_paths  # noqa: E402
+import plasma_plots  # noqa: E402, F401
+from plasma_plots import spectral as sp  # noqa: E402
+from plasma_plots.analysis import gradient  # noqa: E402
+from plasma_plots.plotting import animate_fields, animate_markers, plot_marker_paths  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -48,26 +48,26 @@ def markers(n_t=5, n=20):
 
 def test_slices_draw_contour_lines_and_lines_only():
     field = square()
-    filled = field.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=[0.5, 1.0])
+    filled = field.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=[0.5, 1.0])
     assert filled.ax.collections[-1].get_array() is None or len(filled.ax.collections) >= 2
     contour_sets = [c for c in filled.ax.collections if c.__class__.__name__ == "QuadContourSet"]
     assert contour_sets, "no contour lines drawn"
-    lines = field.struphy.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=4, fill=False)
+    lines = field.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=4, fill=False)
     mesh = lines.artists[0]
     assert mesh.get_alpha() == 0.0  # only the lines are visible
     # animations and panels redraw the lines frame by frame without piling them up
-    animation = field.struphy.plot.animation(x="eta1", y="eta2", eta3=0, levels=3)
+    animation = field.plasma.plot.animation(x="eta1", y="eta2", eta3=0, levels=3)
     for frame in range(3):
         animation._func(frame)
     ax = animation._fig.axes[0]
     assert sum(c.__class__.__name__ == "QuadContourSet" for c in ax.collections) == 1
-    assert field.struphy.plot.panels(x="eta1", y="eta2", eta3=0, nrows=1, ncols=2, levels=2).ax.shape == (1, 2)
+    assert field.plasma.plot.panels(x="eta1", y="eta2", eta3=0, nrows=1, ncols=2, levels=2).ax.shape == (1, 2)
 
 
 def test_side_by_side_animation_keeps_each_fields_color_limits():
     field = square()
     other = (-3 * field).rename("omega")
-    animation = field.struphy.plot.animation(x="eta1", y="eta2", eta3=0, alongside=[other], symmetric=True)
+    animation = field.plasma.plot.animation(x="eta1", y="eta2", eta3=0, alongside=[other], symmetric=True)
     assert isinstance(animation, FuncAnimation)
     fig = animation._fig
     meshes = [ax.collections[0] for ax in fig.axes[:2]]
@@ -84,7 +84,7 @@ def test_side_by_side_animation_keeps_each_fields_color_limits():
 def test_marker_scatter_over_a_field_colored_at_another_time():
     field = square()
     orbits = markers()
-    result = orbits.struphy.plot.scatter(
+    result = orbits.plasma.plot.scatter(
         x="x", y="y", color="x", color_at=0, t=-1,
         background=field.isel(eta3=0), background_options={"cmap": "Blues"},
     )
@@ -104,7 +104,7 @@ def test_marker_animation_over_a_field_hides_lost_markers():
     offsets = scatter.get_offsets()
     assert np.isnan(offsets[0]).all()  # marker 0 has left
     np.testing.assert_allclose(offsets[1], [orbits.x[4, 1], orbits.y[4, 1]])
-    assert isinstance(orbits.struphy.plot.animation(x="x", y="y", step=2), FuncAnimation)
+    assert isinstance(orbits.plasma.plot.animation(x="x", y="y", step=2), FuncAnimation)
     with pytest.raises(ValueError, match="background"):
         animate_markers(orbits.rename(x="u", y="w"), x="u", y="w", background=field.isel(eta3=0))
 
@@ -116,7 +116,7 @@ def test_marker_paths_pick_markers_by_starting_point():
     assert result.data["markers"] == [5, 9]
     labels = [a.get_label() for a in result.artists]
     assert {"start", "end", "marker 5", "marker 9"} <= set(labels)
-    lost = orbits.struphy.plot.paths(markers=[0])
+    lost = orbits.plasma.plot.paths(markers=[0])
     path = [line for line in lost.ax.lines if line.get_label() == "marker 0"][0]
     assert len(path.get_xdata()) == 3  # samples after leaving are dropped
 
@@ -128,7 +128,7 @@ def test_gradient_on_a_torus_and_in_a_plane():
     X, Y, Z = (3 + r * np.cos(th)) * np.cos(ph), (3 + r * np.cos(th)) * np.sin(ph), r * np.sin(th)
     coords = {"eta1": e1, "eta2": e2, "eta3": e3, **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (X, Y, Z))}}
     phi = xr.DataArray(np.stack([X, 2 * X]), dims=("t", "eta1", "eta2", "eta3"), coords={"t": [0.0, 1.0], **coords}, name="phi")
-    grad = phi.struphy.analysis.gradient()
+    grad = phi.plasma.analysis.gradient()
     assert grad.dims == ("component", "t", "eta1", "eta2", "eta3")
     np.testing.assert_allclose(grad.isel(t=1).sel(component=0), 2.0, atol=1e-10)
     np.testing.assert_allclose(grad.sel(component=[1, 2]), 0.0, atol=1e-10)
@@ -153,7 +153,7 @@ def test_relative_mode_amplitudes_leave_out_the_mean():
     relative = sp.mode_amplitudes(sp.mode_spectrum(density, dims="eta2", names="m"), relative=True, top=1)
     assert relative.mode.values.tolist() == ["(3)"]
     np.testing.assert_allclose(relative.isel(mode=0), 0.1 * np.exp(0.1 * t), rtol=1e-12)
-    result = density.struphy.plot.mode_amplitudes(dims="eta2", names="m", relative=True, top=2, fit=True)
+    result = density.plasma.plot.mode_amplitudes(dims="eta2", names="m", relative=True, top=2, fit=True)
     assert result.fit_results[0].rate == pytest.approx(0.1)
     with pytest.raises(ValueError, match="mean mode"):
         sp.mode_amplitudes(sp.mode_spectrum(density, dims="eta2", names="m").sel(m=[1, 2]), relative=True)

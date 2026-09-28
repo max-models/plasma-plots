@@ -7,33 +7,33 @@ import PlotlyChart from '../../../components/PlotlyChart.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
-struphy-plots and its `.struphy` accessors. For other xarray data, run
-`import struphy_plots` first (see
-[Getting started](/struphy-plots/guides/getting-started/#loading-struphy-plots)).
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
 :::
 
 ## Phase-space slices
 
 A binned distribution such as `kinetic_ions/e1_v1_density/f` is just another
-labeled array, so every [field plot](/struphy-plots/guides/field-plots/)
+labeled array, so every [field plot](/plasma-plots/guides/field-plots/)
 works on it directly:
 
 ```python
-distribution.struphy.plot.slice(x="eta1", y="v1", t=-1)
+distribution.plasma.plot.slice(x="eta1", y="v1", t=-1)
 ```
 
 ![A bump-on-tail distribution in (eta1, v1) phase space](../../../assets/figures/phase_space.png)
 
-The data behind this plot: `distribution.struphy.data.slice(x="eta1", y="v1", t=-1)` returns the selected phase-space slice, e.g. for its maximum or a cut through it (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `distribution.plasma.data.slice(x="eta1", y="v1", t=-1)` returns the selected phase-space slice, e.g. for its maximum or a cut through it (see [Selecting data](/plasma-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
 
 The same call with `backend="plotly"`: an interactive figure with the same data, fits and
-labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-distribution.struphy.plot.slice(x="eta1", y="v1", t=-1, backend="plotly")
+distribution.plasma.plot.slice(x="eta1", y="v1", t=-1, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_phase_space.json" />
@@ -43,7 +43,7 @@ distribution.struphy.plot.slice(x="eta1", y="v1", t=-1, backend="plotly")
 ## Velocity moments
 
 ```python
-moments = distribution.struphy.analysis.velocity_moments()
+moments = distribution.plasma.analysis.velocity_moments()
 ```
 
 Returns an `xarray.Dataset` with `density` (the zeroth moment), `mean_<dim>`
@@ -55,7 +55,7 @@ the remaining dimensions (e.g. `(t, eta1)` for an `e1_v1` product):
 ## Spatial averaging
 
 ```python
-distribution.struphy.analysis.spatial_average()
+distribution.plasma.analysis.spatial_average()
 ```
 
 Averages over the logical space dimensions, e.g. turning `f(t, eta1, v1)` into
@@ -67,7 +67,7 @@ distribution evolve over a run:
 ## Marker trajectories
 
 ```python
-markers.struphy.plot.trajectories(max_markers=200)
+markers.plasma.plot.trajectories(max_markers=200)
 ```
 
 Plots 3-D orbits for kinetic marker output. Works directly on the
@@ -77,16 +77,16 @@ quantity: `x`, `y`, `z`, `v1`, `v2`, `v3`, `weight`, ...), or on a single
 
 ![3-D marker trajectories](../../../assets/figures/trajectories.png)
 
-The data behind this plot: `markers.struphy.data.trajectories(max_markers=50)` returns the marker subset as a Dataset with one `(t, marker)` variable per quantity (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `markers.plasma.data.trajectories(max_markers=50)` returns the marker subset as a Dataset with one `(t, marker)` variable per quantity (see [Selecting data](/plasma-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
 
 The same call with `backend="plotly"`: an interactive figure with the same data, fits and
-labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-markers.struphy.plot.trajectories(max_markers=200, backend="plotly")
+markers.plasma.plot.trajectories(max_markers=200, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_trajectories.json" height="520px" />
@@ -96,9 +96,9 @@ markers.struphy.plot.trajectories(max_markers=200, backend="plotly")
 ## Orbit classification
 
 ```python
-codes = orbits.struphy.analysis.classify_orbits()        # per marker: 0 passing, 1 trapped, -1 lost
-orbits.struphy.plot.orbit_classification()               # initial v_par against mu, colored by class
-orbits.struphy.plot.orbit_classification(x="p_phi")      # the canonical-momentum diagram
+codes = orbits.plasma.analysis.classify_orbits()         # per marker: 0 passing, 1 trapped, -1 lost
+orbits.plasma.plot.orbit_classification()                # initial v_par against mu, colored by class
+orbits.plasma.plot.orbit_classification(x="p_phi")       # the canonical-momentum diagram
 ```
 
 For guiding-center orbits (Particles5D or Particles5Dvperp), `classify_orbits`
@@ -117,8 +117,8 @@ class's count and fraction. `x="p_phi"` gives the canonical-momentum view when
 ## Orbits in the poloidal plane
 
 ```python
-orbits.struphy.plot.poloidal(boundary=field)     # R = sqrt(x² + y²) against z
-orbits.struphy.plot.quantities(markers=4)         # v_par and the drift of mu over time
+orbits.plasma.plot.poloidal(boundary=field)      # R = sqrt(x² + y²) against z
+orbits.plasma.plot.quantities(markers=4)          # v_par and the drift of mu over time
 ```
 
 `poloidal()` projects each orbit onto the poloidal plane, colored as passing,
@@ -142,8 +142,8 @@ individual orbits (bananas, passing, lost) can be compared side by side.
 `markers` is a number, spread over the classes, or a list of indices:
 
 ```python
-orbits.struphy.plot.orbit_grid(markers=8, ncols=4, boundary=field)
-orbits.struphy.plot.orbit_grid(markers=[3, 17, 42])
+orbits.plasma.plot.orbit_grid(markers=8, ncols=4, boundary=field)
+orbits.plasma.plot.orbit_grid(markers=[3, 17, 42])
 ```
 
 ![One poloidal panel per marker, titled with its class](../../../assets/figures/orbit_grid.png)
@@ -162,9 +162,9 @@ Samples after a marker leaves the domain are NaN. The drift of the invariants
 measures the pusher's accuracy:
 
 ```python
-invariants = orbits.struphy.analysis.orbit_invariants(absB=absB_xyz)
+invariants = orbits.plasma.analysis.orbit_invariants(absB=absB_xyz)
 drift = abs(invariants.energy / invariants.energy.isel(t=0) - 1).max("marker")
-drift.struphy.plot.timeseries()
+drift.plasma.plot.timeseries()
 ```
 
 `bounce_period()` gives each trapped marker's bounce period: twice the mean
@@ -172,15 +172,15 @@ time between sign changes of `v_par`, interpolated between samples. It is NaN
 for passing markers and for markers with fewer than two reversals:
 
 ```python
-periods = orbits.struphy.analysis.bounce_period()
-codes = orbits.struphy.analysis.classify_orbits()
+periods = orbits.plasma.analysis.bounce_period()
+codes = orbits.plasma.analysis.classify_orbits()
 periods.where(codes == 1).plot.hist()
 ```
 
 ## Marker scatter and particle clouds
 
 ```python
-markers.struphy.plot.scatter(x="x", y="y", color="density", t=-1)
+markers.plasma.plot.scatter(x="x", y="y", color="density", t=-1)
 ```
 
 Scatters two position-like variables from any per-marker Dataset (not just
@@ -191,16 +191,16 @@ visualizing an SPH particle cloud:
 
 ![An expanding particle cloud, colored by a density-like tracer](../../../assets/figures/marker_scatter.png)
 
-The data behind this plot: `markers.struphy.data.scatter(x="x", y="y", color="density")` returns the selected Dataset; `.to_dataframe()` makes it a table (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `markers.plasma.data.scatter(x="x", y="y", color="density")` returns the selected Dataset; `.to_dataframe()` makes it a table (see [Selecting data](/plasma-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
 
 The same call with `backend="plotly"`: an interactive figure with the same data, fits and
-labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-markers.struphy.plot.scatter(x="x", y="y", color="density", t=-1, backend="plotly")
+markers.plasma.plot.scatter(x="x", y="y", color="density", t=-1, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_scatter.json" />
@@ -216,7 +216,7 @@ logical or physical coordinates, whichever the marker positions are.
 position, to follow where fluid parcels go:
 
 ```python
-markers.struphy.plot.scatter(
+markers.plasma.plot.scatter(
     x="x", y="y", color="x", color_at=0, t=-1,
     background=density.isel(eta3=0), background_options={"cmap": "Blues"},
 )
@@ -231,14 +231,14 @@ in sync (drawn at the nearest time of each frame, with fixed color limits).
 Markers that leave the domain disappear, and the axes limits stay fixed:
 
 ```python
-anim = markers.struphy.plot.animation(
+anim = markers.plasma.plot.animation(
     x="x", y="y", color="x", color_at=0, background=density.isel(eta3=0),
     background_options={"cmap": "Blues"},
 )
 anim.save("dam_break.gif", writer="pillow", fps=8)
 ```
 
-![A collapsing column of fluid markers over its density](/struphy-plots/figures/markers_animation.gif)
+![A collapsing column of fluid markers over its density](/plasma-plots/figures/markers_animation.gif)
 
 For orbits, a few more options:
 
@@ -251,22 +251,22 @@ For orbits, a few more options:
 - `max_frames=80` keeps at most 80 evenly spaced frames.
 
 ```python
-anim = orbits.struphy.plot.animation(
+anim = orbits.plasma.plot.animation(
     x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
     background=psi, background_options={"levels": 6, "fill": False, "cmap": "Greys"},
 )
 ```
 
-![Guiding-center orbits in the poloidal plane, passing and trapped, with trails over flux surfaces](/struphy-plots/figures/orbits_animation.gif)
+![Guiding-center orbits in the poloidal plane, passing and trapped, with trails over flux surfaces](/plasma-plots/figures/orbits_animation.gif)
 
 <details>
 <summary>The same plot with Plotly</summary>
 
 The same call with `backend="plotly"`: an interactive figure with the same data, fits and
-labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-orbits.struphy.plot.animation(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
+orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80,
                                background=psi, background_options={"levels": 6, "fill": False, "cmap": "Greys"}, backend="plotly")
 ```
 
@@ -283,7 +283,7 @@ closest to each of a list of points. A background field, e.g. the contour
 lines of a stream function, shows what the markers should follow:
 
 ```python
-markers.struphy.plot.paths(
+markers.plasma.plot.paths(
     near=[(x, 0.25) for x in np.linspace(0.28, 0.46, 6)],
     background=psi, background_options={"levels": 12, "fill": False, "cmap": "Greys"},
 )
@@ -294,7 +294,7 @@ markers.struphy.plot.paths(
 ## Orbits over a background field
 
 ```python
-field.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
+field.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
 ```
 
 Draws this field's 2-D slice with marker paths from an orbits-like Dataset
@@ -305,16 +305,16 @@ a poloidal cross-section). `orbits` needs position variables named `x` and
 
 ![Confined orbits at different radii overlaid on a potential well](../../../assets/figures/orbit_overlay.png)
 
-The data behind this plot: `field.struphy.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)` returns the field slice and the orbit subset as a tuple (see [Selecting data](/struphy-plots/guides/data/)).
+The data behind this plot: `field.plasma.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)` returns the field slice and the orbit subset as a tuple (see [Selecting data](/plasma-plots/guides/data/)).
 
 <details>
 <summary>The same plot with Plotly</summary>
 
 The same call with `backend="plotly"`: an interactive figure with the same data, fits and
-labels (see [Interactive plots with Plotly](/struphy-plots/guides/plotly/)).
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-field.struphy.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1, backend="plotly")
+field.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_overlay_orbits.json" />

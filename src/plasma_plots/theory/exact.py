@@ -3,7 +3,7 @@ dam break, diffusion, advection, the wave equation, and pressureless flow and it
 
 Profiles take the coordinates first and the time second, ``f(x, t, ...)``, so that
 ``lambda x, t: f(x, t, ...)`` (or a field of the returned result) can be passed as the
-``reference=`` of struphy-plots' profile plots. Everything is plain numpy and vectorized: the
+``reference=`` of plasma-plots' profile plots. Everything is plain numpy and vectorized: the
 coordinates and times broadcast against each other.
 
 Where a state can be empty (a vacuum in gas dynamics, a dry bed in shallow water) its density

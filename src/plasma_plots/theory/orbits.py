@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from struphy_plots.theory.special import elliptic_k
+from plasma_plots.theory.special import elliptic_k
 
 
 def _out(value):

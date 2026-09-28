@@ -4,7 +4,7 @@ The API reference (starlight-pydocs, see docs/astro.config.mjs) is generated fro
 docstrings; see "Docstrings and the API reference" in CONTRIBUTING.md for the rules. This script
 lists every public function, method or class whose docstring breaks them. Parameters a wrapper
 inherits from the first See Also entry count as documented, as they do in the reference (via
-scripts/griffe_extension.py) and in help() (via struphy_plots._docs).
+scripts/griffe_extension.py) and in help() (via plasma_plots._docs).
 
 Run from the repo root:
 
@@ -25,11 +25,11 @@ from pathlib import Path
 import griffe
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = "struphy_plots"
+PACKAGE = "plasma_plots"
 
-# classes users never construct: reached as array.struphy.plot, out.plot, ...
+# classes users never construct: reached as array.plasma.plot, out.plot, ...
 ACCESSOR_CLASSES = {
-    "StruphyAccessor", "StruphyDatasetAccessor", "ArrayPlots", "ArrayAnalysis", "ArrayData",
+    "PlasmaAccessor", "PlasmaDatasetAccessor", "ArrayPlots", "ArrayAnalysis", "ArrayData",
     "DatasetPlots", "DatasetAnalysis", "DatasetData", "SliceView", "OutputPlots", "OutputAnalysis",
     "ProfilePlots",
 }
@@ -172,7 +172,7 @@ def see_also_targets(sections):
 
 def resolve(package, name: str, context=None):
     """The object a reference like ``plot_slice``, ``plotting.plot_slice``,
-    ``struphy_plots.plotting.plot_slice`` or ``ArrayPlots.slice`` points to, or None."""
+    ``plasma_plots.plotting.plot_slice`` or ``ArrayPlots.slice`` points to, or None."""
     name = name.strip().lstrip("~").rstrip("()")
     if " <" in name and name.endswith(">"):  # `label <target>`
         name = name.split(" <", 1)[1][:-1]

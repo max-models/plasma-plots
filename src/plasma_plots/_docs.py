@@ -1,6 +1,6 @@
 """Complete the docstrings of accessor methods with the parameters they inherit.
 
-An accessor method (``array.struphy.plot.lineout``, ``out.plot.energies``, ...) documents only the
+An accessor method (``array.plasma.plot.lineout``, ``out.plot.energies``, ...) documents only the
 parameters that differ from the function it wraps; the first entry of its See Also section names
 that function (see CONTRIBUTING.md). The generated API reference fills in the rest; this module
 does the same at import time, so ``help()`` on a method shows every parameter too.
@@ -158,23 +158,23 @@ def complete_class(cls) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
-# Menus: what an accessor prints, e.g. ``phi.struphy.plot`` in a REPL or notebook
+# Menus: what an accessor prints, e.g. ``phi.plasma.plot`` in a REPL or notebook
 # ---------------------------------------------------------------------------------------------
-REFERENCE = "https://struphy-hub.github.io/struphy-plots/reference"
+REFERENCE = "https://struphy-hub.github.io/plasma-plots/reference"
 # class name -> (how users reach it, reference page)
 MENUS = {
-    "ArrayPlots": ("array.struphy.plot", "plot"),
-    "ArrayAnalysis": ("array.struphy.analysis", "analysis"),
-    "ArrayData": ("array.struphy.data", "data"),
-    "SliceView": ("array.struphy.plot.view(...)", "plot"),
-    "DatasetPlots": ("dataset.struphy.plot", "dataset"),
-    "DatasetAnalysis": ("dataset.struphy.analysis", "dataset"),
-    "DatasetData": ("dataset.struphy.data", "dataset"),
+    "ArrayPlots": ("array.plasma.plot", "plot"),
+    "ArrayAnalysis": ("array.plasma.analysis", "analysis"),
+    "ArrayData": ("array.plasma.data", "data"),
+    "SliceView": ("array.plasma.plot.view(...)", "plot"),
+    "DatasetPlots": ("dataset.plasma.plot", "dataset"),
+    "DatasetAnalysis": ("dataset.plasma.analysis", "dataset"),
+    "DatasetData": ("dataset.plasma.data", "dataset"),
     "OutputPlots": ("out.plot", "output"),
     "OutputAnalysis": ("out.analysis", "output"),
     "ProfilePlots": ("out.plot.profile", "output"),
-    "StruphyAccessor": ("array.struphy", ""),
-    "StruphyDatasetAccessor": ("dataset.struphy", ""),
+    "PlasmaAccessor": ("array.plasma", ""),
+    "PlasmaDatasetAccessor": ("dataset.plasma", ""),
 }
 
 
@@ -227,11 +227,11 @@ def menu(accessor) -> str:
     data = getattr(accessor, "_array", getattr(accessor, "_dataset", None))
     name = getattr(data, "name", None)
     if isinstance(name, str) and name.isidentifier() and example.startswith(("phi.", "orbits.")):
-        example = name + example[example.index(".") :]  # the array's own name, e.g. b_field.struphy.plot
+        example = name + example[example.index(".") :]  # the array's own name, e.g. b_field.plasma.plot
     first = next((n for n, _ in rows if n != "()"), None)
-    if not page:  # array.struphy / dataset.struphy: the sub-accessors
+    if not page:  # array.plasma / dataset.plasma: the sub-accessors
         lines.append(
-            f"{example}.plot, .analysis and .data list their methods; python -m struphy_plots prints an overview."
+            f"{example}.plot, .analysis and .data list their methods; python -m plasma_plots prints an overview."
         )
     elif first:
         lines.append(f"help({example}.{first}) shows the parameters; reference: {REFERENCE}/{page}/")

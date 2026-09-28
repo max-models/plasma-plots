@@ -11,13 +11,13 @@ import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
-import struphy_plots  # noqa: F401, E402
+import plasma_plots  # noqa: F401, E402
 from struphy.post_processing.output import Output  # noqa: E402
 from struphy.post_processing.tests.test_output import (  # noqa: E402
     write_manifest, write_tree)
-from struphy_plots.analysis import damping_rate, envelope, growth_rate, norm
-from struphy_plots.output_accessors import OutputPlots
-from struphy_plots.plotting import save_all_scalars
+from plasma_plots.analysis import damping_rate, envelope, growth_rate, norm
+from plasma_plots.output_accessors import OutputPlots
+from plasma_plots.plotting import save_all_scalars
 
 RATE = 2.0
 
@@ -79,7 +79,7 @@ def test_every_array_carries_its_run(run):
 
 
 def test_timeseries_by_name_with_growth_fit(run):
-    result = scalar(run, "en_phi").struphy.plot.timeseries(fit=True)
+    result = scalar(run, "en_phi").plasma.plot.timeseries(fit=True)
     assert result.fit_results[0].rate == pytest.approx(RATE)
     assert result.fig._suptitle.get_text() == run.label
 
@@ -91,7 +91,7 @@ def test_output_keeps_only_the_core_quick_plot(run):
 
 def test_timeseries_of_several_runs_are_labeled_by_run(tmp_path):
     first, second = make_run(str(tmp_path), "sim_1"), make_run(str(tmp_path), "sim_2")
-    result = first.scalars.en_phi.struphy.plot.timeseries(second.scalars.en_phi)
+    result = first.scalars.en_phi.plasma.plot.timeseries(second.scalars.en_phi)
     labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
     assert labels == ["en phi (sim_1)", "en phi (sim_2)"]
 
@@ -99,7 +99,7 @@ def test_timeseries_of_several_runs_are_labeled_by_run(tmp_path):
 def test_timeseries_into_given_axes_keeps_the_figure_layout(run):
     fig, ax = plt.subplots()
     fig.suptitle("mine")
-    scalar(run, "en_tot").struphy.plot.timeseries(ax=ax, logy=False)
+    scalar(run, "en_tot").plasma.plot.timeseries(ax=ax, logy=False)
     assert fig._suptitle.get_text() == "mine"
 
 
@@ -112,15 +112,15 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
     product = distribution(run)
-    assert product.struphy.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
-    assert len(product.struphy.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
-    viewer = run.evaluate("em_fields/E").struphy.plot.viewer(x="eta1", y="eta2", component=0)
+    assert product.plasma.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
+    assert len(product.plasma.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
+    viewer = run.evaluate("em_fields/E").plasma.plot.viewer(x="eta1", y="eta2", component=0)
     viewer.draw()
     assert set(viewer.sliders) == {"t", "eta3"}
 
 
 def test_orbits_plot_their_trajectories(run):
-    assert run.kinetic_ions.orbits.struphy.plot.trajectories().ax.name == "3d"
+    assert run.kinetic_ions.orbits.plasma.plot.trajectories().ax.name == "3d"
 
 
 def test_report_is_written_below_post_processing(run):
@@ -134,17 +134,17 @@ def test_report_is_written_below_post_processing(run):
 
 
 def test_analysis_by_name(run):
-    assert scalar(run, "en_phi").struphy.analysis.growth_rate(window=(0.0, None)).rate == pytest.approx(RATE)
-    assert scalar(run, "en_phi").struphy.analysis.growth_rate(amplitude=True).rate == pytest.approx(RATE / 2)
-    np.testing.assert_allclose(scalar(run, "en_tot").struphy.analysis.relative_error(), 0.0)
-    np.testing.assert_allclose(scalar(run, "en_phi").struphy.analysis.drift().isel(t=0), 0.0)
+    assert scalar(run, "en_phi").plasma.analysis.growth_rate(window=(0.0, None)).rate == pytest.approx(RATE)
+    assert scalar(run, "en_phi").plasma.analysis.growth_rate(amplitude=True).rate == pytest.approx(RATE / 2)
+    np.testing.assert_allclose(scalar(run, "en_tot").plasma.analysis.relative_error(), 0.0)
+    np.testing.assert_allclose(scalar(run, "en_phi").plasma.analysis.drift().isel(t=0), 0.0)
 
 
 def test_dispersion_needs_an_explicit_dim_for_a_multi_dimensional_field(run):
     with pytest.raises(ValueError, match="dim is required"):
-        run.fields.em_fields.E.struphy.analysis.dispersion()
+        run.fields.em_fields.E.plasma.analysis.dispersion()
 
-    spectrum = run.fields.em_fields.E.isel(component=0, eta2=0, eta3=0).struphy.analysis.dispersion(dim="eta1")
+    spectrum = run.fields.em_fields.E.isel(component=0, eta2=0, eta3=0).plasma.analysis.dispersion(dim="eta1")
     assert set(spectrum.dims) == {"omega", "k"}
 
 
@@ -152,14 +152,14 @@ def test_selection_keywords_take_positions_and_values(run):
     product = distribution(run)
     times = product.t.values
 
-    by_position = product.struphy.plot.slice(x="eta1", y="v1", t=-1)
-    by_value = product.struphy.plot.slice(x="eta1", y="v1", t=float(times[-1]))
+    by_position = product.plasma.plot.slice(x="eta1", y="v1", t=-1)
+    by_value = product.plasma.plot.slice(x="eta1", y="v1", t=float(times[-1]))
     np.testing.assert_allclose(by_value.artists[0].get_array(), by_position.artists[0].get_array())
 
     with pytest.raises(TypeError, match="not a dimension"):
-        product.struphy.plot.slice(x="eta1", y="v1", time=-1)
+        product.plasma.plot.slice(x="eta1", y="v1", time=-1)
     with pytest.raises(TypeError, match="integer position"):
-        product.struphy.plot.slice(x="eta1", y="v1", t="final")
+        product.plasma.plot.slice(x="eta1", y="v1", t="final")
 
 
 def test_products_of_one_species_sit_on_the_output(run):
@@ -190,29 +190,29 @@ def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
 
 def test_arrays_plot_themselves(run):
     phase_space = run.kinetic_ions.e1_v1_density.f
-    assert phase_space.struphy.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
-    assert len(phase_space.struphy.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
-    assert set(phase_space.struphy.plot.viewer(x="eta1", y="v1").sliders) == set()
-    assert run.kinetic_ions.orbits.struphy.plot.trajectories(max_markers=2).ax.name == "3d"
+    assert phase_space.plasma.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
+    assert len(phase_space.plasma.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
+    assert set(phase_space.plasma.plot.viewer(x="eta1", y="v1").sliders) == set()
+    assert run.kinetic_ions.orbits.plasma.plot.trajectories(max_markers=2).ax.name == "3d"
 
 
 def test_the_accessor_works_on_derived_arrays(run):
     energy = run.scalars.en_phi
-    assert energy.isel(t=slice(1, None)).struphy.analysis.growth_rate().rate == pytest.approx(RATE)
-    error = energy.struphy.analysis.relative_error()
-    assert error.struphy.plot.timeseries(logy=False).fig._suptitle.get_text() == run.label
+    assert energy.isel(t=slice(1, None)).plasma.analysis.growth_rate().rate == pytest.approx(RATE)
+    error = energy.plasma.analysis.relative_error()
+    assert error.plasma.plot.timeseries(logy=False).fig._suptitle.get_text() == run.label
 
 
 def test_products_by_name_and_by_attribute_agree(run):
-    by_output = distribution(run).struphy.plot.slice(x="eta1", y="v1", t=-1)
-    by_attribute = run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="eta1", y="v1", t=-1)
+    by_output = distribution(run).plasma.plot.slice(x="eta1", y="v1", t=-1)
+    by_attribute = run.kinetic_ions.e1_v1_density.f.plasma.plot.slice(x="eta1", y="v1", t=-1)
     np.testing.assert_allclose(by_output.artists[0].get_array(), by_attribute.artists[0].get_array())
     assert by_output.fig._suptitle.get_text() == by_attribute.fig._suptitle.get_text() == run.label
 
 
 def test_selection_rejects_unknown_dimensions(run):
     with pytest.raises(TypeError, match="not a dimension"):
-        run.kinetic_ions.e1_v1_density.f.struphy.plot.slice(x="eta1", y="v1", time=-1)
+        run.kinetic_ions.e1_v1_density.f.plasma.plot.slice(x="eta1", y="v1", time=-1)
 
 
 def oscillating_energy(rate=-0.3, omega=3.0):
@@ -225,27 +225,27 @@ def oscillating_energy(rate=-0.3, omega=3.0):
 
 def test_damping_rate_fits_the_envelope_not_the_oscillation(run):
     energy = oscillating_energy(rate=-0.3)
-    fit = energy.struphy.analysis.damping_rate(amplitude=True)
+    fit = energy.plasma.analysis.damping_rate(amplitude=True)
     assert fit.rate == pytest.approx(-0.3, rel=1e-2)
-    assert energy.struphy.analysis.damping_rate(window=(2.0, 10.0), amplitude=True).rate == pytest.approx(
+    assert energy.plasma.analysis.damping_rate(window=(2.0, 10.0), amplitude=True).rate == pytest.approx(
         -0.3, rel=1e-2
     )
 
-    peaks = energy.struphy.analysis.envelope()
+    peaks = energy.plasma.analysis.envelope()
     assert 0 < peaks.sizes["t"] < energy.sizes["t"] // 10
     assert np.all(peaks > 1e-3 * np.exp(-0.6 * peaks.t))
 
 
 def test_damping_rate_without_peaks_is_none(run):
-    assert scalar(run, "en_phi").struphy.analysis.damping_rate() is None
+    assert scalar(run, "en_phi").plasma.analysis.damping_rate() is None
 
 
 def test_norm_reduces_all_but_time(run):
     e_field = run.evaluate("em_fields/E")
-    squared = e_field.struphy.analysis.norm(squared=True)
+    squared = e_field.plasma.analysis.norm(squared=True)
     assert squared.dims == ("t",)
     np.testing.assert_allclose(squared, (np.asarray(e_field) ** 2).sum(axis=(1, 2, 3, 4)))
-    assert e_field.struphy.analysis.norm(dims=["eta1"]).dims == (
+    assert e_field.plasma.analysis.norm(dims=["eta1"]).dims == (
         "t",
         "component",
         "eta2",

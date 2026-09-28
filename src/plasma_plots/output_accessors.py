@@ -1,13 +1,13 @@
 """Plots and diagnostics of a whole run, as ``out.plot`` and ``out.analysis``.
 
-Importing ``struphy_plots`` adds two properties to struphy's ``Output`` (when struphy is
+Importing ``plasma_plots`` adds two properties to struphy's ``Output`` (when struphy is
 installed; without importing struphy itself, which takes seconds: the properties are attached
-when struphy's output module is imported, before or after ``struphy_plots``): ``out.plot`` (:class:`OutputPlots`) for optional plots that need a whole run, and
+when struphy's output module is imported, before or after ``plasma_plots``): ``out.plot`` (:class:`OutputPlots`) for optional plots that need a whole run, and
 ``out.analysis`` (:class:`OutputAnalysis`) for spectral diagnostics of its products.
 
 Plots and diagnostics of a single array live on the array, see
-:class:`~struphy.post_processing.xarray_accessors.StruphyAccessor`:
-``out.em_fields.phi_log.struphy.plot.slice(...)``, or from a value returned by
+:class:`~plasma_plots.accessors.PlasmaAccessor`:
+``out.em_fields.phi_log.plasma.plot.slice(...)``, or from a value returned by
 ``out.evaluate("em_fields/phi_log")``.
 """
 
@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from . import accessors  # noqa: F401  (registers array.struphy)
+from . import accessors  # noqa: F401  (registers array.plasma)
 from .accessors import Backend
 from .mpi import rank_zero
 from .plotly_backend import with_backend
@@ -160,7 +160,7 @@ class OutputPlots:
 
     They return plotting-library objects with ``.show()``
     and ``.save(path)``, titled with the run's numerical parameters. Plots of one product are
-    methods of that product, e.g. ``out.kinetic_ions.orbits.struphy.plot.trajectories()``.
+    methods of that product, e.g. ``out.kinetic_ions.orbits.plasma.plot.trajectories()``.
     Calling ``out.plot()`` itself gives the quick default plot, :meth:`scalars`.
 
     Parameters
@@ -199,8 +199,8 @@ class OutputPlots:
             Logarithmic value axis.
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -209,7 +209,7 @@ class OutputPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_scalars : The function behind this method.
+        plasma_plots.plotting.plot_scalars : The function behind this method.
 
         Examples
         --------
@@ -246,8 +246,8 @@ class OutputPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -256,7 +256,7 @@ class OutputPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_energy_budget : The function behind this method.
+        plasma_plots.plotting.plot_energy_budget : The function behind this method.
 
         Examples
         --------
@@ -282,8 +282,8 @@ class OutputPlots:
         ----------
         backend : {"matplotlib", "plotly"}, optional
             Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`struphy_plots.plotly_backend`). Default: the one set with
-            :func:`struphy_plots.set_backend`, ``"matplotlib"`` unless changed.
+            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
+            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -292,7 +292,7 @@ class OutputPlots:
 
         See Also
         --------
-        struphy_plots.plotting.plot_equilibrium_profile : The function behind this method.
+        plasma_plots.plotting.plot_equilibrium_profile : The function behind this method.
 
         Examples
         --------
@@ -312,7 +312,7 @@ class OutputPlots:
 
         See Also
         --------
-        struphy_plots.plotting.show_equilibrium : The function behind this method.
+        plasma_plots.plotting.show_equilibrium : The function behind this method.
 
         Examples
         --------
@@ -332,7 +332,7 @@ class OutputPlots:
 
         See Also
         --------
-        struphy_plots.pyvista_plots.pyvista_domain : The function behind this method.
+        plasma_plots.pyvista_plots.pyvista_domain : The function behind this method.
 
         Examples
         --------
@@ -347,7 +347,7 @@ class OutputPlots:
     def profile(self) -> "ProfilePlots":
         """Plots of this run's timing regions, e.g. ``out.plot.profile.gantt()``.
 
-        Needs the optional ``scope-profiler`` extra (``pip install "struphy-plots[profiling]"``)
+        Needs the optional ``scope-profiler`` extra (``pip install "plasma-plots[profiling]"``)
         and a run recorded with ``sim.run(profiling_activated=True)``.
 
         Returns
@@ -494,7 +494,7 @@ class OutputAnalysis:
     already selected ``xarray.DataArray``. Select a component, slice or time interval before
     transforming when you do not need the whole field: the selected values are loaded into
     memory. The same diagnostics, and more, are available on any array as
-    ``array.struphy.analysis.<kind>(...)``; see :mod:`struphy_plots.spectral`.
+    ``array.plasma.analysis.<kind>(...)``; see :mod:`plasma_plots.spectral`.
 
     Parameters
     ----------
@@ -529,7 +529,7 @@ class OutputAnalysis:
 
         See Also
         --------
-        struphy_plots.spectral.fft : The function behind this method.
+        plasma_plots.spectral.fft : The function behind this method.
 
         Examples
         --------
@@ -555,7 +555,7 @@ class OutputAnalysis:
 
         See Also
         --------
-        struphy_plots.spectral.time_fft : The function behind this method.
+        plasma_plots.spectral.time_fft : The function behind this method.
 
         Examples
         --------
@@ -581,12 +581,12 @@ class OutputAnalysis:
 
         See Also
         --------
-        struphy_plots.spectral.filter_time : The function behind this method.
+        plasma_plots.spectral.filter_time : The function behind this method.
 
         Examples
         --------
         >>> result = out.analysis.filter_time(phi)
-        >>> result.filtered.struphy.plot.slice(t=-1, eta3=0)
+        >>> result.filtered.plasma.plot.slice(t=-1, eta3=0)
         """
         from .spectral import filter_time
 
@@ -611,7 +611,7 @@ class OutputAnalysis:
         Each argument is a raw field name (evaluated at the Gauss points of
         :meth:`quadrature_grid`, in its FEEC space's own representation), an array in that
         representation (on the Gauss grid its weights are exact; elsewhere see
-        :func:`~struphy_plots.analysis.quadrature_weights`), or ``None`` to skip it: 2-form
+        :func:`~plasma_plots.analysis.quadrature_weights`), or ``None`` to skip it: 2-form
         components for ``velocity`` and ``b_field`` (``out.evaluate("mhd/velocity",
         representation="2")``), a 3-form for ``pressure`` (``representation="3"``). The default
         post-processing products are in other representations (``"norm"``, ``"0"``) and would
@@ -645,7 +645,7 @@ class OutputAnalysis:
         See Also
         --------
         quadrature_grid : The Gauss points the raw fields are evaluated at.
-        struphy_plots.analysis.field_energy : The energy integral of one field.
+        plasma_plots.analysis.field_energy : The energy integral of one field.
 
         Examples
         --------
@@ -695,7 +695,7 @@ class OutputAnalysis:
 
         See Also
         --------
-        struphy_plots.spectral.mode_spectrum : The function behind this method.
+        plasma_plots.spectral.mode_spectrum : The function behind this method.
 
         Examples
         --------
@@ -713,7 +713,7 @@ _OUTPUT_MODULE = "struphy.post_processing.output"
 def _register_output_plot_property(module=None):
     """Wire ``out.plot`` and ``out.analysis`` to :class:`OutputPlots` and :class:`OutputAnalysis`.
 
-    ``module`` is struphy's ``struphy.post_processing.output``, already imported: struphy-plots
+    ``module`` is struphy's ``struphy.post_processing.output``, already imported: plasma-plots
     never imports struphy itself, which takes seconds (see :class:`_RegisterOnImport`).
     """
     module = module if module is not None else sys.modules.get(_OUTPUT_MODULE)
@@ -728,9 +728,9 @@ def _register_output_plot_property(module=None):
 
 class _RegisterOnImport(importlib.abc.MetaPathFinder):
     """Register ``out.plot`` as soon as struphy's output module is imported, in whichever order
-    struphy and struphy-plots are imported, without importing struphy in a process that never
-    uses it (e.g. plotting GENE output). struphy itself imports struphy-plots from
-    ``Output.__init__``, which is too late when ``struphy_plots`` was imported first."""
+    struphy and plasma-plots are imported, without importing struphy in a process that never
+    uses it (e.g. plotting GENE output). struphy itself imports plasma-plots from
+    ``Output.__init__``, which is too late when ``plasma_plots`` was imported first."""
 
     def find_spec(self, name, path=None, target=None):
         if name != _OUTPUT_MODULE:

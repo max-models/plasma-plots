@@ -10,10 +10,10 @@ import pytest  # noqa: E402
 import xarray as xr  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
-import struphy_plots  # noqa: E402, F401
-from struphy_plots import spectral as sp  # noqa: E402
-from struphy_plots.analysis import field_energy, quadrature_weights, volume_integral  # noqa: E402
-from struphy_plots.plotting import (  # noqa: E402
+import plasma_plots  # noqa: E402, F401
+from plasma_plots import spectral as sp  # noqa: E402
+from plasma_plots.analysis import field_energy, quadrature_weights, volume_integral  # noqa: E402
+from plasma_plots.plotting import (  # noqa: E402
     View,
     _slice_data,
     color_limits,
@@ -132,7 +132,7 @@ def test_physical_slices_close_the_periodic_seam_of_cell_centred_grids():
     np.testing.assert_allclose(xg[:, -1], xg[:, 0])  # the seam is closed
     logical, _ = _slice_data(field.isel(eta3=0), View(x="eta1", y="eta2"))
     assert logical.sizes["eta2"] == 16  # logical plots are unchanged
-    result = field.struphy.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", eta3=0, symmetric=True)
+    result = field.plasma.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", eta3=0, symmetric=True)
     lo, hi = result.artists[0].get_clim()
     assert lo == -hi
 
@@ -167,8 +167,8 @@ def test_profiles_at_several_times_against_a_mapped_radius():
     assert len(result.artists) == 4
     np.testing.assert_allclose(result.artists[0].get_xdata()[[0, -1]], [0.1, 1.0])
     cube = field.expand_dims(eta2=[0.0, 0.5]).transpose("t", "eta1", "eta2")
-    assert len(cube.struphy.plot.profiles(x="eta1", at=[0, 0.5], eta2=0.5).artists) == 2
-    mixed = cube.struphy.plot.profiles(x="eta1", at=[0, 0.5, -1], eta2=0.5)   # positions and a value
+    assert len(cube.plasma.plot.profiles(x="eta1", at=[0, 0.5], eta2=0.5).artists) == 2
+    mixed = cube.plasma.plot.profiles(x="eta1", at=[0, 0.5, -1], eta2=0.5)    # positions and a value
     assert mixed.artists[-1].get_label().endswith(f"{float(cube.t[-1]):.3g}")
 
 
@@ -192,7 +192,7 @@ def orbits_dataset():
 
 def test_orbit_poloidal_projection_and_quantities():
     orbits = orbits_dataset()
-    result = orbits.struphy.plot.poloidal()
+    result = orbits.plasma.plot.poloidal()
     labels = {line.get_label() for line in result.ax.lines}
     assert {"passing", "trapped", "lost"} <= labels
     lost = [line for line in result.ax.lines if line.get_label() == "lost"][0]
@@ -207,7 +207,7 @@ def test_orbit_poloidal_projection_and_quantities():
     assert all(abs(line.get_ydata()[0]) < 1e-12 for line in mu_lines)  # drift of mu starts at zero
     classes = {line.get_label().split("(")[-1] for line in quantities.ax[0].lines}
     assert len(classes) >= 2  # markers spread over the classes
-    assert len(orbits.struphy.plot.quantities(quantities=("v_par",), markers=[0, 1]).ax) == 1
+    assert len(orbits.plasma.plot.quantities(quantities=("v_par",), markers=[0, 1]).ax) == 1
 
 
 def test_mode_numbers_scaled_to_the_full_torus_and_profiles_at_one_time():
@@ -219,11 +219,11 @@ def test_mode_numbers_scaled_to_the_full_torus_and_profiles_at_one_time():
     )
     amplitudes = sp.mode_amplitudes(sp.mode_spectrum(field, scale=(1, 6)), top=1)
     assert amplitudes.mode.values.tolist() == ["(10, -6)"]
-    profiles = field.struphy.plot.mode_profiles(top=1, scale=(1, 6))
+    profiles = field.plasma.plot.mode_profiles(top=1, scale=(1, 6))
     assert profiles.ax[0].get_legend().get_texts()[0].get_text() == "(m, n) = (10, -6)"
     assert len(profiles.ax) == 1  # real amplitudes: no phase panel
     with pytest.raises(ValueError, match="select a time"):
-        field.expand_dims(t=[0.0, 1.0]).struphy.plot.mode_profiles()
+        field.expand_dims(t=[0.0, 1.0]).plasma.plot.mode_profiles()
 
 
 def test_frequency_from_an_oscillating_energy_with_a_polynomial_detrend():
@@ -239,10 +239,10 @@ def test_vtk_export_of_a_time_series(tmp_path):
     series = xr.DataArray(
         np.stack([X, 2 * X]), dims=("t", "eta1", "eta2", "eta3"), coords={"t": [0.0, 0.5], **coords}, name="p"
     )
-    paths = series.struphy.data.to_vtk(tmp_path / "frames")
+    paths = series.plasma.data.to_vtk(tmp_path / "frames")
     assert paths[0].endswith("p.pvd") and len(paths) == 3
     grid = pv.read(paths[2])
     np.testing.assert_allclose(grid["p"], 2 * X.ravel(order="F"))
     assert '<DataSet timestep="0.5"' in open(paths[0]).read()
-    single = series.isel(t=0).struphy.data.to_vtk(tmp_path / "one.vts")
+    single = series.isel(t=0).plasma.data.to_vtk(tmp_path / "one.vts")
     assert pv.read(single[0]).n_points == X.size

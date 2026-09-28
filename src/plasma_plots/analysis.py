@@ -3,7 +3,7 @@
 Fits (growth and damping rates, convergence orders, dispersion branches), norms and errors,
 volume integrals and field energies on mapped domains, vector calculus on the logical grid,
 velocity moments and orbit diagnostics. Most functions are also available as accessor methods,
-e.g. ``array.struphy.analysis.error(...)``.
+e.g. ``array.plasma.analysis.error(...)``.
 """
 
 from dataclasses import dataclass
@@ -108,7 +108,7 @@ def convergence_order(sizes, errors) -> ConvergenceFit | None:
 
     Examples
     --------
-    >>> errors = [run.evaluate("T").struphy.analysis.error(exact).isel(t=-1) for run in runs]
+    >>> errors = [run.evaluate("T").plasma.analysis.error(exact).isel(t=-1) for run in runs]
     >>> convergence_order([16, 32, 64], errors).order
     -2.01
     """
@@ -281,7 +281,7 @@ def oscillation_frequency(
     linear interpolation; peaks are refined by a parabola through each peak and its neighbours.
     The period is the slope of a straight line through the crossing (or peak) times against their
     number, so a single late or early crossing hardly matters. A spectrum
-    (:func:`~struphy_plots.spectral.spectral_peaks`) resolves several frequencies at once; this
+    (:func:`~plasma_plots.spectral.spectral_peaks`) resolves several frequencies at once; this
     measures one, from a few periods, better than a frequency bin.
 
     Parameters
@@ -371,7 +371,7 @@ def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArra
 
     Examples
     --------
-    >>> div_B.struphy.analysis.norm().struphy.plot.timeseries()
+    >>> div_B.plasma.analysis.norm().plasma.plot.timeseries()
     """
     validate_array(data)
     dims = [dim for dim in data.dims if dim != "t"] if dims is None else list(dims)
@@ -404,7 +404,7 @@ def drift(data: xr.DataArray, *, ref=None) -> xr.DataArray:
 
     Examples
     --------
-    >>> drift(out.scalars["en_tot"]).struphy.plot.timeseries()
+    >>> drift(out.scalars["en_tot"]).plasma.plot.timeseries()
     """
     validate_array(data, required_dims=("t",))
     reference = data.isel(t=0) if ref is None else ref
@@ -515,7 +515,7 @@ def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
     Examples
     --------
     >>> moments = velocity_moments(f)          # f(t, eta1, v1)
-    >>> moments.variance_v1.isel(t=-1).struphy.plot.lineout()
+    >>> moments.variance_v1.isel(t=-1).plasma.plot.lineout()
     """
     validate_array(f)
     integrated = _select_dims(f, dims, VELOCITY_DIMS)
@@ -571,7 +571,7 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
 
     Examples
     --------
-    >>> relative_error(out.scalars["en_tot"]).struphy.plot.timeseries()
+    >>> relative_error(out.scalars["en_tot"]).plasma.plot.timeseries()
     """
     validate_array(data, required_dims=("t",))
     reference = data.isel(t=0) if ref is None else ref
@@ -786,8 +786,8 @@ def power_spectrum(data: xr.DataArray, *, dim: str | None = None, detrend: bool 
     """The 2-D power spectrum of a ``(t, dim)`` signal, as a function of frequency and wavenumber.
 
     A plain space-time FFT, as a function of angular frequency and wavenumber -- the basis of a
-    dispersion-relation plot (:meth:`~struphy_plots.accessors.ArrayPlots.dispersion`),
-    independent of Struphy. Built on :func:`struphy_plots.spectral.fft`, so it shares its
+    dispersion-relation plot (:meth:`~plasma_plots.accessors.ArrayPlots.dispersion`),
+    independent of Struphy. Built on :func:`plasma_plots.spectral.fft`, so it shares its
     conventions: coefficients are divided by the sample counts, and the power sums to the mean
     square of the signal.
 
@@ -934,7 +934,7 @@ def volume_integral(data: xr.DataArray, *, form: int = 0, weight=None, domain=No
     domain : struphy domain, optional
         The mapping (``out.domain``), which gives the exact ``|√g|``. Without one, ``|√g|`` comes
         from the numerical Jacobian of the ``X``, ``Y``, ``Z`` coordinates (see
-        :func:`struphy_plots.arrays.mapping_jacobian`). Only needed for ``form=0``.
+        :func:`plasma_plots.arrays.mapping_jacobian`). Only needed for ``form=0``.
     quadrature : dict, optional
         Maps ``eta1``/``eta2``/``eta3`` to explicit weights, one per point (e.g. Gauss weights,
         see ``out.analysis.quadrature_grid()``). Directions left out get
@@ -1001,7 +1001,7 @@ def field_energy(
     ========================  ===========================================  ==============
 
     Here ``G = Jᵀ J`` is the metric of the mapping and ``|√g|`` its Jacobian determinant. The
-    energy of a filtered field, e.g. from :func:`~struphy_plots.spectral.filter_time`, measures
+    energy of a filtered field, e.g. from :func:`~plasma_plots.spectral.filter_time`, measures
     how much of the energy is in that mode. A spline field squared is integrated exactly only
     with enough points per element: evaluate it at Gauss points for accurate energies.
 
@@ -1019,7 +1019,7 @@ def field_energy(
     domain : struphy domain, optional
         The mapping (``out.domain``), which gives the exact ``|√g|`` and ``G``. Without one, they
         come from the numerical Jacobian of the ``X``, ``Y``, ``Z`` coordinates (see
-        :func:`struphy_plots.arrays.mapping_jacobian`).
+        :func:`plasma_plots.arrays.mapping_jacobian`).
     normalization : float, optional
         The prefactor ``α``. Default: 1.
     quadrature : dict, optional
@@ -1094,7 +1094,7 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
     ``∇f = J⁻ᵀ ∂f/∂η``, with the Jacobian ``J`` of the mapping from a struphy ``domain`` (exact)
     or, without one, from the attached ``X``, ``Y``, ``Z`` coordinates. The logical derivatives
     are spectral around periodic directions and second order elsewhere (see
-    :func:`struphy_plots.arrays.logical_derivative`). A direction with a single point (a 2-D run)
+    :func:`plasma_plots.arrays.logical_derivative`). A direction with a single point (a 2-D run)
     is left out: the result is then the gradient within the plane (with the pseudo-inverse of
     the remaining Jacobian columns). For example, ``E = -gradient(phi)``, or the E × B velocity
     ``ẑ × ∇φ`` of a 2-D drift-wave model.
@@ -1478,7 +1478,7 @@ def divergence(vector: xr.DataArray, *, components: str = "cartesian", domain=No
     Examples
     --------
     >>> div_B = divergence(B)                       # should stay at round-off
-    >>> norm(div_B).struphy.plot.timeseries()
+    >>> norm(div_B).plasma.plot.timeseries()
     """
     cartesian = _cartesian_vector(vector, components)
     jac = _jacobian_of_components(cartesian, domain)
@@ -1573,7 +1573,7 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
     --------
     >>> A = flux_function(B.isel(t=-1))
     >>> J = curl(B).isel(t=-1, component=2)
-    >>> J.struphy.plot.slice(overlays={"contours_of": A})
+    >>> J.plasma.plot.slice(overlays={"contours_of": A})
     """
     cartesian = _cartesian_vector(vector, "cartesian").isel(component=[0, 1])
     field = cartesian.squeeze(
@@ -1722,7 +1722,7 @@ def toroidal_components(vector: xr.DataArray, *, R0: float, Z0: float = 0.0) -> 
     Examples
     --------
     >>> local = toroidal_components(u, R0=3.0)
-    >>> local.sel(component="poloidal").isel(t=-1, eta3=0).struphy.plot.slice()
+    >>> local.sel(component="poloidal").isel(t=-1, eta3=0).plasma.plot.slice()
     """
     cartesian = _cartesian_vector(vector, "cartesian")
     _, phi, theta = _angles(cartesian, R0, Z0)
@@ -1819,7 +1819,7 @@ def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
     Examples
     --------
     >>> invariants = orbit_invariants(orbits, absB=absB)
-    >>> relative_error(invariants.energy.isel(marker=0)).struphy.plot.timeseries()
+    >>> relative_error(invariants.energy.isel(marker=0)).plasma.plot.timeseries()
     """
     from .plotting import _alive
 

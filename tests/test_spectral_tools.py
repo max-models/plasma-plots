@@ -12,9 +12,9 @@ import pytest  # noqa: E402
 import xarray as xr  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
-import struphy_plots  # noqa: E402, F401
-from struphy_plots import spectral as sp  # noqa: E402
-from struphy_plots import spectral_plots as spp  # noqa: E402
+import plasma_plots  # noqa: E402, F401
+from plasma_plots import spectral as sp  # noqa: E402
+from plasma_plots import spectral_plots as spp  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -63,7 +63,7 @@ def test_band_filter_separates_two_on_bin_modes():
     data = series(slow + fast, t)
     omega_fast = 2 * np.pi * 12 / 200
     np.testing.assert_allclose(sp.band_filter(data, omega_fast * 0.9, omega_fast * 1.1), fast, atol=1e-12)
-    np.testing.assert_allclose(data.struphy.analysis.band_filter(0.1, 0.2), slow, atol=1e-12)
+    np.testing.assert_allclose(data.plasma.analysis.band_filter(0.1, 0.2), slow, atol=1e-12)
     with pytest.raises(ValueError, match="exceed"):
         sp.band_filter(data, 1.0, 0.5)
 
@@ -76,7 +76,7 @@ def test_spectral_peaks_are_sorted_and_refined_below_the_bin_spacing():
     assert peaks.power.values[0] > peaks.power.values[1]
     np.testing.assert_allclose(peaks.omega_refined, [0.7, 1.9], atol=0.1 * resolution)
     assert (peaks.omega_lo <= peaks.omega).all() and (peaks.omega <= peaks.omega_hi).all()
-    assert data.struphy.analysis.spectral_peaks(n_peaks=1).sizes["peak"] == 1
+    assert data.plasma.analysis.spectral_peaks(n_peaks=1).sizes["peak"] == 1
 
 
 def test_spectrogram_follows_a_chirp_on_one_frequency_grid():
@@ -102,7 +102,7 @@ def test_mode_spectrum_and_amplitudes_find_the_seeded_harmonics():
     assert list(amplitudes.m.values) == [10, 11]
     peak = amplitudes.isel(t=0).max("eta1")
     np.testing.assert_allclose(peak, [1.0, 0.5], rtol=1e-6)
-    assert field.struphy.analysis.mode_spectrum().equals(modes)
+    assert field.plasma.analysis.mode_spectrum().equals(modes)
 
 
 def test_mode_structure_recovers_amplitude_and_phase_at_an_off_bin_frequency():
@@ -137,7 +137,7 @@ def test_cross_spectrum_phase_and_coherence():
     lagged = xr.DataArray(
         np.cos(omega * t - 1.0)[:, None] + rng.normal(0, 0.1, (256, 20)), dims=("t", "eta1"), coords={"t": t, "eta1": x}
     )
-    averaged = noisy.struphy.analysis.cross_spectrum(lagged, dims="eta1")
+    averaged = noisy.plasma.analysis.cross_spectrum(lagged, dims="eta1")
     peak = int(averaged.magnitude.argmax("omega"))
     assert float(averaged.coherence[peak]) > 0.95
     assert float(averaged.phase[peak]) == pytest.approx(-1.0, abs=0.05)
@@ -153,7 +153,7 @@ def test_matrix_pencil_resolves_frequencies_and_growth_from_a_short_record():
     assert float(fit.phase[0]) == pytest.approx(0.3)
     assert fit.attrs["residual"] < 1e-10
     np.testing.assert_allclose(sp.pencil_reconstruction(fit, t), signal, atol=1e-10)
-    assert signal.struphy.analysis.matrix_pencil(n_modes=2).omega.values == pytest.approx(fit.omega.values)
+    assert signal.plasma.analysis.matrix_pencil(n_modes=2).omega.values == pytest.approx(fit.omega.values)
 
     complex_signal = series(np.exp((0.1 + 1j) * t), t)
     one = sp.matrix_pencil(complex_signal, n_modes=1)
@@ -168,11 +168,11 @@ def test_power_spectrum_plot_with_peaks_band_and_reference_lines():
     t = np.arange(400) * 0.5
     data = series(np.sin(0.7 * t) + 0.3 * np.sin(1.9 * t) + 0.2, t)
     band = sp.filter_time(data)
-    result = data.struphy.plot.power_spectrum(peaks=2, band=band, frequencies={"theory": 0.7})
+    result = data.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"theory": 0.7})
     assert result.data["peaks"].sizes["peak"] == 2
     labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
     assert {"peaks", "filter band", "theory"} <= set(labels)
-    assert data.struphy.analysis.time_fft().struphy.plot.power_spectrum().ax is not None
+    assert data.plasma.analysis.time_fft().plasma.plot.power_spectrum().ax is not None
 
     field = torus_field()
     per_radius = spp.plot_power_spectrum(field, dims=("eta2", "eta3"), omega_max=2.0)
@@ -183,13 +183,13 @@ def test_power_spectrum_plot_with_peaks_band_and_reference_lines():
 
 def test_mode_plots_on_a_torus_field():
     field = torus_field()
-    amplitudes = field.struphy.plot.mode_amplitudes(top=2, fit=True)
+    amplitudes = field.plasma.plot.mode_amplitudes(top=2, fit=True)
     assert [fit.rate for fit in amplitudes.fit_results] == pytest.approx([0.05, 0.05], rel=1e-6)
-    assert field.struphy.plot.mode_map(t=-1, m_range=(0, 15), n_range=(-4, 4)).data["amplitude"].dims == ("n", "m")
-    profiles = field.struphy.plot.mode_profiles(0.4, top=2)
+    assert field.plasma.plot.mode_map(t=-1, m_range=(0, 15), n_range=(-4, 4)).data["amplitude"].dims == ("n", "m")
+    profiles = field.plasma.plot.mode_profiles(0.4, top=2)
     peaks = profiles.data["profiles"]
     assert abs(peaks).idxmax("eta1").values.tolist() == pytest.approx([0.4, 0.6])
-    radial = field.struphy.plot.radial_power(
+    radial = field.plasma.plot.radial_power(
         x_of=lambda eta1: 0.1 + 0.9 * eta1, continuum=(lambda r, m, n: {"alfven": np.abs(n + m / (1 + r))}, [(1, 0)]),
         omega_max=2.0,
     )
@@ -200,15 +200,15 @@ def test_mode_plots_on_a_torus_field():
 def test_spectrogram_filtered_cross_and_pencil_plots():
     t = np.arange(800) * 0.1
     data = series(np.sin((0.5 + 0.01 * t) * t), t)
-    assert data.struphy.plot.spectrogram(length=20.0, frequencies={"start": 0.5}).data["spectrogram"].dims == ("omega", "t")
+    assert data.plasma.plot.spectrogram(length=20.0, frequencies={"start": 0.5}).data["spectrogram"].dims == ("omega", "t")
     field = torus_field(n_t=64)
-    result = field.struphy.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
-    probe = field.struphy.plot.filtered(result, eta1=0.4, eta2=0.0, eta3=0.0)
+    result = field.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
+    probe = field.plasma.plot.filtered(result, eta1=0.4, eta2=0.0, eta3=0.0)
     assert len(probe.artists) == 2
     u, b = series(np.cos(0.5 * t), t, "u"), series(-np.sin(0.5 * t), t, "b")
-    assert u.struphy.plot.cross_spectrum(b).data["peak_phase_deg"] == pytest.approx(90, abs=5)
+    assert u.plasma.plot.cross_spectrum(b).data["peak_phase_deg"] == pytest.approx(90, abs=5)
     short = series(np.exp(0.05 * t[:60]) * np.cos(0.3 * t[:60]), t[:60])
-    fit = short.struphy.plot.pencil_fit(n_modes=1)
+    fit = short.plasma.plot.pencil_fit(n_modes=1)
     assert fit.data["fit"].gamma.item() == pytest.approx(0.05, rel=1e-6)
 
 
@@ -225,9 +225,9 @@ def test_output_analysis_matches_the_array_accessor(tmp_path):
     write_manifest(path)
     out = Output(path)
     field = out.fields.em_fields.E.isel(component=0, eta2=0, eta3=0)
-    xr.testing.assert_identical(out.analysis.time_fft(field), field.struphy.analysis.time_fft())
-    xr.testing.assert_identical(out.analysis.fft(field, dim="eta1"), field.struphy.analysis.fft(dim="eta1"))
-    xr.testing.assert_identical(out.analysis.filter_time(field).filtered, field.struphy.analysis.filter_time().filtered)
+    xr.testing.assert_identical(out.analysis.time_fft(field), field.plasma.analysis.time_fft())
+    xr.testing.assert_identical(out.analysis.fft(field, dim="eta1"), field.plasma.analysis.fft(dim="eta1"))
+    xr.testing.assert_identical(out.analysis.filter_time(field).filtered, field.plasma.analysis.filter_time().filtered)
     by_name = out.analysis.time_fft("em_fields/E")
     assert "omega" in by_name.dims and "t" not in by_name.dims
 
@@ -269,7 +269,7 @@ def test_power_spectrum_plot_shows_complex_coefficients_as_power():
 def test_output_accessors_never_replace_an_existing_attribute(monkeypatch):
     from struphy.post_processing.output import Output
 
-    from struphy_plots import output_accessors
+    from plasma_plots import output_accessors
 
     sentinel = object()
     monkeypatch.setattr(Output, "analysis", sentinel, raising=False)

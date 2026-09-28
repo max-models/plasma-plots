@@ -12,8 +12,8 @@ pytestmark = pytest.mark.simulation
 pv = pytest.importorskip("pyvista")
 pv.OFF_SCREEN = True
 
-import struphy_plots  # noqa: E402, F401
-from struphy_plots import pyvista_plots as p3  # noqa: E402
+import plasma_plots  # noqa: E402, F401
+from plasma_plots import pyvista_plots as p3  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +83,7 @@ def orbit_run(tmp_path_factory):
 
 def test_mode_spectrum_finds_the_seeded_torus_harmonics(torus_run):
     velocity = torus_run.evaluate("mhd/velocity").isel(t=0, component=0)
-    top = velocity.struphy.analysis.mode_spectrum().struphy.analysis.mode_amplitudes(top=2).max("eta1")
+    top = velocity.plasma.analysis.mode_spectrum().plasma.analysis.mode_amplitudes(top=2).max("eta1")
     assert set(top.mode.values) == {"(10, -1)", "(11, -1)"}
 
 
@@ -111,11 +111,11 @@ def test_every_3d_view_renders_on_real_output(torus_run):
     velocity = torus_run.evaluate("mhd/velocity").isel(t=-1, component=0)
     cartesian = torus_run.evaluate("mhd/velocity_xyz").isel(t=-1)
     views = {
-        "isosurface": velocity.struphy.plot.isosurface(values=4),
-        "slices": velocity.struphy.plot.slices_3d(cuts={"eta3": [0.0, 0.5], "eta1": 0.5}),
-        "plane": velocity.isel(eta3=0).struphy.plot.isosurface(values=4),
-        "glyphs": cartesian.struphy.plot.glyphs(stride=2),
-        "streamlines": cartesian.struphy.plot.streamlines(n_points=40),
+        "isosurface": velocity.plasma.plot.isosurface(values=4),
+        "slices": velocity.plasma.plot.slices_3d(cuts={"eta3": [0.0, 0.5], "eta1": 0.5}),
+        "plane": velocity.isel(eta3=0).plasma.plot.isosurface(values=4),
+        "glyphs": cartesian.plasma.plot.glyphs(stride=2),
+        "streamlines": cartesian.plasma.plot.streamlines(n_points=40),
         "domain": torus_run.plot.domain_3d(n1=4, n2=16, n3=6),
     }
     lines = views["streamlines"].renderer.actors["streamlines"].mapper.dataset
@@ -127,7 +127,7 @@ def test_every_3d_view_renders_on_real_output(torus_run):
 def test_orbit_classification_on_real_guiding_center_orbits(orbit_run):
     orbits = orbit_run.evaluate("kinetic_ions/orbits")
     assert {"x", "y", "z", "v_par", "mu"} <= set(orbits.data_vars)
-    codes = orbits.struphy.analysis.classify_orbits()
+    codes = orbits.plasma.analysis.classify_orbits()
     trapped = codes == 1
     assert 0 < int(trapped.sum()) < orbits.sizes["marker"]
     flipped = (orbits.v_par * orbits.v_par.isel(t=0) < 0).any("t")
@@ -136,11 +136,11 @@ def test_orbit_classification_on_real_guiding_center_orbits(orbit_run):
     start = orbits.isel(t=0)
     pitch = abs(start.v_par) / np.sqrt(start.mu + 1e-12)
     assert float(pitch.where(trapped).median()) < float(pitch.where(~trapped).median())
-    assert orbits.struphy.plot.orbit_classification().data["counts"]["trapped"] == int(trapped.sum())
-    orbits.struphy.plot.orbits_3d(color_by="classification").close()
-    poloidal = orbits.struphy.plot.poloidal()
+    assert orbits.plasma.plot.orbit_classification().data["counts"]["trapped"] == int(trapped.sum())
+    orbits.plasma.plot.orbits_3d(color_by="classification").close()
+    poloidal = orbits.plasma.plot.poloidal()
     assert {"passing", "trapped"} <= {line.get_label() for line in poloidal.ax.lines}
-    quantities = orbits.struphy.plot.quantities(markers=4)
+    quantities = orbits.plasma.plot.quantities(markers=4)
     # mu is an invariant of guiding-centre motion: its drift stays small
     assert max(abs(line.get_ydata()).max() for line in quantities.ax[1].lines) < 1e-6
 
@@ -153,17 +153,17 @@ def test_linear_mhd_energies_from_fields_match_the_saved_scalars(torus_run):
     # the energy of the filtered dominant mode is a part of the total
     etas, _ = torus_run.analysis.quadrature_grid()
     velocity = torus_run.evaluate("mhd/velocity", eta1=etas["eta1"], eta2=etas["eta2"], eta3=etas["eta3"], representation="2")
-    filtered = velocity.struphy.analysis.filter_time(pad_bins=1).filtered
+    filtered = velocity.plasma.analysis.filter_time(pad_bins=1).filtered
     mode = torus_run.analysis.linear_mhd_energies(velocity=filtered, b_field=None, pressure=None)
     assert 0 < float(mode.en_U.max()) <= 1.5 * float(energies.en_U.max())
 
 
 def test_physical_slices_and_vtk_export_on_real_output(torus_run, tmp_path):
     velocity = torus_run.evaluate("mhd/velocity").isel(component=0)
-    result = velocity.struphy.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", t=-1, eta3=0, symmetric=True)
+    result = velocity.plasma.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", t=-1, eta3=0, symmetric=True)
     mesh = result.artists[0]
     assert mesh.get_coordinates().shape[1] == velocity.sizes["eta2"] + 2  # seam closed: 33 points, 34 cell edges
-    paths = velocity.struphy.data.to_vtk(tmp_path / "velocity")
+    paths = velocity.plasma.data.to_vtk(tmp_path / "velocity")
     assert paths[0].endswith(".pvd") and len(paths) == velocity.sizes["t"] + 1
 
 

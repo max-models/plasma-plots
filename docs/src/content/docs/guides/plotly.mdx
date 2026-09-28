@@ -5,20 +5,20 @@ description: Every Matplotlib plot as an interactive Plotly figure, with backend
 
 import PlotlyChart from '../../../components/PlotlyChart.astro';
 
-Every plot that struphy-plots draws with Matplotlib can also be an interactive
+Every plot that plasma-plots draws with Matplotlib can also be an interactive
 [Plotly](https://plotly.com/python/) figure: pass `backend="plotly"`. You get hover values,
 zoom and pan, legend entries you can click to hide or show a trace, and for animations a
 slider with Play and Pause buttons. The figure works in a notebook, or saved as a
 standalone HTML page.
 
 ```bash
-pip install "struphy-plots[plotly]"   # plotly, and kaleido for PNG/SVG/PDF
+pip install "plasma-plots[plotly]"    # plotly, and kaleido for PNG/SVG/PDF
 ```
 
 ## One keyword
 
 ```python
-n.struphy.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly")
+n.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_ring_slice.json" height="480px" />
@@ -34,7 +34,7 @@ Nothing else changes: the selection by keyword, the options, `fit_results` and `
 the same.
 
 ```python
-result = energy.struphy.plot.timeseries(fit=(0.0, 2.0), backend="plotly")
+result = energy.plasma.plot.timeseries(fit=(0.0, 2.0), backend="plotly")
 result.fit_results[0].rate     # the same fit as with Matplotlib
 result.fig                     # a plotly.graph_objects.Figure
 result.fig.update_layout(height=600)
@@ -46,13 +46,13 @@ result.save("energy.json")     # the figure JSON, e.g. for a website
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
 that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`
 saves the same way, with the same defaults and only on rank 0: `PlotResult(figure).save("page.html")`
-(`from struphy_plots.plotting import PlotResult`).
+(`from plasma_plots.plotting import PlotResult`).
 
 To write the page, the image and the figure JSON at once, as a website needs them, use
 `save_figure`. It takes a plot's result or a figure of your own, and saves nothing on other ranks:
 
 ```python
-from struphy_plots import save_figure
+from plasma_plots import save_figure
 
 save_figure(result, "energy", show=True)              # energy.html, energy.png, energy.plotly.json
 save_figure(movie, "phase-space", frame=-1)           # the image shows the last frame
@@ -61,19 +61,19 @@ save_figure(my_figure, "orbits", formats=("html",))   # a plotly.graph_objects.F
 
 A space-time map of a `(t, z)` field is
 a slice with time as one of its axes:
-`e_x.struphy.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
+`e_x.plasma.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
 
 <PlotlyChart src="/plotly/plotly_timeseries.json" />
 
 ## For every plot at once
 
 ```python
-import struphy_plots
+import plasma_plots
 
-struphy_plots.set_backend("plotly")    # every plot from now on, e.g. in a notebook
-phi.struphy.plot.dispersion(dim="eta1")
+plasma_plots.set_backend("plotly")     # every plot from now on, e.g. in a notebook
+phi.plasma.plot.dispersion(dim="eta1")
 out.plot.energies()
-phi.struphy.plot.slice(t=-1, eta3=0, backend="matplotlib")   # one exception
+phi.plasma.plot.slice(t=-1, eta3=0, backend="matplotlib")    # one exception
 ```
 
 ## Animations and viewers
@@ -85,7 +85,7 @@ slider per remaining dimension; a Plotly figure has only one, so select all but 
 first.
 
 ```python
-n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4, backend="plotly")
+n.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
@@ -93,7 +93,7 @@ n.struphy.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], st
 Every frame stores only what changes: parts that are the same in every frame (static contour
 lines, the domain's boundary, a fixed background, a mesh's grid) are stored once. A contour level
 the field reaches only in some frames is hidden in the others. On a mapped grid, each frame is an
-image of the mesh; `struphy_plots.plotly_backend.IMAGE_PIXELS = 600` (default 1200 along the
+image of the mesh; `plasma_plots.plotly_backend.IMAGE_PIXELS = 600` (default 1200 along the
 longer side) makes those images, and the page, smaller.
 
 Still, a long, finely resolved sweep makes a large page. Use
@@ -102,7 +102,7 @@ and the last included). If the first frame is still featureless, the image of an
 show a later one; the page and the JSON keep the whole animation:
 
 ```python
-movie = f.struphy.plot.animation(x="eta1", y="v1", max_frames=150, backend="plotly")
+movie = f.plasma.plot.animation(x="eta1", y="v1", max_frames=150, backend="plotly")
 movie.save("phase-space.html")
 movie.save("phase-space.png", frame=len(movie.fig.frames) // 2, width=1100, height=650, scale=2)
 ```
@@ -113,7 +113,7 @@ The option works on every Matplotlib plot: time series, profiles, slices, panels
 spectra, dispersion relations, mode diagnostics, marker scatters, orbits, and `out.plot.*`.
 
 ```python
-phi.struphy.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap-centre estimate": omega}, backend="plotly")
+phi.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap-centre estimate": omega}, backend="plotly")
 ```
 
 <PlotlyChart src="/plotly/plotly_spectral_power.json" />
@@ -123,24 +123,24 @@ The guides show many of the plots with Plotly, folded under each Matplotlib figu
 ## What stays Matplotlib or PyVista
 
 - The PyVista 3-D views (`isosurface`, `slices_3d`, `glyphs`, `streamlines`, `volume`,
-  `movie`, `orbits_3d`) are already interactive; see [3-D views](/struphy-plots/guides/3d-views/).
+  `movie`, `orbits_3d`) are already interactive; see [3-D views](/plasma-plots/guides/3d-views/).
 - `frames` and `save_frames` write PNG files for a movie.
 - `ax=`, which draws into a Matplotlib axes you made, cannot be combined with
   `backend="plotly"` (that raises `TypeError`). To compose several plots into one Plotly
-  figure, use `struphy_plots.figure(..., backend="plotly")` (see
-  [Several plots in one figure](/struphy-plots/guides/timeseries/#several-plots-in-one-figure)).
+  figure, use `plasma_plots.figure(..., backend="plotly")` (see
+  [Several plots in one figure](/plasma-plots/guides/timeseries/#several-plots-in-one-figure)).
 - `out.plot.profile.*` has its own `backend="plotly"`, from scope-profiler (see
-  [Profiling](/struphy-plots/guides/profiling/)).
+  [Profiling](/plasma-plots/guides/profiling/)).
 
-The plotting functions (`struphy_plots.plotting.plot_slice`, ...) return Matplotlib results,
+The plotting functions (`plasma_plots.plotting.plot_slice`, ...) return Matplotlib results,
 which convert with `.to_plotly()`:
 
 ```python
-from struphy_plots.plotting import plot_slice
+from plasma_plots.plotting import plot_slice
 
 plot_slice(phi.isel(t=-1, eta3=0)).to_plotly().save("phi.html")
 ```
 
-`struphy_plots.plotly_backend.to_plotly(fig)` and `animation_to_plotly(animation)` convert any
+`plasma_plots.plotly_backend.to_plotly(fig)` and `animation_to_plotly(animation)` convert any
 figure or animation of these functions. If you draw something they don't know (e.g. a
 histogram you added to a plot's axes), it is left out with a `ConversionWarning`.

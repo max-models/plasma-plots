@@ -1,11 +1,11 @@
-"""struphy_plots.theory.parameters: NRL Plasma Formulary values, identities, and Struphy's units."""
+"""plasma_plots.theory.parameters: NRL Plasma Formulary values, identities, and Struphy's units."""
 
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from struphy_plots.theory import parameters as par
+from plasma_plots.theory import parameters as par
 
 CM = 1e-2  # m
 PER_CM3 = 1e6  # m⁻³

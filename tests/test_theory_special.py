@@ -1,10 +1,10 @@
-"""The special functions of struphy_plots.theory, in plain numpy: exact values, identities, and
+"""The special functions of plasma_plots.theory, in plain numpy: exact values, identities, and
 agreement with scipy where it is installed."""
 
 import numpy as np
 import pytest
 
-from struphy_plots.theory.special import elliptic_e, elliptic_k, faddeeva, plasma_dispersion
+from plasma_plots.theory.special import elliptic_e, elliptic_k, faddeeva, plasma_dispersion
 
 
 def test_exact_values_and_identities():

@@ -3,17 +3,17 @@ title: Theory toolbox
 description: Analytic dispersion relations, plasma parameters, orbits, exact solutions and numerical-scheme properties to compare Struphy runs against.
 ---
 
-`struphy_plots.theory` collects the analytic results that Struphy runs are
+`plasma_plots.theory` collects the analytic results that Struphy runs are
 checked against: dispersion relations and growth rates, plasma parameters,
 particle orbits, exact solutions, and the properties of the numerics
 themselves. It is plain numpy, needs neither Struphy nor scipy, and its
 results plug straight into the plots.
 
 ```python
-from struphy_plots.theory import exact, kinetic, numerics, orbits, parameters, waves
+from plasma_plots.theory import exact, kinetic, numerics, orbits, parameters, waves
 ```
 
-Full signatures are in the [theory reference](/struphy-plots/api/struphy_plots/theory/).
+Full signatures are in the [theory reference](/plasma-plots/api/plasma_plots/theory/).
 
 ## Conventions
 
@@ -34,15 +34,15 @@ Full signatures are in the [theory reference](/struphy-plots/api/struphy_plots/t
 A theory function goes directly into the plots that compare against theory:
 
 ```python
-phi.struphy.plot.dispersion(branches={"kinetic": kinetic.langmuir, "Bohm–Gross": kinetic.bohm_gross})
-v.struphy.plot.dispersion(branches=lambda k: waves.mhd_waves(k, theta=0.3, alfven_speed=1.0, sound_speed=0.5))
+phi.plasma.plot.dispersion(branches={"kinetic": kinetic.langmuir, "Bohm–Gross": kinetic.bohm_gross})
+v.plasma.plot.dispersion(branches=lambda k: waves.mhd_waves(k, theta=0.3, alfven_speed=1.0, sound_speed=0.5))
 
-spectrum = phi.struphy.analysis.dispersion()
-traced = spectrum.struphy.analysis.trace_branch(kinetic.langmuir)            # follow the kinetic branch
-traced.omega.struphy.plot.against_theory(kinetic.langmuir)                    # frequencies and their errors
-rates.struphy.plot.against_theory(lambda k: kinetic.langmuir(k).imag)         # damping rates
+spectrum = phi.plasma.analysis.dispersion()
+traced = spectrum.plasma.analysis.trace_branch(kinetic.langmuir)             # follow the kinetic branch
+traced.omega.plasma.plot.against_theory(kinetic.langmuir)                     # frequencies and their errors
+rates.plasma.plot.against_theory(lambda k: kinetic.langmuir(k).imag)          # damping rates
 
-T.struphy.plot.profiles(x="eta1", reference=lambda x, t: exact.heat_kernel(x, t, 0.01, width=0.05, center=0.5))
+T.plasma.plot.profiles(x="eta1", reference=lambda x, t: exact.heat_kernel(x, t, 0.01, width=0.05, center=0.5))
 ```
 
 - `branches=` takes a dict of labels to functions, or one function that
@@ -112,7 +112,7 @@ k∥ = (n + m/q)/R₀. The m and m + 1 continua cross at q = −(m + ½)/n, e.g.
 q = 1.5 for m = 1, n = −1, at the TAE frequency v_A/(2qR₀). In a torus the
 toroidal coupling of the two harmonics opens a gap there, where toroidal Alfvén
 eigenmodes live. The
-[continuous-spectrum plot](/struphy-plots/guides/spectral/#continuous-spectra)
+[continuous-spectrum plot](/plasma-plots/guides/spectral/#continuous-spectra)
 draws the continua over a measured spectrum.
 
 ![Hall-MHD branches along B, and two Alfvén continua crossing at the TAE frequency](../../../assets/figures/theory_continuum.png)
@@ -175,7 +175,7 @@ they work as `reference=` of the profile plots:
 
 ```python
 sod = exact.sod_shock_tube(x, 0.2)                          # .density, .velocity, .pressure
-rho.struphy.plot.lineout(x="eta1", t=-1, reference=lambda x, t: exact.sod_shock_tube(x, t).density)
+rho.plasma.plot.lineout(x="eta1", t=-1, reference=lambda x, t: exact.sod_shock_tube(x, t).density)
 exact.caustic_time(lambda q: -0.5 * np.sin(q), q)          # first shell crossing
 ```
 
