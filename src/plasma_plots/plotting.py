@@ -1562,9 +1562,11 @@ class _SliceRenderer:
                     label=label,
                 )
             )
+        # neither lines past the data nor what is drawn later (e.g. orbits) widen the axes; but the
+        # limits cover this slice's grid, so panels on shared axes all show in full
+        ax.set_xlim(min(limits[0][0], float(np.nanmin(xg))), max(limits[0][1], float(np.nanmax(xg))))
+        ax.set_ylim(min(limits[1][0], float(np.nanmin(yg))), max(limits[1][1], float(np.nanmax(yg))))
         if overlays.get("lines") or overlays.get("points"):
-            ax.set_xlim(*limits[0])  # lines past the data do not widen the axes
-            ax.set_ylim(*limits[1])
             ax.legend(fontsize="small")
         return artists
 
