@@ -34,7 +34,17 @@ from .analysis import (
     power_spectrum,
     relative_error,
 )
-from .arrays import SCALARS_EXCLUDE, axis_label, close_periodic, save_scalars, scalar_names, validate_array, value_label
+from .arrays import (
+    LOGICAL_DIMS,
+    SCALARS_EXCLUDE,
+    axis_label,
+    close_periodic,
+    logical_dims,
+    save_scalars,
+    scalar_names,
+    validate_array,
+    value_label,
+)
 from .mpi import rank_zero
 
 logger = logging.getLogger("plasma_plots")
@@ -54,6 +64,7 @@ PLANES = {
     "XZ": ("X", "Z", "X", "Z"),
     "YZ": ("Y", "Z", "Y", "Z"),
     "RZ": ("R", "Z", "R", "Z"),
+    "X1X2": ("X1", "X2", "$X^1$", "$X^2$"),
 }
 
 
@@ -79,9 +90,10 @@ class View:
     coordinates : {"logical", "physical"}
         Draw over the logical coordinates (``eta1``, ...) or over the physical ``X``, ``Y``, ``Z``
         coordinates attached to the field. Default: ``"logical"``.
-    plane : {"XY", "XZ", "YZ", "RZ"}
+    plane : {"XY", "XZ", "YZ", "RZ", "X1X2"}
         The physical plane drawn with ``coordinates="physical"``; ``"RZ"`` uses
-        ``R = √(X² + Y²)``. Default: ``"XY"``.
+        ``R = √(X² + Y²)``, ``"X1X2"`` GVEC's reference coordinates ``X1``, ``X2`` (see
+        :func:`plasma_plots.gvec.from_gvec`). Default: ``"XY"``.
 
     Examples
     --------
@@ -496,8 +508,9 @@ def physical_grids(data: xr.DataArray, *, plane="XY"):
     ----------
     data : xarray.DataArray
         A 2-D slice with the coordinates ``X``, ``Y`` and ``Z`` attached.
-    plane : {"XY", "XZ", "YZ", "RZ"}, optional
-        The physical plane; ``"RZ"`` uses ``R = √(X² + Y²)``. Default: ``"XY"``.
+    plane : {"XY", "XZ", "YZ", "RZ", "X1X2"}, optional
+        The physical plane; ``"RZ"`` uses ``R = √(X² + Y²)``, ``"X1X2"`` GVEC's reference
+        coordinates ``X1``, ``X2``. Default: ``"XY"``.
 
     Returns
     -------
@@ -512,7 +525,8 @@ def physical_grids(data: xr.DataArray, *, plane="XY"):
     if plane not in PLANES:
         raise ValueError(f"unknown plane {plane!r}; expected one of {tuple(PLANES)}")
     xname, yname, xlabel, ylabel = PLANES[plane]
-    missing = [name for name in ("X", "Y", "Z") if name not in data.coords]
+    needed = ("X1", "X2") if plane == "X1X2" else ("X", "Y", "Z")
+    missing = [name for name in needed if name not in data.coords]
     if missing:
         raise ValueError(f"physical coordinates are not attached to {data.name!r}: missing {missing}")
     xcoord = np.sqrt(data.X**2 + data.Y**2) if xname == "R" else data.coords[xname]
@@ -793,6 +807,8 @@ def plot_lineout(
     reference=None,
     x_of=None,
     xlabel=None,
+    rationals: int | None = None,
+    nfp: int | None = None,
 ):
     """Plot a one-dimensional profile along its one remaining coordinate.
 
@@ -814,6 +830,13 @@ def plot_lineout(
         Maps the coordinate to the plotted axis, e.g. ``lambda eta1: L * eta1``.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate's label.
+    rationals : int, optional
+        Mark where a rotational transform (or safety factor) profile takes its ``rationals``
+        lowest-order rational values ``n/m``: a dotted line at each value, labeled, and a point
+        at each crossing (see :func:`plasma_plots.analysis.rational_surfaces`). Default: none.
+    nfp : int, optional
+        With ``rationals``: the numerators ``n`` are multiples of it. Default: the profile's
+        ``nfp`` attribute, else 1.
 
     Returns
     -------
@@ -832,6 +855,7 @@ def plot_lineout(
     Examples
     --------
     >>> plot_lineout(phi.isel(t=-1, eta2=0, eta3=0), reference=lambda x: np.sin(np.pi * x))
+    >>> plot_lineout(ev.iota, rationals=4)          # GVEC's ι(ρ) with its 4 lowest-order n/m
     """
     data = prepare_lineout(data, x=x)
     x = data.dims[0]
@@ -849,6 +873,18 @@ def plot_lineout(
             xs, ys = _reference_curve(spec, fine, when)
             artists += ax.plot(xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label)
         ax.legend(fontsize="small")
+    if rationals:
+        from .analysis import rational_surfaces
+
+        surfaces = rational_surfaces(data, count=rationals, nfp=nfp)
+        for value in np.unique(np.asarray(surfaces.value)):
+            here = surfaces.where(surfaces.value == value, drop=True)
+            artists.append(ax.axhline(value, color="0.5", ls=":", lw=0.9))
+            where = np.asarray(here, dtype=float)
+            artists += ax.plot(np.asarray(x_of(where), dtype=float) if x_of is not None else where,
+                               np.full(where.size, value), "o", color="C3", ms=4)
+            artists.append(ax.text(0.99, value, f" {int(here.n[0])}/{int(here.m[0])}", transform=ax.get_yaxis_transform(),
+                                   ha="right", va="bottom", fontsize="small", color="0.3"))
     ax.set(
         xlabel=xlabel or (axis_label(data, x) if x_of is None else "x"),
         ylabel=value_label(data),
@@ -974,10 +1010,11 @@ def plot_vector(
         stride=stride,
     )
     if coordinates == "physical":
+        first, second, third = logical_dims(data)
         planes = {
-            frozenset(("eta1", "eta2")): "XY",
-            frozenset(("eta1", "eta3")): "XZ",
-            frozenset(("eta2", "eta3")): "YZ",
+            frozenset((first, second)): "XY",
+            frozenset((first, third)): "XZ",
+            frozenset((second, third)): "YZ",
         }
         plane = planes.get(frozenset((x, y)))
         if plane is None:
@@ -1021,12 +1058,13 @@ def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None 
     ValueError
         If ``data`` has other dimensions.
     """
-    validate_array(data, required_dims=("eta1", "eta2", "eta3"))
-    if set(data.dims) != {"eta1", "eta2", "eta3"}:
+    first, second, third = spatial = logical_dims(data)
+    validate_array(data, required_dims=spatial)
+    if set(data.dims) != set(spatial):
         raise ValueError(f"select every non-spatial dimension before volume_slices(); got {data.dims}")
     indices = {dim: data.sizes[dim] // 2 for dim in data.dims} | (indices or {})
     planes = {}
-    for normal, x, y in zip(("eta3", "eta2", "eta1"), ("eta1", "eta1", "eta2"), ("eta2", "eta3", "eta3")):
+    for normal, x, y in zip((third, second, first), (first, first, second), (second, third, third)):
         plane = data.isel({normal: indices[normal]}).transpose(x, y)
         plane.attrs["fixed_index"] = indices[normal]
         planes[normal] = plane
@@ -1184,8 +1222,9 @@ def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis
     """
     import pyvista as pv
 
-    validate_array(data, required_dims=("eta1", "eta2", "eta3"))
-    if set(data.dims) != {"eta1", "eta2", "eta3"}:
+    spatial = logical_dims(data)
+    validate_array(data, required_dims=spatial)
+    if set(data.dims) != set(spatial):
         raise ValueError(f"select every non-spatial dimension before pyvista_volume(); got {data.dims}")
     if any(coord not in data.coords for coord in ("X", "Y", "Z")):
         raise ValueError("pyvista_volume() requires mapped X, Y, and Z coordinates")
@@ -1309,6 +1348,8 @@ OVERLAY_KEYS = {
     "boundary",
     "boundary_color",
     "grid_lines",
+    "coordinate_lines",
+    "coordinate_line_color",
     "lines",
     "line_color",
     "points",
@@ -1343,6 +1384,60 @@ def _grid_edges(xg, yg):
             if max(np.ptp(x), np.ptp(y)) > 1e-9 * scale:
                 keep.append((x, y))
     return keep
+
+
+def _line_values(coordinate: np.ndarray, spec, period: float | None) -> np.ndarray:
+    """The values of the lines of one ``coordinate_lines`` entry: ``spec`` values, or a number
+    spread over an angle's period (from its first value) or inside the coordinate's range."""
+    if not isinstance(spec, (int, np.integer)) or isinstance(spec, bool):
+        return np.atleast_1d(np.asarray(spec, dtype=float))
+    if spec < 1:
+        return np.array([])
+    finite = coordinate[np.isfinite(coordinate)]
+    lo, hi = float(finite.min()), float(finite.max())
+    if period is not None:
+        return lo + period * np.arange(spec) / spec
+    return np.linspace(lo, hi, int(spec) + 1)[1:]  # the lowest value is often a point (the axis)
+
+
+def _coordinate_lines(ax, selected: xr.DataArray, xg, yg, spec: dict, color) -> list:
+    """Draw lines of constant coordinate on a slice whose grid ``xg``, ``yg`` follows the dims
+    of ``selected``; see the ``coordinate_lines`` overlay."""
+    from .arrays import angle_period
+
+    artists = []
+    for name, lines in spec.items():
+        if name not in selected.coords:
+            raise ValueError(f"coordinate_lines: {name!r} is not a coordinate of the slice; it has {tuple(selected.coords)}")
+        coordinate = selected.coords[name]
+        period = angle_period(selected, name)
+        if name in selected.dims:
+            axis = selected.dims.index(name)
+            values = np.asarray(coordinate, dtype=float)
+            for value in _line_values(values, lines, period):
+                if period is not None:  # the value inside the sampled range, e.g. 2π -> 0
+                    value = values[0] + np.mod(value - values[0], period)
+                if not values.min() <= value <= values.max():
+                    continue
+                weights = np.interp(value, values, np.arange(values.size))
+                i, frac = int(np.floor(weights)), weights - np.floor(weights)
+                j = min(i + 1, values.size - 1)
+                take = (lambda g, k: g[k]) if axis == 0 else (lambda g, k: g[:, k])
+                x = (1 - frac) * take(xg, i) + frac * take(xg, j)
+                y = (1 - frac) * take(yg, i) + frac * take(yg, j)
+                artists += ax.plot(x, y, color=color, lw=0.8, alpha=0.9)
+            continue
+        if set(coordinate.dims) != set(selected.dims):
+            raise ValueError(f"coordinate_lines: {name!r} must vary over the drawn dimensions {selected.dims}")
+        field = np.asarray(coordinate.transpose(*selected.dims), dtype=float)
+        for value in _line_values(field.ravel(), lines, period):
+            if period is None:
+                artists.append(ax.contour(xg, yg, field, levels=[value], colors=color, linewidths=0.8))
+                continue
+            phase = 2 * np.pi * (field - value) / period  # the line is where the angle equals value
+            where = np.where(np.cos(phase) > 0, np.sin(phase), np.nan)  # not the branch half a period away
+            artists.append(ax.contour(xg, yg, where, levels=[0.0], colors=color, linewidths=0.8))
+    return artists
 
 
 class _SliceRenderer:
@@ -1401,9 +1496,13 @@ class _SliceRenderer:
         self.title = _label(data) if title is None else title
         self.limits = self._limits(self.data) if shared_clim else None
 
-    def _draw_overlays(self, ax, data, xg, yg):
+    def _draw_overlays(self, ax, data, xg, yg, selected=None):
         """Contour lines of a second field, the grid's boundary and lines, fixed lines and points."""
         overlays, artists = self.overlays, []
+        if overlays.get("coordinate_lines") and selected is not None:
+            artists += _coordinate_lines(
+                ax, selected, xg, yg, overlays["coordinate_lines"], overlays.get("coordinate_line_color", "w")
+            )
         other = overlays.get("contours_of")
         if other is not None:
             sweep = self.view.sweep
@@ -1463,8 +1562,10 @@ class _SliceRenderer:
                     label=label,
                 )
             )
-        ax.set_xlim(*limits[0])  # lines past the data do not widen the axes
-        ax.set_ylim(*limits[1])
+        # neither lines past the data nor what is drawn later (e.g. orbits) widen the axes; but the
+        # limits cover this slice's grid, so panels on shared axes all show in full
+        ax.set_xlim(min(limits[0][0], float(np.nanmin(xg))), max(limits[0][1], float(np.nanmax(xg))))
+        ax.set_ylim(min(limits[1][0], float(np.nanmin(yg))), max(limits[1][1], float(np.nanmax(yg))))
         if overlays.get("lines") or overlays.get("points"):
             ax.legend(fontsize="small")
         return artists
@@ -1499,7 +1600,7 @@ class _SliceRenderer:
                     else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
                 )
                 extras.append(ax.contour(xg, yg, np.asarray(values), levels=levels, **style))
-        extras += self._draw_overlays(ax, data, xg, yg)
+        extras += self._draw_overlays(ax, data, xg, yg, values)
         ax.set(
             xlabel=xlabel if self.xlabel is None else self.xlabel,
             ylabel=ylabel if self.ylabel is None else self.ylabel,
@@ -1606,6 +1707,12 @@ def plot_slice(
           closed periodic seams;
         - ``"boundary_color"``: its color (default black);
         - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"coordinate_lines"``: a dict of coordinate names to a number of lines or their values,
+          e.g. ``{"rho": 4, "theta": 8}``: lines of constant value of one of the two drawn
+          dimensions, or contour lines of another coordinate over them (e.g. GVEC's PEST angle
+          ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
+          and no line at its seam;
+        - ``"coordinate_line_color"``: their color (default white);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -1752,6 +1859,12 @@ def plot_panels(
           closed periodic seams;
         - ``"boundary_color"``: its color (default black);
         - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"coordinate_lines"``: a dict of coordinate names to a number of lines or their values,
+          e.g. ``{"rho": 4, "theta": 8}``: lines of constant value of one of the two drawn
+          dimensions, or contour lines of another coordinate over them (e.g. GVEC's PEST angle
+          ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
+          and no line at its seam;
+        - ``"coordinate_line_color"``: their color (default white);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -1888,6 +2001,12 @@ class InteractiveSliceViewer:
           closed periodic seams;
         - ``"boundary_color"``: its color (default black);
         - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"coordinate_lines"``: a dict of coordinate names to a number of lines or their values,
+          e.g. ``{"rho": 4, "theta": 8}``: lines of constant value of one of the two drawn
+          dimensions, or contour lines of another coordinate over them (e.g. GVEC's PEST angle
+          ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
+          and no line at its seam;
+        - ``"coordinate_line_color"``: their color (default white);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2109,6 +2228,12 @@ def animate_slices(
           closed periodic seams;
         - ``"boundary_color"``: its color (default black);
         - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"coordinate_lines"``: a dict of coordinate names to a number of lines or their values,
+          e.g. ``{"rho": 4, "theta": 8}``: lines of constant value of one of the two drawn
+          dimensions, or contour lines of another coordinate over them (e.g. GVEC's PEST angle
+          ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
+          and no line at its seam;
+        - ``"coordinate_line_color"``: their color (default white);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2380,6 +2505,12 @@ def save_frames(
           closed periodic seams;
         - ``"boundary_color"``: its color (default black);
         - ``"grid_lines"``: an integer ``n``, draws every ``n``-th grid line in gray;
+        - ``"coordinate_lines"``: a dict of coordinate names to a number of lines or their values,
+          e.g. ``{"rho": 4, "theta": 8}``: lines of constant value of one of the two drawn
+          dimensions, or contour lines of another coordinate over them (e.g. GVEC's PEST angle
+          ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
+          and no line at its seam;
+        - ``"coordinate_line_color"``: their color (default white);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2971,7 +3102,15 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     return selected
 
 
-LOGICAL = ("eta1", "eta2", "eta3")
+LOGICAL = {name for names in LOGICAL_DIMS for name in names}
+
+
+def _boundary_edge(field: xr.DataArray) -> xr.DataArray:
+    """The outermost flux surface of a domain field in its first poloidal plane, closed around."""
+    radial, poloidal, toroidal = logical_dims(field)
+    if toroidal in field.dims:
+        return close_periodic(field.isel({radial: -1, toroidal: 0}), (poloidal,))
+    return field.isel({radial: -1})
 
 
 def _background_view(x: str, y: str) -> View:
@@ -4211,8 +4350,8 @@ def plot_orbit_poloidal(
             label=label,
         )
     if boundary is not None:
-        edge = boundary.isel({d: 0 for d in boundary.dims if d not in ("eta1", "eta2", "eta3")})
-        edge = close_periodic(edge.isel(eta1=-1, eta3=0), ("eta2",)) if "eta3" in edge.dims else edge.isel(eta1=-1)
+        edge = boundary.isel({d: 0 for d in boundary.dims if d not in logical_dims(boundary)})
+        edge = _boundary_edge(edge)
         artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2, label="boundary")
     ax.set(xlabel="R", ylabel="z", title="Orbits in the poloidal plane", aspect="equal")
     if values is not None:
@@ -4757,8 +4896,8 @@ def plot_orbit_grid(
     artists = []
     edge = None
     if boundary is not None:
-        field = boundary.isel({d: 0 for d in boundary.dims if d not in ("eta1", "eta2", "eta3")})
-        edge = close_periodic(field.isel(eta1=-1, eta3=0), ("eta2",)) if "eta3" in field.dims else field.isel(eta1=-1)
+        field = boundary.isel({d: 0 for d in boundary.dims if d not in logical_dims(boundary)})
+        edge = _boundary_edge(field)
     norm = None
     if values is not None:
         from matplotlib.colors import Normalize

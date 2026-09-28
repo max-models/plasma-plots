@@ -5,8 +5,8 @@ output of [Struphy](https://github.com/struphy-hub/struphy), and of any code
 whose arrays follow the same conventions (dimensions `t`, `eta1`/`eta2`/`eta3`,
 mapped coordinates `X`/`Y`/`Z`, see
 [Getting started](https://struphy-hub.github.io/plasma-plots/guides/getting-started/)).
-It is a separate package, so it can evolve and release independently of the
-Struphy runtime.
+It also reads [GVEC](https://gvec.readthedocs.io)'s equilibrium evaluations directly. It is a
+separate package, so it can evolve and release independently of the Struphy runtime.
 
 Full documentation: https://struphy-hub.github.io/plasma-plots
 

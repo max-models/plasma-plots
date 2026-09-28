@@ -90,6 +90,7 @@ export default defineConfig({
 						{ label: 'Profiling', slug: 'guides/profiling' },
 						{ label: 'Recipes', slug: 'guides/recipes' },
 						{ label: 'MHD slab waves', slug: 'guides/real-example' },
+						{ label: 'GVEC equilibria', slug: 'guides/gvec' },
 						{ label: 'Theory toolbox', slug: 'guides/theory' },
 					],
 				},

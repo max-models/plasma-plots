@@ -28,10 +28,11 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 
+from .arrays import logical_dims
 from .plotly_backend import with_backend
 
 Coordinates = Literal["logical", "physical"]
-Plane = Literal["XY", "XZ", "YZ", "RZ"]
+Plane = Literal["XY", "XZ", "YZ", "RZ", "X1X2"]
 Backend = Literal["matplotlib", "plotly"]
 
 
@@ -167,6 +168,8 @@ class ArrayPlots(_ArrayAccessor):
         reference=None,
         x_of=None,
         xlabel: str | None = None,
+        rationals: int | None = None,
+        nfp: int | None = None,
         backend: Backend | None = None,
         **selection,
     ):
@@ -198,6 +201,7 @@ class ArrayPlots(_ArrayAccessor):
         --------
         >>> phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)
         >>> T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
+        >>> ev.iota.plasma.plot.lineout(rationals=4)     # GVEC's ι(ρ) and its rational surfaces
         """
         from .plotting import _select, plot_lineout
 
@@ -210,6 +214,8 @@ class ArrayPlots(_ArrayAccessor):
             reference=reference,
             x_of=x_of,
             xlabel=xlabel,
+            rationals=rationals,
+            nfp=nfp,
         )
 
     @with_backend
@@ -1132,12 +1138,12 @@ class ArrayPlots(_ArrayAccessor):
     def mode_amplitudes(
         self,
         *,
-        dims=("eta2", "eta3"),
+        dims=None,
         names=("m", "n"),
         top: int = 6,
         fit=None,
         reduce: str = "max",
-        scale=1,
+        scale=None,
         relative: bool = False,
         logy: bool = True,
         ax=None,
@@ -1152,14 +1158,16 @@ class ArrayPlots(_ArrayAccessor):
         Parameters
         ----------
         dims : sequence of str, optional
-            The periodic dimensions to decompose. Default: ``("eta2", "eta3")``.
+            The periodic dimensions to decompose. Default: the two logical angles,
+            ``("eta2", "eta3")`` or GVEC's (see :func:`plasma_plots.spectral.mode_spectrum`).
         names : sequence of str, optional
             The names of the mode numbers along ``dims``. Default: ``("m", "n")``.
         reduce : {"max", "mean"}, optional
             How each mode is reduced over the remaining dimensions. Default: ``"max"``.
         scale : int or sequence of int, optional
             Multiplies the mode numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a
-            torus. Default: 1.
+            torus. Default: 1, or nfp along GVEC's toroidal angle (see
+            :func:`plasma_plots.spectral.mode_spectrum`).
         relative : bool, optional
             Show each mode relative to the mean (the zero mode). Default: ``False``.
         **selection
@@ -1202,11 +1210,11 @@ class ArrayPlots(_ArrayAccessor):
     def mode_map(
         self,
         *,
-        dims=("eta2", "eta3"),
+        dims=None,
         m_range=None,
         n_range=None,
         reduce: str = "max",
-        scale=1,
+        scale=None,
         log: bool = True,
         ax=None,
         backend: Backend | None = None,
@@ -1220,12 +1228,14 @@ class ArrayPlots(_ArrayAccessor):
         Parameters
         ----------
         dims : sequence of str, optional
-            The two periodic dimensions to decompose. Default: ``("eta2", "eta3")``.
+            The two periodic dimensions to decompose. Default: the two logical angles,
+            ``("eta2", "eta3")`` or GVEC's (see :func:`plasma_plots.spectral.mode_spectrum`).
         reduce : {"max", "mean"}, optional
             How the amplitude is reduced over the remaining dimensions. Default: ``"max"``.
         scale : int or sequence of int, optional
             Multiplies the mode numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a
-            torus. Default: 1.
+            torus. Default: 1, or nfp along GVEC's toroidal angle (see
+            :func:`plasma_plots.spectral.mode_spectrum`).
         **selection
             The time and any other dimensions to select first, e.g. ``t=-1``: an integer is a
             position, a float the nearest coordinate value.
@@ -1261,7 +1271,7 @@ class ArrayPlots(_ArrayAccessor):
     def radial_power(
         self,
         *,
-        x: str = "eta1",
+        x: str | None = None,
         x_of=None,
         xlabel: str | None = None,
         continuum=None,
@@ -1309,6 +1319,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral import time_fft
         from .spectral_plots import plot_radial_power
 
+        x = logical_dims(self._array)[0] if x is None else x
         power = time_fft(self._time_selection(selection), detrend=detrend, window=window).power
         others = [d for d in power.dims if d not in ("omega", x)]
         power = power.mean(others, keep_attrs=True) if others else power
@@ -1329,13 +1340,13 @@ class ArrayPlots(_ArrayAccessor):
         self,
         omega: float | None = None,
         *,
-        x: str = "eta1",
-        dims=("eta2", "eta3"),
+        x: str | None = None,
+        dims=None,
         x_of=None,
         xlabel: str | None = None,
         top: int = 4,
         phase: bool = True,
-        scale=1,
+        scale=None,
         backend: Backend | None = None,
         **selection,
     ):
@@ -1348,10 +1359,12 @@ class ArrayPlots(_ArrayAccessor):
             ``mode_spectrum(mode_structure(field, omega))``. Default: the harmonics' amplitudes
             at one time, which is then selected by keyword (e.g. ``t=-1``).
         dims : sequence of str, optional
-            The periodic dimensions to decompose. Default: ``("eta2", "eta3")``.
+            The periodic dimensions to decompose. Default: the two logical angles,
+            ``("eta2", "eta3")`` or GVEC's (see :func:`plasma_plots.spectral.mode_spectrum`).
         scale : int or sequence of int, optional
             Multiplies the mode numbers, e.g. ``(1, 6)`` for full-torus ``n`` of a sixth of a
-            torus. Default: 1.
+            torus. Default: 1, or nfp along GVEC's toroidal angle (see
+            :func:`plasma_plots.spectral.mode_spectrum`).
         **selection
             Dimensions to select first (without ``omega``, the time): an integer is a position,
             a float the nearest coordinate value.
@@ -1400,7 +1413,7 @@ class ArrayPlots(_ArrayAccessor):
     def profiles(
         self,
         *,
-        x: str = "eta1",
+        x: str | None = None,
         over: str = "t",
         at=None,
         x_of=None,
@@ -1419,7 +1432,8 @@ class ArrayPlots(_ArrayAccessor):
         Parameters
         ----------
         x : str, optional
-            The dimension along the horizontal axis. Default: ``"eta1"``.
+            The dimension along the horizontal axis. Default: the radial logical one (``eta1``,
+            or GVEC's ``rho``).
         **selection
             Every other dimension, e.g. ``eta2=0.125, eta3=0``: an integer is a position, a
             float the nearest coordinate value.
@@ -1444,6 +1458,7 @@ class ArrayPlots(_ArrayAccessor):
         """
         from .plotting import _select, plot_profiles
 
+        x = logical_dims(self._array)[0] if x is None else x
         view = self._view(None, None, over, "logical", "XY", selection)
         return plot_profiles(
             _select(self._array, view),
@@ -1599,8 +1614,9 @@ class ArrayPlots(_ArrayAccessor):
         coords : {"logical", "physical"}, optional
             Draw over the logical coordinates, or over the mapped physical coordinates
             (``X``, ``Y``, ``Z``). Default: ``"logical"``.
-        plane : {"XY", "XZ", "YZ", "RZ"}, optional
-            The physical plane, with ``coords="physical"``. Default: ``"XY"``.
+        plane : {"XY", "XZ", "YZ", "RZ", "X1X2"}, optional
+            The physical plane, with ``coords="physical"``: ``"RZ"`` uses ``R = √(X² + Y²)``,
+            ``"X1X2"`` GVEC's reference coordinates. Default: ``"XY"``.
         vmin, vmax : float, optional
             Explicit color limits; each overrides its limit with or without ``shared_clim``.
         shared_clim : bool, optional
@@ -2983,7 +2999,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return spectrogram(self._array, length=length, step=step, detrend=detrend, window=window)
 
-    def mode_spectrum(self, *, dims=("eta2", "eta3"), names=("m", "n"), periods=1.0) -> xr.DataArray:
+    def mode_spectrum(self, *, dims=None, names=("m", "n"), periods=None, scale=None) -> xr.DataArray:
         """Return the complex amplitudes over poloidal/toroidal mode numbers.
 
         Returns
@@ -3002,7 +3018,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import mode_spectrum
 
-        return mode_spectrum(self._array, dims=dims, names=names, periods=periods)
+        return mode_spectrum(self._array, dims=dims, names=names, periods=periods, scale=scale)
 
     def mode_amplitudes(self, *, top: int | None = None, real: bool = True, relative: bool = False) -> xr.DataArray:
         """Return the real amplitudes of this mode spectrum along one ``mode`` dimension.
@@ -3112,6 +3128,48 @@ class ArrayAnalysis(_ArrayAccessor):
         from .analysis import gradient
 
         return gradient(self._array, domain=domain)
+
+    def surface_average(self, *, jacobian=None, domain=None, quadrature=None) -> xr.DataArray:
+        """Return the flux-surface average of this field over its two angles.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``⟨f⟩`` over the radius and every non-spatial dimension.
+
+        See Also
+        --------
+        plasma_plots.analysis.surface_average : The function behind this method.
+        DatasetAnalysis.surface_average : The same, with the Dataset's ``Jac``.
+
+        Examples
+        --------
+        >>> ev.mod_B.plasma.analysis.surface_average(jacobian=ev.Jac)
+        """
+        from .analysis import surface_average
+
+        return surface_average(self._array, jacobian=jacobian, domain=domain, quadrature=quadrature)
+
+    def rational_surfaces(self, *, count: int = 4, nfp: int | None = None, max_denominator: int = 12) -> xr.DataArray:
+        """Return where this rotational transform (or safety factor) profile is a low-order rational.
+
+        Returns
+        -------
+        xarray.DataArray
+            The positions over ``surface``, with the coordinates ``n``, ``m`` and ``value``.
+
+        See Also
+        --------
+        plasma_plots.analysis.rational_surfaces : The function behind this method.
+        ArrayPlots.lineout : ``rationals=`` marks them on the profile.
+
+        Examples
+        --------
+        >>> ev.iota.plasma.analysis.rational_surfaces(count=3)
+        """
+        from .analysis import rational_surfaces
+
+        return rational_surfaces(self._array, count=count, nfp=nfp, max_denominator=max_denominator)
 
     def error(
         self,
@@ -3352,7 +3410,8 @@ class ArrayAnalysis(_ArrayAccessor):
 class PlasmaAccessor:
     """Struphy diagnostics of one array: ``array.plasma.plot``, ``.analysis`` and ``.data``.
 
-    Registered on every ``xarray.DataArray`` when ``plasma_plots`` is imported.
+    Registered on every ``xarray.DataArray`` when ``plasma_plots`` is imported. A GVEC
+    evaluation is read in plasma-plots' conventions first (see :func:`plasma_plots.gvec.from_gvec`).
 
     Examples
     --------
@@ -3361,7 +3420,9 @@ class PlasmaAccessor:
     """
 
     def __init__(self, array: xr.DataArray):
-        self._array = array
+        from .gvec import from_gvec, is_gvec
+
+        self._array = from_gvec(array) if is_gvec(array) else array
 
     @property
     def plot(self) -> "ArrayPlots":
@@ -3456,6 +3517,36 @@ class DatasetAnalysis:
         from .analysis import bounce_period
 
         return bounce_period(self._dataset, v_par=v_par)
+
+    def surface_average(self, name: str, *, jacobian: str | None = "Jac", domain=None, quadrature=None) -> xr.DataArray:
+        """Return the flux-surface average of one variable, with this Dataset's Jacobian.
+
+        Parameters
+        ----------
+        name : str
+            The variable, e.g. ``"mod_B"``.
+        jacobian : str or None, optional
+            The variable holding ``√g``, used if the Dataset has it. ``None`` (or a missing
+            variable) takes ``domain``, else the numerical Jacobian of ``X``, ``Y``, ``Z``.
+            Default: ``"Jac"``, GVEC's.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``⟨name⟩`` over the radius and every non-spatial dimension.
+
+        See Also
+        --------
+        plasma_plots.analysis.surface_average : The function behind this method.
+
+        Examples
+        --------
+        >>> ev.plasma.analysis.surface_average("mod_B")
+        """
+        from .analysis import surface_average
+
+        sqrt_g = self._dataset[jacobian] if jacobian is not None and jacobian in self._dataset else None
+        return surface_average(self._dataset[name], jacobian=sqrt_g, domain=domain, quadrature=quadrature)
 
 
 class DatasetPlots:
@@ -4049,7 +4140,8 @@ class PlasmaDatasetAccessor:
     """Struphy diagnostics of one dataset, e.g. an ``orbits`` product: ``dataset.plasma.plot``.
 
     Also ``dataset.plasma.analysis`` and ``dataset.plasma.data``. Registered on every
-    ``xarray.Dataset`` when ``plasma_plots`` is imported.
+    ``xarray.Dataset`` when ``plasma_plots`` is imported. A GVEC evaluation is read in
+    plasma-plots' conventions first (see :func:`plasma_plots.gvec.from_gvec`).
 
     Examples
     --------
@@ -4058,7 +4150,9 @@ class PlasmaDatasetAccessor:
     """
 
     def __init__(self, dataset: xr.Dataset):
-        self._dataset = dataset
+        from .gvec import from_gvec, is_gvec
+
+        self._dataset = from_gvec(dataset) if is_gvec(dataset) else dataset
 
     @property
     def plot(self) -> "DatasetPlots":

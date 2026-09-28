@@ -61,6 +61,10 @@ names follow Struphy's:
 | `component` | the components of a vector field |
 | `marker` | the markers of particle Datasets |
 
+[GVEC](https://gvec.readthedocs.io)'s evaluations (dimensions `rad`, `pol`, `tor`) are read in
+these conventions by themselves, with the flux coordinates `rho`, `theta`, `zeta` as the logical
+dimensions; see [GVEC equilibria](/plasma-plots/guides/gvec/).
+
 Other dimension names work wherever you name the dimensions yourself
 (`x="z"`, `y="t"`); only the physical views and the mapped-domain analysis need
 `X`/`Y`/`Z`. The `label` and `units` attributes of the array and the

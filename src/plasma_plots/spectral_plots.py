@@ -11,7 +11,7 @@ import xarray as xr
 
 from . import spectral
 from .analysis import GrowthFit, growth_rate
-from .arrays import axis_label, value_label
+from .arrays import axis_label, logical_dims, value_label
 from .mpi import rank_zero
 from .plotting import (
     PLOT_STYLE,
@@ -483,7 +483,7 @@ def _x_values(data, x, x_of):
 def plot_radial_power(
     power: xr.DataArray,
     *,
-    x: str = "eta1",
+    x: str | None = None,
     x_of=None,
     xlabel: str | None = None,
     continuum=None,
@@ -505,7 +505,7 @@ def plot_radial_power(
         A :func:`~plasma_plots.spectral.time_fft` Dataset or power array reduced to
         ``(omega, x)``: average the angles away first.
     x : str, optional
-        The spatial dimension. Default: ``"eta1"``.
+        The spatial dimension. Default: the radial logical one (``eta1``, or GVEC's ``rho``).
     x_of : callable, optional
         Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1``
         for the minor radius of a hollow torus. The axis is then labeled ``r``.
@@ -546,6 +546,7 @@ def plot_radial_power(
     >>> power = time_fft(phi, detrend=True).power.mean(["eta2", "eta3"])
     >>> plot_radial_power(power, x_of=lambda eta1: 0.1 + 0.9 * eta1, omega_max=2.0)
     """
+    x = logical_dims(power)[0] if x is None else x
     power = power["power"] if isinstance(power, xr.Dataset) else power
     if set(power.dims) != {"omega", x}:
         raise ValueError(f"reduce the power to (omega, {x!r}) first; got {power.dims}")
@@ -594,7 +595,7 @@ def plot_radial_power(
 def plot_mode_profiles(
     structure: xr.DataArray,
     *,
-    x: str = "eta1",
+    x: str | None = None,
     x_of=None,
     xlabel: str | None = None,
     top: int = 4,
@@ -615,7 +616,7 @@ def plot_mode_profiles(
         ``(x, mode)``, e.g. ``mode_amplitudes`` of one snapshot's mode spectrum, which has no
         phase panel.
     x : str, optional
-        The radial dimension. Default: ``"eta1"``.
+        The radial dimension. Default: the radial logical one (``eta1``, or GVEC's ``rho``).
     x_of : callable, optional
         Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1``.
         The axis is then labeled ``r``.
@@ -649,6 +650,7 @@ def plot_mode_profiles(
     --------
     >>> plot_mode_profiles(mode_spectrum(mode_structure(phi, 0.42)).isel(n=0), top=3)
     """
+    x = logical_dims(structure)[0] if x is None else x
     names = [d for d in ("m", "n") if d in structure.dims]
     stacked = structure.stack(mode=names) if names else structure
     if set(stacked.dims) != {x, "mode"}:

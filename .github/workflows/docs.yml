@@ -67,6 +67,9 @@ jobs:
         run: |
           echo "feectools=$(python -c 'import os, feectools; print(os.path.dirname(feectools.__file__))')" >> "$GITHUB_OUTPUT"
           echo "python=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')" >> "$GITHUB_OUTPUT"
+          # ImageOS/ImageVersion are the runner's environment variables, not part of the `env`
+          # context, so ${{ env.ImageOS }} in the key expands to nothing: read them here
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
 
       - name: Restore compiled struphy kernels
         id: kernel-cache
@@ -79,9 +82,10 @@ jobs:
             struphy/src/struphy/kernels.txt
             ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
             ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
-          key: struphy-kernels-fortran-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-py${{ steps.kernel-paths.outputs.python }}-${{ hashFiles('struphy/src/struphy/**/*kernels*.py', 'struphy/src/struphy/compile_struphy.mk', 'struphy/pyproject.toml') }}
+          key: struphy-kernels-fortran-${{ runner.os }}-${{ steps.kernel-paths.outputs.image }}-py${{ steps.kernel-paths.outputs.python }}-${{ hashFiles('struphy/src/struphy/**/*kernels*.py', 'struphy/src/struphy/compile_struphy.mk', 'struphy/pyproject.toml') }}
 
-      # Compile on a cache miss, or if the restored kernels are incomplete.
+      # Compile on a cache miss, or if the restored kernels are incomplete or don't import (then
+      # struphy itself doesn't import, `struphy compile` included: remove them first).
       - name: Compile struphy kernels
         id: compile
         run: |
@@ -91,6 +95,12 @@ jobs:
             struphy compile --status
             echo "compiled=false" >> "$GITHUB_OUTPUT"
           else
+            if [ "${{ steps.kernel-cache.outputs.cache-hit }}" = "true" ]; then
+              echo "The cached kernels are unusable; compiling from scratch"
+              find struphy/src/struphy "${{ steps.kernel-paths.outputs.feectools }}" \
+                \( -name "*.so" -o -name "__pyccel__" -prune \) -exec rm -rf {} +
+              rm -f struphy/src/struphy/state.yml struphy/src/struphy/kernels.txt
+            fi
             struphy compile -y --language fortran
             echo "compiled=true" >> "$GITHUB_OUTPUT"
           fi
