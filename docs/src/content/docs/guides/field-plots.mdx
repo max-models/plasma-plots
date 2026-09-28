@@ -30,7 +30,13 @@ remaining 1-D profile.
 Several profiles in one axes, e.g. at a few times, against the minor radius:
 
 ```python
-phi.plasma.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=lambda eta1: 0.1 + 0.9 * eta1, eta2=0.0, eta3=0.0)
+phi.plasma.plot.profiles(
+    x="eta1",
+    at=[0, 100, 200, 299],
+    x_of=lambda eta1: 0.1 + 0.9 * eta1,
+    eta2=0.0,
+    eta3=0.0,
+)
 ```
 
 `at` picks the times (integers are positions, floats nearest values; the
@@ -42,9 +48,12 @@ coordinate itself: `analysis.map_coordinate` takes a function of it (or a factor
 and a new name and units, so that selections and every plot use them:
 
 ```python
-r_T = T.plasma.analysis.map_coordinate("eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m")
+r_T = T.plasma.analysis.map_coordinate(
+    "eta1", lambda eta1: 0.1 + 0.9 * eta1, name="r", units="m"
+)
 r_T.plasma.plot.profiles(x="r", at=[0, 20, 40])
-T.plasma.analysis.map_coordinate("eta1", 2.0, name="x", units="m")     # a 2 m long interval
+# a 2 m long interval
+T.plasma.analysis.map_coordinate("eta1", 2.0, name="x", units="m")
 ```
 
 ![Temperature profiles over x in meters](../../../assets/figures/profiles_meters.png)
@@ -63,8 +72,13 @@ def exact(x, t, D=0.01, width=0.05):
     s2 = width**2 + 2 * D * t
     return width / np.sqrt(s2) * np.exp(-((x - 0.5) ** 2) / (2 * s2))
 
-T.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})
-T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)
+
+T.plasma.plot.profiles(
+    x="eta1", at=[0, 10, 20, 40], reference={"exact": exact}
+)
+T.plasma.plot.lineout(
+    x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1
+)
 ```
 
 Here the run's diffusion coefficient is 10 % too large, so its profiles fall
@@ -90,7 +104,9 @@ nearest time. Here the peak temperature of the run below its profile, against th
 
 ```python
 peak = T.max("eta1")
-anim = T.plasma.plot.line_animation(reference={"exact": exact}, alongside=[[peak, exact_peak]], step=2)
+anim = T.plasma.plot.line_animation(
+    reference={"exact": exact}, alongside=[[peak, exact_peak]], step=2
+)
 ```
 
 ![A profile animated with its peak temperature below, against the exact peak](/plasma-plots/figures/line_animation_companions.gif)
@@ -105,7 +121,12 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-T.plasma.plot.line_animation(reference={"exact": exact}, alongside=[[peak, exact_peak]], step=2, backend="plotly")
+T.plasma.plot.line_animation(
+    reference={"exact": exact},
+    alongside=[[peak, exact_peak]],
+    step=2,
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_line_animation_companions.json" height="620px" />
@@ -122,10 +143,10 @@ For the error itself, see [errors against exact solutions](/plasma-plots/guides/
 ```python
 view = field.plasma.plot.view(x="eta1", y="eta2", sweep="t")
 
-view.slice(t=-1)              # one snapshot
-view.panels(nrows=3, ncols=4)     # a grid of snapshots
-view.viewer()                     # interactive slider (Jupyter/IPython)
-view.animation(interval=100)      # matplotlib.animation.FuncAnimation
+view.slice(t=-1)  # one snapshot
+view.panels(nrows=3, ncols=4)  # a grid of snapshots
+view.viewer()  # interactive slider (Jupyter/IPython)
+view.animation(interval=100)  # matplotlib.animation.FuncAnimation
 view.save_frames("frames/", step=2, prefix="phi")
 ```
 
@@ -167,7 +188,15 @@ few extreme values do not wash out the rest. The 3-D views take the same two
 options.
 
 ```python
-view = u.plasma.plot.view(x="eta1", y="eta2", coords="physical", plane="RZ", cmap="RdBu_r", symmetric=True, eta3=0)
+view = u.plasma.plot.view(
+    x="eta1",
+    y="eta2",
+    coords="physical",
+    plane="RZ",
+    cmap="RdBu_r",
+    symmetric=True,
+    eta3=0,
+)
 view.animation()
 ```
 
@@ -178,7 +207,9 @@ The axis and color bar labels come from the coordinates' and the array's names a
 `xlabel=`, `ylabel=` and `colorbar_label=` replace them, in every slice presentation:
 
 ```python
-f_v.plasma.plot.slice(x="t", y="v1", xlabel="time [ms]", ylabel="v", colorbar_label="f(v, t)")
+f_v.plasma.plot.slice(
+    x="t", y="v1", xlabel="time [ms]", ylabel="v", colorbar_label="f(v, t)"
+)
 ```
 
 ### Contour lines
@@ -190,9 +221,11 @@ surfaces, or the streamlines of a stream function. With `fill=False`, only the
 lines are drawn, colored by `cmap`.
 
 ```python
-n.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])    # the ring's edges
-psi.plasma.plot.slice(levels=12, fill=False, cmap="Greys")                               # streamlines only
-n.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])             # the interface in motion
+# the ring's edges
+n.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2])
+psi.plasma.plot.slice(levels=12, fill=False, cmap="Greys")  # streamlines only
+# the interface in motion
+n.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2])
 ```
 
 ![Charge density of a ring with the interface n = 0.2 as a contour line](../../../assets/figures/contour_interface.png)
@@ -220,9 +253,20 @@ O- and X-points:
 ```python
 flux = B.plasma.analysis.flux_function()
 absB.plasma.plot.slice(
-    coords="physical", plane="XY", eta3=0, cmap="magma",
-    overlays={"contours_of": flux, "contour_levels": 14, "contour_color": "w", "boundary": True,
-              "points": {"O-point": (np.pi, np.pi), "X-points": ([0, 2 * np.pi], [np.pi, np.pi])}},
+    coords="physical",
+    plane="XY",
+    eta3=0,
+    cmap="magma",
+    overlays={
+        "contours_of": flux,
+        "contour_levels": 14,
+        "contour_color": "w",
+        "boundary": True,
+        "points": {
+            "O-point": (np.pi, np.pi),
+            "X-points": ([0, 2 * np.pi], [np.pi, np.pi]),
+        },
+    },
 )
 ```
 
@@ -233,8 +277,14 @@ A wave packet on a space-time map (`x="eta1", y="t"`), with the line
 
 ```python
 phi.plasma.plot.slice(
-    x="eta1", y="t", cmap="RdBu_r", symmetric=True,
-    overlays={"lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4}, "line_color": "k"},
+    x="eta1",
+    y="t",
+    cmap="RdBu_r",
+    symmetric=True,
+    overlays={
+        "lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4},
+        "line_color": "k",
+    },
 )
 ```
 
@@ -248,7 +298,13 @@ The selection and options apply to all of them:
 
 ```python
 omega.plasma.plot.animation(
-    coords="physical", plane="XY", eta3=0, alongside=[density], cmap="RdBu_r", symmetric=True, robust=True,
+    coords="physical",
+    plane="XY",
+    eta3=0,
+    alongside=[density],
+    cmap="RdBu_r",
+    symmetric=True,
+    robust=True,
 )
 ```
 
@@ -271,7 +327,9 @@ The same call with `backend="plotly"`: an interactive figure with the same data,
 labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 
 ```python
-b_field.plasma.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=4, backend="plotly")
+b_field.plasma.plot.vector(
+    x="eta1", y="eta2", components=(0, 1), stride=4, backend="plotly"
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_vector.json" />

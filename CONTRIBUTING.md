@@ -37,13 +37,21 @@ script needs the full **compiled** `struphy` runtime (from the submodule,
 see above -- `struphy compile -y` if you haven't); `scipy` comes along with
 it (struphy's own dependency).
 
+The [GVEC equilibria](https://struphy-hub.github.io/plasma-plots/guides/gvec/) guide is the
+other: its `gvec_*` figures, interactive 3-D scenes and `docs/src/assets/gvec/numbers.txt` come
+from real GVEC equilibria (`scripts/generate_gvec_figures.py`: GVEC's tutorial stellarator and
+tokamak, and W7-X), so it needs `pip install gvec`, which builds GVEC's Fortran core (gfortran, a
+LAPACK and CMake). W7-X takes about a minute; `PLASMA_PLOTS_SKIP_W7X=1` leaves it out, but then
+the page misses its figures.
+
 Figures aren't checked into git, so generate them before building or
 running the site locally:
 
 ```bash
 struphy compile -y   # only needed for generate_real_example_figures.py
+pip install gvec     # only needed for generate_gvec_figures.py
 pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
-make figures       # runs both scripts, renders docs/src/assets/figures/ and docs/public/plotly/
+make figures       # runs the three scripts, renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```
@@ -69,6 +77,12 @@ make docs-build     # figures + npm run build
 CI regenerates the figures the same way (with the same heavy struphy install
 as the test suite, since the real-example page still needs it) on every push
 to `devel`, before deploying to GitHub Pages.
+
+The docs site shows about 80 characters of code before a block scrolls sideways, so the
+` ```python ` blocks of the guides are formatted with `ruff format` at 79 characters (not the
+package's 120): run `python scripts/format_docs_snippets.py` after editing them, and
+`tests/test_docs_snippets.py` fails until you do. A trailing comment that doesn't fit its line
+moves above the statement. The scripts included with `<Code>` aren't covered.
 
 ## Docstrings and the API reference
 

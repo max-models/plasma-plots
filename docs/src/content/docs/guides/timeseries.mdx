@@ -62,7 +62,7 @@ with plasma_plots.figure(2, 1, sharex=True) as fig:
     energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=fig[0])
     total.plasma.analysis.drift().plasma.plot.timeseries(logy=False, ax=fig[1])
 fig.save("energies.png")
-fig.results[0].fit_results[0].rate     # each panel's result, with its fits
+fig.results[0].fit_results[0].rate  # each panel's result, with its fits
 ```
 
 ![The field energy with its fit above, the drift of the total energy below](../../../assets/figures/composed_energies.png)
@@ -101,8 +101,10 @@ against the exact envelope:
 amplitude = e1.plasma.analysis.project_mode(dim="eta1", number=1)
 amplitude.plasma.plot.timeseries(
     logy=False,
-    reference={"±0.1 e^(-γt)": lambda t: 0.1 * np.exp(-gamma * t),
-               "_lower": lambda t: -0.1 * np.exp(-gamma * t)},
+    reference={
+        "±0.1 e^(-γt)": lambda t: 0.1 * np.exp(-gamma * t),
+        "_lower": lambda t: -0.1 * np.exp(-gamma * t),
+    },
 )
 ```
 
@@ -119,10 +121,18 @@ several runs or methods. The theory can be one function or a dict of several:
 
 ```python
 traced = spectrum.plasma.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))
-traced.omega.plasma.plot.against_theory({"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1 + 0 * k})
+traced.omega.plasma.plot.against_theory(
+    {"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1 + 0 * k}
+)
 
 from plasma_plots.plotting import plot_measured_vs_theory
-plot_measured_vs_theory({"run A": rates_a, "run B": (m, rates_b)}, theory, logx=True, show_error=False)
+
+plot_measured_vs_theory(
+    {"run A": rates_a, "run B": (m, rates_b)},
+    theory,
+    logx=True,
+    show_error=False,
+)
 ```
 
 The error panel compares every measured series with the first theory function.

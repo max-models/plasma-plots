@@ -9,14 +9,16 @@ test:
 lint:
 	ruff check src tests scripts
 
-# Renders docs/src/assets/figures/*.png (synthetic data, fast) and
+# Renders docs/src/assets/figures/*.png (synthetic data, fast),
 # docs/src/assets/figures/real_*.png (a real struphy simulation, needs the
-# full compiled struphy runtime -- see CONTRIBUTING.md). Not checked into
-# git -- run this before building the docs site.
+# full compiled struphy runtime) and gvec_*.png (real GVEC equilibria, needs
+# pip install gvec) -- see CONTRIBUTING.md. Not checked into git -- run this
+# before building the docs site.
 figures:
 	python3 scripts/api_index.py
 	python3 scripts/generate_docs_figures.py
 	python3 scripts/generate_real_example_figures.py
+	python3 scripts/generate_gvec_figures.py
 
 docs-install:
 	cd docs && npm ci

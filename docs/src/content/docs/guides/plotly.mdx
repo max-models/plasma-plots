@@ -18,7 +18,9 @@ pip install "plasma-plots[plotly]"    # plotly, and kaleido for PNG/SVG/PDF
 ## One keyword
 
 ```python
-n.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly")
+n.plasma.plot.slice(
+    coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_ring_slice.json" height="480px" />
@@ -35,12 +37,12 @@ the same.
 
 ```python
 result = energy.plasma.plot.timeseries(fit=(0.0, 2.0), backend="plotly")
-result.fit_results[0].rate     # the same fit as with Matplotlib
-result.fig                     # a plotly.graph_objects.Figure
+result.fit_results[0].rate  # the same fit as with Matplotlib
+result.fig  # a plotly.graph_objects.Figure
 result.fig.update_layout(height=600)
-result.save("energy.html")     # a standalone page
-result.save("energy.png")      # through kaleido; also .svg, .pdf
-result.save("energy.json")     # the figure JSON, e.g. for a website
+result.save("energy.html")  # a standalone page
+result.save("energy.png")  # through kaleido; also .svg, .pdf
+result.save("energy.json")  # the figure JSON, e.g. for a website
 ```
 
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
@@ -54,9 +56,11 @@ To write the page, the image and the figure JSON at once, as a website needs the
 ```python
 from plasma_plots import save_figure
 
-save_figure(result, "energy", show=True)              # energy.html, energy.png, energy.plotly.json
-save_figure(movie, "phase-space", frame=-1)           # the image shows the last frame
-save_figure(my_figure, "orbits", formats=("html",))   # a plotly.graph_objects.Figure, only the page
+# energy.html, energy.png, energy.plotly.json
+save_figure(result, "energy", show=True)
+save_figure(movie, "phase-space", frame=-1)  # the image shows the last frame
+# a plotly.graph_objects.Figure, only the page
+save_figure(my_figure, "orbits", formats=("html",))
 ```
 
 A space-time map of a `(t, z)` field is
@@ -70,10 +74,11 @@ a slice with time as one of its axes:
 ```python
 import plasma_plots
 
-plasma_plots.set_backend("plotly")     # every plot from now on, e.g. in a notebook
+# every plot from now on, e.g. in a notebook
+plasma_plots.set_backend("plotly")
 phi.plasma.plot.dispersion(dim="eta1")
 out.plot.energies()
-phi.plasma.plot.slice(t=-1, eta3=0, backend="matplotlib")    # one exception
+phi.plasma.plot.slice(t=-1, eta3=0, backend="matplotlib")  # one exception
 ```
 
 ## Animations and viewers
@@ -85,7 +90,14 @@ slider per remaining dimension; a Plotly figure has only one, so select all but 
 first.
 
 ```python
-n.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4, backend="plotly")
+n.plasma.plot.animation(
+    coords="physical",
+    plane="XY",
+    eta3=0,
+    levels=[0.2],
+    step=4,
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
@@ -102,9 +114,17 @@ and the last included). If the first frame is still featureless, the image of an
 show a later one; the page and the JSON keep the whole animation:
 
 ```python
-movie = f.plasma.plot.animation(x="eta1", y="v1", max_frames=150, backend="plotly")
+movie = f.plasma.plot.animation(
+    x="eta1", y="v1", max_frames=150, backend="plotly"
+)
 movie.save("phase-space.html")
-movie.save("phase-space.png", frame=len(movie.fig.frames) // 2, width=1100, height=650, scale=2)
+movie.save(
+    "phase-space.png",
+    frame=len(movie.fig.frames) // 2,
+    width=1100,
+    height=650,
+    scale=2,
+)
 ```
 
 ## Spectra, particles, whole runs
@@ -113,7 +133,12 @@ The option works on every Matplotlib plot: time series, profiles, slices, panels
 spectra, dispersion relations, mode diagnostics, marker scatters, orbits, and `out.plot.*`.
 
 ```python
-phi.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"TAE gap-centre estimate": omega}, backend="plotly")
+phi.plasma.plot.power_spectrum(
+    peaks=2,
+    band=band,
+    frequencies={"TAE gap-centre estimate": omega},
+    backend="plotly",
+)
 ```
 
 <PlotlyChart src="/plotly/plotly_spectral_power.json" />
