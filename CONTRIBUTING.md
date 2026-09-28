@@ -37,13 +37,21 @@ script needs the full **compiled** `struphy` runtime (from the submodule,
 see above -- `struphy compile -y` if you haven't); `scipy` comes along with
 it (struphy's own dependency).
 
+The [GVEC equilibria](https://struphy-hub.github.io/plasma-plots/guides/gvec/) guide is the
+other: its `gvec_*` figures, interactive 3-D scenes and `docs/src/assets/gvec/numbers.txt` come
+from real GVEC equilibria (`scripts/generate_gvec_figures.py`: GVEC's tutorial stellarator and
+tokamak, and W7-X), so it needs `pip install gvec`, which builds GVEC's Fortran core (gfortran, a
+LAPACK and CMake). W7-X takes about a minute; `PLASMA_PLOTS_SKIP_W7X=1` leaves it out, but then
+the page misses its figures.
+
 Figures aren't checked into git, so generate them before building or
 running the site locally:
 
 ```bash
 struphy compile -y   # only needed for generate_real_example_figures.py
+pip install gvec     # only needed for generate_gvec_figures.py
 pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
-make figures       # runs both scripts, renders docs/src/assets/figures/ and docs/public/plotly/
+make figures       # runs the three scripts, renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```

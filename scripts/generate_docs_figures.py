@@ -8,9 +8,10 @@ numpy/xarray/matplotlib; a few (marked below) need the optional ``pyvista`` extr
 (``pip install -e ".[pyvista]"``) and a working off-screen rendering setup (see
 ``.github/workflows/docs.yml``).
 
-The one exception is the "A real simulation" guide, whose figures (``real_*.png``,
+The exceptions are the "MHD slab waves" guide, whose figures (``real_*.png``,
 ``real_plotly_*.json``) come from an actual struphy run -- see
-``generate_real_example_figures.py``.
+``generate_real_example_figures.py`` -- and the "GVEC equilibria" guide (``gvec_*``), from real
+GVEC equilibria -- see ``generate_gvec_figures.py``.
 
 Run from the repo root: python scripts/generate_docs_figures.py
 (or: make figures, which runs this and generate_real_example_figures.py)
@@ -1471,72 +1472,6 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 
 
 # =============================================================================
-# GVEC equilibria (the "GVEC equilibria" guide): a synthetic Dataset laid out exactly as
-# gvec.State.evaluate(...) returns one (dims rad/pol/tor, pos, symbol attributes, N_FP,
-# theta_P), for a rotating, slightly triangular ellipse with five field periods, and a
-# Boozer-grid Dataset of the same shape as evaluate_sfl(..., sfl="boozer").
-# =============================================================================
-GVEC_NFP, GVEC_R0 = 5, 5.0
-
-
-def gvec_evaluations(nrho=17, ntheta=64, nzeta=40, *, boozer=False):
-    """Arrays as GVEC names and lays them out, before plasma_plots.from_gvec."""
-    rho = np.linspace(0.0, 1.0, nrho)
-    theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
-    zeta = np.linspace(0, 2 * np.pi / GVEC_NFP, nzeta, endpoint=False)
-    r, t, z = np.meshgrid(rho, theta, zeta, indexing="ij")
-    alpha = GVEC_NFP * z / 2  # the ellipse turns half a turn per field period
-    shape = t + 0.25 * r * np.sin(t)  # a little triangularity
-    u, v = 1.2 * r * np.cos(shape), 0.6 * r * np.sin(shape)
-    X1 = GVEC_R0 + u * np.cos(alpha) - v * np.sin(alpha)
-    X2 = u * np.sin(alpha) + v * np.cos(alpha)
-    zero = X1 * 0
-    angle = ("theta_B", "zeta_B") if boozer else ("theta", "zeta")
-    mod_B = (GVEC_R0 / X1) * (1 - 0.12 * r**2) * (1 + 0.08 * r * np.cos(t - GVEC_NFP * z)) if not boozer else \
-        1 - 0.18 * r * np.cos(t) + 0.06 * r * np.cos(t - GVEC_NFP * z) + zero
-    grid = ("rad", "pol", "tor")
-    ds = xr.Dataset(
-        {
-            "X1": (grid, X1, {"long_name": "first reference coordinate", "symbol": "X^1"}),
-            "X2": (grid, X2, {"long_name": "second reference coordinate", "symbol": "X^2"}),
-            "pos": (("xyz", *grid), np.stack([X1 * np.cos(z), X1 * np.sin(z), X2]),
-                    {"long_name": "position vector", "symbol": r"\mathbf{x}"}),
-            "mod_B": (grid, mod_B, {"long_name": "modulus of the magnetic field",
-                                   "symbol": r"\left|\mathbf{B}\right|"}),
-            "Jac": (grid, X1 * 0.72 * r * (1 + 0.25 * r * np.cos(t)), {"long_name": "Jacobian determinant",
-                                                                     "symbol": r"\mathcal{J}"}),
-            "iota": (("rad",), 0.42 + 0.5 * rho**2 - 0.1 * rho**4, {"long_name": "rotational transform",
-                                                                   "symbol": r"\iota"}),
-            "N_FP": ((), GVEC_NFP, {"long_name": "number of field periods", "symbol": r"N_\text{FP}"}),
-        },
-        coords={"rho": ("rad", rho), angle[0]: ("pol", theta), angle[1]: ("tor", zeta), "xyz": ["x", "y", "z"]},
-    )
-    if not boozer:  # PEST's straight-field-line angle, from GVEC's evaluate("theta_P", ...)
-        ds["theta_P"] = (("pol", "rad", "tor"), np.moveaxis(t + 0.3 * r * np.sin(t), 0, 1),
-                         {"long_name": "poloidal angle in PEST coordinates", "symbol": r"\theta_P"})
-    for name, symbol in zip(("rho", *angle), (r"\rho", rf"\{angle[0]}", rf"\{angle[1]}")):
-        ds[name].attrs.update(long_name=name, symbol=symbol)
-    return ds
-
-
-ev = plasma_plots.from_gvec(gvec_evaluations())
-boozer = plasma_plots.from_gvec(gvec_evaluations(boozer=True))
-gvec_lines = {"coordinate_lines": {"rho": 4, "theta_P": 8}}
-save(ev.mod_B.plasma.plot.panels(sweep="zeta", coords="physical", plane="RZ", nrows=1, ncols=3,
-                                 overlays=gvec_lines), "gvec_poloidal_planes.png")
-save(boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5, levels=12), "gvec_boozer_surface.png")
-save(boozer.mod_B.plasma.plot.mode_map(rho=0.5, m_range=(-3, 3), n_range=(-10, 10)), "gvec_mode_map.png")
-with plasma_plots.figure(1, 2) as gvec_profiles:
-    ev.iota.plasma.plot.lineout(rationals=4, ax=gvec_profiles[0])
-    ev.plasma.analysis.surface_average("mod_B").plasma.plot.lineout(ax=gvec_profiles[1])
-save(gvec_profiles, "gvec_profiles.png")
-try:
-    shot(ev.mod_B.plasma.plot.slices_3d(cuts={"rho": [1.0]}), "gvec_surface_3d.png")
-except Exception as exc:  # pragma: no cover - needs pyvista and off-screen rendering
-    print(f"skipped gvec_surface_3d.png (pyvista unavailable): {exc}")
-
-
-# =============================================================================
 # backend="plotly": the same plots as interactive Plotly figures (needs `pip install plotly`),
 # as figure JSON for the docs' <PlotlyChart> component. The folds "The same plot with Plotly"
 # in the guides show these, with the same arguments as the Matplotlib figures above.
@@ -1580,10 +1515,6 @@ try:
     save_plotly(phi_tae.plasma.plot.power_spectrum(peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate":
                                                     omega_tae}, omega_max=0.5, backend="plotly"),
                 "plotly_spectral_power")
-    # the GVEC guide
-    save_plotly(ev.mod_B.plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0, overlays=gvec_lines,
-                                           backend="plotly"), "plotly_gvec_poloidal_plane")
-    save_plotly(ev.iota.plasma.plot.lineout(rationals=4, backend="plotly"), "plotly_gvec_iota")
 except ImportError as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped the backend=\"plotly\" figures (plotly unavailable): {exc}")
 

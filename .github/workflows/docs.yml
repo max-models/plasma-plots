@@ -136,6 +136,12 @@ jobs:
       - name: Install Plotly (docs examples only)
         run: pip install plotly
 
+      # The "GVEC equilibria" guide runs real GVEC equilibria (generate_gvec_figures.py). The
+      # PyPI package is a source distribution that builds GVEC's Fortran core with the gfortran,
+      # LAPACK and CMake installed above; pip's cache (setup-python) keeps the built wheel.
+      - name: Install GVEC (docs examples only)
+        run: pip install gvec
+
       # A few example figures render an interactive PyVista scene off-screen
       # (3-D volumes, equilibria), which needs a virtual display and Mesa's
       # software OpenGL/EGL implementation.
