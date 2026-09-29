@@ -250,8 +250,11 @@ def plot_methods(obj) -> list[str]:
 def _method(obj, name):
     methods = plot_methods(obj)
     if name not in methods:
+        hint = ""
+        if _is_output(obj) and name in ["scalars", *obj.keys()]:
+            hint = f" ({name!r} is a product: `plasma-plots plot PATH {name} timeseries`)"
         raise CLIError(
-            f"{name!r} is not a plot this command can save; it can use: {', '.join(methods)}"
+            f"{name!r} is not a plot this command can save{hint}; it can use: {', '.join(methods)}"
         )
     target = _plots_of(obj)
     for part in name.split("."):
@@ -407,12 +410,14 @@ def quicklook(source, directory, *, formats=("png",), dpi=None, log=None) -> lis
     --------
     >>> quicklook(out, "figures", formats=("png", "html"))
     """
+    from .plotting import energy_names
+
     log = print if log is None else log
     directory = Path(directory)
     jobs = []  # (file stem, product, method, options)
     if _is_output(source):
         names = list(source.scalars.data_vars)
-        if any(n.startswith("en_") for n in names):
+        if energy_names(names):
             jobs.append(("energies", source, "energies", {}))
         if names:
             jobs.append(("scalars", source, "scalars", {}))

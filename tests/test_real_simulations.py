@@ -4,6 +4,10 @@ Skipped by default (they need compiled struphy kernels and take about a minute);
 ``pytest --run-simulations``. The docs workflow, which compiles the kernels anyway, runs them.
 """
 
+import os
+import shutil
+import subprocess
+
 import numpy as np
 import pytest
 
@@ -294,3 +298,50 @@ def test_linear_mhd_two_alfven_modes(tmp_path):
         assert output.analysis.time_fft(velocity).attrs[
             "sample_spacing"
         ] == pytest.approx(0.2)
+
+
+def test_the_command_line_on_real_runs(torus_run, orbit_run, tmp_path):
+    command = shutil.which("plasma-plots")
+    assert command, "plasma-plots is not on the PATH: pip install -e ."
+
+    def run(*args):
+        return subprocess.run(
+            [command, *map(str, args)], check=True, capture_output=True, text=True
+        )
+
+    assert "mhd/velocity" in run("info", torus_run.path_out).stdout
+    run("quicklook", torus_run.path_out, "-o", tmp_path / "torus")
+    assert {
+        "energies.png",
+        "scalars.png",
+        "equilibrium.png",
+        "mhd-velocity-slice.png",
+        "em_fields-b_field-slice.png",
+    } <= set(os.listdir(tmp_path / "torus"))
+    run("quicklook", orbit_run.path_out, "-o", tmp_path / "orbits")
+    assert "kinetic_ions-trajectories.png" in os.listdir(tmp_path / "orbits")
+    physical = tmp_path / "pressure.png"
+    run(
+        "plot",
+        torus_run.path_out,
+        "mhd/pressure",
+        "slice",
+        "coords=physical",
+        "plane=XZ",
+        "t=-1",
+        "eta3=0",
+        "-o",
+        physical,
+    )
+    assert physical.stat().st_size > 0
+
+
+def test_equilibrium_plots_of_a_reopened_run(torus_run):
+    # out.equil restored from the run's metadata has no domain until the plot attaches it
+    from struphy.post_processing.output import Output
+
+    reopened = Output(torus_run.path_out)
+    result = reopened.plot.equilibrium()
+    assert len(result.ax.lines) >= 1
+    assert np.isfinite(result.ax.lines[0].get_ydata()).all()
+    reopened.plot.equilibrium_3d(scalars="p0").close()

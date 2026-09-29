@@ -1,6 +1,7 @@
 """The ``plasma-plots`` command: parsing, plot dispatch and saving, on files and on Struphy runs."""
 
 import os
+import shutil
 import subprocess
 import sys
 
@@ -219,6 +220,12 @@ def test_the_whole_run_plots_with_out_plot(run, tmp_path, capsys):
     )
 
 
+def test_a_product_named_as_a_method_gets_a_hint(run, capsys):
+    args = ["plot", str(run.path_out), ".", "en_phi", "-o", "x.png"]
+    assert main(args) == 1
+    assert "`plasma-plots plot PATH en_phi timeseries`" in capsys.readouterr().err
+
+
 def test_quicklook_of_a_run(run, tmp_path):
     folder = tmp_path / "figures"
     assert main(["quicklook", str(run.path_out), "-o", str(folder)]) == 0
@@ -255,3 +262,20 @@ def test_python_m_runs_the_command():
         [sys.executable, "-m", "plasma_plots", "bogus"], capture_output=True, text=True
     )
     assert bad.returncode == 2 and "invalid choice" in bad.stderr
+
+
+def test_the_installed_command_runs(nc, tmp_path):
+    # the console script of pyproject.toml, as `pip install` puts it on the PATH
+    command = shutil.which("plasma-plots")
+    assert command, "plasma-plots is not on the PATH: pip install -e ."
+    out = tmp_path / "phi.png"
+    subprocess.run(
+        [command, "plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "-o", str(out)],
+        check=True,
+        capture_output=True,
+    )
+    assert out.stat().st_size > 0
+    bad = subprocess.run(
+        [command, "info", str(tmp_path / "missing.nc")], capture_output=True, text=True
+    )
+    assert bad.returncode == 1 and bad.stderr.startswith("plasma-plots: error:")

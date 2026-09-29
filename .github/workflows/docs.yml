@@ -155,8 +155,9 @@ jobs:
           sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
 
       # The plotting layer on real struphy output: small torus, guiding-center and
-      # slab runs (tests/test_real_simulations.py, ~1 min). They need the compiled
-      # kernels, so they run here rather than in the test workflow.
+      # slab runs (tests/test_real_simulations.py, ~1 min), and the `plasma-plots`
+      # command on them. They need the compiled kernels, so they run here rather
+      # than in the test workflow.
       - name: Run real-simulation tests
         run: xvfb-run -a pytest -v --run-simulations tests/test_real_simulations.py
 

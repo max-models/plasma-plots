@@ -71,6 +71,12 @@ plasma-plots plot run.nc energy timeseries fit=[1,4] -o energy.png
 
 ![A time series with a growth-rate fit, written by plasma-plots plot](../../../assets/figures/cli_timeseries.png)
 
+Name every dimension the plot doesn't draw, as in Python: for a vector field
+that includes the component, e.g.
+`plasma-plots plot sim_1 em_fields/e_field slice t=-1 eta3=0 component=0 -o e.png`.
+A scalar time series is a product of its own:
+`plasma-plots plot sim_1 electric_energy timeseries -o e.png`.
+
 `plasma-plots plot PATH PRODUCT --list` lists the methods a product has.
 PyVista scenes and the interactive viewer are left out, since neither is a
 file. `movie` and `frames` write the file (or folder) given with `-o`

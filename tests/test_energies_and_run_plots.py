@@ -212,6 +212,34 @@ def test_energy_budget_with_groups():
     assert len(plot_energy_budget(scalars, total=None).ax) == 1
 
 
+def test_energy_budget_of_a_run_that_names_energies_with_a_suffix():
+    # e.g. Maxwell: electric_energy, magnetic_energy, total_energy (no en_* scalars)
+    from plasma_plots.plotting import energy_names
+
+    t = np.linspace(0, 1, 11)
+    scalars = xr.Dataset(
+        {
+            "electric_energy": ("t", 1 - 0.1 * t),
+            "magnetic_energy": ("t", 0.1 * t),
+            "total_energy": ("t", 1 + 0 * t),
+        },
+        coords={"t": t},
+    )
+    assert energy_names(scalars.data_vars) == ["electric_energy", "magnetic_energy"]
+    result = plot_energy_budget(scalars)
+    labels = [line.get_label() for line in result.ax[0].lines]
+    assert labels == ["electric_energy", "magnetic_energy", "total_energy"]
+    assert len(result.ax) == 2  # the total's drift too
+    with pytest.raises(ValueError, match="no energy scalars"):
+        plot_energy_budget(xr.Dataset({"growth": ("t", t)}, coords={"t": t}))
+
+
+def test_a_slice_with_too_many_dimensions_names_what_to_select():
+    field = xr.DataArray(np.zeros((3, 4, 5)), dims=("component", "eta1", "eta2"))
+    with pytest.raises(ValueError, match=r"select the others by keyword \(e\.g\. component=0\)"):
+        field.plasma.plot.slice()
+
+
 def test_profiles_at_several_times_against_a_mapped_radius():
     t = np.linspace(0, 1, 11)
     eta1 = np.linspace(0, 1, 20)
