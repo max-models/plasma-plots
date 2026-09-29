@@ -37,8 +37,9 @@ out.plot.equilibrium_3d(scalars="p0", cmap="viridis")
   writes a CSV table, this overview, and one figure per scalar.
 
 - **`energies(parts=None, total="en_tot", groups=None)`** — the run's energy
-  budget: its `en_*` scalars, the relative drift of the total (which should
-  stay flat), and with `groups` the energy exchanged between them. For a run
+  budget: its energy scalars (`en_*`, or `*_energy` such as `electric_energy`
+  in models that name them so), the relative drift of the total (which
+  should stay flat), and with `groups` the energy exchanged between them. For a run
   with energetic ions driving a wave:
 
   ```python

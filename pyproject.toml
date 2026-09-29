@@ -19,6 +19,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 
+[project.scripts]
+plasma-plots = "plasma_plots.cli:main"
+
 [project.optional-dependencies]
 pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]

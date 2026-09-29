@@ -12,8 +12,11 @@ from elsewhere, ``import plasma_plots`` first; without it, ``.plasma`` raises
 ``AttributeError: 'DataArray' object has no attribute 'plasma'``.
 
 Printing an accessor lists its methods (``print(phi.plasma.plot)``), and ``help()`` on a method
-shows every parameter (``help(phi.plasma.plot.slice)``). ``python -m plasma_plots`` prints this
-guide, ``python -m plasma_plots api`` an index of every method and function with its signature.
+shows every parameter (``help(phi.plasma.plot.slice)``). ``plasma-plots guide`` (or
+``python -m plasma_plots``) prints this guide, ``plasma-plots api`` an index of every method and
+function with its signature. The ``plasma-plots`` command also saves figures from the shell, e.g.
+``plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 -o phi.png`` or
+``plasma-plots quicklook sim_1 -o figures/`` (``plasma-plots --help``).
 
 A post-processing pipeline
 --------------------------
@@ -142,8 +145,9 @@ Runs as is, on synthetic data:
 'PlotResult'
 """
 
-from . import \
-    output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
+from . import (
+    output_accessors,
+)  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
 from .desc import from_desc
 from .figures import figure

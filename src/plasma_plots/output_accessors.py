@@ -236,9 +236,9 @@ class OutputPlots:
         logy: bool = False,
         backend: Backend | None = None,
     ):
-        """Plot the run's energy budget from its ``en_*`` scalars.
+        """Plot the run's energy budget from its energy scalars (``en_*`` or ``*_energy``).
 
-        Shows the ``en_*`` scalars, the relative drift of ``total``, and, with ``groups``
+        Shows the energy scalars, the relative drift of ``total``, and, with ``groups``
         (e.g. ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}``), the
         energy exchanged between them.
 

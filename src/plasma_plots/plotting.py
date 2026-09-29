@@ -615,9 +615,14 @@ def _slice_data(data, view):
             f"select one {view.sweep!r} value before drawing a static slice, or display it as x or y"
         )
     if view.x is None or view.y is None:
-        if selected.ndim != 2:
+        if selected.ndim > 2:
             raise ValueError(
-                f"view.x and view.y are required for remaining dims {selected.dims}"
+                f"a slice draws two dimensions, but {selected.dims} remain: select the others "
+                f"by keyword (e.g. {selected.dims[0]}=0), or name the two to draw with x= and y="
+            )
+        if selected.ndim < 2:
+            raise ValueError(
+                f"a slice draws two dimensions, but only {selected.dims} remain after the selection"
             )
         x, y = selected.dims
     else:
@@ -1343,6 +1348,20 @@ def pyvista_volume(
     return plotter
 
 
+def _attach_domain(equil, domain):
+    """Give ``equil`` the run's ``domain`` if it has none, so that it evaluates at logical points.
+
+    A Struphy equilibrium restored from a run's metadata (``out.equil``) has no domain yet, and
+    its profiles then raise an ``AssertionError`` at logical coordinates.
+    """
+    try:
+        equil.domain
+    except AssertionError:
+        equil.domain = domain
+    except AttributeError:  # not a Struphy equilibrium: nothing to attach
+        pass
+
+
 @rank_zero
 def show_equilibrium(
     equil,
@@ -1389,6 +1408,7 @@ def show_equilibrium(
     """
     import pyvista as pv
 
+    _attach_domain(equil, domain)
     eta1 = np.linspace(0.0, 1.0, n1)
     eta2 = np.linspace(0.0, 1.0, n2)
     eta3 = np.linspace(0.0, 1.0, n3)
@@ -4326,6 +4346,7 @@ def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):
     --------
     >>> plot_equilibrium_profile(out.equil, out.domain)
     """
+    _attach_domain(equil, domain)
     eta1 = np.linspace(0.0, 1.0, n_points)
     eta2 = eta3 = np.zeros(1)
     x, y, _z = (
@@ -4352,6 +4373,40 @@ def _series(scalars, name):
     return values
 
 
+def energy_names(names) -> list[str]:
+    """The energies among scalar names: ``en_*`` and ``*_energy``, without totals and equilibria.
+
+    Struphy names a run's energies either way, depending on the model (``en_U``, ``en_B``,
+    ``en_tot`` or ``electric_energy``, ``magnetic_energy``, ``total_energy``).
+
+    Parameters
+    ----------
+    names : iterable of str
+        Scalar names, e.g. ``out.scalars.data_vars``.
+
+    Returns
+    -------
+    list of str
+        The energy parts, in the order given; ``en_tot``, ``total_energy`` and ``*_eq`` /
+        ``*_tot`` left out.
+
+    Examples
+    --------
+    >>> energy_names(["en_U", "en_B", "en_tot", "growth"])
+    ['en_U', 'en_B']
+    >>> energy_names(["electric_energy", "magnetic_energy", "total_energy"])
+    ['electric_energy', 'magnetic_energy']
+    """
+    return [
+        name
+        for name in names
+        if (name.startswith("en_") or name.endswith("_energy"))
+        and name not in ("en_tot", "total_energy")
+        and not name.endswith(("_eq", "_tot"))
+        and not name.startswith("total_")
+    ]
+
+
 @rank_zero
 def plot_energy_budget(
     scalars,
@@ -4375,11 +4430,12 @@ def plot_energy_budget(
     scalars : xarray.Dataset or mapping of str to xarray.DataArray
         The time series (``out.scalars``), each with the only dimension ``t``.
     parts : sequence of str, optional
-        The energies drawn in the first panel. Default: every ``en_*`` except ``total`` and
-        ``*_eq``/``*_tot``.
+        The energies drawn in the first panel. Default: the scalars :func:`energy_names`
+        finds (``en_*`` and ``*_energy``), except ``total``.
     total : str or None, optional
         The total energy; the second panel is left out if it is ``None`` or not among the
-        scalars. Default: ``"en_tot"``.
+        scalars. Default: ``"en_tot"``, or ``"total_energy"`` for a run that names its
+        energies that way.
     groups : dict of str to list of str, optional
         A label to the names it sums, e.g.
         ``{"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}``. Default:
@@ -4408,16 +4464,16 @@ def plot_energy_budget(
     ... )
     """
     names = list(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars)
+    if total == "en_tot" and total not in names and "total_energy" in names:
+        total = "total_energy"
     if total is not None and total not in names:
         total = None
     if parts is None:
-        parts = [
-            name
-            for name in names
-            if name.startswith("en_")
-            and name != total
-            and not name.endswith(("_eq", "_tot"))
-        ]
+        parts = [name for name in energy_names(names) if name != total]
+    if not parts and total is None:
+        raise ValueError(
+            f"no energy scalars among {names}: name them with parts= (and total=)"
+        )
     panels = 1 + (total is not None) + bool(groups)
     run_label = (
         shared_run_label([_series(scalars, n) for n in parts])

@@ -334,7 +334,7 @@ Plots of a whole run, as out.plot.<kind>(...), constructed as OutputPlots(out).
 - `out.plot.scalars(names=None, *, relative_to=None, logy=False, backend=None)`: Overview of the scalar time series in one axes.
   - e.g. `out.plot.scalars()`
   - e.g. `out.plot.scalars(["en_U", "en_B"], logy=True)`
-- `out.plot.energies(*, parts=None, total='en_tot', groups=None, logy=False, backend=None)`: Plot the run's energy budget from its en_* scalars.
+- `out.plot.energies(*, parts=None, total='en_tot', groups=None, logy=False, backend=None)`: Plot the run's energy budget from its energy scalars (en_* or *_energy).
   - e.g. `out.plot.energies()`
   - e.g. `out.plot.energies(groups={"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]})`
 - `out.plot.equilibrium(ax=None, *, backend=None)`: Plot radial profiles of this run's fluid equilibrium (out.equil, out.domain).
@@ -421,7 +421,7 @@ What the methods return, with their fields (`help()` on the class explains each)
 
 The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel(t=-1))`; each accessor method names its function first under See Also, and `help()` shows the parameters.
 
-- `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`
+- `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `energy_names`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`
 - `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`
 - `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
@@ -429,6 +429,17 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
 - `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `save_vtk`, `save_movie`
+
+## Command line: plasma-plots
+
+`plasma-plots info PATH`, `plot PATH PRODUCT METHOD key=value ... -o FILE` (any plot method above), `movie PATH PRODUCT ... -o FILE` and `quicklook PATH -o DIR`, on a Struphy run folder or a file xarray reads; `key=value` values: `t=-1` a position, `t=0.35` a value, `other=@name` another product. `plasma-plots COMMAND --help` for details. The same from Python, in `plasma_plots.cli`:
+
+- `open_source(path, *, pproc=False)`: Open path: a Struphy Output for a run folder, else an xarray.Dataset.
+- `parse_value(text, source=None)`: A key=value value as Python: an int, a float, a bool, None, a list or a string.
+- `plot_methods(obj)`: The plot methods of obj that plasma-plots plot can call and save.
+- `quicklook_plot(array)`: The plot method and options of a quick look at array, or None if there is none.
+- `quicklook(source, directory, *, formats=('png',), dpi=None, log=None)`: Save the standard figures of source into directory; return the files written.
+- `main(argv=None)`: Run the plasma-plots command.
 
 ## Theory: plasma_plots.theory
 
