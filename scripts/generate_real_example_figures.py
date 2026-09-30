@@ -46,8 +46,15 @@ from struphy.simulation.sim import Simulation
 # the shear Alfvén wave, and the slow and fast magnetosonic waves.
 # Adapted from struphy's own gallery example (mhd-slab-waves).
 # =============================================================================
-from struphy import (DerhamOptions, EnvironmentOptions, Time, domains, equils,
-                     grids, perturbations)
+from struphy import (
+    DerhamOptions,
+    EnvironmentOptions,
+    Time,
+    domains,
+    equils,
+    grids,
+    perturbations,
+)
 
 # The background: B0 = (0, 1, 1), density 0.7, plasma beta 3 (thermal over
 # magnetic pressure).
@@ -131,7 +138,9 @@ def pproc(out: Output):
         print(f"{branch}: measured {measured:.4f}, exact {exact:.4f}")
 
     # Show the whole resolved spectrum
-    k_top = min(float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max()))
+    k_top = min(
+        float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max())
+    )
     omega_nyquist = min(
         float(velocity_spectrum.omega.max()),
         float(pressure_spectrum.omega.max()),
@@ -174,7 +183,9 @@ def pproc(out: Output):
 if __name__ == "__main__":
     import argparse
 
-    argparser = argparse.ArgumentParser(description="Run the mhd slab waves example.")
+    argparser = argparse.ArgumentParser(
+        description="Run the mhd slab waves example."
+    )
     argparser.add_argument(
         "--pproc-only",
         action="store_true",
