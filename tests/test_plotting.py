@@ -7,6 +7,7 @@ import xarray as xr
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
+from struphy.post_processing.arrays import data_array  # noqa: E402
 
 from plasma_plots.plotting import GrowthFit  # noqa: E402
 from plasma_plots.plotting import (InteractiveSliceViewer, View,
@@ -18,7 +19,6 @@ from plasma_plots.plotting import (InteractiveSliceViewer, View,
                                    plot_volume_slices, power_spectrum,
                                    pyvista_volume, relative_error,
                                    save_all_scalars, save_frames)
-from struphy.post_processing.arrays import data_array  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:Animation was deleted")
 

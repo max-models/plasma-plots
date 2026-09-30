@@ -1371,7 +1371,7 @@ def field_energy(
 
     if form in (None, 0):
         factor = _spatial_array(w * sqrt_g, data)
-        squared = (data**2).sum("component") if vector else data**2
+        squared = (data**2).sum("component") if vector else data ** 2
     elif form == 3:
         factor = _spatial_array(w / np.where(sqrt_g > 0, sqrt_g, np.inf), data)
         squared = data**2

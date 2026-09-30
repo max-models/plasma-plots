@@ -13,8 +13,8 @@ from matplotlib import pyplot as plt  # noqa: E402
 from matplotlib.collections import LineCollection  # noqa: E402
 
 import plasma_plots  # noqa: E402, F401
-from plasma_plots.plotting import (plot_measured_vs_theory,  # noqa: E402
-                                   plot_orbit_grid, plot_orbit_poloidal)
+from plasma_plots.plotting import plot_measured_vs_theory  # noqa: E402
+from plasma_plots.plotting import plot_orbit_grid, plot_orbit_poloidal
 
 
 @pytest.fixture(autouse=True)

@@ -12,10 +12,10 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 import plasma_plots  # noqa: E402, F401
 from plasma_plots import spectral as sp  # noqa: E402
-from plasma_plots.analysis import (field_energy,  # noqa: E402
-                                   quadrature_weights, volume_integral)
-from plasma_plots.plotting import (View, _slice_data,  # noqa: E402
-                                   color_limits, plot_energy_budget,
+from plasma_plots.analysis import field_energy  # noqa: E402
+from plasma_plots.analysis import quadrature_weights, volume_integral
+from plasma_plots.plotting import _slice_data  # noqa: E402
+from plasma_plots.plotting import (View, color_limits, plot_energy_budget,
                                    plot_orbit_poloidal, plot_orbit_quantities,
                                    plot_profiles)
 
@@ -236,7 +236,9 @@ def test_energy_budget_of_a_run_that_names_energies_with_a_suffix():
 
 def test_a_slice_with_too_many_dimensions_names_what_to_select():
     field = xr.DataArray(np.zeros((3, 4, 5)), dims=("component", "eta1", "eta2"))
-    with pytest.raises(ValueError, match=r"select the others by keyword \(e\.g\. component=0\)"):
+    with pytest.raises(
+        ValueError, match=r"select the others by keyword \(e\.g\. component=0\)"
+    ):
         field.plasma.plot.slice()
 
 

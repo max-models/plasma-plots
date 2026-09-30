@@ -66,7 +66,9 @@ class _DisplayError(CLIError):
 def _is_struphy_run(path) -> bool:
     """Whether ``path`` is a Struphy run folder (it has ``run_metadata.json`` or ``data/``)."""
     path = Path(path)
-    return path.is_dir() and ((path / "run_metadata.json").exists() or (path / "data").is_dir())
+    return path.is_dir() and (
+        (path / "run_metadata.json").exists() or (path / "data").is_dir()
+    )
 
 
 def open_source(path):
@@ -92,7 +94,9 @@ def open_source(path):
         try:
             from struphy.post_processing.output import Output
         except ImportError as error:
-            raise CLIError(f"{path} is a Struphy run folder; opening it needs struphy ({error})") from None
+            raise CLIError(
+                f"{path} is a Struphy run folder; opening it needs struphy ({error})"
+            ) from None
         out = Output(path)
         if not out.is_processed:
             out.pproc()
@@ -139,7 +143,9 @@ def _get_product(source, name: str):
     try:
         return source.evaluate(name)
     except Exception as error:
-        raise CLIError(f"no product {name!r} ({error}); `plasma-plots info` lists them") from None
+        raise CLIError(
+            f"no product {name!r} ({error}); `plasma-plots info` lists them"
+        ) from None
 
 
 # ---------------------------------------------------------------------------------------------
@@ -270,8 +276,12 @@ def _method(obj, name, *, show=False):
         if not show and name in plot_methods(obj, show=True):
             hint += "; this interactive method requires --show"
         if _is_output(obj) and name in ["scalars", *obj.keys()]:
-            hint = f" ({name!r} is a product: `plasma-plots plot PATH {name} timeseries`)"
-        raise CLIError(f"{name!r} is not a plot this command can save{hint}; it can use: {', '.join(methods)}")
+            hint = (
+                f" ({name!r} is a product: `plasma-plots plot PATH {name} timeseries`)"
+            )
+        raise CLIError(
+            f"{name!r} is not a plot this command can save{hint}; it can use: {', '.join(methods)}"
+        )
     target = _plots_of(obj)
     for part in name.split("."):
         target = getattr(target, part)
@@ -289,18 +299,28 @@ def _call_plot(obj, name: str, options: dict, output, *, show=False):
     parameters = inspect.signature(method).parameters
     first = next(iter(parameters), None)
     options = dict(options)
-    if output is not None and Path(output).suffix.lower() in _PLOTLY_SUFFIXES and "backend" in parameters:
+    if (
+        output is not None
+        and Path(output).suffix.lower() in _PLOTLY_SUFFIXES
+        and "backend" in parameters
+    ):
         options.setdefault("backend", "plotly")
     if first in ("path", "directory"):
         if show:
-            raise CLIError(f"{name} writes files and cannot use --show; use the movie command or an animation method")
+            raise CLIError(
+                f"{name} writes files and cannot use --show; use the movie command or an animation method"
+            )
         if output is None:
-            raise CLIError(f"{name} writes files and requires -o; use an animation method to display a movie")
+            raise CLIError(
+                f"{name} writes files and requires -o; use an animation method to display a movie"
+            )
         return method(output, **options)
     try:
         inspect.signature(method).bind(**options)
     except TypeError as error:
-        raise CLIError(f"{name}: {error}. Run `plasma-plots help {name}` for parameters.") from None
+        raise CLIError(
+            f"{name}: {error}. Run `plasma-plots help {name}` for parameters."
+        ) from None
     try:
         result = method(**options)
     except (ValueError, TypeError, IndexError, KeyError) as error:
@@ -339,13 +359,17 @@ def _save_result(result, path, *, dpi=None) -> list[str]:
         return []
     if isinstance(result, (str, os.PathLike)):
         return [str(result)]
-    if isinstance(result, list) and all(isinstance(p, (str, os.PathLike)) for p in result):
+    if isinstance(result, list) and all(
+        isinstance(p, (str, os.PathLike)) for p in result
+    ):
         return [str(p) for p in result]
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     suffix = Path(path).suffix.lower()
     if isinstance(result, FuncAnimation):
         if suffix in _PLOTLY_SUFFIXES:
-            raise CLIError("this animation has no Plotly version; save it as .gif or .mp4")
+            raise CLIError(
+                "this animation has no Plotly version; save it as .gif or .mp4"
+            )
         writer = _ANIMATION_WRITERS.get(suffix)
         result.save(str(path), writer=writer, **({"dpi": dpi} if dpi else {}))
         return [str(path)]
@@ -353,15 +377,19 @@ def _save_result(result, path, *, dpi=None) -> list[str]:
         result = result[0]
     if not hasattr(result, "save"):
         result = PlotResult(result)
-    if suffix in _PLOTLY_SUFFIXES and not type(result.fig).__module__.startswith("plotly"):
-        raise CLIError(f"this plot has no Plotly version; save it as .png, .pdf or .svg instead of {suffix}")
+    if suffix in _PLOTLY_SUFFIXES and not type(result.fig).__module__.startswith(
+        "plotly"
+    ):
+        raise CLIError(
+            f"this plot has no Plotly version; save it as .png, .pdf or .svg instead of {suffix}"
+        )
     return [result.save(path, **({"dpi": dpi} if dpi else {}))]
 
 
 def _show_result(result):
     """Display a result, keeping Matplotlib figures and animations alive until closed."""
-    from matplotlib.animation import FuncAnimation
     from matplotlib import pyplot as plt
+    from matplotlib.animation import FuncAnimation
 
     from .mpi import SkippedPlot, is_plotting_rank
 
@@ -378,7 +406,9 @@ def _show_result(result):
     elif type(result).__module__.startswith("pyvista") and hasattr(result, "show"):
         result.show()
     else:
-        raise CLIError("this method writes files and has no figure to show; use a plotting or animation method")
+        raise CLIError(
+            "this method writes files and has no figure to show; use a plotting or animation method"
+        )
 
 
 def _check_display():
@@ -397,8 +427,17 @@ def _check_display():
 
 def _finish_result(result, args):
     if type(result).__module__.startswith("pyvista") and hasattr(result, "show"):
-        if args.output and Path(args.output).suffix.lower() not in (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"):
-            raise CLIError("3-D screenshots require an image output such as -o scene.png")
+        if args.output and Path(args.output).suffix.lower() not in (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".bmp",
+            ".tif",
+            ".tiff",
+        ):
+            raise CLIError(
+                "3-D screenshots require an image output such as -o scene.png"
+            )
         if args.output:
             Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         result.show(screenshot=args.output)
@@ -456,7 +495,9 @@ def quicklook_plot(array) -> tuple[str, dict] | None:
     rest = {d: 0 for d in array.dims if d != "t" and d not in drawn[:2]}
     at_end = {"t": -1} if "t" in array.dims else {}
     if not drawn:
-        return ("timeseries", rest) if "t" in array.dims and array.sizes["t"] > 1 else None
+        return (
+            ("timeseries", rest) if "t" in array.dims and array.sizes["t"] > 1 else None
+        )
     if len(drawn) == 1:
         return "lineout", {"x": drawn[0], **at_end, **rest}
     return "slice", {"x": drawn[0], "y": drawn[1], **at_end, **rest}
@@ -467,7 +508,15 @@ def _file_stem(name: str) -> str:
 
 
 def quicklook(
-    source, directory=None, *, formats=("png",), dpi=None, log=None, show=False, products=None, selection=None
+    source,
+    directory=None,
+    *,
+    formats=("png",),
+    dpi=None,
+    log=None,
+    show=False,
+    products=None,
+    selection=None,
 ) -> list[str]:
     """Save or display the standard figures of ``source``; return the files written.
 
@@ -516,7 +565,9 @@ def quicklook(
     if requested is not None:
         products = list(dict.fromkeys(requested))
         for name in products:
-            _get_product(source, name)  # fail clearly on an explicitly requested missing product
+            _get_product(
+                source, name
+            )  # fail clearly on an explicitly requested missing product
     elif _is_output(source):
         names = list(source.scalars.data_vars)
         if energy_names(names):
@@ -576,7 +627,9 @@ def quicklook(
             except _DisplayError:
                 raise
             except Exception as error:  # one broken figure must not stop the rest
-                log(f"skipped {path.name if path is not None else stem}: {type(error).__name__}: {error}")
+                log(
+                    f"skipped {path.name if path is not None else stem}: {type(error).__name__}: {error}"
+                )
                 continue
             finally:
                 plt.close("all")
@@ -611,7 +664,9 @@ def _coordinate_range(coord) -> str:
 def _table(rows, header) -> str:
     rows = [header, *rows]
     widths = [max(len(str(r[i])) for r in rows) for i in range(len(header))]
-    lines = ["  ".join(str(c).ljust(w) for c, w in zip(row, widths)).rstrip() for row in rows]
+    lines = [
+        "  ".join(str(c).ljust(w) for c, w in zip(row, widths)).rstrip() for row in rows
+    ]
     lines.insert(1, "  ".join("-" * w for w in widths))
     return "\n".join(lines)
 
@@ -641,10 +696,16 @@ def _describe(source, path) -> str:
         for kind, catalog in kinds:
             for name in catalog:
                 product = catalog[name]
-                units = "" if isinstance(product, xr.Dataset) else product.attrs.get("units", "")
+                units = (
+                    ""
+                    if isinstance(product, xr.Dataset)
+                    else product.attrs.get("units", "")
+                )
                 rows.append((name, kind, _dims_text(product), units))
         lines.append(_table(rows, ("Product", "Kind", "Dimensions", "Units")))
-        coords = next((catalog[n] for _, catalog in kinds for n in catalog), source.scalars).coords
+        coords = next(
+            (catalog[n] for _, catalog in kinds for n in catalog), source.scalars
+        ).coords
     else:
         lines += [f"File: {Path(path)}", ""]
         rows = [
@@ -697,7 +758,11 @@ def _cmd_help(args):
     classes = {"array": ArrayPlots, "dataset": DatasetPlots, "run": OutputPlots}
     kind = args.kind or ("run" if args.method.startswith("profile.") else "array")
     if args.kind is None and not args.method.startswith("profile."):
-        matches = [key for key, cls in classes.items() if inspect.isfunction(getattr(cls, args.method, None))]
+        matches = [
+            key
+            for key, cls in classes.items()
+            if inspect.isfunction(getattr(cls, args.method, None))
+        ]
         if len(matches) == 1:
             kind = matches[0]
     cls = classes[kind]
@@ -706,20 +771,36 @@ def _cmd_help(args):
         cls, name = ProfilePlots, name.removeprefix("profile.")
     method = getattr(cls, name, None) if not name.startswith("_") else None
     if not inspect.isfunction(method):
-        choices = [n for n, m in inspect.getmembers(cls, inspect.isfunction) if not n.startswith("_")]
+        choices = [
+            n
+            for n, m in inspect.getmembers(cls, inspect.isfunction)
+            if not n.startswith("_")
+        ]
         raise CLIError(
             f"no {kind} plot method {args.method!r}{_suggest(name, choices)}; choose --kind array, dataset or run. Methods: {', '.join(choices)}"
         )
     signature = inspect.signature(method)
-    signature = signature.replace(parameters=[p for n, p in signature.parameters.items() if n != "self"])
+    signature = signature.replace(
+        parameters=[p for n, p in signature.parameters.items() if n != "self"]
+    )
     print(f"{kind} plot: {args.method}{signature}\n")
     print(inspect.getdoc(method) or "No additional documentation.")
-    destination = "-o FILE" if next(iter(signature.parameters), None) in ("path", "directory") else "--show"
+    destination = (
+        "-o FILE"
+        if next(iter(signature.parameters), None) in ("path", "directory")
+        else "--show"
+    )
     product = "." if kind in ("run", "dataset") else "PRODUCT"
-    print(f"\nCLI: plasma-plots plot PATH {product} {args.method} key=value ... {destination}")
+    print(
+        f"\nCLI: plasma-plots plot PATH {product} {args.method} key=value ... {destination}"
+    )
     print("Use -o FILE to save. PRODUCT '.' means the whole run or Dataset.")
-    print("Integer selections index (t=-1); decimals select nearest coordinates (t=0.5).")
-    print("Quote lists/dicts in your shell: 'levels=[0.1,0.5]' or 'cuts={\"eta3\":[0,0.5]}'.")
+    print(
+        "Integer selections index (t=-1); decimals select nearest coordinates (t=0.5)."
+    )
+    print(
+        "Quote lists/dicts in your shell: 'levels=[0.1,0.5]' or 'cuts={\"eta3\":[0,0.5]}'."
+    )
 
 
 def _cmd_api(args):
@@ -739,7 +820,9 @@ def _cmd_plot(args):
     if args.list or args.method is None:
         print("\n".join(plot_methods(product, show=args.show)))
         if args.method is None and not args.list:
-            print(f"\nChoose one: plasma-plots plot {args.path} {args.product} METHOD ... (-o FILE or --show)")
+            print(
+                f"\nChoose one: plasma-plots plot {args.path} {args.product} METHOD ... (-o FILE or --show)"
+            )
         return
     options = _parse_options(args.options, source)
     result = _call_plot(product, args.method, options, args.output, show=args.show)
@@ -808,13 +891,19 @@ def _build_parser() -> argparse.ArgumentParser:
         )
         if name == "plot":
             sub.add_argument(
-                "-h", "--help", action=_MethodHelp, nargs=0, help="show command help, or help for the selected METHOD"
+                "-h",
+                "--help",
+                action=_MethodHelp,
+                nargs=0,
+                help="show command help, or help for the selected METHOD",
             )
         sub.set_defaults(func=func)
         return sub
 
     def source_arguments(sub, product=True):
-        sub.add_argument("path", metavar="PATH", help="a Struphy run folder, or a netCDF/zarr file")
+        sub.add_argument(
+            "path", metavar="PATH", help="a Struphy run folder, or a netCDF/zarr file"
+        )
         if product:
             sub.add_argument(
                 "product",
@@ -835,12 +924,22 @@ def _build_parser() -> argparse.ArgumentParser:
             help="the file to write; its extension picks the format",
         )
         sub.add_argument("--dpi", type=int, help="resolution of images")
-        sub.add_argument("--show", action="store_true", help="display the figure; -o is optional")
+        sub.add_argument(
+            "--show", action="store_true", help="display the figure; -o is optional"
+        )
 
-    sub = command("help", _cmd_help, "show a plot method's parameters and examples without opening data")
-    sub.add_argument("method", metavar="METHOD", help="e.g. slice, viewer, energies, profile.gantt")
+    sub = command(
+        "help",
+        _cmd_help,
+        "show a plot method's parameters and examples without opening data",
+    )
     sub.add_argument(
-        "--kind", choices=("array", "dataset", "run"), help="plot namespace (default: array; run for profile.*)"
+        "method", metavar="METHOD", help="e.g. slice, viewer, energies, profile.gantt"
+    )
+    sub.add_argument(
+        "--kind",
+        choices=("array", "dataset", "run"),
+        help="plot namespace (default: array; run for profile.*)",
     )
 
     command("guide", _cmd_guide, "print the Python package guide")
@@ -850,7 +949,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "print the API index: every method and function with its signature",
     )
 
-    sub = command("info", _cmd_info, "list the products of PATH with their dimensions and units")
+    sub = command(
+        "info", _cmd_info, "list the products of PATH with their dimensions and units"
+    )
     source_arguments(sub, product=False)
 
     sub = command(
@@ -871,7 +972,9 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="*",
         help="the method's options, e.g. t=-1 x=eta1",
     )
-    sub.add_argument("--list", action="store_true", help="list the plot methods of PRODUCT")
+    sub.add_argument(
+        "--list", action="store_true", help="list the plot methods of PRODUCT"
+    )
     output_arguments(sub)
 
     sub = command(
@@ -901,8 +1004,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="file formats, comma separated, e.g. png,html (default: png)",
     )
     sub.add_argument("--dpi", type=int, help="resolution of images")
-    sub.add_argument("--show", action="store_true", help="display each figure; -o is optional")
-    sub.add_argument("--products", nargs="+", metavar="PRODUCT", help="only these products; omit run overview plots")
+    sub.add_argument(
+        "--show", action="store_true", help="display each figure; -o is optional"
+    )
+    sub.add_argument(
+        "--products",
+        nargs="+",
+        metavar="PRODUCT",
+        help="only these products; omit run overview plots",
+    )
     sub.add_argument(
         "--select",
         nargs="+",
@@ -919,15 +1029,26 @@ def _validate_args(args):
         return
     listing = args.command == "plot" and (args.list or args.method is None)
     if not listing and args.output is None and not args.show:
-        raise CLIError("choose --show to display or -o FILE to save (use -o DIR for quicklook)")
+        raise CLIError(
+            "choose --show to display or -o FILE to save (use -o DIR for quicklook)"
+        )
     if args.command == "plot" and args.method and not args.list:
         from .accessors import ArrayPlots, DatasetPlots
         from .output_accessors import OutputPlots, ProfilePlots
 
         methods = {}
-        for cls, prefix in ((ArrayPlots, ""), (DatasetPlots, ""), (OutputPlots, ""), (ProfilePlots, "profile.")):
+        for cls, prefix in (
+            (ArrayPlots, ""),
+            (DatasetPlots, ""),
+            (OutputPlots, ""),
+            (ProfilePlots, "profile."),
+        ):
             methods.update(
-                {prefix + n: m for n, m in inspect.getmembers(cls, inspect.isfunction) if not n.startswith("_")}
+                {
+                    prefix + n: m
+                    for n, m in inspect.getmembers(cls, inspect.isfunction)
+                    if not n.startswith("_")
+                }
             )
         if args.method not in methods:
             raise CLIError(
@@ -936,7 +1057,9 @@ def _validate_args(args):
             )
         method = methods[args.method]
         if not _is_command_line_method(method) and not args.show:
-            raise CLIError(f"{args.method} is an interactive method; add --show to display it")
+            raise CLIError(
+                f"{args.method} is an interactive method; add --show to display it"
+            )
         parameters = list(inspect.signature(method).parameters)
         if args.show and len(parameters) > 1 and parameters[1] in ("path", "directory"):
             raise CLIError(
@@ -946,16 +1069,25 @@ def _validate_args(args):
         raise CLIError("--dpi must be a positive integer, e.g. --dpi 150")
     pairs = getattr(args, "options", []) + getattr(args, "select", [])
     # Parse references only after opening the source, but validate their surrounding syntax now.
-    parsed = _parse_options([pair.split("=", 1)[0] + "=reference" if "=@" in pair else pair for pair in pairs])
+    parsed = _parse_options(
+        [
+            pair.split("=", 1)[0] + "=reference" if "=@" in pair else pair
+            for pair in pairs
+        ]
+    )
     if args.command == "quicklook":
         for key, value in parsed.items():
             if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise CLIError(f"--select {key} needs a numeric index or coordinate, e.g. {key}=0")
+                raise CLIError(
+                    f"--select {key} needs a numeric index or coordinate, e.g. {key}=0"
+                )
         formats = [f.strip().lstrip(".") for f in args.format.split(",") if f.strip()]
         if not formats:
             raise CLIError("--format needs at least one format, e.g. png or png,html")
         if args.products and "." in args.products:
-            raise CLIError("--products expects individual products; omit it for the standard figures")
+            raise CLIError(
+                "--products expects individual products; omit it for the standard figures"
+            )
 
 
 def main(argv=None) -> int:
@@ -995,7 +1127,9 @@ def main(argv=None) -> int:
         return 0
     import matplotlib
 
-    if args.func not in (_cmd_guide, _cmd_api, _cmd_help) and not getattr(args, "show", False):
+    if args.func not in (_cmd_guide, _cmd_api, _cmd_help) and not getattr(
+        args, "show", False
+    ):
         matplotlib.use("Agg")  # files only, also without a display
     try:
         _validate_args(args)
