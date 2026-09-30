@@ -108,7 +108,14 @@ def open_source(path):
     try:
         dataset = xr.open_dataset(path)
     except Exception as error:
-        raise CLIError(f"{path}: xarray cannot open it ({error})") from None
+        hint = ""
+        if isinstance(error, (ImportError, ValueError)) and (
+            "dependencies may not be installed" in str(error)
+            or "currently installed IO backends" in str(error)
+            or "netCDF4" in str(error)
+        ):
+            hint = '\nFor netCDF files, install the backend with: pip install "plasma-plots[netcdf]"'
+        raise CLIError(f"{path}: xarray cannot open it ({error}){hint}") from None
     return from_gvec(dataset) if is_gvec(dataset) else dataset
 
 

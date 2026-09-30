@@ -11,7 +11,8 @@ should leave figures behind. It opens:
 - any **file xarray can read**: netCDF, zarr, ... (GVEC evaluations are
   converted by themselves, as in [GVEC equilibria](/plasma-plots/guides/gvec/)).
 
-`pip install plasma-plots` installs the command. `python -m plasma_plots` runs
+`pip install plasma-plots` installs the command. For netCDF input, use
+`pip install "plasma-plots[netcdf]"`; see [installation options](/plasma-plots/guides/getting-started/#installation). `python -m plasma_plots` runs
 the same thing.
 
 ```bash

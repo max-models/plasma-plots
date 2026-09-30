@@ -44,7 +44,7 @@ jobs:
       # Editable, with its `plasma-plots` console script on the PATH (tests/test_cli.py runs it).
       # plotly for backend="plotly" and the command's .html output; without it those tests skip.
       - name: Install plasma-plots with dev dependencies
-        run: pip install -e ".[dev,profiling,pyvista,desc,plotly]"
+        run: pip install -e ".[dev,profiling,pyvista,desc,plotly,netcdf]"
 
       # The PyVista tests build scenes off-screen, which needs a virtual display
       # and Mesa's software OpenGL. Tests marked `simulation` (real struphy runs,

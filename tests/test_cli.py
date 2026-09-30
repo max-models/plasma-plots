@@ -598,3 +598,28 @@ def test_traceback_preserves_plot_failure(nc):
                 "--traceback",
             ]
         )
+
+
+def test_missing_netcdf_backend_suggests_extra(tmp_path, monkeypatch):
+    path = tmp_path / "fields.nc"
+    path.touch()
+
+    def missing_backend(*args, **kwargs):
+        raise ValueError("found matches with xarray's IO backends, but their dependencies may not be installed")
+
+    monkeypatch.setattr(xr, "open_dataset", missing_backend)
+    with pytest.raises(CLIError, match=r'pip install "plasma-plots\[netcdf\]"'):
+        cli.open_source(path)
+
+
+def test_invalid_file_does_not_suggest_installing_netcdf(tmp_path, monkeypatch):
+    path = tmp_path / "broken.nc"
+    path.touch()
+
+    def invalid_file(*args, **kwargs):
+        raise OSError("corrupt file")
+
+    monkeypatch.setattr(xr, "open_dataset", invalid_file)
+    with pytest.raises(CLIError, match="corrupt file") as error:
+        cli.open_source(path)
+    assert "pip install" not in str(error.value)
