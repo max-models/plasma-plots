@@ -16,7 +16,6 @@ const shouldRenderSearch =
 const navLinks = [
 	{ label: 'Guides', href: '/plasma-plots/guides/getting-started/' },
 	{ label: 'Reference', href: '/plasma-plots/reference/plot/' },
-	{ label: 'Struphy examples', href: 'https://struphy-hub.github.io/examples/', external: true },
 ];
 
 const { pathname } = Astro.url;
@@ -33,8 +32,6 @@ const isCurrent = (href: string) => !href.startsWith('http') && pathname.startsW
 				<a
 					href={link.href}
 					class:list={['topnav-link', { current: isCurrent(link.href) }]}
-					target={link.external ? '_blank' : undefined}
-					rel={link.external ? 'noopener noreferrer' : undefined}
 				>
 					{link.label}
 				</a>

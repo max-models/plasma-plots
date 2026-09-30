@@ -1,13 +1,14 @@
 """The ``plasma-plots`` command: quick looks at simulation output without writing Python.
 
 Installed as ``plasma-plots`` (also ``python -m plasma_plots``). It opens a Struphy run folder (as
-a Struphy ``Output``) or any file xarray can read (netCDF, zarr, ...) and saves figures of it. It
+a Struphy ``Output``) or any file xarray can read (netCDF, zarr, ...) and saves or displays figures of it. It
 has no plot options of its own: ``plot`` calls an accessor method by name with ``key=value``
 arguments, so every plot method works from the command line::
 
     plasma-plots info sim_1
     plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 -o phi.png
     plasma-plots plot sim_1 . energies -o energies.html
+    plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 --show
     plasma-plots movie sim_1 em_fields/phi eta3=0 -o phi.gif
     plasma-plots quicklook sim_1 -o figures/
 
@@ -17,6 +18,7 @@ arguments, so every plot method works from the command line::
 from __future__ import annotations
 
 import argparse
+import difflib
 import inspect
 import json
 import os
@@ -48,16 +50,16 @@ def _is_struphy_run(path) -> bool:
     )
 
 
-def open_source(path, *, pproc: bool = False):
+def open_source(path):
     """Open ``path``: a Struphy ``Output`` for a run folder, else an ``xarray.Dataset``.
+
+    Struphy runs are automatically post-processed with default options when needed.
+    Existing processed output is reused.
 
     Parameters
     ----------
     path : str or pathlib.Path
         A Struphy run folder, or a file (or zarr store) that ``xarray.open_dataset`` reads.
-    pproc : bool, optional
-        Post-process an unprocessed Struphy run with the default options; without it, such a
-        run is an error. Default: ``False``.
 
     Returns
     -------
@@ -76,11 +78,6 @@ def open_source(path, *, pproc: bool = False):
             ) from None
         out = Output(path)
         if not out.is_processed:
-            if not pproc:
-                raise CLIError(
-                    f"{path} is not post-processed: run `struphy output pproc {path}`, "
-                    "or pass --pproc to process it with the default options"
-                )
             out.pproc()
         return out
     import xarray as xr
@@ -107,7 +104,7 @@ def _get_product(source, name: str):
     if not _is_output(source):
         if name not in source.data_vars:
             raise CLIError(
-                f"no variable {name!r}; the variables are {', '.join(source.data_vars)}"
+                f"no variable {name!r}{_suggest(name, source.data_vars)}; the variables are {', '.join(source.data_vars)}"
             )
         return source[name]
     if name == "scalars":
@@ -162,7 +159,7 @@ def parse_value(text: str, source=None):
     >>> parse_value("0,0.5"), parse_value("none")
     ([0, 0.5], None)
     """
-    if text[:1] in "[{":
+    if text and text[0] in "[{":
         try:
             return json.loads(text)
         except json.JSONDecodeError as error:
@@ -197,6 +194,8 @@ def _parse_options(pairs, source=None) -> dict:
         key, sep, value = pair.partition("=")
         if not sep or not key.isidentifier():
             raise CLIError(f"{pair!r}: options are key=value, e.g. t=-1 or x=eta1")
+        if key in options:
+            raise CLIError(f"duplicate option {key!r}; give each option once")
         options[key] = parse_value(value, source)
     return options
 
@@ -218,7 +217,7 @@ def _is_command_line_method(function) -> bool:
     return not any(kind in first for kind in _INTERACTIVE_RETURNS)
 
 
-def plot_methods(obj) -> list[str]:
+def plot_methods(obj, *, show=False) -> list[str]:
     """The plot methods of ``obj`` that ``plasma-plots plot`` can call and save.
 
     Parameters
@@ -242,15 +241,17 @@ def plot_methods(obj) -> list[str]:
                 for n, f in inspect.getmembers(member.fget(plots), inspect.ismethod)
                 if not n.startswith("_")
             ]
-        elif inspect.isfunction(member) and _is_command_line_method(member):
+        elif inspect.isfunction(member) and (show or _is_command_line_method(member)):
             names.append(name)
     return sorted(names)
 
 
-def _method(obj, name):
-    methods = plot_methods(obj)
+def _method(obj, name, *, show=False):
+    methods = plot_methods(obj, show=show)
     if name not in methods:
-        hint = ""
+        hint = _suggest(name, methods)
+        if not show and name in plot_methods(obj, show=True):
+            hint += "; this interactive method requires --show"
         if _is_output(obj) and name in ["scalars", *obj.keys()]:
             hint = f" ({name!r} is a product: `plasma-plots plot PATH {name} timeseries`)"
         raise CLIError(
@@ -262,22 +263,47 @@ def _method(obj, name):
     return target
 
 
-def _call_plot(obj, name: str, options: dict, output):
+def _call_plot(obj, name: str, options: dict, output, *, show=False):
     """Call the plot method ``name`` of ``obj`` with ``options``, for saving to ``output``.
 
     A method whose first parameter is a file or folder (``movie``, ``frames``) gets ``output``
     there and writes it itself. A Plotly output (``.html``, ``.json``) draws with
     ``backend="plotly"`` unless ``options`` choose a backend.
     """
-    method = _method(obj, name)
+    method = _method(obj, name, show=show)
     parameters = inspect.signature(method).parameters
     first = next(iter(parameters), None)
     options = dict(options)
-    if Path(output).suffix.lower() in _PLOTLY_SUFFIXES and "backend" in parameters:
+    if output is not None and Path(output).suffix.lower() in _PLOTLY_SUFFIXES and "backend" in parameters:
         options.setdefault("backend", "plotly")
     if first in ("path", "directory"):
+        if show:
+            raise CLIError(f"{name} writes files and cannot use --show; use the movie command or an animation method")
+        if output is None:
+            raise CLIError(f"{name} writes files and requires -o; use an animation method to display a movie")
         return method(output, **options)
-    return method(**options)
+    try:
+        inspect.signature(method).bind(**options)
+    except TypeError as error:
+        raise CLIError(f"{name}: {error}. Run `plasma-plots help {name}` for parameters.") from None
+    try:
+        result = method(**options)
+    except (ValueError, TypeError, IndexError, KeyError) as error:
+        dims = getattr(obj, "sizes", {})
+        dimensions = ", ".join(f"{key}={value}" for key, value in dims.items())
+        raise CLIError(
+            f"{name}: {error}\n"
+            + (f"Available dimensions (sizes): {dimensions}.\n" if dimensions else "")
+            + f"Use integer indices (t=-1) or coordinate values (t=0.5). "
+            f"Run `plasma-plots help {name}` for parameters."
+        ) from error
+    from .accessors import SliceView
+    from .plotting import InteractiveSliceViewer
+    if isinstance(result, SliceView):
+        result = result.viewer()
+    if isinstance(result, InteractiveSliceViewer):
+        result = result.draw()
+    return result
 
 
 def _save_result(result, path, *, dpi=None) -> list[str]:
@@ -322,6 +348,60 @@ def _save_result(result, path, *, dpi=None) -> list[str]:
             f"this plot has no Plotly version; save it as .png, .pdf or .svg instead of {suffix}"
         )
     return [result.save(path, **({"dpi": dpi} if dpi else {}))]
+
+
+def _show_result(result):
+    """Display a result, keeping Matplotlib figures and animations alive until closed."""
+    from matplotlib.animation import FuncAnimation
+    from matplotlib import pyplot as plt
+
+    from .mpi import SkippedPlot, is_plotting_rank
+
+    if result is None or isinstance(result, SkippedPlot) or not is_plotting_rank():
+        return
+    if isinstance(result, tuple):
+        result = result[0]
+    figure = getattr(result, "fig", result)
+    if type(figure).__module__.startswith("plotly"):
+        figure.show(renderer="browser")
+    elif isinstance(result, FuncAnimation) or isinstance(figure, plt.Figure):
+        _check_display()
+        plt.show(block=True)
+    elif type(result).__module__.startswith("pyvista") and hasattr(result, "show"):
+        result.show()
+    else:
+        raise CLIError("this method writes files and has no figure to show; use a plotting or animation method")
+
+
+def _check_display():
+    import matplotlib
+    from matplotlib.backends.registry import backend_registry
+
+    backend = matplotlib.get_backend()
+    _, gui = backend_registry.resolve_backend(backend)
+    if gui is None or "inline" in backend.lower():
+        raise CLIError(
+            f"--show cannot open a window with Matplotlib backend {backend!r}. "
+            "Use -o figure.png to save, backend=plotly --show to open a browser, "
+            "or configure an interactive backend (e.g. MPLBACKEND=TkAgg) with a working display."
+        )
+
+
+def _finish_result(result, args):
+    if type(result).__module__.startswith("pyvista") and hasattr(result, "show"):
+        if args.output and Path(args.output).suffix.lower() not in (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"):
+            raise CLIError("3-D screenshots require an image output such as -o scene.png")
+        if args.output:
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+        result.show(screenshot=args.output)
+        if args.output:
+            print(f"wrote {args.output}")
+        return
+    if args.output is not None:
+        for file in _save_result(result, args.output, dpi=args.dpi):
+            print(f"wrote {file}")
+    if args.show:
+        _show_result(result)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -380,11 +460,11 @@ def _file_stem(name: str) -> str:
     return name.strip("/").replace("/", "-") or "product"
 
 
-def quicklook(source, directory, *, formats=("png",), dpi=None, log=None) -> list[str]:
-    """Save the standard figures of ``source`` into ``directory``; return the files written.
+def quicklook(source, directory=None, *, formats=("png",), dpi=None, log=None, show=False, products=None, selection=None) -> list[str]:
+    """Save or display the standard figures of ``source``; return the files written.
 
-    For a Struphy run: the energy budget and the scalars, the equilibrium, the profiling timeline
-    (when recorded) and a quick look (:func:`quicklook_plot`) at every other product; for a
+    For a Struphy run: the energy budget and the scalars, the equilibrium,
+    and a quick look (:func:`quicklook_plot`) at every other product; for a
     Dataset, a quick look at every variable. A figure that fails is reported through ``log`` and
     skipped.
 
@@ -392,14 +472,20 @@ def quicklook(source, directory, *, formats=("png",), dpi=None, log=None) -> lis
     ----------
     source : struphy.Output or xarray.Dataset
         What to plot, as :func:`open_source` returns it.
-    directory : str or pathlib.Path
-        Where to save the figures; created if needed.
+    directory : str or pathlib.Path, optional
+        Where to save the figures; created if needed. Omit to only display them.
     formats : sequence of str, optional
         File formats, each of every figure, e.g. ``("png", "html")``. Default: ``("png",)``.
     dpi : int, optional
         Resolution of images.
     log : callable, optional
         Receives one line per figure written or skipped. Default: ``print``.
+    show : bool, optional
+        Display each figure; close its window to continue. Default: ``False``.
+    products : sequence of str, optional
+        Only draw these products, omitting the standard run overview plots.
+    selection : dict, optional
+        Dimension selections shared by products: integers index, other numbers select nearest coordinates.
 
     Returns
     -------
@@ -413,9 +499,17 @@ def quicklook(source, directory, *, formats=("png",), dpi=None, log=None) -> lis
     from .plotting import energy_names
 
     log = print if log is None else log
-    directory = Path(directory)
+    if directory is None and not show:
+        raise CLIError("give -o DIR to save figures or --show to display them")
+    directory = Path(directory) if directory is not None else None
+    requested = products
+    selection = selection or {}
     jobs = []  # (file stem, product, method, options)
-    if _is_output(source):
+    if requested is not None:
+        products = list(dict.fromkeys(requested))
+        for name in products:
+            _get_product(source, name)  # fail clearly on an explicitly requested missing product
+    elif _is_output(source):
         names = list(source.scalars.data_vars)
         if energy_names(names):
             jobs.append(("energies", source, "energies", {}))
@@ -423,17 +517,23 @@ def quicklook(source, directory, *, formats=("png",), dpi=None, log=None) -> lis
             jobs.append(("scalars", source, "scalars", {}))
         if source.equil is not None:
             jobs.append(("equilibrium", source, "equilibrium", {}))
-        if (Path(source.path_out) / "profiling_data.h5").exists():
-            jobs.append(("profile-gantt", source, "profile.gantt", {}))
         products = [n for n in source.keys() if n not in names]
     else:
         products = list(source.data_vars)
         if "marker" in source.dims:  # a marker Dataset: its orbits, not each quantity
             jobs.append(("trajectories", source, "trajectories", {}))
             products = [n for n in products if "marker" not in source[n].dims]
+    available_dims = set()
     for name in products:
         try:
             product = _get_product(source, name)
+            available_dims.update(product.dims)
+            for dim, value in selection.items():
+                if dim in product.dims:
+                    if isinstance(value, int):
+                        product = product.isel({dim: value})
+                    else:
+                        product = product.sel({dim: value}, method="nearest")
         except CLIError as error:
             log(f"skipped {name}: {error}")
             continue
@@ -443,24 +543,32 @@ def quicklook(source, directory, *, formats=("png",), dpi=None, log=None) -> lis
             continue
         jobs.append((f"{_file_stem(name)}-{chosen[0]}", product, *chosen))
 
+    unknown = set(selection) - available_dims
+    if unknown:
+        raise CLIError(f"unknown selection dimensions: {', '.join(sorted(unknown))}; available: {', '.join(sorted(available_dims))}")
     import matplotlib.pyplot as plt
 
     written = []
+    displayed = 0
     for stem, product, method, options in jobs:
-        for fmt in formats:
-            path = directory / f"{stem}.{fmt}"
+        for fmt in (formats if directory is not None else (None,)):
+            path = directory / f"{stem}.{fmt}" if directory is not None else None
             try:
-                files = _save_result(
-                    _call_plot(product, method, options, path), path, dpi=dpi
-                )
+                result = _call_plot(product, method, options, path)
+                files = _save_result(result, path, dpi=dpi) if path is not None else []
+                if show:
+                    _show_result(result)
+                    displayed += 1
             except Exception as error:  # one broken figure must not stop the rest
-                log(f"skipped {path.name}: {type(error).__name__}: {error}")
+                log(f"skipped {path.name if path is not None else stem}: {type(error).__name__}: {error}")
                 continue
             finally:
                 plt.close("all")
             written += files
             for file in files:
                 log(f"wrote {file}")
+    if show and not displayed and not written:
+        raise CLIError("no figure could be drawn")
     return written
 
 
@@ -569,6 +677,33 @@ def _cmd_guide(args):
     print(plasma_plots.__doc__)
 
 
+def _suggest(name, choices):
+    matches = difflib.get_close_matches(name, choices, n=1)
+    return f"; did you mean {matches[0]!r}?" if matches else ""
+
+
+def _cmd_help(args):
+    from .accessors import ArrayPlots, DatasetPlots
+    from .output_accessors import OutputPlots, ProfilePlots
+
+    classes = {"array": ArrayPlots, "dataset": DatasetPlots, "run": OutputPlots}
+    kind = args.kind or ("run" if args.method.startswith("profile.") else "array")
+    cls = classes[kind]
+    name = args.method
+    if kind == "run" and name.startswith("profile."):
+        cls, name = ProfilePlots, name.removeprefix("profile.")
+    method = getattr(cls, name, None) if not name.startswith("_") else None
+    if not inspect.isfunction(method):
+        choices = [n for n, m in inspect.getmembers(cls, inspect.isfunction) if not n.startswith("_")]
+        raise CLIError(f"no {kind} plot method {args.method!r}{_suggest(name, choices)}; choose --kind array, dataset or run. Methods: {', '.join(choices)}")
+    print(f"{kind} plot: {args.method}{inspect.signature(method)}\n")
+    print(inspect.getdoc(method) or "No additional documentation.")
+    print("\nCLI: plasma-plots plot PATH PRODUCT " + args.method + " key=value ... --show")
+    print("Use -o FILE to save. PRODUCT '.' means the whole run or Dataset.")
+    print("Integer selections index (t=-1); decimals select nearest coordinates (t=0.5).")
+    print("Quote lists/dicts in your shell: 'levels=[0.1,0.5]' or 'cuts={\"eta3\":[0,0.5]}'.")
+
+
 def _cmd_api(args):
     from ._api import api_index
 
@@ -576,46 +711,47 @@ def _cmd_api(args):
 
 
 def _cmd_info(args):
-    source = open_source(args.path, pproc=args.pproc)
+    source = open_source(args.path)
     print(_describe(source, args.path))
 
 
 def _cmd_plot(args):
-    source = open_source(args.path, pproc=args.pproc)
+    source = open_source(args.path)
     product = _get_product(source, args.product)
     if args.list or args.method is None:
-        print("\n".join(plot_methods(product)))
+        print("\n".join(plot_methods(product, show=args.show)))
         if args.method is None and not args.list:
             print(
-                f"\nChoose one: plasma-plots plot {args.path} {args.product} METHOD ... -o FILE"
+                f"\nChoose one: plasma-plots plot {args.path} {args.product} METHOD ... (-o FILE or --show)"
             )
         return
-    if args.output is None:
-        raise CLIError("give the file to write with -o FILE")
+    if args.output is None and not args.show:
+        raise CLIError("give -o FILE to save the figure or --show to display it")
     options = _parse_options(args.options, source)
-    result = _call_plot(product, args.method, options, args.output)
-    for file in _save_result(result, args.output, dpi=args.dpi):
-        print(f"wrote {file}")
+    result = _call_plot(product, args.method, options, args.output, show=args.show)
+    _finish_result(result, args)
 
 
 def _cmd_movie(args):
-    source = open_source(args.path, pproc=args.pproc)
+    if args.output is None and not args.show:
+        raise CLIError("give -o FILE to save the animation or --show to display it")
+    source = open_source(args.path)
     product = _get_product(source, args.product)
     options = _parse_options(args.options, source)
     sweep = options.get("sweep", "t")
     # the dimensions left to draw once the options select the others
     free = [d for d in _spatial_dims(product) if d not in options and d != sweep]
     method = "animation" if len(free) >= 2 else "line_animation"
-    result = _call_plot(product, method, options, args.output)
-    for file in _save_result(result, args.output, dpi=args.dpi):
-        print(f"wrote {file}")
+    result = _call_plot(product, method, options, args.output, show=args.show)
+    _finish_result(result, args)
 
 
 def _cmd_quicklook(args):
-    source = open_source(args.path, pproc=args.pproc)
+    source = open_source(args.path)
     formats = [f.strip().lstrip(".") for f in args.format.split(",") if f.strip()]
-    written = quicklook(source, args.output, formats=formats, dpi=args.dpi)
-    if not written:
+    written = quicklook(source, args.output, formats=formats, dpi=args.dpi, show=args.show,
+                        products=args.products, selection=_parse_options(args.select, source))
+    if not written and not args.show:
         raise CLIError("no figure could be drawn")
 
 
@@ -623,6 +759,7 @@ def _build_parser() -> argparse.ArgumentParser:
     """The argument parser of the ``plasma-plots`` command."""
     parser = argparse.ArgumentParser(
         prog="plasma-plots",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
             "Quick looks at plasma simulation output: a Struphy run folder, or a file xarray "
             "can read (netCDF, zarr). PRODUCT is a product or variable name, or '.' for the "
@@ -637,7 +774,9 @@ def _build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     def command(name, func, help):
-        sub = commands.add_parser(name, help=help, description=help)
+        sub = commands.add_parser(name, help=help, description=help,
+                                  formatter_class=argparse.RawDescriptionHelpFormatter,
+                                  epilog="Examples:\n  plasma-plots plot run.nc phi slice t=-1 eta3=0 --show\n  plasma-plots help slice\n  plasma-plots info run.nc\n\nSelections: t=-1 indexes the last step; t=0.5 selects the nearest time.\nQuote lists and JSON to protect them from shell expansion.")
         sub.set_defaults(func=func)
         return sub
 
@@ -652,25 +791,24 @@ def _build_parser() -> argparse.ArgumentParser:
                 help="a product name, or '.' for all of PATH",
             )
         sub.add_argument(
-            "--pproc",
-            action="store_true",
-            help="post-process an unprocessed Struphy run with the default options",
-        )
-        sub.add_argument(
             "--traceback",
             action="store_true",
             help="show the full traceback of an error",
         )
 
-    def output_arguments(sub, required=True):
+    def output_arguments(sub):
         sub.add_argument(
             "-o",
             "--output",
             metavar="FILE",
-            required=required,
             help="the file to write; its extension picks the format",
         )
         sub.add_argument("--dpi", type=int, help="resolution of images")
+        sub.add_argument("--show", action="store_true", help="display the figure; -o is optional")
+
+    sub = command("help", _cmd_help, "show a plot method's parameters and examples without opening data")
+    sub.add_argument("method", metavar="METHOD", help="e.g. slice, viewer, energies, profile.gantt")
+    sub.add_argument("--kind", choices=("array", "dataset", "run"), help="plot namespace (default: array; run for profile.*)")
 
     command("guide", _cmd_guide, "print the package guide (the default)")
     command(
@@ -687,7 +825,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = command(
         "plot",
         _cmd_plot,
-        "call one plot method of PRODUCT with key=value options and save the figure",
+        "call one plot method of PRODUCT with key=value options and save or show the figure",
     )
     source_arguments(sub)
     sub.add_argument(
@@ -705,12 +843,12 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_argument(
         "--list", action="store_true", help="list the plot methods of PRODUCT"
     )
-    output_arguments(sub, required=False)
+    output_arguments(sub)
 
     sub = command(
         "movie",
         _cmd_movie,
-        "animate PRODUCT over t (animation, or line_animation for 1-D data) into a .gif, .mp4 or .html",
+        "animate PRODUCT over t; save to .gif, .mp4 or .html, or display with --show",
     )
     source_arguments(sub)
     sub.add_argument(
@@ -724,11 +862,11 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = command(
         "quicklook",
         _cmd_quicklook,
-        "save the standard figures of PATH (energies, scalars, a slice of every field, ...) into a folder",
+        "save or show the standard figures of PATH (energies, scalars, a slice of every field, ...)",
     )
     source_arguments(sub, product=False)
     sub.add_argument(
-        "-o", "--output", metavar="DIR", required=True, help="the folder to write into"
+        "-o", "--output", metavar="DIR", help="the folder to write into"
     )
     sub.add_argument(
         "--format",
@@ -736,7 +874,33 @@ def _build_parser() -> argparse.ArgumentParser:
         help="file formats, comma separated, e.g. png,html (default: png)",
     )
     sub.add_argument("--dpi", type=int, help="resolution of images")
+    sub.add_argument("--show", action="store_true", help="display each figure; -o is optional")
+    sub.add_argument("--products", nargs="+", metavar="PRODUCT", help="only these products; omit run overview plots")
+    sub.add_argument("--select", nargs="+", default=[], metavar="DIM=VALUE", help="select dimensions before plotting, e.g. t=-1 component=2 eta3=0")
     return parser
+
+
+def _validate_args(args):
+    """Reject usage errors before opening or post-processing a source."""
+    if args.command not in ("plot", "movie", "quicklook"):
+        return
+    listing = args.command == "plot" and (args.list or args.method is None)
+    if not listing and args.output is None and not args.show:
+        raise CLIError("choose --show to display or -o FILE to save (use -o DIR for quicklook)")
+    if args.dpi is not None and args.dpi <= 0:
+        raise CLIError("--dpi must be a positive integer, e.g. --dpi 150")
+    pairs = getattr(args, "options", []) + getattr(args, "select", [])
+    # Parse references only after opening the source, but validate their surrounding syntax now.
+    parsed = _parse_options([pair.split("=", 1)[0] + "=reference" if "=@" in pair else pair for pair in pairs])
+    if args.command == "quicklook":
+        for key, value in parsed.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise CLIError(f"--select {key} needs a numeric index or coordinate, e.g. {key}=0")
+        formats = [f.strip().lstrip(".") for f in args.format.split(",") if f.strip()]
+        if not formats:
+            raise CLIError("--format needs at least one format, e.g. png or png,html")
+        if args.products and "." in args.products:
+            raise CLIError("--products expects individual products; omit it for the standard figures")
 
 
 def main(argv=None) -> int:
@@ -775,11 +939,14 @@ def main(argv=None) -> int:
         args.func = _cmd_guide
     import matplotlib
 
-    if args.func not in (_cmd_guide, _cmd_api):
+    if args.func not in (_cmd_guide, _cmd_api, _cmd_help) and not getattr(args, "show", False):
         matplotlib.use("Agg")  # files only, also without a display
     try:
+        _validate_args(args)
         args.func(args)
     except CLIError as error:
+        if getattr(args, "traceback", False):
+            raise
         print(f"plasma-plots: error: {error}", file=sys.stderr)
         return 1
     except Exception as error:  # e.g. an option the plot method does not take

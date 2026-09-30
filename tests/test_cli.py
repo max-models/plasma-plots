@@ -238,16 +238,45 @@ def test_quicklook_of_a_run(run, tmp_path):
     } <= set(os.listdir(folder))
 
 
-def test_an_unprocessed_run_asks_for_pproc(tmp_path):
-    pytest.importorskip("struphy")
-    from struphy.post_processing.tests.test_output import write_tree
+@pytest.mark.parametrize("command", ["info", "plot", "movie", "quicklook"])
+def test_commands_process_runs_automatically(run, tmp_path, monkeypatch, command):
+    from struphy.post_processing.output import Output
+    from struphy.post_processing.tests.test_output import write_manifest
 
-    path = tmp_path / "sim_1"
-    path.mkdir()
-    write_tree(str(path))
-    (path / "post_processing" / "manifest.json").unlink()
-    with pytest.raises(CLIError, match="struphy output pproc"):
-        cli.open_source(path)
+    (run.path_pproc / "manifest.json").unlink()
+    processed = []
+
+    def pproc(output):
+        # The fixture already contains products; stand in for the expensive reconstruction.
+        processed.append(output.path_out)
+        write_manifest(str(output.path_out))
+        return output
+
+    monkeypatch.setattr(Output, "pproc", pproc)
+    args = [command, str(run.path_out)]
+    if command == "plot":
+        args += [
+            "em_fields/E", "slice", "t=-1", "component=0", "eta3=0",
+            "-o", str(tmp_path / "E.png"),
+        ]
+    elif command == "movie":
+        args += ["em_fields/E", "component=0", "eta3=0", "-o", str(tmp_path / "E.gif")]
+    elif command == "quicklook":
+        args += ["-o", str(tmp_path / "figures")]
+    assert main(args) == 0
+    assert processed == [run.path_out]
+    # A later command reuses the products instead of replacing custom processing options.
+    assert main(["info", str(run.path_out)]) == 0
+    assert processed == [run.path_out]
+
+
+def test_open_source_processes_by_default(run, monkeypatch):
+    from struphy.post_processing.output import Output
+    from struphy.post_processing.tests.test_output import write_manifest
+
+    (run.path_pproc / "manifest.json").unlink()
+    monkeypatch.setattr(Output, "pproc", lambda output: write_manifest(str(output.path_out)))
+    assert cli.open_source(run.path_out).is_processed
 
 
 def test_python_m_runs_the_command():
@@ -279,3 +308,89 @@ def test_the_installed_command_runs(nc, tmp_path):
         [command, "info", str(tmp_path / "missing.nc")], capture_output=True, text=True
     )
     assert bad.returncode == 1 and bad.stderr.startswith("plasma-plots: error:")
+
+
+@pytest.mark.parametrize("save", [False, True])
+def test_show_displays_plot_and_optionally_saves(nc, tmp_path, monkeypatch, save):
+    shown = []
+    out = tmp_path / "shown.png"
+
+    def show(*, block):
+        assert block
+        assert bool(out.exists()) == save  # save before the window can close
+        shown.append(plt.gcf())
+
+    monkeypatch.setattr(plt, "show", show)
+    monkeypatch.setattr(matplotlib, "use", lambda *a, **kw: pytest.fail("forced backend with --show"))
+    args = ["plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "--show"]
+    if save:
+        args += ["-o", str(out)]
+    assert main(args) == 0
+    assert len(shown) == 1 and shown[0].axes
+
+
+def test_show_movie_keeps_animation_alive(nc, monkeypatch):
+    import gc
+    from matplotlib.animation import FuncAnimation
+
+    shown = []
+
+    def show(*, block):
+        assert block
+        animations = [obj for obj in gc.get_objects() if isinstance(obj, FuncAnimation)]
+        assert animations
+        # Draw as a GUI would, starting the animation while it is still referenced.
+        plt.gcf().canvas.draw()
+        shown.append(True)
+
+    monkeypatch.setattr(plt, "show", show)
+    assert main(["movie", str(nc), "phi", "eta3=0", "--show"]) == 0
+    assert shown == [True]
+
+
+def test_show_plotly_opens_browser(nc, monkeypatch):
+    go = pytest.importorskip("plotly.graph_objects")
+    shown = []
+    monkeypatch.setattr(go.Figure, "show", lambda self, **kw: shown.append(kw))
+    assert main(["plot", str(nc), "energy", "timeseries", "backend=plotly", "--show"]) == 0
+    assert shown == [{"renderer": "browser"}]
+
+
+def test_quicklook_can_show_without_output(nc, monkeypatch, tmp_path):
+    shown = []
+    monkeypatch.setattr(plt, "show", lambda **kw: shown.append(plt.gcf()))
+    assert main(["quicklook", str(nc), "--show"]) == 0
+    assert len(shown) == 3
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["fields.nc"]
+
+
+@pytest.mark.parametrize("command,options", [
+    ("plot", ["energy", "timeseries"]),
+    ("movie", ["phi", "eta3=0"]),
+    ("quicklook", []),
+])
+def test_requires_save_or_show(nc, capsys, command, options):
+    assert main([command, str(nc), *options]) == 1
+    assert "--show" in capsys.readouterr().err
+
+
+def test_file_writing_method_requires_output_with_show(nc, capsys):
+    assert main(["plot", str(nc), "phi", "frames", "eta3=0", "--show"]) == 1
+    assert "requires -o" in capsys.readouterr().err
+
+
+def test_show_result_accepts_figure_and_tuple(monkeypatch):
+    calls = []
+    monkeypatch.setattr(plt, "show", lambda **kw: calls.append(kw))
+    fig, ax = plt.subplots()
+    cli._show_result(fig)
+    cli._show_result((fig, ax))
+    assert calls == [{"block": True}, {"block": True}]
+
+
+def test_show_result_skips_other_mpi_ranks(monkeypatch):
+    from plasma_plots import mpi
+
+    monkeypatch.setattr(mpi, "is_plotting_rank", lambda: False)
+    monkeypatch.setattr(plt, "show", lambda **kw: pytest.fail("displayed on another rank"))
+    cli._show_result(plt.figure())

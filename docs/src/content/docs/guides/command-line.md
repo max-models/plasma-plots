@@ -3,7 +3,7 @@ title: Command line
 description: Quick looks at a run or a netCDF file from the shell, with the plasma-plots command.
 ---
 
-The `plasma-plots` command saves figures of simulation output without writing
+The `plasma-plots` command saves or displays figures of simulation output without writing
 any Python. It suits a first look at a run on a cluster, or a batch job that
 should leave figures behind. It opens:
 
@@ -62,6 +62,21 @@ documented for it (`help(phi.plasma.plot.slice)`, or the
 ```bash
 plasma-plots plot run.nc phi slice t=-1 eta3=0 -o phi.png
 ```
+
+Use `--show` to display a figure without saving it; `-o` is then optional:
+
+```bash
+plasma-plots plot run.nc phi slice t=-1 eta3=0 --show
+plasma-plots movie run.nc phi eta3=0 --show
+plasma-plots quicklook run.nc --show
+```
+
+Combine `--show` with `-o` to save and display. Matplotlib uses your configured
+interactive backend and waits until the window closes. Plotly figures open in
+your browser (`backend=plotly`). Quicklook displays each figure in turn; close
+its window to continue. File-writing methods such as `frames` and `plot ... movie`
+still require `-o`; use the `movie` command or an `animation` method to display an
+animation.
 
 ![The slice written by plasma-plots plot](../../../assets/figures/cli_slice.png)
 
@@ -142,7 +157,7 @@ plasma-plots quicklook sim_1 -o figures/ --format png,html
 The command writes one figure per product into the folder:
 
 - **For a Struphy run:** the energy budget (`energies`), the scalars, the
-  equilibrium and, when profiling was recorded, the timeline of its regions.
+  equilibrium.
 - **For each field, distribution and density:** a `slice` at `t=-1` over its
   first two dimensions (logical ones first), at position 0 of the others, or a
   `lineout` when it has only one.
@@ -150,16 +165,22 @@ The command writes one figure per product into the folder:
 - **For each other time series of a file:** a `timeseries` (a run's scalars
   are in its scalar overview).
 
+Profiling charts are generated explicitly, since a Gantt chart can be expensive
+for a long simulation:
+
+```bash
+plasma-plots plot sim_1 . profile.gantt -o timeline.png
+```
+
 A figure that fails is reported and skipped, and the others are still written.
 Files are named after the product and the plot, e.g.
 `em_fields-phi-slice.png`.
 
 ## Struphy runs
 
-The command reads post-processed output and does not run the post-processing
-itself. For a run that has not been post-processed, it asks you to run
-`struphy output pproc PATH` first, where you choose the options. Or pass
-`--pproc` to process the run with the default options. Struphy's own
+The command automatically post-processes a run with the default options when
+needed and reuses existing processed output. No separate processing command is
+needed. To choose custom processing options, run `struphy output pproc PATH` first. Struphy's own
 `struphy output info` and `struphy output report` describe the run's data;
 `plasma-plots` draws it.
 
