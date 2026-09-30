@@ -15,8 +15,8 @@ from matplotlib.animation import FuncAnimation  # noqa: E402
 import plasma_plots  # noqa: E402, F401
 from plasma_plots import spectral as sp  # noqa: E402
 from plasma_plots.analysis import gradient  # noqa: E402
-from plasma_plots.plotting import (animate_fields,  # noqa: E402
-                                   animate_markers, plot_marker_paths)
+from plasma_plots.plotting import animate_fields  # noqa: E402
+from plasma_plots.plotting import animate_markers, plot_marker_paths
 
 
 @pytest.fixture(autouse=True)

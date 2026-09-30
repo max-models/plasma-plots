@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
 from plasma_plots.arrays import axis_label, value_label
 from plasma_plots.plotting import (PlotResult, plot_convergence,
-                                    plot_dispersion, plot_scalars)
+                                   plot_dispersion, plot_scalars)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -95,7 +95,12 @@ for i in range(n_t):
     phi[i] = np.exp(-dist2 / (2 * sigma**2)) * np.cos(10.0 * (E1 - center1[i]))
 
 field = field_array(
-    "phi", r"$\phi$", "a.u.", phi, ("t", "eta1", "eta2"), {"t": t, "eta1": eta1, "eta2": eta2}
+    "phi",
+    r"$\phi$",
+    "a.u.",
+    phi,
+    ("t", "eta1", "eta2"),
+    {"t": t, "eta1": eta1, "eta2": eta2},
 )
 
 save(field.plasma.plot.slice(x="eta1", y="eta2", t=-1), "slice.png")
@@ -137,7 +142,12 @@ blob = np.exp(
     -((E1_3 - 0.5) ** 2 + (E2_3 - 0.5) ** 2 + (E3_3 - 0.5) ** 2) / (2 * 0.15**2)
 )
 volume_data = field_array(
-    "n", "$n$", "a.u.", blob, ("eta1", "eta2", "eta3"), {"eta1": e1_3, "eta2": e2_3, "eta3": e3_3}
+    "n",
+    "$n$",
+    "a.u.",
+    blob,
+    ("eta1", "eta2", "eta3"),
+    {"eta1": e1_3, "eta2": e2_3, "eta3": e3_3},
 )
 save(volume_data.plasma.plot.volume_slices(), "volume_slices.png")
 
@@ -210,10 +220,26 @@ save_fig(fig, "damping.png")
 
 # the frequency of a damped oscillation from its zero crossings
 t_osc = np.linspace(0.0, 30.0, 301)
-probe_osc = field_array("E", "$E_x$", "a.u.", np.exp(-0.06 * t_osc) * np.cos(1.3 * t_osc + 0.4), ("t",), {"t": t_osc})
+probe_osc = field_array(
+    "E",
+    "$E_x$",
+    "a.u.",
+    np.exp(-0.06 * t_osc) * np.cos(1.3 * t_osc + 0.4),
+    ("t",),
+    {"t": t_osc},
+)
 fit_osc = probe_osc.plasma.analysis.oscillation_frequency()
-shown_osc = probe_osc.plasma.plot.timeseries(logy=False, title=f"zero crossings: ω = {fit_osc.omega:.4f} (exact 1.3)")
-shown_osc.ax.plot(fit_osc.times, np.zeros_like(fit_osc.times), "o", ms=5, mfc="none", label="zero crossings")
+shown_osc = probe_osc.plasma.plot.timeseries(
+    logy=False, title=f"zero crossings: ω = {fit_osc.omega:.4f} (exact 1.3)"
+)
+shown_osc.ax.plot(
+    fit_osc.times,
+    np.zeros_like(fit_osc.times),
+    "o",
+    ms=5,
+    mfc="none",
+    label="zero crossings",
+)
 shown_osc.ax.legend(fontsize="small")
 save(shown_osc, "oscillation_frequency.png")
 
@@ -231,9 +257,7 @@ decaying_field = field * xr.DataArray(
 )
 decaying_field.attrs = dict(field.attrs)
 norm_t = decaying_field.plasma.analysis.norm()
-save(
-    norm_t.plasma.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png"
-)
+save(norm_t.plasma.plot.lineout(x="t", title="Field norm decaying in time"), "norm.png")
 
 save(
     total.plasma.analysis.drift().plasma.plot.lineout(
@@ -426,15 +450,28 @@ light_values = np.zeros_like(T_light)
 for n_light in range(1, 40):
     k_light = 2 * np.pi * n_light / 20
     for sign in (1, -1):
-        light_values += rng_light.normal() * np.cos(k_light * Z_light + sign * k_light * T_light
-                                                    + rng_light.uniform(0, 2 * np.pi))
-e_x = xr.DataArray(light_values, dims=("t", "z"), coords={"t": t_light, "z": z_light}, name="E_x",
-                   attrs={"label": "$E_x$"})
+        light_values += rng_light.normal() * np.cos(
+            k_light * Z_light
+            + sign * k_light * T_light
+            + rng_light.uniform(0, 2 * np.pi)
+        )
+e_x = xr.DataArray(
+    light_values,
+    dims=("t", "z"),
+    coords={"t": t_light, "z": z_light},
+    name="E_x",
+    attrs={"label": "$E_x$"},
+)
 light_spectrum = e_x.plasma.analysis.dispersion(dim="z")
 light_fits = light_spectrum.plasma.analysis.fit_branches(n_branches=1)
 save(
-    light_spectrum.plasma.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
-                                           dynamic_range=12, omega_max=25),
+    light_spectrum.plasma.plot.dispersion(
+        kmin=0,
+        branches={"light, ω = k": lambda k: k},
+        fits=light_fits,
+        dynamic_range=12,
+        omega_max=25,
+    ),
     "dispersion_fits.png",
 )
 
@@ -479,11 +516,8 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # frequency and grow slowly; a continuum-damped m = 10 oscillation sits at r = 0.8.
 # =============================================================================
 from plasma_plots import spectral_plots as spp  # noqa: E402
-from plasma_plots.spectral import (  # noqa: E402
-    cross_spectrum,
-    filter_time,
-    matrix_pencil,
-)
+from plasma_plots.spectral import filter_time  # noqa: E402
+from plasma_plots.spectral import cross_spectrum, matrix_pencil
 
 R0_tae, B0_tae, n_tae = 10.0, 3.0, 6
 
@@ -514,7 +548,9 @@ for ti in t_tae:
     helical11 = 2 * np.pi * (11 * S2 - S3)
     snapshot = np.exp(0.003 * ti) * (
         np.exp(-(((r_tae - 0.45) / 0.1) ** 2)) * np.cos(helical10 - omega_tae * ti)
-        + 0.8 * np.exp(-(((r_tae - 0.56) / 0.1) ** 2)) * np.cos(helical11 - omega_tae * ti + 0.3)
+        + 0.8
+        * np.exp(-(((r_tae - 0.56) / 0.1) ** 2))
+        * np.cos(helical11 - omega_tae * ti + 0.3)
     ) + 0.6 * np.exp(-0.004 * ti) * np.exp(-(((r_tae - 0.8) / 0.04) ** 2)) * np.cos(
         helical10 - omega_continuum * ti
     )
@@ -529,20 +565,36 @@ phi_tae = field_array(
 )
 radius_of = lambda eta1: 0.1 + 0.9 * eta1  # noqa: E731
 
-band_tae = phi_tae.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"), pad_bins=3)
+band_tae = phi_tae.plasma.analysis.filter_time(
+    dims=("eta1", "eta2", "eta3"), pad_bins=3
+)
 save(
     phi_tae.plasma.plot.power_spectrum(
-        peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate": omega_tae}, omega_max=0.5,
+        peaks=2,
+        band=band_tae,
+        frequencies={"TAE gap-centre estimate": omega_tae},
+        omega_max=0.5,
         title="Power spectrum, averaged over the torus sector",
     ),
     "spectral_power.png",
 )
-save(phi_tae.plasma.plot.filtered(band_tae, eta1=0.4, eta2=0.0, eta3=0.0), "spectral_filtered.png")
-save(phi_tae.plasma.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)), "spectral_mode_amplitudes.png")
-save(phi_tae.plasma.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3)), "spectral_mode_map.png")
+save(
+    phi_tae.plasma.plot.filtered(band_tae, eta1=0.4, eta2=0.0, eta3=0.0),
+    "spectral_filtered.png",
+)
+save(
+    phi_tae.plasma.plot.mode_amplitudes(top=2, fit=(100.0, 500.0)),
+    "spectral_mode_amplitudes.png",
+)
+save(
+    phi_tae.plasma.plot.mode_map(t=-1, m_range=(0, 16), n_range=(-3, 3)),
+    "spectral_mode_map.png",
+)
 save(
     phi_tae.plasma.plot.radial_power(
-        x_of=radius_of, xlabel=r"$r/a$", continuum=(alfven_continuum, [(10, n_tae), (11, n_tae)]),
+        x_of=radius_of,
+        xlabel=r"$r/a$",
+        continuum=(alfven_continuum, [(10, n_tae), (11, n_tae)]),
         omega_max=0.3,
     ),
     "spectral_radial_power.png",
@@ -550,7 +602,9 @@ save(
 peaks_tae = phi_tae.plasma.analysis.spectral_peaks(n_peaks=2, window="hann")
 omega_measured = float(peaks_tae.omega_refined[0])
 save(
-    phi_tae.plasma.plot.mode_profiles(omega_measured, x_of=radius_of, xlabel=r"$r/a$", top=2),
+    phi_tae.plasma.plot.mode_profiles(
+        omega_measured, x_of=radius_of, xlabel=r"$r/a$", top=2
+    ),
     "spectral_mode_profiles.png",
 )
 
@@ -560,7 +614,8 @@ probe_short = field_array(
     "phi",
     r"$\phi$ at $r_*$",
     "a.u.",
-    np.exp(0.003 * t_short) * np.cos(omega_tae * t_short + 0.4) + 1e-3 * rng_tae.standard_normal(21),
+    np.exp(0.003 * t_short) * np.cos(omega_tae * t_short + 0.4)
+    + 1e-3 * rng_tae.standard_normal(21),
     ("t",),
     {"t": t_short},
 )
@@ -577,7 +632,10 @@ chirp = field_array(
     ("t",),
     {"t": t_chirp},
 )
-save(chirp.plasma.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45), "spectral_spectrogram.png")
+save(
+    chirp.plasma.plot.spectrogram(length=200.0, step=10.0, omega_max=0.45),
+    "spectral_spectrogram.png",
+)
 
 # A standing shear-Alfven wave: velocity and magnetic perturbation a quarter period apart
 z_wave = np.linspace(0.02, np.pi / 2 - 0.02, 24)
@@ -585,14 +643,25 @@ t_wave = np.arange(512) * 0.25
 omega_wave = 2 * np.pi * 16 / 128
 noise = rng_tae.normal(0, 0.15, (2, 512, 24))
 u_wave = field_array(
-    "u", "$u_x$", "a.u.", np.cos(z_wave)[None] * np.sin(omega_wave * t_wave)[:, None] + noise[0],
-    ("t", "eta3"), {"t": t_wave, "eta3": z_wave},
+    "u",
+    "$u_x$",
+    "a.u.",
+    np.cos(z_wave)[None] * np.sin(omega_wave * t_wave)[:, None] + noise[0],
+    ("t", "eta3"),
+    {"t": t_wave, "eta3": z_wave},
 )
 b_wave = field_array(
-    "b", "$b_x$", "a.u.", np.sin(z_wave)[None] * np.cos(omega_wave * t_wave)[:, None] + noise[1],
-    ("t", "eta3"), {"t": t_wave, "eta3": z_wave},
+    "b",
+    "$b_x$",
+    "a.u.",
+    np.sin(z_wave)[None] * np.cos(omega_wave * t_wave)[:, None] + noise[1],
+    ("t", "eta3"),
+    {"t": t_wave, "eta3": z_wave},
 )
-save(u_wave.plasma.plot.cross_spectrum(b_wave, dims="eta3", omega_max=1.5), "spectral_cross.png")
+save(
+    u_wave.plasma.plot.cross_spectrum(b_wave, dims="eta3", omega_max=1.5),
+    "spectral_cross.png",
+)
 
 
 # =============================================================================
@@ -615,19 +684,33 @@ budget = xr.Dataset(
     },
     coords={"t": t_en},
 )
-budget["en_tot"] = sum(budget[name] for name in ("en_U", "en_B", "en_p", "en_fv", "en_fB")) * (1 + 2e-6 * t_en / 60)
+budget["en_tot"] = sum(
+    budget[name] for name in ("en_U", "en_B", "en_p", "en_fv", "en_fB")
+) * (1 + 2e-6 * t_en / 60)
 save(
-    plot_energy_budget(budget, groups={"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]}),
+    plot_energy_budget(
+        budget,
+        groups={"wave": ["en_U", "en_B", "en_p"], "energetic ions": ["en_fv", "en_fB"]},
+    ),
     "energy_budget.png",
 )
 
 # Radial profiles of the synthetic TAE at a few times, and its harmonics at the last time
 save(
-    phi_tae.plasma.plot.profiles(x="eta1", at=[0, 100, 200, 299], x_of=radius_of, xlabel=r"$r/a$", eta2=0.0, eta3=0.0),
+    phi_tae.plasma.plot.profiles(
+        x="eta1",
+        at=[0, 100, 200, 299],
+        x_of=radius_of,
+        xlabel=r"$r/a$",
+        eta2=0.0,
+        eta3=0.0,
+    ),
     "profiles.png",
 )
 save(
-    phi_tae.plasma.plot.mode_profiles(t=-1, scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2),
+    phi_tae.plasma.plot.mode_profiles(
+        t=-1, scale=(1, 6), x_of=radius_of, xlabel=r"$r/a$", top=2
+    ),
     "mode_profiles_snapshot.png",
 )
 
@@ -639,11 +722,17 @@ r_gc, th_gc = rng_orb.uniform(0.2, 0.8, n_gc), rng_orb.uniform(0, 2 * np.pi, n_g
 v0_gc, mu0_gc = rng_orb.normal(0.0, 1.0, n_gc), rng_orb.exponential(0.5, n_gc)
 trapped_gc = v0_gc**2 < 2 * mu0_gc * 0.6
 bounce_gc = 0.2 * t_gc + th_gc
-v_par_gc = np.where(trapped_gc, v0_gc * np.cos(0.2 * t_gc), v0_gc * (1 - 0.3 * np.sin(0.2 * t_gc) ** 2))
-theta_gc = th_gc + np.where(
-    trapped_gc, 1.2 * np.sin(bounce_gc) - 1.2 * np.sin(th_gc), 0.25 * np.sign(v0_gc) * t_gc
+v_par_gc = np.where(
+    trapped_gc, v0_gc * np.cos(0.2 * t_gc), v0_gc * (1 - 0.3 * np.sin(0.2 * t_gc) ** 2)
 )
-R_gc = 3.0 + (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.cos(theta_gc)
+theta_gc = th_gc + np.where(
+    trapped_gc,
+    1.2 * np.sin(bounce_gc) - 1.2 * np.sin(th_gc),
+    0.25 * np.sign(v0_gc) * t_gc,
+)
+R_gc = 3.0 + (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.cos(
+    theta_gc
+)
 phi_gc = 0.1 * t_gc
 x_gc, y_gc = R_gc * np.cos(phi_gc), R_gc * np.sin(phi_gc)
 z_gc = (r_gc + 0.06 * np.where(trapped_gc, np.sin(bounce_gc), 0)) * np.sin(theta_gc)
@@ -665,11 +754,22 @@ orbits_gc = xr.Dataset(
 e1_b, e2_b = np.linspace(0, 1, 5), (np.arange(64) + 0.5) / 64
 E1_b, E2_b = np.meshgrid(e1_b, e2_b, indexing="ij")
 boundary_field = field_array(
-    "b", "b", "", np.ones((5, 64, 1)), ("eta1", "eta2", "eta3"), {"eta1": e1_b, "eta2": e2_b, "eta3": [0.0]}
+    "b",
+    "b",
+    "",
+    np.ones((5, 64, 1)),
+    ("eta1", "eta2", "eta3"),
+    {"eta1": e1_b, "eta2": e2_b, "eta3": [0.0]},
 ).assign_coords(
-    X=(("eta1", "eta2", "eta3"), ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None]),
+    X=(
+        ("eta1", "eta2", "eta3"),
+        ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None],
+    ),
     Y=(("eta1", "eta2", "eta3"), np.zeros((5, 64, 1))),
-    Z=(("eta1", "eta2", "eta3"), ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None]),
+    Z=(
+        ("eta1", "eta2", "eta3"),
+        ((0.1 + 0.9 * E1_b) * np.sin(2 * np.pi * E2_b))[..., None],
+    ),
 )
 save(orbits_gc.plasma.plot.orbit_classification(), "orbit_classification.png")
 save(orbits_gc.plasma.plot.poloidal(boundary=boundary_field), "orbits_poloidal.png")
@@ -692,14 +792,38 @@ save(orbits_gc.plasma.plot.quantities(markers=4), "orbits_quantities.png")
 # the orbits moving in the poloidal plane over flux surfaces, colored by class, with trails
 e1_s = np.linspace(0, 1, 12)
 E1_s, E2_s = np.meshgrid(e1_s, e2_b, indexing="ij")
-psi_gc = field_array("psi", r"$\psi$", "a.u.", ((0.1 + 0.9 * E1_s) ** 2)[..., None], ("eta1", "eta2", "eta3"),
-                     {"eta1": e1_s, "eta2": e2_b, "eta3": [0.0]}).assign_coords(
-    X=(("eta1", "eta2", "eta3"), (3.0 + (0.1 + 0.9 * E1_s) * np.cos(2 * np.pi * E2_s))[..., None]),
-    Y=(("eta1", "eta2", "eta3"), np.zeros((12, 64, 1))),
-    Z=(("eta1", "eta2", "eta3"), ((0.1 + 0.9 * E1_s) * np.sin(2 * np.pi * E2_s))[..., None]),
-).isel(eta3=0)
-orbit_movie = dict(x="R", y="z", color="classification", trail=60, paths=True, max_frames=80, background=psi_gc,
-                   background_options={"levels": 6, "fill": False, "cmap": "Greys"})
+psi_gc = (
+    field_array(
+        "psi",
+        r"$\psi$",
+        "a.u.",
+        ((0.1 + 0.9 * E1_s) ** 2)[..., None],
+        ("eta1", "eta2", "eta3"),
+        {"eta1": e1_s, "eta2": e2_b, "eta3": [0.0]},
+    )
+    .assign_coords(
+        X=(
+            ("eta1", "eta2", "eta3"),
+            (3.0 + (0.1 + 0.9 * E1_s) * np.cos(2 * np.pi * E2_s))[..., None],
+        ),
+        Y=(("eta1", "eta2", "eta3"), np.zeros((12, 64, 1))),
+        Z=(
+            ("eta1", "eta2", "eta3"),
+            ((0.1 + 0.9 * E1_s) * np.sin(2 * np.pi * E2_s))[..., None],
+        ),
+    )
+    .isel(eta3=0)
+)
+orbit_movie = dict(
+    x="R",
+    y="z",
+    color="classification",
+    trail=60,
+    paths=True,
+    max_frames=80,
+    background=psi_gc,
+    background_options={"levels": 6, "fill": False, "cmap": "Greys"},
+)
 animation_gc = orbits_gc.plasma.plot.animation(**orbit_movie)
 animation_gc.save(PUBLIC_OUT / "orbits_animation.gif", writer="pillow", fps=10)
 print(f"wrote {PUBLIC_OUT / 'orbits_animation.gif'}")
@@ -709,7 +833,9 @@ print(f"wrote {PUBLIC_OUT / 'orbits_animation.gif'}")
 # Tools for the struphy-hub examples: contour lines, markers over fields and in
 # motion, marker paths, side-by-side animations, gradients, relative modes
 # =============================================================================
-def unit_square(values, n1, n2, *, t=None, name="f", label="f", scale=(1.0, 1.0), offset=(0.0, 0.0)):
+def unit_square(
+    values, n1, n2, *, t=None, name="f", label="f", scale=(1.0, 1.0), offset=(0.0, 0.0)
+):
     """A (t,) eta1, eta2, flat eta3 field on a rectangle x = offset + scale * eta."""
     e1, e2 = (np.arange(n1) + 0.5) / n1, (np.arange(n2) + 0.5) / n2
     E1, E2 = np.meshgrid(e1, e2, indexing="ij")
@@ -718,7 +844,12 @@ def unit_square(values, n1, n2, *, t=None, name="f", label="f", scale=(1.0, 1.0)
     coords = {"eta1": e1, "eta2": e2, "eta3": [0.0]}
     if t is not None:
         coords["t"] = t
-    coords.update({n: (("eta1", "eta2", "eta3"), c[..., None]) for n, c in zip("XYZ", (X, Y, 0 * X))})
+    coords.update(
+        {
+            n: (("eta1", "eta2", "eta3"), c[..., None])
+            for n, c in zip("XYZ", (X, Y, 0 * X))
+        }
+    )
     return field_array(name, label, "a.u.", values[..., None], dims, coords), X, Y
 
 
@@ -729,14 +860,30 @@ r1, th1 = (np.arange(a1) + 0.5) / a1, (np.arange(a2) + 0.5) / a2
 R1, TH1 = np.meshgrid(0.1 + 0.9 * r1, 2 * np.pi * th1, indexing="ij")
 ring_values = np.stack(
     [
-        np.exp(-(((R1 - 0.55 - 0.05 * np.exp(0.25 * (ti - 20)) * np.cos(4 * TH1 - 0.3 * ti)
-                   - 0.01 * np.exp(0.1 * (ti - 20)) * np.cos(3 * TH1)) / 0.08) ** 4))
+        np.exp(
+            -(
+                (
+                    (
+                        R1
+                        - 0.55
+                        - 0.05 * np.exp(0.25 * (ti - 20)) * np.cos(4 * TH1 - 0.3 * ti)
+                        - 0.01 * np.exp(0.1 * (ti - 20)) * np.cos(3 * TH1)
+                    )
+                    / 0.08
+                )
+                ** 4
+            )
+        )
         for ti in ring_t
     ]
 )
 e1r, e2r = r1, th1
 ring = field_array(
-    "n", "$n$", "a.u.", ring_values[..., None], ("t", "eta1", "eta2", "eta3"),
+    "n",
+    "$n$",
+    "a.u.",
+    ring_values[..., None],
+    ("t", "eta1", "eta2", "eta3"),
     {"t": ring_t, "eta1": e1r, "eta2": e2r, "eta3": [0.0]},
 ).assign_coords(
     X=(("eta1", "eta2", "eta3"), (R1 * np.cos(TH1))[..., None]),
@@ -744,13 +891,22 @@ ring = field_array(
     Z=(("eta1", "eta2", "eta3"), np.zeros((a1, a2, 1))),
 )
 save(
-    ring.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], cmap="viridis",
-                            title="Charge density with the interface n = 0.2"),
+    ring.plasma.plot.slice(
+        coords="physical",
+        plane="XY",
+        t=-1,
+        eta3=0,
+        levels=[0.2],
+        cmap="viridis",
+        title="Charge density with the interface n = 0.2",
+    ),
     "contour_interface.png",
 )
 save(
     # at the outer interface, where the wave moves the edge (a radial average would cancel it)
-    ring.isel(eta3=0).sel(eta1=0.59, method="nearest").plasma.plot.mode_amplitudes(
+    ring.isel(eta3=0)
+    .sel(eta1=0.59, method="nearest")
+    .plasma.plot.mode_amplitudes(
         dims="eta2", names="m", relative=True, top=3, fit=(8.0, 20.0)
     ),
     "relative_modes.png",
@@ -763,7 +919,10 @@ x0_db, y0_db = rng_db.uniform(0.0, 0.3, n_db), rng_db.uniform(0.0, 0.6, n_db)
 t_db = np.linspace(0.0, 3.0, 31)
 spread = 1 / (1 + np.exp(-3 * (t_db - 1.5)))  # 0 -> 1
 x_db = x0_db[None] + (x0_db[None] / 0.3 * 0.65 + 0.05) * spread[:, None]
-y_db = y0_db[None] * (1 - 0.72 * spread[:, None]) + 0.02 * np.sin(8 * x_db) * spread[:, None]
+y_db = (
+    y0_db[None] * (1 - 0.72 * spread[:, None])
+    + 0.02 * np.sin(8 * x_db) * spread[:, None]
+)
 dam = xr.Dataset(
     {"x": (("t", "marker"), x_db), "y": (("t", "marker"), y_db)},
     coords={"t": t_db, "marker": np.arange(n_db)},
@@ -774,20 +933,38 @@ G1, G2 = np.meshgrid(g1, g2, indexing="ij")
 kernel_width = 0.04
 dam_density = np.stack(
     [
-        np.exp(-((G1[..., None] - x_db[i]) ** 2 + (G2[..., None] - y_db[i]) ** 2) / (2 * kernel_width**2)).sum(-1)
+        np.exp(
+            -((G1[..., None] - x_db[i]) ** 2 + (G2[..., None] - y_db[i]) ** 2)
+            / (2 * kernel_width**2)
+        ).sum(-1)
         / (n_db * 2 * np.pi * kernel_width**2)
         for i in range(len(t_db))
     ]
 )
 dam_field, _, _ = unit_square(dam_density, 40, 40, t=t_db, name="n", label="$n$")
 save(
-    dam.plasma.plot.scatter(x="x", y="y", color="x", color_at=0, t=-1, s=5, cmap="plasma",
-                             background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"}),
+    dam.plasma.plot.scatter(
+        x="x",
+        y="y",
+        color="x",
+        color_at=0,
+        t=-1,
+        s=5,
+        cmap="plasma",
+        background=dam_field.isel(eta3=0),
+        background_options={"cmap": "Blues"},
+    ),
     "markers_over_density.png",
 )
 animation_db = dam.plasma.plot.animation(
-    x="x", y="y", color="x", color_at=0, s=5, cmap="plasma",
-    background=dam_field.isel(eta3=0), background_options={"cmap": "Blues"},
+    x="x",
+    y="y",
+    color="x",
+    color_at=0,
+    s=5,
+    cmap="plasma",
+    background=dam_field.isel(eta3=0),
+    background_options={"cmap": "Blues"},
 )
 animation_db.save(PUBLIC_OUT / "markers_animation.gif", writer="pillow", fps=8)
 print(f"wrote {PUBLIC_OUT / 'markers_animation.gif'}")
@@ -797,15 +974,25 @@ n_bs = 64
 psi, XB, YB = unit_square(
     np.zeros((n_bs, n_bs)), n_bs, n_bs, name="psi", label=r"$\psi$", offset=(-0.5, -0.5)
 )
-psi = psi.copy(data=(np.sin(2 * np.pi * XB) * np.sin(2 * np.pi * YB))[..., None] / (2 * np.pi))
+psi = psi.copy(
+    data=(np.sin(2 * np.pi * XB) * np.sin(2 * np.pi * YB))[..., None] / (2 * np.pi)
+)
 
 
 def cellular_velocity(p):
     x_, y_ = p[..., 0], p[..., 1]
-    return np.stack([np.sin(2 * np.pi * x_) * np.cos(2 * np.pi * y_), -np.cos(2 * np.pi * x_) * np.sin(2 * np.pi * y_)], axis=-1)
+    return np.stack(
+        [
+            np.sin(2 * np.pi * x_) * np.cos(2 * np.pi * y_),
+            -np.cos(2 * np.pi * x_) * np.sin(2 * np.pi * y_),
+        ],
+        axis=-1,
+    )
 
 
-starts = np.column_stack([np.linspace(0.28, 0.46, 6), np.full(6, 0.25)])  # from a cell centre outwards
+starts = np.column_stack(
+    [np.linspace(0.28, 0.46, 6), np.full(6, 0.25)]
+)  # from a cell centre outwards
 starts = np.vstack([starts, rng_db.uniform(-0.45, 0.45, (26, 2))])
 t_bs, dt_bs = np.linspace(0, 3, 301), 0.01
 path = [starts]
@@ -825,7 +1012,12 @@ save(
     beltrami.plasma.plot.paths(
         near=[tuple(p) for p in starts[:6]],
         background=psi.isel(eta3=0),
-        background_options={"levels": 12, "fill": False, "cmap": "Greys", "title": "Marker paths over the streamlines"},
+        background_options={
+            "levels": 12,
+            "fill": False,
+            "cmap": "Greys",
+            "title": "Marker paths over the streamlines",
+        },
     ),
     "marker_paths.png",
 )
@@ -837,7 +1029,15 @@ hw_e = (np.arange(n_hw) + 0.5) / n_hw
 HX, HY = np.meshgrid(L_hw * hw_e, L_hw * hw_e, indexing="ij")
 kx0, ky0 = 2 * np.pi / L_hw, 2 * np.pi / L_hw
 rng_hw = np.random.default_rng(2)
-modes_hw = [(rng_hw.integers(1, 5), rng_hw.integers(1, 5), rng_hw.uniform(0, 2 * np.pi), rng_hw.uniform(0.3, 1.0)) for _ in range(12)]
+modes_hw = [
+    (
+        rng_hw.integers(1, 5),
+        rng_hw.integers(1, 5),
+        rng_hw.uniform(0, 2 * np.pi),
+        rng_hw.uniform(0.3, 1.0),
+    )
+    for _ in range(12)
+]
 phi_values, omega_values, n_values = [], [], []
 for ti in t_hw:
     zonal_amp, wave_amp = 0.6 * np.tanh(ti / 12), np.exp(-ti / 25)
@@ -847,34 +1047,64 @@ for ti in t_hw:
     for mx, my, phase, amp in modes_hw:
         wave = np.cos(mx * kx0 * HX + my * ky0 * HY - 0.4 * my * ti + phase)
         phi_t = phi_t + wave_amp * amp * 0.3 * wave
-        omega_t = omega_t - wave_amp * amp * 0.3 * ((mx * kx0) ** 2 + (my * ky0) ** 2) * wave
-        n_t = n_t + wave_amp * amp * 0.3 * np.cos(mx * kx0 * HX + my * ky0 * HY - 0.4 * my * ti + phase + 0.5)
+        omega_t = (
+            omega_t - wave_amp * amp * 0.3 * ((mx * kx0) ** 2 + (my * ky0) ** 2) * wave
+        )
+        n_t = n_t + wave_amp * amp * 0.3 * np.cos(
+            mx * kx0 * HX + my * ky0 * HY - 0.4 * my * ti + phase + 0.5
+        )
     phi_values.append(phi_t)
     omega_values.append(omega_t)
     n_values.append(n_t)
-phi_hw, _, _ = unit_square(np.array(phi_values), n_hw, n_hw, t=t_hw, name="phi", label=r"$\phi$", scale=(L_hw, L_hw))
+phi_hw, _, _ = unit_square(
+    np.array(phi_values),
+    n_hw,
+    n_hw,
+    t=t_hw,
+    name="phi",
+    label=r"$\phi$",
+    scale=(L_hw, L_hw),
+)
 omega_hw = phi_hw.copy(data=np.array(omega_values)[..., None]).rename("omega")
 omega_hw.attrs.update(label=r"$\omega$")
 density_hw = phi_hw.copy(data=np.array(n_values)[..., None]).rename("n")
 density_hw.attrs.update(label="$n$")
 animation_hw = omega_hw.plasma.plot.animation(
-    coords="physical", plane="XY", eta3=0, alongside=[density_hw], cmap="RdBu_r", symmetric=True, robust=True
+    coords="physical",
+    plane="XY",
+    eta3=0,
+    alongside=[density_hw],
+    cmap="RdBu_r",
+    symmetric=True,
+    robust=True,
 )
 animation_hw.save(PUBLIC_OUT / "fields_side_by_side.gif", writer="pillow", fps=6)
 print(f"wrote {PUBLIC_OUT / 'fields_side_by_side.gif'}")
 
 # Recipe: the E x B kinetic energy of drift waves and of the zonal flow, from gradient()
 grad_phi = phi_hw.plasma.analysis.gradient()
-total_energy = 0.5 * (grad_phi.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
+total_energy = 0.5 * (grad_phi.sel(component=[0, 1]) ** 2).sum("component").mean(
+    ("eta1", "eta2", "eta3")
+)
 zonal = xr.zeros_like(phi_hw) + phi_hw.mean("eta2")  # keeps the X, Y coordinates
 grad_zonal = zonal.plasma.analysis.gradient()
-zonal_energy = 0.5 * (grad_zonal.sel(component=[0, 1]) ** 2).sum("component").mean(("eta1", "eta2", "eta3"))
+zonal_energy = 0.5 * (grad_zonal.sel(component=[0, 1]) ** 2).sum("component").mean(
+    ("eta1", "eta2", "eta3")
+)
 fig, ax = plt.subplots(figsize=(7, 4), layout="constrained")
 ax.stackplot(
-    t_hw, (total_energy - zonal_energy).values, zonal_energy.values,
-    labels=[r"drift waves ($k_y \neq 0$)", r"zonal flow ($k_y = 0$)"], colors=["#168aad", "#f08a4b"], alpha=0.85,
+    t_hw,
+    (total_energy - zonal_energy).values,
+    zonal_energy.values,
+    labels=[r"drift waves ($k_y \neq 0$)", r"zonal flow ($k_y = 0$)"],
+    colors=["#168aad", "#f08a4b"],
+    alpha=0.85,
 )
-ax.set(xlabel="$t$", ylabel=r"$\frac{1}{2}\langle|\nabla\phi|^2\rangle$", title="E×B kinetic energy")
+ax.set(
+    xlabel="$t$",
+    ylabel=r"$\frac{1}{2}\langle|\nabla\phi|^2\rangle$",
+    title="E×B kinetic energy",
+)
 ax.legend(loc="upper right", fontsize="small")
 save_fig(fig, "zonal_energy.png")
 
@@ -893,18 +1123,26 @@ x_ld = (np.arange(64) + 0.5) / 64
 t_ld = np.linspace(0.0, 25.0, 251)
 rng_ld = np.random.default_rng(11)
 e_ld = field_array(
-    "e1", "$E_x$", "a.u.",
-    0.1 * np.exp(-gamma_ld * t_ld)[:, None] * np.cos(omega_ld * t_ld)[:, None] * np.sin(2 * np.pi * k_ld * x_ld)[None]
+    "e1",
+    "$E_x$",
+    "a.u.",
+    0.1
+    * np.exp(-gamma_ld * t_ld)[:, None]
+    * np.cos(omega_ld * t_ld)[:, None]
+    * np.sin(2 * np.pi * k_ld * x_ld)[None]
     + 2e-3 * rng_ld.standard_normal((251, 64)),
-    ("t", "eta1"), {"t": t_ld, "eta1": x_ld},
+    ("t", "eta1"),
+    {"t": t_ld, "eta1": x_ld},
 )
 amplitude_ld = e_ld.plasma.analysis.project_mode(dim="eta1", number=k_ld)
 amplitude_ld.attrs.update(label=r"$\hat E_{k=1}$")
 save(
     amplitude_ld.plasma.plot.timeseries(
         logy=False,
-        reference={"$\\pm 0.1\\,e^{-\\gamma t}$": lambda t: 0.1 * np.exp(-gamma_ld * t),
-                   "_lower": lambda t: -0.1 * np.exp(-gamma_ld * t)},
+        reference={
+            "$\\pm 0.1\\,e^{-\\gamma t}$": lambda t: 0.1 * np.exp(-gamma_ld * t),
+            "_lower": lambda t: -0.1 * np.exp(-gamma_ld * t),
+        },
         title="Mode k = 1 of the field against the exact envelope",
     ),
     "reference_timeseries.png",
@@ -921,10 +1159,21 @@ def heat_kernel(x, t, D=D_exact, width=0.05):
     return width / np.sqrt(s2) * np.exp(-((x - 0.5) ** 2) / (2 * s2))
 
 
-heat = field_array("T", "$T$", "a.u.", heat_kernel(x_hd[None], t_hd[:, None], D_run), ("t", "eta1"), {"t": t_hd, "eta1": x_hd})
+heat = field_array(
+    "T",
+    "$T$",
+    "a.u.",
+    heat_kernel(x_hd[None], t_hd[:, None], D_run),
+    ("t", "eta1"),
+    {"t": t_hd, "eta1": x_hd},
+)
 save(
-    heat.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": heat_kernel},
-                               title="Temperature profiles and the exact solution"),
+    heat.plasma.plot.profiles(
+        x="eta1",
+        at=[0, 10, 20, 40],
+        reference={"exact": heat_kernel},
+        title="Temperature profiles and the exact solution",
+    ),
     "profiles_exact.png",
 )
 animation_hd = heat.plasma.plot.line_animation(reference={"exact": heat_kernel}, step=2)
@@ -933,19 +1182,32 @@ print(f"wrote {PUBLIC_OUT / 'line_animation.gif'}")
 # the same with the peak temperature below, the run's against the exact one
 peak_hd = heat.max("eta1").rename("peak")
 peak_hd.attrs = {"label": "peak of the run", "units": "a.u."}
-exact_peak_hd = xr.DataArray(heat_kernel(0.5, t_hd), dims="t", coords={"t": t_hd}, name="exact",
-                             attrs={"label": "exact peak", "units": "a.u."})
-animation_hc = heat.plasma.plot.line_animation(reference={"exact": heat_kernel}, alongside=[[peak_hd, exact_peak_hd]],
-                                                step=2)
+exact_peak_hd = xr.DataArray(
+    heat_kernel(0.5, t_hd),
+    dims="t",
+    coords={"t": t_hd},
+    name="exact",
+    attrs={"label": "exact peak", "units": "a.u."},
+)
+animation_hc = heat.plasma.plot.line_animation(
+    reference={"exact": heat_kernel}, alongside=[[peak_hd, exact_peak_hd]], step=2
+)
 animation_hc.save(PUBLIC_OUT / "line_animation_companions.gif", writer="pillow", fps=8)
 print(f"wrote {PUBLIC_OUT / 'line_animation_companions.gif'}")
 # a coordinate in physical units: the unit interval is 2 m long
 heat_m = heat.plasma.analysis.map_coordinate("eta1", 2.0, name="x", units="m")
-save(heat_m.plasma.plot.profiles(x="x", at=[0, 20, 40], title="Temperature over x in meters"), "profiles_meters.png")
-errors_hd = xr.Dataset({
-    "rms": heat.plasma.analysis.error(heat_kernel, relative=True),
-    "max": heat.plasma.analysis.error(heat_kernel, norm="max", relative=True),
-})
+save(
+    heat_m.plasma.plot.profiles(
+        x="x", at=[0, 20, 40], title="Temperature over x in meters"
+    ),
+    "profiles_meters.png",
+)
+errors_hd = xr.Dataset(
+    {
+        "rms": heat.plasma.analysis.error(heat_kernel, relative=True),
+        "max": heat.plasma.analysis.error(heat_kernel, norm="max", relative=True),
+    }
+)
 fig, ax = plt.subplots(figsize=(7, 3.6), layout="constrained")
 for name, series in errors_hd.items():
     ax.plot(t_hd, series, label=f"relative {name} error")
@@ -955,37 +1217,64 @@ save_fig(fig, "error_in_time.png")
 
 # The Bohm-Gross branch, traced in the dispersion diagram and compared with the theory
 spectrum_bg = plasma_plots.analysis.power_spectrum(dispersive_field)
-traced_bg = spectrum_bg.plasma.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5)).dropna("k")
+traced_bg = spectrum_bg.plasma.analysis.trace_branch(
+    bohm_gross, window=0.2, k_range=(1.5, 5.5)
+).dropna("k")
 save(
     dispersive_field.plasma.plot.dispersion(
-        branches={"Bohm-Gross": bohm_gross}, frequencies={"plasma frequency": 1.0},
-        points={"traced": traced_bg}, kmax=7, omega_max=12,
+        branches={"Bohm-Gross": bohm_gross},
+        frequencies={"plasma frequency": 1.0},
+        points={"traced": traced_bg},
+        kmax=7,
+        omega_max=12,
     ),
     "dispersion_traced.png",
 )
 save(
-    plot_measured_vs_theory(traced_bg.omega, {"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1.0 + 0 * k},
-                            xlabel="$k$", ylabel=r"$\omega$", title="Traced frequencies against theory"),
+    plot_measured_vs_theory(
+        traced_bg.omega,
+        {"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1.0 + 0 * k},
+        xlabel="$k$",
+        ylabel=r"$\omega$",
+        title="Traced frequencies against theory",
+    ),
     "measured_vs_theory.png",
 )
 
 # Magnetic islands: |B| with the flux function's contours, its O- and X-points and the grid
 n_is = 96
-b_is, XI, YI = unit_square(np.zeros((n_is, n_is)), n_is, n_is, scale=(2 * np.pi, 2 * np.pi))
+b_is, XI, YI = unit_square(
+    np.zeros((n_is, n_is)), n_is, n_is, scale=(2 * np.pi, 2 * np.pi)
+)
 flux_exact = -np.cos(YI) - 0.3 * np.cos(XI)
 b_is = xr.DataArray(
-    np.stack([np.sin(YI), -0.3 * np.sin(XI), 0 * XI])[..., None],  # B = (dA/dy, -dA/dx, 0)
+    np.stack([np.sin(YI), -0.3 * np.sin(XI), 0 * XI])[
+        ..., None
+    ],  # B = (dA/dy, -dA/dx, 0)
     dims=("component", "eta1", "eta2", "eta3"),
-    coords={"component": [0, 1, 2], **b_is.coords}, name="B", attrs={"label": "B"},
+    coords={"component": [0, 1, 2], **b_is.coords},
+    name="B",
+    attrs={"label": "B"},
 )
 flux_is = b_is.plasma.analysis.flux_function()
 strength = np.sqrt((b_is**2).sum("component")).rename("absB")
 strength.attrs.update(label="$|B|$")
 save(
     strength.plasma.plot.slice(
-        coords="physical", plane="XY", eta3=0, cmap="magma",
-        overlays={"contours_of": flux_is, "contour_levels": 14, "contour_color": "w", "boundary": True,
-                  "points": {"O-point": (np.pi, np.pi), "X-points": ([0.05, 2 * np.pi - 0.05], [np.pi, np.pi])}},
+        coords="physical",
+        plane="XY",
+        eta3=0,
+        cmap="magma",
+        overlays={
+            "contours_of": flux_is,
+            "contour_levels": 14,
+            "contour_color": "w",
+            "boundary": True,
+            "points": {
+                "O-point": (np.pi, np.pi),
+                "X-points": ([0.05, 2 * np.pi - 0.05], [np.pi, np.pi]),
+            },
+        },
         title="|B| with flux surfaces from flux_function()",
     ),
     "overlay_flux.png",
@@ -995,22 +1284,34 @@ save(
 x_wp = (np.arange(128) + 0.5) / 128
 t_wp = np.linspace(0.0, 1.5, 61)
 packet = field_array(
-    "phi", r"$\phi$", "a.u.",
+    "phi",
+    r"$\phi$",
+    "a.u.",
     np.exp(-((x_wp[None] - 0.2 - 0.4 * t_wp[:, None]) ** 2) / 0.003)
     * np.cos(60 * (x_wp[None] - 0.5 * t_wp[:, None])),
-    ("t", "eta1"), {"t": t_wp, "eta1": x_wp},
+    ("t", "eta1"),
+    {"t": t_wp, "eta1": x_wp},
 )
 save(
     packet.plasma.plot.slice(
-        x="eta1", y="t", cmap="RdBu_r", symmetric=True,
-        overlays={"lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4}, "line_color": "k"},
+        x="eta1",
+        y="t",
+        cmap="RdBu_r",
+        symmetric=True,
+        overlays={
+            "lines": {"group velocity 0.4": lambda x: (x - 0.2) / 0.4},
+            "line_color": "k",
+        },
         title="Wave packet moving at the group velocity",
     ),
     "overlay_spacetime.png",
 )
 
 # Individual guiding-center orbits side by side, with their invariants and bounce periods
-save(orbits_gc.plasma.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_field), "orbit_grid.png")
+save(
+    orbits_gc.plasma.plot.orbit_grid(markers=8, ncols=4, boundary=boundary_field),
+    "orbit_grid.png",
+)
 
 # Selecting data: the ring's last slice and a radial cut from .plasma.data, drawn with plain
 # matplotlib, with the densest point and the ring's extent found on the selected arrays
@@ -1018,17 +1319,27 @@ last = ring.plasma.data.slice(coords="physical", plane="XY", t=-1, eta3=0)
 cut = ring.plasma.data.lineout(x="eta1", t=-1, eta2=0.3, eta3=0)
 radius = 0.1 + 0.9 * cut.eta1
 densest = last.isel(last.argmax(...))
-fig, (ax_map, ax_cut) = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained", width_ratios=(1, 1.2))
+fig, (ax_map, ax_cut) = plt.subplots(
+    1, 2, figsize=(10, 4.2), layout="constrained", width_ratios=(1, 1.2)
+)
 filled = ax_map.contourf(last.X, last.Y, last, levels=12, cmap="viridis")
 ax_map.plot(float(densest.X), float(densest.Y), "w*", ms=12, label="maximum")
 angle = 2 * np.pi * float(cut.eta2)
 ax_map.plot(radius * np.cos(angle), radius * np.sin(angle), "w--", lw=1.2, label="cut")
-ax_map.set(aspect="equal", xlabel="X", ylabel="Y", title="data.slice(...) drawn with contourf")
+ax_map.set(
+    aspect="equal", xlabel="X", ylabel="Y", title="data.slice(...) drawn with contourf"
+)
 ax_map.legend(loc="lower left", fontsize="small", facecolor="0.25", labelcolor="w")
 fig.colorbar(filled, ax=ax_map, label="$n$")
 ax_cut.plot(radius, cut, color="#168aad")
 inside = radius.where(cut >= 0.2)
-ax_cut.axvspan(float(inside.min()), float(inside.max()), color="#f08a4b", alpha=0.25, label="n ≥ 0.2")
+ax_cut.axvspan(
+    float(inside.min()),
+    float(inside.max()),
+    color="#f08a4b",
+    alpha=0.25,
+    label="n ≥ 0.2",
+)
 ax_cut.set(xlabel="r", ylabel="$n$", title="data.lineout(...) along the cut")
 ax_cut.legend(fontsize="small")
 save_fig(fig, "data_selection.png")
@@ -1037,7 +1348,8 @@ save_fig(fig, "data_selection.png")
 # =============================================================================
 # Theory: plasma_plots.theory, the analytic results to compare runs against
 # =============================================================================
-from plasma_plots.theory import exact, kinetic, numerics, orbits, waves  # noqa: E402
+from plasma_plots.theory import (exact, kinetic, numerics,  # noqa: E402
+                                 orbits, waves)
 
 # Landau damping of Langmuir waves: the kinetic root against Bohm-Gross and the weak-damping formula
 k_th = np.linspace(0.1, 0.6, 101)
@@ -1049,7 +1361,12 @@ ax_w.plot(k_th, kinetic.bohm_gross(k_th).real, "--", label="Bohm–Gross")
 ax_w.set(xlabel=r"$k\lambda_D$", ylabel=r"$\omega/\omega_p$", title="Frequency")
 ax_g.semilogy(k_th, -root.imag, label="kinetic root")
 ax_g.semilogy(k_th, -weak.imag, "--", label="weak-damping formula")
-ax_g.set(xlabel=r"$k\lambda_D$", ylabel=r"$-\gamma/\omega_p$", title="Landau damping rate", ylim=(1e-8, 1))
+ax_g.set(
+    xlabel=r"$k\lambda_D$",
+    ylabel=r"$-\gamma/\omega_p$",
+    title="Landau damping rate",
+    ylim=(1e-8, 1),
+)
 for ax in (ax_w, ax_g):
     ax.legend(fontsize="small")
 save_fig(fig, "theory_landau.png")
@@ -1063,11 +1380,17 @@ langmuir_field = np.zeros((t_th.size, n_th))
 for mode in range(1, 11):  # k = 0.1 ... 1
     k_mode = 2 * np.pi * mode / L_th
     w_mode = kinetic.langmuir(k_mode)
-    langmuir_field += np.exp(w_mode.imag * t_th)[:, None] * np.cos(k_mode * x_th[None] - w_mode.real * t_th[:, None])
-e_th = field_array("e1", "$E_x$", "a.u.", langmuir_field, ("t", "eta1"), {"t": t_th, "eta1": x_th})
+    langmuir_field += np.exp(w_mode.imag * t_th)[:, None] * np.cos(
+        k_mode * x_th[None] - w_mode.real * t_th[:, None]
+    )
+e_th = field_array(
+    "e1", "$E_x$", "a.u.", langmuir_field, ("t", "eta1"), {"t": t_th, "eta1": x_th}
+)
 save(
     e_th.plasma.plot.dispersion(
-        branches={"kinetic": kinetic.langmuir, "Bohm–Gross": kinetic.bohm_gross}, kmax=1.1, omega_max=2.5,
+        branches={"kinetic": kinetic.langmuir, "Bohm–Gross": kinetic.bohm_gross},
+        kmax=1.1,
+        omega_max=2.5,
         title="Theory as branches=: Langmuir waves",
     ),
     "theory_dispersion.png",
@@ -1077,17 +1400,43 @@ save(
 k_bot = np.linspace(0.05, 0.5, 120)
 k_ts = np.linspace(0.05, 1.2, 120)
 fig, (ax_e, ax_m) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
-ax_e.plot(k_bot, kinetic.bump_on_tail(k_bot).imag, label="bump-on-tail ($n_b$ = 0.1, $v_b$ = 4.5)")
-ax_e.plot(k_ts, kinetic.two_stream(k_ts, beam_speed=1.0, thermal_speed=0.1).imag, label="two-stream, warm")
-ax_e.plot(k_ts, kinetic.two_stream_cold(k_ts, beam_speed=1.0).imag, "--", label="two-stream, cold")
+ax_e.plot(
+    k_bot,
+    kinetic.bump_on_tail(k_bot).imag,
+    label="bump-on-tail ($n_b$ = 0.1, $v_b$ = 4.5)",
+)
+ax_e.plot(
+    k_ts,
+    kinetic.two_stream(k_ts, beam_speed=1.0, thermal_speed=0.1).imag,
+    label="two-stream, warm",
+)
+ax_e.plot(
+    k_ts,
+    kinetic.two_stream_cold(k_ts, beam_speed=1.0).imag,
+    "--",
+    label="two-stream, cold",
+)
 ax_e.axhline(0, color="k", lw=0.8)
-ax_e.set(xlabel=r"$k\lambda_D$", ylabel=r"$\gamma/\omega_p$", title="Electrostatic instabilities", ylim=(-0.05, 0.4))
+ax_e.set(
+    xlabel=r"$k\lambda_D$",
+    ylabel=r"$\gamma/\omega_p$",
+    title="Electrostatic instabilities",
+    ylim=(-0.05, 0.4),
+)
 k_wb = np.linspace(0.05, 2.2, 120)
 for anisotropy in (2.0, 4.0, 6.0):
-    ax_m.plot(k_wb, kinetic.weibel(k_wb, anisotropy=anisotropy, parallel_thermal_speed=0.1).imag,
-              label=rf"$T_\perp/T_\parallel$ = {anisotropy:g}")
+    ax_m.plot(
+        k_wb,
+        kinetic.weibel(k_wb, anisotropy=anisotropy, parallel_thermal_speed=0.1).imag,
+        label=rf"$T_\perp/T_\parallel$ = {anisotropy:g}",
+    )
 ax_m.axhline(0, color="k", lw=0.8)
-ax_m.set(xlabel=r"$kc/\omega_p$", ylabel=r"$\gamma/\omega_p$", title="Weibel instability", ylim=(-0.02, None))
+ax_m.set(
+    xlabel=r"$kc/\omega_p$",
+    ylabel=r"$\gamma/\omega_p$",
+    title="Weibel instability",
+    ylim=(-0.02, None),
+)
 for ax in (ax_e, ax_m):
     ax.legend(fontsize="small")
 save_fig(fig, "theory_instabilities.png")
@@ -1102,32 +1451,59 @@ for name, style in (("fast", "-"), ("shear Alfvén", "--"), ("slow", ":")):
 ax_f.set_title(r"Phase speeds, $c_s/v_A$ = 0.6 ($\mathbf{B}$ along 0°)")
 ax_f.legend(fontsize="small", loc="lower left", bbox_to_anchor=(-0.15, -0.12))
 ax_c = fig.add_subplot(1, 2, 2)
-plasma = waves.electron_ion(plasma_frequency=1.0, cyclotron_frequency=0.6, mass_ratio=25)
+plasma = waves.electron_ion(
+    plasma_frequency=1.0, cyclotron_frequency=0.6, mass_ratio=25
+)
 k_cp = np.linspace(0.01, 4, 300)
 for name, omega in waves.cold_plasma_waves(k_cp, np.pi / 4, plasma).items():
     ax_c.plot(k_cp, omega.real, label=name)
 ax_c.plot(k_cp, k_cp, "k:", lw=0.8, label=r"$\omega = ck$")
-ax_c.set(xlabel=r"$kc/\omega_{pe}$", ylabel=r"$\omega/\omega_{pe}$", ylim=(0, 3),
-         title=r"Cold plasma at 45°, $m_i/m_e$ = 25")
+ax_c.set(
+    xlabel=r"$kc/\omega_{pe}$",
+    ylabel=r"$\omega/\omega_{pe}$",
+    ylim=(0, 3),
+    title=r"Cold plasma at 45°, $m_i/m_e$ = 25",
+)
 ax_c.legend(fontsize="x-small", ncol=2)
 save_fig(fig, "theory_waves.png")
 
 # Hall MHD along B, and the toroidal Alfvén continuum with its TAE gap
 fig, (ax_h, ax_t) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
 k_h = np.linspace(0.01, 4, 200)
-for name, omega in waves.hall_mhd_parallel(k_h, alfven_speed=1.0, ion_inertial_length=1.0).items():
+for name, omega in waves.hall_mhd_parallel(
+    k_h, alfven_speed=1.0, ion_inertial_length=1.0
+).items():
     ax_h.plot(k_h, omega.real, label=name)
 ax_h.plot(k_h, k_h, "k:", lw=0.8, label=r"ideal MHD, $\omega = kv_A$")
-ax_h.set(xlabel=r"$k d_i$", ylabel=r"$\omega/\Omega_i$", ylim=(0, 6), title="Hall MHD along B")
+ax_h.set(
+    xlabel=r"$k d_i$",
+    ylabel=r"$\omega/\Omega_i$",
+    ylim=(0, 6),
+    title="Hall MHD along B",
+)
 ax_h.legend(fontsize="small")
 r_t = np.linspace(0.05, 1.0, 400)
 R0_t = 5.0
 q_t = lambda r: 1.0 + r**2  # noqa: E731
 for m_t in (1, 2):
-    ax_t.plot(r_t, waves.alfven_continuum(r_t, m=m_t, n=-1, q=q_t, major_radius=R0_t).real * R0_t, label=f"m = {m_t}")
-ax_t.axhline(waves.tae_frequency(1.5, major_radius=R0_t) * R0_t, color="k", lw=0.8, ls="--",
-             label="TAE frequency, q = 1.5")
-ax_t.set(xlabel="r/a", ylabel=r"$\omega R_0/v_A$", ylim=(0, 0.8), title="Alfvén continua, n = −1, q = 1 + r²")
+    ax_t.plot(
+        r_t,
+        waves.alfven_continuum(r_t, m=m_t, n=-1, q=q_t, major_radius=R0_t).real * R0_t,
+        label=f"m = {m_t}",
+    )
+ax_t.axhline(
+    waves.tae_frequency(1.5, major_radius=R0_t) * R0_t,
+    color="k",
+    lw=0.8,
+    ls="--",
+    label="TAE frequency, q = 1.5",
+)
+ax_t.set(
+    xlabel="r/a",
+    ylabel=r"$\omega R_0/v_A$",
+    ylim=(0, 0.8),
+    title="Alfvén continua, n = −1, q = 1 + r²",
+)
 ax_t.legend(fontsize="x-small")
 save_fig(fig, "theory_continuum.png")
 
@@ -1135,9 +1511,18 @@ save_fig(fig, "theory_continuum.png")
 ky_hw = np.linspace(0.05, 3, 200)
 fig, ax = plt.subplots(figsize=(6.5, 3.8), layout="constrained")
 for alpha in (0.1, 1.0, 5.0):
-    ax.plot(ky_hw, waves.hasegawa_wakatani(ky_hw, adiabaticity=alpha, gradient=1.0)["drift wave"].imag,
-            label=rf"$\alpha$ = {alpha:g}")
-ax.set(xlabel=r"$k_y\rho_s$", ylabel=r"$\gamma/\Omega_i$", title=r"Hasegawa–Wakatani drift waves, $\kappa$ = 1")
+    ax.plot(
+        ky_hw,
+        waves.hasegawa_wakatani(ky_hw, adiabaticity=alpha, gradient=1.0)[
+            "drift wave"
+        ].imag,
+        label=rf"$\alpha$ = {alpha:g}",
+    )
+ax.set(
+    xlabel=r"$k_y\rho_s$",
+    ylabel=r"$\gamma/\Omega_i$",
+    title=r"Hasegawa–Wakatani drift waves, $\kappa$ = 1",
+)
 ax.legend(fontsize="small")
 save_fig(fig, "theory_drift_waves.png")
 
@@ -1145,14 +1530,26 @@ save_fig(fig, "theory_drift_waves.png")
 fig, (ax_ft, ax_b) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
 eps_t = np.linspace(0.0, 0.5, 101)
 for approximation, style in (("exact", "-"), ("lin-liu", "--"), ("sqrt", ":")):
-    ax_ft.plot(eps_t, orbits.trapped_fraction(eps_t, approximation=approximation), style, label=approximation)
-ax_ft.set(xlabel=r"$\varepsilon = r/R_0$", ylabel="trapped fraction", title="Trapped particles")
+    ax_ft.plot(
+        eps_t,
+        orbits.trapped_fraction(eps_t, approximation=approximation),
+        style,
+        label=approximation,
+    )
+ax_ft.set(
+    xlabel=r"$\varepsilon = r/R_0$",
+    ylabel="trapped fraction",
+    title="Trapped particles",
+)
 ax_ft.legend(fontsize="small")
 kappa2 = np.linspace(0.0, 0.999, 300)
 deep = orbits.bounce_frequency(1.0, 0.0, 0.1, 2.0, 1.0)
 ax_b.plot(kappa2, orbits.bounce_frequency(1.0, kappa2, 0.1, 2.0, 1.0) / deep)
-ax_b.set(xlabel=r"$\kappa^2$ (0: deeply trapped, 1: trapped-passing boundary)", ylabel=r"$\omega_b/\omega_b(\kappa^2=0)$",
-         title="Bounce frequency")
+ax_b.set(
+    xlabel=r"$\kappa^2$ (0: deeply trapped, 1: trapped-passing boundary)",
+    ylabel=r"$\omega_b/\omega_b(\kappa^2=0)$",
+    title="Bounce frequency",
+)
 save_fig(fig, "theory_orbits.png")
 
 # Exact solutions: the Sod shock tube and a dam break
@@ -1176,12 +1573,24 @@ fig, (ax_p, ax_sp) = plt.subplots(1, 2, figsize=(10, 3.8), layout="constrained")
 wdt = np.logspace(-2, 0, 100)
 for method in ("explicit_euler", "implicit_midpoint", "stormer_verlet", "rk2", "rk4"):
     ax_p.loglog(wdt, np.abs(numerics.phase_error(wdt, method)), label=method)
-ax_p.set(xlabel=r"$\omega\,\Delta t$", ylabel="|relative frequency error|", title="Time integrators")
+ax_p.set(
+    xlabel=r"$\omega\,\Delta t$",
+    ylabel="|relative frequency error|",
+    title="Time integrators",
+)
 ax_p.legend(fontsize="small")
 kdx = np.linspace(0.01, np.pi, 200)
 for degree in (1, 2, 3, 4):
-    ax_sp.plot(kdx, numerics.spline_galerkin_dispersion(kdx, 1.0, degree).real / kdx, label=f"degree {degree}")
-ax_sp.set(xlabel=r"$k\Delta x$", ylabel=r"$\omega_{num}/(ck)$", title="Numerical dispersion of the wave equation")
+    ax_sp.plot(
+        kdx,
+        numerics.spline_galerkin_dispersion(kdx, 1.0, degree).real / kdx,
+        label=f"degree {degree}",
+    )
+ax_sp.set(
+    xlabel=r"$k\Delta x$",
+    ylabel=r"$\omega_{num}/(ck)$",
+    title="Numerical dispersion of the wave equation",
+)
 ax_sp.legend(fontsize="small")
 save_fig(fig, "theory_numerics.png")
 
@@ -1199,7 +1608,7 @@ try:
     import pyvista as pv
 
     from plasma_plots.plotting import (plot_equilibrium_profile,
-                                        show_equilibrium)
+                                       show_equilibrium)
 
     pv.OFF_SCREEN = True
 
@@ -1281,7 +1690,9 @@ try:
             try:
                 plotter.trame.export_html(str(html))
                 print(f"wrote {html}")
-            except Exception as exc:  # optional: needs trame-pyvista (see .github/workflows/docs.yml)
+            except (
+                Exception
+            ) as exc:  # optional: needs trame-pyvista (see .github/workflows/docs.yml)
                 print(f"skipped {html.name} (interactive export unavailable): {exc}")
         plotter.close()
 
@@ -1297,7 +1708,9 @@ try:
     t1, t2, t3 = np.linspace(0, 1, 32), np.linspace(0, 1, 64), np.linspace(0, 1, 96)
     TX, TY, TZ = torus_mapping(t1, t2, t3)
     torus = {
-        "eta1": t1, "eta2": t2, "eta3": t3,
+        "eta1": t1,
+        "eta2": t2,
+        "eta3": t3,
         **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (TX, TY, TZ))},
     }
     TR = 0.1 + 0.9 * t1[:, None, None]
@@ -1305,24 +1718,40 @@ try:
     t_mode = np.linspace(0.0, 1.0, 16, endpoint=False)
     mode = xr.DataArray(
         np.stack(
-            [np.sin(np.pi * TR) ** 2 * np.cos(3 * TTH - 2 * TPH - 2 * np.pi * ti) + 0 * TX for ti in t_mode]
+            [
+                np.sin(np.pi * TR) ** 2 * np.cos(3 * TTH - 2 * TPH - 2 * np.pi * ti)
+                + 0 * TX
+                for ti in t_mode
+            ]
         ),
         dims=("t", "eta1", "eta2", "eta3"),
         coords={"t": t_mode, **torus},
         name="phi",
         attrs={"label": "phi"},
     )
-    shot(mode.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0), "3d_isosurface.png", zoom=1.3)
     shot(
-        mode.plasma.plot.slices_3d(cuts={"eta3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0),
+        mode.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0),
+        "3d_isosurface.png",
+        zoom=1.3,
+    )
+    shot(
+        mode.plasma.plot.slices_3d(
+            cuts={"eta3": [0.0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0
+        ),
         "3d_slices.png",
         zoom=1.3,
     )
-    shot(mode.plasma.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0), "3d_flux_surface.png", zoom=1.3)
+    shot(
+        mode.plasma.plot.slices_3d(cuts={"eta1": 0.5}, cmap="RdBu_r", t=0),
+        "3d_flux_surface.png",
+        zoom=1.3,
+    )
 
     TRR = np.hypot(TX, TY)
     e_phi = np.stack([-TY / TRR, TX / TRR, 0 * TRR])
-    e_theta = np.stack([-np.sin(TTH) * TX / TRR, -np.sin(TTH) * TY / TRR, np.cos(TTH) + 0 * TX])
+    e_theta = np.stack(
+        [-np.sin(TTH) * TX / TRR, -np.sin(TTH) * TY / TRR, np.cos(TTH) + 0 * TX]
+    )
     b_field = xr.DataArray(
         3.0 / TRR * e_phi + 3.0 * TR / ((1.2 + TR**2) * TRR) * e_theta,
         dims=("component", "eta1", "eta2", "eta3"),
@@ -1331,23 +1760,38 @@ try:
         attrs={"label": "B"},
     )
     shot(
-        b_field.plasma.plot.streamlines(n_points=60, source_center=(3.5, 0, 0), source_radius=0.35),
+        b_field.plasma.plot.streamlines(
+            n_points=60, source_center=(3.5, 0, 0), source_radius=0.35
+        ),
         "3d_streamlines.png",
         zoom=1.3,
     )
-    shot(b_field.isel(eta1=[24]).plasma.plot.glyphs(stride=3, scale=0.5), "3d_glyphs.png", zoom=1.3)
+    shot(
+        b_field.isel(eta1=[24]).plasma.plot.glyphs(stride=3, scale=0.5),
+        "3d_glyphs.png",
+        zoom=1.3,
+    )
+
     def solid_torus(eta1, eta2, eta3, squeeze_out=False):
         """A torus with a polar axis at eta1 = 0, as in most tokamak runs."""
         E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
         theta, phi_ = 2 * np.pi * E2, 2 * np.pi * E3
-        return (3.0 + E1 * np.cos(theta)) * np.cos(phi_), (3.0 + E1 * np.cos(theta)) * np.sin(phi_), E1 * np.sin(theta)
+        return (
+            (3.0 + E1 * np.cos(theta)) * np.cos(phi_),
+            (3.0 + E1 * np.cos(theta)) * np.sin(phi_),
+            E1 * np.sin(theta),
+        )
 
     shot(p3.pyvista_domain(solid_torus, n1=6, n2=24, n3=36), "3d_domain.png", zoom=1.3)
 
     # guiding-center-like orbits: passing markers circle the torus, trapped ones bounce
     rng3 = np.random.default_rng(3)
     n_orb, t_orb = 40, np.linspace(0, 40, 240)[:, None]
-    r0, th0, ph0 = rng3.uniform(0.2, 0.8, n_orb), rng3.uniform(0, 2 * np.pi, n_orb), rng3.uniform(0, 2 * np.pi, n_orb)
+    r0, th0, ph0 = (
+        rng3.uniform(0.2, 0.8, n_orb),
+        rng3.uniform(0, 2 * np.pi, n_orb),
+        rng3.uniform(0, 2 * np.pi, n_orb),
+    )
     trapped3 = rng3.random(n_orb) < 0.4
     bounce = 0.25 * t_orb + th0
     v_par3 = np.where(trapped3, np.cos(bounce), 1.0 + 0 * t_orb)
@@ -1358,7 +1802,10 @@ try:
     for arr in (xo3, yo3, zo3, v_par3):
         arr[150:, :2] = 0.0  # two markers leave the domain
     orbits3 = xr.Dataset(
-        {n: (("t", "marker"), a) for n, a in zip(("x", "y", "z", "v_par"), (xo3, yo3, zo3, v_par3))},
+        {
+            n: (("t", "marker"), a)
+            for n, a in zip(("x", "y", "z", "v_par"), (xo3, yo3, zo3, v_par3))
+        },
         coords={"t": t_orb[:, 0], "marker": np.arange(n_orb)},
     )
     shot(
@@ -1373,35 +1820,60 @@ try:
     CR, CTH = 0.05 + 0.95 * C1, 2 * np.pi * C2
     CX, CY = CR * np.cos(CTH), CR * np.sin(CTH)
     cyl = {
-        "eta1": c1, "eta2": c2, "eta3": c3,
+        "eta1": c1,
+        "eta2": c2,
+        "eta3": c3,
         **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (CX, CY, 0 * CX))},
     }
     t_2d = np.linspace(0.0, 1.0, 16, endpoint=False)
     phi_2d = xr.DataArray(
-        np.stack([np.sin(np.pi * CR) * np.cos(3 * CTH - 2 * np.pi * ti) for ti in t_2d]),
+        np.stack(
+            [np.sin(np.pi * CR) * np.cos(3 * CTH - 2 * np.pi * ti) for ti in t_2d]
+        ),
         dims=("t", "eta1", "eta2", "eta3"),
         coords={"t": t_2d, **cyl},
         name="phi",
         attrs={"label": "phi"},
     )
-    shot(phi_2d.plasma.plot.isosurface(values=7, cmap="RdBu_r", t=0), "2d_isosurface.png", iso=False, interactive=False)
+    shot(
+        phi_2d.plasma.plot.isosurface(values=7, cmap="RdBu_r", t=0),
+        "2d_isosurface.png",
+        iso=False,
+        interactive=False,
+    )
     flow_2d = xr.DataArray(
         np.stack([-CY * np.exp(-2 * CR**2), CX * np.exp(-2 * CR**2), 0 * CX])
-        + 0.15 * np.stack([np.cos(3 * CTH), np.sin(3 * CTH), 0 * CX]) * np.sin(np.pi * CR),
+        + 0.15
+        * np.stack([np.cos(3 * CTH), np.sin(3 * CTH), 0 * CX])
+        * np.sin(np.pi * CR),
         dims=("component", "eta1", "eta2", "eta3"),
         coords={"component": [0, 1, 2], **cyl},
         name="u",
         attrs={"label": "u"},
     )
-    shot(flow_2d.plasma.plot.streamlines(n_points=80), "2d_streamlines.png", iso=False, interactive=False)
+    shot(
+        flow_2d.plasma.plot.streamlines(n_points=80),
+        "2d_streamlines.png",
+        iso=False,
+        interactive=False,
+    )
 
     # GIFs go to public/ so Astro keeps them animated (see PUBLIC_OUT above)
     for movie_data, kind, options, filename in (
-        (mode, "slices", {"cuts": {"eta3": [0.0, 0.25, 0.5, 0.75]}, "cmap": "RdBu_r"}, "3d_slices.gif"),
+        (
+            mode,
+            "slices",
+            {"cuts": {"eta3": [0.0, 0.25, 0.5, 0.75]}, "cmap": "RdBu_r"},
+            "3d_slices.gif",
+        ),
         (phi_2d, "isosurface", {"values": 7, "cmap": "RdBu_r"}, "2d_isosurface.gif"),
     ):
         path = movie_data.plasma.plot.movie(
-            PUBLIC_OUT / filename, kind=kind, framerate=8, window_size=(800, 560), **options
+            PUBLIC_OUT / filename,
+            kind=kind,
+            framerate=8,
+            window_size=(800, 560),
+            **options,
         )
         print(f"wrote {path}")
     # The filtered TAE from the spectral-analysis section, in its torus sector
@@ -1412,9 +1884,17 @@ try:
         "Z": (("eta1", "eta2", "eta3"), r_tae * np.sin(2 * np.pi * S2)),
     }
     tae_3d = band_tae.filtered.isel(t=-1).assign_coords(sector)
-    shot(tae_3d.plasma.plot.slices_3d(cuts={"eta3": [0.0, 0.5, 1.0], "eta1": 0.44}, cmap="RdBu_r"), "spectral_tae_3d.png", zoom=1.2)
+    shot(
+        tae_3d.plasma.plot.slices_3d(
+            cuts={"eta3": [0.0, 0.5, 1.0], "eta1": 0.44}, cmap="RdBu_r"
+        ),
+        "spectral_tae_3d.png",
+        zoom=1.2,
+    )
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped 3-D view figures (PyVista unavailable or headless rendering failed): {exc}")
+    print(
+        f"skipped 3-D view figures (PyVista unavailable or headless rendering failed): {exc}"
+    )
 
 
 # =============================================================================
@@ -1483,40 +1963,111 @@ try:
         path = result.save(PLOTLY_OUT / f"{filename}.json")
         print(f"wrote {path}")
 
-    save_plotly(field.plasma.plot.slice(x="eta1", y="eta2", t=-1, backend="plotly"), "plotly_view_slice")
-    save_plotly(vector.plasma.plot.vector(x="eta1", y="eta2", components=(0, 1), stride=6, t=-1, backend="plotly"),
-                "plotly_vector")
-    save_plotly(volume_data.plasma.plot.volume_slices(backend="plotly"), "plotly_volume_slices")
-    save_plotly(energy.plasma.plot.timeseries(fit=(0.0, 2.0), title="Field energy growth", backend="plotly"),
-                "plotly_timeseries")
+    save_plotly(
+        field.plasma.plot.slice(x="eta1", y="eta2", t=-1, backend="plotly"),
+        "plotly_view_slice",
+    )
+    save_plotly(
+        vector.plasma.plot.vector(
+            x="eta1", y="eta2", components=(0, 1), stride=6, t=-1, backend="plotly"
+        ),
+        "plotly_vector",
+    )
+    save_plotly(
+        volume_data.plasma.plot.volume_slices(backend="plotly"), "plotly_volume_slices"
+    )
+    save_plotly(
+        energy.plasma.plot.timeseries(
+            fit=(0.0, 2.0), title="Field energy growth", backend="plotly"
+        ),
+        "plotly_timeseries",
+    )
     with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as composed:
         energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=composed[0])
         total.plasma.analysis.drift().plasma.plot.timeseries(logy=False, ax=composed[1])
     save_plotly(composed, "plotly_composed_energies")
-    save_plotly(run_a.plasma.plot.compare(run_b, mode="ratio", backend="plotly"), "plotly_compare")
-    save_plotly(distribution.plasma.plot.slice(x="eta1", y="v1", t=-1, backend="plotly"), "plotly_phase_space")
-    save_plotly(marker_orbits.plasma.plot.trajectories(show_paths=True, backend="plotly"), "plotly_trajectories")
-    save_plotly(cloud.plasma.plot.scatter(x="x", y="y", color="density", backend="plotly"), "plotly_scatter")
-    save_plotly(well.plasma.plot.overlay_orbits(confined_orbits, x="eta1", y="eta2", backend="plotly"),
-                "plotly_overlay_orbits")
-    save_plotly(dispersive_field.plasma.plot.dispersion(branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12,
-                                                         backend="plotly"), "plotly_dispersion")
-    save_plotly(light_spectrum.plasma.plot.dispersion(kmin=0, branches={"light, ω = k": lambda k: k}, fits=light_fits,
-                                                       dynamic_range=12, omega_max=25, backend="plotly"), "plotly_dispersion_fits")
-    save_plotly(heat.plasma.plot.line_animation(reference={"exact": heat_kernel},
-                                                  alongside=[[peak_hd, exact_peak_hd]], step=2, backend="plotly"),
-                "plotly_line_animation_companions")
-    save_plotly(orbits_gc.plasma.plot.animation(**orbit_movie, backend="plotly"), "plotly_orbits_animation")
+    save_plotly(
+        run_a.plasma.plot.compare(run_b, mode="ratio", backend="plotly"),
+        "plotly_compare",
+    )
+    save_plotly(
+        distribution.plasma.plot.slice(x="eta1", y="v1", t=-1, backend="plotly"),
+        "plotly_phase_space",
+    )
+    save_plotly(
+        marker_orbits.plasma.plot.trajectories(show_paths=True, backend="plotly"),
+        "plotly_trajectories",
+    )
+    save_plotly(
+        cloud.plasma.plot.scatter(x="x", y="y", color="density", backend="plotly"),
+        "plotly_scatter",
+    )
+    save_plotly(
+        well.plasma.plot.overlay_orbits(
+            confined_orbits, x="eta1", y="eta2", backend="plotly"
+        ),
+        "plotly_overlay_orbits",
+    )
+    save_plotly(
+        dispersive_field.plasma.plot.dispersion(
+            branches={"Bohm-Gross": bohm_gross}, kmax=7, omega_max=12, backend="plotly"
+        ),
+        "plotly_dispersion",
+    )
+    save_plotly(
+        light_spectrum.plasma.plot.dispersion(
+            kmin=0,
+            branches={"light, ω = k": lambda k: k},
+            fits=light_fits,
+            dynamic_range=12,
+            omega_max=25,
+            backend="plotly",
+        ),
+        "plotly_dispersion_fits",
+    )
+    save_plotly(
+        heat.plasma.plot.line_animation(
+            reference={"exact": heat_kernel},
+            alongside=[[peak_hd, exact_peak_hd]],
+            step=2,
+            backend="plotly",
+        ),
+        "plotly_line_animation_companions",
+    )
+    save_plotly(
+        orbits_gc.plasma.plot.animation(**orbit_movie, backend="plotly"),
+        "plotly_orbits_animation",
+    )
     # the Plotly guide
-    save_plotly(ring.plasma.plot.slice(coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"),
-                "plotly_ring_slice")
-    save_plotly(ring.plasma.plot.animation(coords="physical", plane="XY", eta3=0, levels=[0.2], step=4,
-                                            backend="plotly"), "plotly_ring_animation")
-    save_plotly(phi_tae.plasma.plot.power_spectrum(peaks=2, band=band_tae, frequencies={"TAE gap-centre estimate":
-                                                    omega_tae}, omega_max=0.5, backend="plotly"),
-                "plotly_spectral_power")
+    save_plotly(
+        ring.plasma.plot.slice(
+            coords="physical", plane="XY", t=-1, eta3=0, levels=[0.2], backend="plotly"
+        ),
+        "plotly_ring_slice",
+    )
+    save_plotly(
+        ring.plasma.plot.animation(
+            coords="physical",
+            plane="XY",
+            eta3=0,
+            levels=[0.2],
+            step=4,
+            backend="plotly",
+        ),
+        "plotly_ring_animation",
+    )
+    save_plotly(
+        phi_tae.plasma.plot.power_spectrum(
+            peaks=2,
+            band=band_tae,
+            frequencies={"TAE gap-centre estimate": omega_tae},
+            omega_max=0.5,
+            backend="plotly",
+        ),
+        "plotly_spectral_power",
+    )
 except ImportError as exc:  # pragma: no cover - optional, environment-dependent
-    print(f"skipped the backend=\"plotly\" figures (plotly unavailable): {exc}")
+    print(f'skipped the backend="plotly" figures (plotly unavailable): {exc}')
 
 # =============================================================================
 # The command line: plasma-plots plot / movie on a netCDF file
@@ -1536,18 +2087,56 @@ xr.Dataset(
     {
         "phi": (
             ("t", "eta1", "eta2", "eta3"),
-            (np.exp(0.3 * _T) * np.sin(np.pi * _E1) * np.cos(2 * np.pi * (3 * _E2 - 0.5 * _T)))[..., None],
+            (
+                np.exp(0.3 * _T)
+                * np.sin(np.pi * _E1)
+                * np.cos(2 * np.pi * (3 * _E2 - 0.5 * _T))
+            )[..., None],
             {"label": r"$\phi$", "units": "V"},
         ),
-        "energy": ("t", np.exp(0.6 * _cli_t) * (1 + 0.3 * np.cos(6 * _cli_t)), {"label": "field energy", "units": "J"}),
+        "energy": (
+            "t",
+            np.exp(0.6 * _cli_t) * (1 + 0.3 * np.cos(6 * _cli_t)),
+            {"label": "field energy", "units": "J"},
+        ),
     },
-    coords={"t": ("t", _cli_t, {"units": "s"}), "eta1": _cli_e1, "eta2": _cli_e2, "eta3": [0.0]},
+    coords={
+        "t": ("t", _cli_t, {"units": "s"}),
+        "eta1": _cli_e1,
+        "eta2": _cli_e2,
+        "eta3": [0.0],
+    },
 ).to_netcdf(_cli_dir / "run.nc")
 _cli_run = str(_cli_dir / "run.nc")
 for _argv in (
-    ["plot", _cli_run, "phi", "slice", "t=-1", "eta3=0", "-o", str(OUT / "cli_slice.png")],
-    ["plot", _cli_run, "energy", "timeseries", "fit=[1,4]", "-o", str(OUT / "cli_timeseries.png")],
-    ["movie", _cli_run, "phi", "eta3=0", "step=2", "-o", str(PUBLIC_OUT / "cli_movie.gif")],
+    [
+        "plot",
+        _cli_run,
+        "phi",
+        "slice",
+        "t=-1",
+        "eta3=0",
+        "-o",
+        str(OUT / "cli_slice.png"),
+    ],
+    [
+        "plot",
+        _cli_run,
+        "energy",
+        "timeseries",
+        "fit=[1,4]",
+        "-o",
+        str(OUT / "cli_timeseries.png"),
+    ],
+    [
+        "movie",
+        _cli_run,
+        "phi",
+        "eta3=0",
+        "step=2",
+        "-o",
+        str(PUBLIC_OUT / "cli_movie.gif"),
+    ],
 ):
     if _cli_main(_argv) != 0:
         raise RuntimeError(f"plasma-plots {' '.join(_argv)} failed")

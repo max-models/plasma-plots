@@ -10,14 +10,14 @@ matplotlib.use("Agg")
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
+from struphy.post_processing.output import Output  # noqa: E402
+from struphy.post_processing.tests.test_output import (  # noqa: E402
+    write_manifest, write_tree)
 
 import plasma_plots  # noqa: F401, E402
 from plasma_plots.analysis import damping_rate, envelope, growth_rate, norm
 from plasma_plots.output_accessors import OutputPlots
 from plasma_plots.plotting import save_all_scalars
-from struphy.post_processing.output import Output  # noqa: E402
-from struphy.post_processing.tests.test_output import (  # noqa: E402
-    write_manifest, write_tree)
 
 RATE = 2.0
 

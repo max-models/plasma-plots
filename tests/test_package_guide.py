@@ -59,7 +59,7 @@ def test_every_method_the_guide_names_exists():
 
 def test_python_m_prints_the_guide():
     result = subprocess.run(
-        [sys.executable, "-m", "plasma_plots"],
+        [sys.executable, "-m", "plasma_plots", "guide"],
         capture_output=True,
         text=True,
         check=True,

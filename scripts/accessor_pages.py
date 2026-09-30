@@ -35,7 +35,10 @@ PAGES = {
         "Plots of one labeled `xarray.DataArray`, as `array.plasma.plot.<method>(...)`. Each method selects the "
         "dimensions it doesn't draw by keyword (an integer is a position, `t=-1` the last; a float the nearest "
         "value), draws, and returns a `PlotResult` (or an animation or a PyVista plotter).",
-        [("accessors.ArrayPlots", "array.plasma.plot"), ("accessors.SliceView", "SliceView, returned by plot.view()")],
+        [
+            ("accessors.ArrayPlots", "array.plasma.plot"),
+            ("accessors.SliceView", "SliceView, returned by plot.view()"),
+        ],
     ),
     "analysis": (
         "array.plasma.analysis",
@@ -56,16 +59,22 @@ PAGES = {
         "dataset.plasma",
         "Plots, diagnostics and data of marker Datasets such as orbits.",
         "Plots, diagnostics and data of an `xarray.Dataset` with per-marker variables, such as an orbits product.",
-        [("accessors.DatasetPlots", "dataset.plasma.plot"), ("accessors.DatasetAnalysis", "dataset.plasma.analysis"),
-         ("accessors.DatasetData", "dataset.plasma.data")],
+        [
+            ("accessors.DatasetPlots", "dataset.plasma.plot"),
+            ("accessors.DatasetAnalysis", "dataset.plasma.analysis"),
+            ("accessors.DatasetData", "dataset.plasma.data"),
+        ],
     ),
     "output": (
         "out.plot and out.analysis",
         "Whole-run plots and diagnostics of a Struphy Output.",
         "Plots and diagnostics of a whole run, on a Struphy `Output` object. `out.plot()` on its own draws the "
         "scalar overview.",
-        [("output_accessors.OutputPlots", "out.plot"), ("output_accessors.ProfilePlots", "out.plot.profile"),
-         ("output_accessors.OutputAnalysis", "out.analysis")],
+        [
+            ("output_accessors.OutputPlots", "out.plot"),
+            ("output_accessors.ProfilePlots", "out.plot.profile"),
+            ("output_accessors.OutputAnalysis", "out.analysis"),
+        ],
     ),
 }
 
@@ -80,8 +89,13 @@ def _mdx_text(text: str) -> str:
 
 def methods(cls):
     """Public methods and properties of a class, in source order."""
-    members = [m for name, m in cls.members.items()
-               if not name.startswith("_") and not m.is_alias and (m.is_function or "property" in m.labels)]
+    members = [
+        m
+        for name, m in cls.members.items()
+        if not name.startswith("_")
+        and not m.is_alias
+        and (m.is_function or "property" in m.labels)
+    ]
     return sorted(members, key=lambda m: m.lineno or 0)
 
 
@@ -122,7 +136,9 @@ def render(package, slug) -> str:
 
 
 def main():
-    package = griffe.load("plasma_plots", search_paths=[str(ROOT / "src")], docstring_parser="numpy")
+    package = griffe.load(
+        "plasma_plots", search_paths=[str(ROOT / "src")], docstring_parser="numpy"
+    )
     stale = []
     for slug in PAGES:
         path = OUT / f"{slug}.mdx"
@@ -134,7 +150,9 @@ def main():
             path.write_text(text)
             print(f"wrote {path.relative_to(ROOT)}")
     if stale:
-        print("out of date (run python scripts/accessor_pages.py):\n" + "\n".join(stale))
+        print(
+            "out of date (run python scripts/accessor_pages.py):\n" + "\n".join(stale)
+        )
         sys.exit(1)
 
 

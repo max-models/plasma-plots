@@ -336,8 +336,9 @@ def test_power_spectrum_plot_shows_complex_coefficients_as_power():
 
 
 def test_output_accessors_never_replace_an_existing_attribute(monkeypatch):
-    from plasma_plots import output_accessors
     from struphy.post_processing.output import Output
+
+    from plasma_plots import output_accessors
 
     sentinel = object()
     monkeypatch.setattr(Output, "analysis", sentinel, raising=False)

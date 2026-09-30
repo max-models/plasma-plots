@@ -18,8 +18,8 @@ import pytest  # noqa: E402
 import xarray as xr  # noqa: E402
 
 import plasma_plots  # noqa: E402
-from plasma_plots.analysis import (rational_surfaces,  # noqa: E402
-                                   surface_average, volume_integral)
+from plasma_plots.analysis import rational_surfaces  # noqa: E402
+from plasma_plots.analysis import surface_average, volume_integral
 from plasma_plots.arrays import angle_period, logical_dims  # noqa: E402
 from plasma_plots.gvec import from_gvec, is_gvec  # noqa: E402
 

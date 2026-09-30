@@ -16,9 +16,10 @@ from matplotlib.animation import FuncAnimation  # noqa: E402
 import plasma_plots  # noqa: E402, F401
 from plasma_plots import analysis as an  # noqa: E402
 from plasma_plots.analysis import power_spectrum  # noqa: E402
-from plasma_plots.plotting import (animate_lines, plot_lineout,  # noqa: E402
-                                   plot_measured_vs_theory, plot_orbit_grid,
-                                   plot_profiles, plot_timeseries)
+from plasma_plots.plotting import plot_lineout  # noqa: E402
+from plasma_plots.plotting import (animate_lines, plot_measured_vs_theory,
+                                   plot_orbit_grid, plot_profiles,
+                                   plot_timeseries)
 from plasma_plots.spectral import trace_branch  # noqa: E402
 
 R0 = 3.0

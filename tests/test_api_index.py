@@ -43,6 +43,7 @@ def test_the_command_line_prints_the_guide_and_the_index():
     run = lambda *args: subprocess.run(
         [sys.executable, "-m", "plasma_plots", *args], capture_output=True, text=True
     )
-    assert run().stdout.startswith("Plots and diagnostics")
+    assert run().stdout.startswith("usage: plasma-plots")
+    assert run("guide").stdout.startswith("Plots and diagnostics")
     assert run("api").stdout == api_index()
     assert run("nonsense").returncode == 2

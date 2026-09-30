@@ -16,8 +16,8 @@ go = pytest.importorskip("plotly.graph_objects")
 import plasma_plots  # noqa: E402
 from plasma_plots import accessors, output_accessors  # noqa: E402
 from plasma_plots.mpi import SkippedPlot  # noqa: E402
-from plasma_plots.plotly_backend import (ConversionWarning,  # noqa: E402
-                                         plotly_text, to_plotly)
+from plasma_plots.plotly_backend import ConversionWarning  # noqa: E402
+from plasma_plots.plotly_backend import plotly_text, to_plotly
 from plasma_plots.plotting import PlotResult, plot_slice  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:The input coordinates to pcolormesh")

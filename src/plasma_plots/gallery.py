@@ -26,9 +26,10 @@ import numpy as np
 import plotly.graph_objects as go
 
 try:
-    from struphy import set_logging_level as _set_logging_level
     from struphy.utils.mpi_launch import \
         launched_under_mpi as _launched_under_mpi
+
+    from struphy import set_logging_level as _set_logging_level
 except (
     ImportError
 ):  # the figure helpers work without struphy; the example scripts always have it
