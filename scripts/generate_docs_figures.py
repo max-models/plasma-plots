@@ -516,8 +516,8 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 # frequency and grow slowly; a continuum-damped m = 10 oscillation sits at r = 0.8.
 # =============================================================================
 from plasma_plots import spectral_plots as spp  # noqa: E402
-from plasma_plots.spectral import (cross_spectrum, filter_time,  # noqa: E402
-                                   matrix_pencil)
+from plasma_plots.spectral import filter_time  # noqa: E402
+from plasma_plots.spectral import cross_spectrum, matrix_pencil
 
 R0_tae, B0_tae, n_tae = 10.0, 3.0, 6
 
