@@ -1,0 +1,90 @@
+---
+title: "out.plot and out.analysis"
+description: "Whole-run plots and diagnostics of a Struphy Output."
+sidebar:
+  order: 5
+---
+
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Plots and diagnostics of a whole run, on a Struphy `Output` object. `out.plot()` on its own draws the scalar overview.
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads plasma-plots and its
+`.plasma` accessors. For other xarray data, run `import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## out.plot
+
+Plots of a whole run, as `out.plot.<kind>(...)`, constructed as `OutputPlots(out)`.
+
+### `scalars`
+
+<Autodoc name="plasma_plots.output_accessors.OutputPlots.scalars" package="plasma_plots" headingLevel={3} />
+
+### `energies`
+
+<Autodoc name="plasma_plots.output_accessors.OutputPlots.energies" package="plasma_plots" headingLevel={3} />
+
+### `equilibrium`
+
+<Autodoc name="plasma_plots.output_accessors.OutputPlots.equilibrium" package="plasma_plots" headingLevel={3} />
+
+### `equilibrium_3d`
+
+<Autodoc name="plasma_plots.output_accessors.OutputPlots.equilibrium_3d" package="plasma_plots" headingLevel={3} />
+
+### `domain_3d`
+
+<Autodoc name="plasma_plots.output_accessors.OutputPlots.domain_3d" package="plasma_plots" headingLevel={3} />
+
+### `profile`
+
+<Autodoc name="plasma_plots.output_accessors.OutputPlots.profile" package="plasma_plots" headingLevel={3} />
+
+## out.plot.profile
+
+Plots of one run's timing regions (`out.profile.results`), as `out.plot.profile.<kind>(...)`.
+
+### `gantt`
+
+<Autodoc name="plasma_plots.output_accessors.ProfilePlots.gantt" package="plasma_plots" headingLevel={3} />
+
+### `flame`
+
+<Autodoc name="plasma_plots.output_accessors.ProfilePlots.flame" package="plasma_plots" headingLevel={3} />
+
+### `callgraph`
+
+<Autodoc name="plasma_plots.output_accessors.ProfilePlots.callgraph" package="plasma_plots" headingLevel={3} />
+
+## out.analysis
+
+Spectral diagnostics of a run's products, as `out.analysis.<kind>(product, ...)`.
+
+### `fft`
+
+<Autodoc name="plasma_plots.output_accessors.OutputAnalysis.fft" package="plasma_plots" headingLevel={3} />
+
+### `time_fft`
+
+<Autodoc name="plasma_plots.output_accessors.OutputAnalysis.time_fft" package="plasma_plots" headingLevel={3} />
+
+### `filter_time`
+
+<Autodoc name="plasma_plots.output_accessors.OutputAnalysis.filter_time" package="plasma_plots" headingLevel={3} />
+
+### `linear_mhd_energies`
+
+<Autodoc name="plasma_plots.output_accessors.OutputAnalysis.linear_mhd_energies" package="plasma_plots" headingLevel={3} />
+
+### `quadrature_grid`
+
+<Autodoc name="plasma_plots.output_accessors.OutputAnalysis.quadrature_grid" package="plasma_plots" headingLevel={3} />
+
+### `mode_spectrum`
+
+<Autodoc name="plasma_plots.output_accessors.OutputAnalysis.mode_spectrum" package="plasma_plots" headingLevel={3} />

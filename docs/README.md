@@ -1,8 +1,8 @@
-# struphy-plots docs
+# plasma-plots docs
 
 Astro + Starlight documentation site for
-[struphy-plots](https://github.com/struphy-hub/struphy-plots), deployed to
-GitHub Pages at https://struphy-hub.github.io/struphy-plots on every push to
+[plasma-plots](https://github.com/struphy-hub/plasma-plots), deployed to
+GitHub Pages at https://struphy-hub.github.io/plasma-plots on every push to
 `devel` (see `.github/workflows/docs.yml`).
 
 ## Commands

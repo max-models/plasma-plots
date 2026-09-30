@@ -1,0 +1,74 @@
+---
+title: Profiling
+description: Gantt charts, flame charts, and call graphs of a run's timing regions.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+:::note[Where the accessors come from]
+The examples on this page use output of a Struphy `Output`, which loads
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+Struphy records timing regions (propagators, compiled kernels, linear solves, ...) when a run is
+started with `sim.run(profiling_activated=True)`, written to `profiling_data.h5`. `Output.profile`
+reads it back as a [scope-profiler](https://pypi.org/project/scope-profiler/) `ProfilingResults`
+object, and `array.plasma.plot.profile` wraps three of scope-profiler's own plotting functions
+directly on it. Install the optional extra to use them:
+
+```bash
+pip install "plasma-plots[profiling]"
+```
+
+Every method here is a thin pass-through: it returns exactly what scope-profiler itself returns
+(a `(fig, axes)` pair for the default matplotlib backend, or a Plotly figure with
+`backend="plotly"`), and forwards every other keyword straight through
+(`ranks`, `include`/`exclude`, `filepath`, ...) — see
+[scope-profiler's own docs](https://pypi.org/project/scope-profiler/) for the full set.
+
+## Gantt chart
+
+```python
+out.plot.profile.gantt()
+```
+
+A timeline of every recorded region, one row per rank — the first thing to look at for "where did
+the time go":
+
+![A Gantt chart of propagator and kernel regions](../../../assets/figures/profile_gantt.png)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+```python
+out.plot.profile.gantt(backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_profile_gantt.json" />
+
+</details>
+
+## Flame chart
+
+```python
+out.plot.profile.flame()
+```
+
+Reconstructs the call stack from region timings, one column per call, stacked by nesting depth —
+good for spotting which specific call of a hot region was slow, not just the region as a whole:
+
+![A flame chart reconstructing the call stack from region timings](../../../assets/figures/profile_flame.png)
+
+## Call graph
+
+```python
+out.plot.profile.callgraph(compact=True)
+```
+
+The explicit call graph — which region calls which — without timings. `compact=True` collapses
+every invocation of a region into one node, so repeated calls (e.g. once per time step) don't
+sprawl the graph; leave it `False` to see each individual call as its own node:
+
+![The call graph of propagator and kernel regions, compacted to one node per region](../../../assets/figures/profile_callgraph.png)

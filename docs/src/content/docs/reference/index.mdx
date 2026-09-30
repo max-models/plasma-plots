@@ -1,0 +1,48 @@
+---
+title: API reference
+description: Every accessor, function and class of plasma-plots, generated from the docstrings.
+sidebar:
+  order: 0
+---
+
+The reference is generated from the docstrings, so it always matches the code. The
+guides show the same functionality with figures.
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads plasma-plots and its
+`.plasma` accessors. For other xarray data, run `import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## Accessors
+
+Most of plasma-plots is reached through accessors on the objects Struphy returns:
+
+| Accessor | What it does |
+| --- | --- |
+| [`array.plasma.plot`](/plasma-plots/reference/plot/) | Plots of one labeled array: time series, slices, animations, spectra, 3-D views |
+| [`array.plasma.analysis`](/plasma-plots/reference/analysis/) | Diagnostics of one labeled array: fits, norms, errors, spectra, vector calculus |
+| [`array.plasma.data`](/plasma-plots/reference/data/) | The selected data behind every plot, without drawing it |
+| [`dataset.plasma`](/plasma-plots/reference/dataset/) | Plots, diagnostics and data of marker Datasets such as orbits |
+| [`out.plot` and `out.analysis`](/plasma-plots/reference/output/) | Whole-run plots and diagnostics of a Struphy `Output` |
+
+A method's page lists every parameter, including those it shares with the function it wraps.
+
+## Modules
+
+The functions behind the accessors, to call on a plain `xarray.DataArray`, and the analytic theory:
+
+| Module | Contents |
+| --- | --- |
+| [`plasma_plots.plotting`](/plasma-plots/api/plasma_plots/plotting/) | Plotting functions for labeled Struphy output |
+| [`plasma_plots.analysis`](/plasma-plots/api/plasma_plots/analysis/) | Numerical diagnostics: fits, norms, errors, integrals, vector calculus, orbits |
+| [`plasma_plots.spectral`](/plasma-plots/api/plasma_plots/spectral/) | Fourier transforms, filters, peaks, mode spectra, matrix pencil |
+| [`plasma_plots.spectral_plots`](/plasma-plots/api/plasma_plots/spectral_plots/) | Plots of spectra, filters, modes and fits |
+| [`plasma_plots.pyvista_plots`](/plasma-plots/api/plasma_plots/pyvista_plots/) | Three-dimensional PyVista views and VTK export |
+| [`plasma_plots.arrays`](/plasma-plots/api/plasma_plots/arrays/) | Labels, validation and helpers for labeled arrays |
+| [`plasma_plots.theory`](/plasma-plots/api/plasma_plots/theory/) | Analytic theory: kinetic, wave, orbit, exact-solution and numerics results (see the [Theory guide](/plasma-plots/guides/theory/)) |
+| [`plasma_plots.gallery`](/plasma-plots/api/plasma_plots/gallery/) | Output helpers of the [example gallery](https://struphy-hub.github.io/examples/): Plotly figure files, profiling exports and metadata (`pip install "plasma-plots[gallery]"`) |
+
+The full module tree is under **All modules** in the sidebar. For other tools, each package
+also has an `objects.inv` (for Sphinx and mkdocstrings links) and an `llms.txt` at
+[`/api/plasma_plots/`](/plasma-plots/api/plasma_plots/).

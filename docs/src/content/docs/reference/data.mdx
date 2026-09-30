@@ -1,0 +1,74 @@
+---
+title: "array.plasma.data"
+description: "The selected data behind every plot, without drawing it."
+sidebar:
+  order: 3
+---
+
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Every plot on `array.plasma.plot` has a twin here, as `array.plasma.data.<method>(...)`, that does the same selection and returns the labeled `xarray` object instead of a figure. See the [Selecting data](/plasma-plots/guides/data/) guide.
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads plasma-plots and its
+`.plasma` accessors. For other xarray data, run `import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## array.plasma.data
+
+The data behind each plot in :class:`ArrayPlots`, without rendering it.
+
+### `lineout`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.lineout" package="plasma_plots" headingLevel={3} />
+
+### `vector`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.vector" package="plasma_plots" headingLevel={3} />
+
+### `volume_slices`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.volume_slices" package="plasma_plots" headingLevel={3} />
+
+### `grid`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.grid" package="plasma_plots" headingLevel={3} />
+
+### `to_vtk`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.to_vtk" package="plasma_plots" headingLevel={3} />
+
+### `slices_3d`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.slices_3d" package="plasma_plots" headingLevel={3} />
+
+### `compare`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.compare" package="plasma_plots" headingLevel={3} />
+
+### `view`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.view" package="plasma_plots" headingLevel={3} />
+
+### `slice`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.slice" package="plasma_plots" headingLevel={3} />
+
+### `dispersion`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.dispersion" package="plasma_plots" headingLevel={3} />
+
+### `overlay_orbits`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.overlay_orbits" package="plasma_plots" headingLevel={3} />
+
+### `trajectories`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.trajectories" package="plasma_plots" headingLevel={3} />
+
+### `timeseries`
+
+<Autodoc name="plasma_plots.accessors.ArrayData.timeseries" package="plasma_plots" headingLevel={3} />

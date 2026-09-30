@@ -1,0 +1,207 @@
+---
+title: Getting started
+description: Install plasma-plots and make your first plot.
+---
+
+## Installation
+
+Python **3.11 or newer** is required; CI tests Python 3.11 and 3.12.
+The base install plots in-memory xarray data. Install extras for file formats
+and optional renderers:
+
+```bash
+pip install plasma-plots
+pip install "plasma-plots[netcdf]"
+pip install "plasma-plots[netcdf,plotly]"
+```
+
+| Extra | Enables | Dependencies |
+| --- | --- | --- |
+| `netcdf` | Read netCDF3/netCDF4 files through xarray and the CLI | `netCDF4` |
+| `plotly` | Interactive browser plots and static Plotly exports | `plotly`, `kaleido` |
+| `pyvista` | 3-D scenes and rendering | `pyvista`, `imageio` |
+| `profiling` | Timing summaries and profiling plots | `scope-profiler[pproc]` |
+| `desc` | Evaluate DESC equilibria | `desc-opt` |
+| `gallery` | Export Struphy example-gallery figures and profiling | `plotly`, `kaleido`, `scope-profiler[pproc]>=0.6.1` |
+| `dev` | Tests, linting and documentation tooling | `pytest`, `ruff`, `h5py`, `griffe` |
+
+Struphy, GVEC and Zarr are separate installations; no extra above installs
+them. Struphy users need the compatible output API described below. Install
+`gvec` for GVEC evaluation or `zarr` to open Zarr stores. MP4 export requires
+system `ffmpeg`; Matplotlib windows require a working GUI/display, and static
+Plotly exports through Kaleido require a compatible Chrome installation.
+
+## Struphy compatibility
+
+Struphy integration is tested against commit
+[`caddd229a3fcba1fada577d1af46d012e93d8b49`](https://github.com/struphy-hub/struphy/commit/caddd229a3fcba1fada577d1af46d012e93d8b49)
+(the repository's pinned submodule, reporting version **3.3.0**). Use that
+revision for a reproducible installation; compatibility with other Struphy
+revisions, including older published builds, is not guaranteed. Struphy is
+optional when working with ordinary xarray data.
+
+## Loading plasma-plots
+
+Creating a Struphy `Output` loads plasma-plots, so there is nothing to import:
+
+```python
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
+out.plot.energies()  # whole-run plots and diagnostics
+field = out.evaluate("em_fields/phi")
+field.plasma.plot.slice(x="eta1", y="eta2", t=-1)  # .plasma on every product
+```
+
+Loading it registers the accessors:
+
+- `.plasma` on every `xarray.DataArray` and `xarray.Dataset`, including the
+  products of Struphy's `Output` and every array derived from them
+- `out.plot` and `out.analysis` on Struphy's `Output` object
+
+:::caution[Other xarray data: `import plasma_plots`]
+For xarray data that doesn't come from an `Output` (your own arrays, or files
+opened with xarray), import the package first:
+
+```python
+import plasma_plots  # noqa: F401  (registers DataArray.plasma)
+```
+
+Without it, `.plasma` does not exist and you get
+`AttributeError: 'DataArray' object has no attribute 'plasma'`. The import
+alone does the work, so linters may flag it as unused.
+:::
+
+## Data from other codes
+
+plasma-plots reads labeled `xarray` objects, not a file format, so the output of
+any code works once it is an array with named dimensions and coordinates. The
+names follow Struphy's:
+
+| Name | What |
+|---|---|
+| `t` | time |
+| `eta1`, `eta2`, `eta3` | logical coordinates in [0, 1] |
+| `X`, `Y`, `Z` | mapped (physical) coordinates, as coordinates over the logical dimensions; all three for `coords="physical"` |
+| `component` | the components of a vector field |
+| `marker` | the markers of particle Datasets |
+
+[GVEC](https://gvec.readthedocs.io)'s evaluations (dimensions `rad`, `pol`, `tor`) are read in
+these conventions by themselves, with the flux coordinates `rho`, `theta`, `zeta` as the logical
+dimensions; see [GVEC equilibria](/plasma-plots/guides/gvec/).
+
+Other dimension names work wherever you name the dimensions yourself
+(`x="z"`, `y="t"`); only the physical views and the mapped-domain analysis need
+`X`/`Y`/`Z`. The `label` and `units` attributes of the array and the
+`long_name` and `units` of its coordinates become the axis labels:
+
+```python
+import numpy as np
+import xarray as xr
+import plasma_plots  # noqa: F401
+
+t, eta1, eta2 = (
+    np.linspace(0, 10, 41),
+    np.linspace(0, 1, 32),
+    np.linspace(0, 1, 24, endpoint=False),
+)
+r, theta = 0.2 + 0.8 * eta1[:, None], 2 * np.pi * eta2[None, :]
+phi = xr.DataArray(
+    np.exp(-0.1 * t)[:, None, None]
+    * np.cos(2 * np.pi * eta1)[None, :, None]
+    * np.cos(theta)[None],
+    dims=("t", "eta1", "eta2"),
+    coords={
+        "t": t,
+        "eta1": eta1,
+        "eta2": eta2,
+        "X": (("eta1", "eta2"), r * np.cos(theta)),
+        "Y": (("eta1", "eta2"), r * np.sin(theta)),
+        "Z": (("eta1", "eta2"), np.zeros((32, 24))),
+    },
+    attrs={"label": r"$\phi$", "units": "V"},
+)
+phi.plasma.plot.slice(x="eta1", y="eta2", t=-1)  # logical
+# mapped, through X and Y
+phi.plasma.plot.slice(coords="physical", plane="XY", t=-1)
+```
+
+## Finding your way in Python
+
+Printing an accessor lists its methods with a one-line summary each, and
+`help()` on a method shows every parameter:
+
+```python
+print(field.plasma.plot)  # every plot, e.g. slice, animation, dispersion, ...
+help(field.plasma.plot.slice)  # its parameters, returns and examples
+print(out.plot)  # whole-run plots
+import plasma_plots
+
+help(plasma_plots)  # an overview: the pipeline, selection, what is where
+```
+
+`plasma-plots guide` prints the same overview in a terminal, and the
+`plasma-plots` command saves figures without any Python (see
+[Command line](/plasma-plots/guides/command-line/)). For language
+models and coding agents, the documentation is also available as plain text at
+[`/llms.txt`](/plasma-plots/llms.txt), with the full text in
+[`/llms-full.txt`](/plasma-plots/llms-full.txt).
+
+## Where to look next
+
+- **`array.plasma.plot`** — plotting methods for a single labeled array:
+  [Field plots](/plasma-plots/guides/field-plots/),
+  [Time series & comparisons](/plasma-plots/guides/timeseries/), and
+  [Particles & distributions](/plasma-plots/guides/particles/).
+- **`array.plasma.analysis`** — numerical diagnostics on a single labeled
+  array (see [Diagnostics](/plasma-plots/guides/analysis/)).
+- **`array.plasma.data`** — the selected data behind every plot, as a labeled
+  `xarray` object, for your own analysis, other plotting libraries and exports
+  (see [Selecting data](/plasma-plots/guides/data/)).
+- **`plasma_plots.output_accessors.OutputPlots`** — overview plots for a
+  whole simulation run (see [Whole-run plots](/plasma-plots/guides/output-plots/)).
+
+Lower-level, function-based versions of everything above are also available
+directly from `plasma_plots.plotting` and `plasma_plots.analysis`, if you'd
+rather call a function on a plain `xarray.DataArray` than go through the
+accessor.
+
+## Getting the data instead of a plot
+
+Every method on `array.plasma.plot` has a twin on `array.plasma.data`. It
+does the same selection and returns the labeled `xarray` object instead of a
+figure, for your own analysis, another plotting library or an export:
+
+```python
+# what plot.slice(...) draws
+last = field.plasma.data.slice(x="eta1", y="eta2", t=-1)
+float(last.max()), last.to_dataframe()
+```
+
+See [Selecting data](/plasma-plots/guides/data/).
+
+## Running under MPI
+
+A post-processing script can run on several ranks, e.g. right after the
+simulation in the same `mpirun -n 4 python script.py`. Plots are then drawn and
+saved on rank 0 only; the other ranks get a `SkippedPlot` placeholder whose
+methods do nothing, so the same script works in serial and in parallel without
+`if rank == 0:` guards:
+
+```python
+out = sim.run()  # or Output(path)
+phi = out.evaluate("em_fields/phi")  # on every rank
+# written once, by rank 0
+phi.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0).save("phi.png")
+# [] on ranks > 0
+phi.plasma.plot.frames("frames/", x="eta1", y="eta2", eta3=0)
+```
+
+Struphy processes the run on first use, collectively: call `evaluate()` on every
+rank until the run is processed. Analysis (`array.plasma.analysis.*`) runs on
+every rank. The rank is read from `mpi4py` once MPI is initialized (Struphy does
+that), and otherwise from the MPI launcher's environment, so plasma-plots never
+needs `mpi4py` itself. Set `STRUPHY_MPI=0` to make every process plot. Nothing
+waits for rank 0: call `MPI.COMM_WORLD.Barrier()` before other ranks read a file
+rank 0 wrote. `plasma_plots.is_plotting_rank()` tells whether the current
+process draws.

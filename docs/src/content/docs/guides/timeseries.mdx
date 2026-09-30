@@ -1,0 +1,170 @@
+---
+title: Time series & comparisons
+description: Growth-rate fits and comparing scalars between runs.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+:::note[Where the accessors come from]
+The examples on this page use output of a Struphy `Output`, which loads
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## Time series with a growth-rate fit
+
+```python
+energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0))
+```
+
+Overlays an exponential fit on a window of the series and reports the rate in
+`result.fit_results`. See [Diagnostics](/plasma-plots/guides/analysis/) for
+the damping-rate variant (fit the envelope of an oscillating signal instead).
+
+![A time series with an exponential growth-rate fit overlaid](../../../assets/figures/timeseries_growth.png)
+
+The data behind this plot: `energy.plasma.data.timeseries(other_run_energy)` returns the validated list of series; the fit is `.plasma.analysis.growth_rate()` (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_timeseries.json" />
+
+</details>
+
+## Several series in one axes
+
+```python
+energy.plasma.plot.timeseries(other_run_energy, logy=True)
+```
+
+Passing further arrays plots them together; if they come from different runs
+(different `attrs["run_name"]`), each line is labeled by its run.
+
+## Several plots in one figure
+
+`plasma_plots.figure(nrows, ncols)` makes a figure of panels; every plot method that takes
+`ax=` draws into one of them. Here the growing energy with its fit above, and the relative drift
+of the total energy below:
+
+```python
+import plasma_plots
+
+with plasma_plots.figure(2, 1, sharex=True) as fig:
+    energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=fig[0])
+    total.plasma.analysis.drift().plasma.plot.timeseries(logy=False, ax=fig[1])
+fig.save("energies.png")
+fig.results[0].fit_results[0].rate  # each panel's result, with its fits
+```
+
+![The field energy with its fit above, the drift of the total energy below](../../../assets/figures/composed_energies.png)
+
+Panels keep their own colorbars and legends; `sharex`/`sharey` share the axes (and, in Plotly,
+their zoom), and `title=` goes above all panels. Panels left empty are hidden.
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+`backend="plotly"` finishes the figure as one interactive Plotly figure (see
+[Interactive plots with Plotly](/plasma-plots/guides/plotly/)); the plots inside the block draw
+into their panels as before:
+
+```python
+with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
+    energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=fig[0])
+    total.plasma.analysis.drift().plasma.plot.timeseries(logy=False, ax=fig[1])
+fig.save("energies.html")
+```
+
+<PlotlyChart src="/plotly/plotly_composed_energies.json" height="560px" />
+
+</details>
+
+## Exact and expected curves
+
+`reference` draws exact or expected curves over the series, dashed and black:
+a function of `t`, an array on the same times, a `(t, values)` pair, or a dict
+of labels to these. A label starting with `_` stays out of the legend. For a
+damped Langmuir wave, whose k = 1 amplitude comes from
+[`project_mode`](/plasma-plots/guides/analysis/#mode-amplitudes-by-projection),
+against the exact envelope:
+
+```python
+amplitude = e1.plasma.analysis.project_mode(dim="eta1", number=1)
+amplitude.plasma.plot.timeseries(
+    logy=False,
+    reference={
+        "±0.1 e^(-γt)": lambda t: 0.1 * np.exp(-gamma * t),
+        "_lower": lambda t: -0.1 * np.exp(-gamma * t),
+    },
+)
+```
+
+![The k = 1 amplitude of a damped wave inside its exact envelope](../../../assets/figures/reference_timeseries.png)
+
+## Measured against theory
+
+`against_theory` plots measured values over a parameter against a theory
+curve, with their relative error in a second panel. The measured values can be
+a 1-D array over the parameter, such as the frequencies from
+[`trace_branch`](/plasma-plots/guides/analysis/#tracing-a-branch) over `k` or
+growth rates over mode numbers. They can also be an `(x, y)` pair, or a dict of
+several runs or methods. The theory can be one function or a dict of several:
+
+```python
+traced = spectrum.plasma.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))
+traced.omega.plasma.plot.against_theory(
+    {"Bohm-Gross": bohm_gross, "cold plasma": lambda k: 1 + 0 * k}
+)
+
+from plasma_plots.plotting import plot_measured_vs_theory
+
+plot_measured_vs_theory(
+    {"run A": rates_a, "run B": (m, rates_b)},
+    theory,
+    logx=True,
+    show_error=False,
+)
+```
+
+The error panel compares every measured series with the first theory function.
+
+![Traced frequencies against the Bohm-Gross relation, with relative errors](../../../assets/figures/measured_vs_theory.png)
+
+## Comparing two runs directly
+
+```python
+field.plasma.plot.compare(reference_field, mode="difference")
+field.plasma.plot.compare(reference_field, mode="ratio")
+```
+
+Aligns the two arrays and plots their difference or ratio as a 1-D lineout —
+useful for a convergence study or comparing a run against a reference.
+
+![Difference of a diagnostic between two runs](../../../assets/figures/compare_difference.png)
+
+![Ratio of a diagnostic between two runs](../../../assets/figures/compare_ratio.png)
+
+The data behind this plot: `field.plasma.data.compare(reference_field, mode="ratio")` returns the aligned difference or ratio as a 1-D array (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+field.plasma.plot.compare(reference_field, mode="ratio", backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_compare.json" />
+
+</details>

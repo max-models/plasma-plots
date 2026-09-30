@@ -1,0 +1,178 @@
+---
+title: "array.plasma.plot"
+description: "Plots of one labeled array: time series, slices, animations, spectra, 3-D views."
+sidebar:
+  order: 1
+---
+
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Plots of one labeled `xarray.DataArray`, as `array.plasma.plot.<method>(...)`. Each method selects the dimensions it doesn't draw by keyword (an integer is a position, `t=-1` the last; a float the nearest value), draws, and returns a `PlotResult` (or an animation or a PyVista plotter).
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads plasma-plots and its
+`.plasma` accessors. For other xarray data, run `import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## array.plasma.plot
+
+Plots of one array, as `array.plasma.plot.<kind>(...)`.
+
+### `timeseries`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.timeseries" package="plasma_plots" headingLevel={3} />
+
+### `lineout`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.lineout" package="plasma_plots" headingLevel={3} />
+
+### `line_animation`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.line_animation" package="plasma_plots" headingLevel={3} />
+
+### `against_theory`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.against_theory" package="plasma_plots" headingLevel={3} />
+
+### `convergence`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.convergence" package="plasma_plots" headingLevel={3} />
+
+### `vector`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.vector" package="plasma_plots" headingLevel={3} />
+
+### `volume_slices`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.volume_slices" package="plasma_plots" headingLevel={3} />
+
+### `volume`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.volume" package="plasma_plots" headingLevel={3} />
+
+### `isosurface`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.isosurface" package="plasma_plots" headingLevel={3} />
+
+### `slices_3d`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.slices_3d" package="plasma_plots" headingLevel={3} />
+
+### `glyphs`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.glyphs" package="plasma_plots" headingLevel={3} />
+
+### `streamlines`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.streamlines" package="plasma_plots" headingLevel={3} />
+
+### `movie`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.movie" package="plasma_plots" headingLevel={3} />
+
+### `compare`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.compare" package="plasma_plots" headingLevel={3} />
+
+### `overlay_orbits`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.overlay_orbits" package="plasma_plots" headingLevel={3} />
+
+### `dispersion`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.dispersion" package="plasma_plots" headingLevel={3} />
+
+### `power_spectrum`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.power_spectrum" package="plasma_plots" headingLevel={3} />
+
+### `filtered`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.filtered" package="plasma_plots" headingLevel={3} />
+
+### `spectrogram`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.spectrogram" package="plasma_plots" headingLevel={3} />
+
+### `mode_amplitudes`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.mode_amplitudes" package="plasma_plots" headingLevel={3} />
+
+### `mode_map`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.mode_map" package="plasma_plots" headingLevel={3} />
+
+### `radial_power`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.radial_power" package="plasma_plots" headingLevel={3} />
+
+### `mode_profiles`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.mode_profiles" package="plasma_plots" headingLevel={3} />
+
+### `profiles`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.profiles" package="plasma_plots" headingLevel={3} />
+
+### `cross_spectrum`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.cross_spectrum" package="plasma_plots" headingLevel={3} />
+
+### `pencil_fit`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.pencil_fit" package="plasma_plots" headingLevel={3} />
+
+### `view`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.view" package="plasma_plots" headingLevel={3} />
+
+### `slice`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.slice" package="plasma_plots" headingLevel={3} />
+
+### `panels`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.panels" package="plasma_plots" headingLevel={3} />
+
+### `viewer`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.viewer" package="plasma_plots" headingLevel={3} />
+
+### `animation`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.animation" package="plasma_plots" headingLevel={3} />
+
+### `frames`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.frames" package="plasma_plots" headingLevel={3} />
+
+### `trajectories`
+
+<Autodoc name="plasma_plots.accessors.ArrayPlots.trajectories" package="plasma_plots" headingLevel={3} />
+
+## SliceView, returned by plot.view()
+
+A configured array view, shared by static, interactive and exported plots.
+
+### `slice`
+
+<Autodoc name="plasma_plots.accessors.SliceView.slice" package="plasma_plots" headingLevel={3} />
+
+### `panels`
+
+<Autodoc name="plasma_plots.accessors.SliceView.panels" package="plasma_plots" headingLevel={3} />
+
+### `viewer`
+
+<Autodoc name="plasma_plots.accessors.SliceView.viewer" package="plasma_plots" headingLevel={3} />
+
+### `animation`
+
+<Autodoc name="plasma_plots.accessors.SliceView.animation" package="plasma_plots" headingLevel={3} />
+
+### `save_frames`
+
+<Autodoc name="plasma_plots.accessors.SliceView.save_frames" package="plasma_plots" headingLevel={3} />

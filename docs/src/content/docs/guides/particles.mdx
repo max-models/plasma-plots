@@ -1,0 +1,354 @@
+---
+title: Particles & distributions
+description: Phase-space slices, velocity moments, spatial averages, marker trajectories, scatter, and orbit overlays.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+:::note[Where the accessors come from]
+The examples on this page use output of a Struphy `Output`, which loads
+plasma-plots and its `.plasma` accessors. For other xarray data, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## Phase-space slices
+
+A binned distribution such as `kinetic_ions/e1_v1_density/f` is just another
+labeled array, so every [field plot](/plasma-plots/guides/field-plots/)
+works on it directly:
+
+```python
+distribution.plasma.plot.slice(x="eta1", y="v1", t=-1)
+```
+
+![A bump-on-tail distribution in (eta1, v1) phase space](../../../assets/figures/phase_space.png)
+
+The data behind this plot: `distribution.plasma.data.slice(x="eta1", y="v1", t=-1)` returns the selected phase-space slice, e.g. for its maximum or a cut through it (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+distribution.plasma.plot.slice(x="eta1", y="v1", t=-1, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_phase_space.json" />
+
+</details>
+
+## Velocity moments
+
+```python
+moments = distribution.plasma.analysis.velocity_moments()
+```
+
+Returns an `xarray.Dataset` with `density` (the zeroth moment), `mean_<dim>`
+and `variance_<dim>` for each integrated velocity dimension — functions of
+the remaining dimensions (e.g. `(t, eta1)` for an `e1_v1` product):
+
+![Density, mean velocity, and variance of a distribution along eta1](../../../assets/figures/velocity_moments.png)
+
+## Spatial averaging
+
+```python
+distribution.plasma.analysis.spatial_average()
+```
+
+Averages over the logical space dimensions, e.g. turning `f(t, eta1, v1)` into
+`f(t, v1)` — plot the result like any other 2-D field to see the velocity
+distribution evolve over a run:
+
+![A velocity distribution's growing beam, averaged over space](../../../assets/figures/spatial_average.png)
+
+## Marker trajectories
+
+```python
+markers.plasma.plot.trajectories(max_markers=200)
+```
+
+Plots 3-D orbits for kinetic marker output. Works directly on the
+`xarray.Dataset` of an orbits product (one `(t, marker)` variable per saved
+quantity: `x`, `y`, `z`, `v1`, `v2`, `v3`, `weight`, ...), or on a single
+`(t, marker, quantity)` `DataArray`.
+
+![3-D marker trajectories](../../../assets/figures/trajectories.png)
+
+The data behind this plot: `markers.plasma.data.trajectories(max_markers=50)` returns the marker subset as a Dataset with one `(t, marker)` variable per quantity (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+markers.plasma.plot.trajectories(max_markers=200, backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_trajectories.json" height="520px" />
+
+</details>
+
+## Orbit classification
+
+```python
+# per marker: 0 passing, 1 trapped, -1 lost
+codes = orbits.plasma.analysis.classify_orbits()
+# initial v_par against mu, colored by class
+orbits.plasma.plot.orbit_classification()
+# the canonical-momentum diagram
+orbits.plasma.plot.orbit_classification(x="p_phi")
+```
+
+For guiding-center orbits (Particles5D or Particles5Dvperp), `classify_orbits`
+uses Struphy's criteria. A marker is trapped if its parallel velocity `v_par`
+ever reverses sign. It is lost if all its saved quantities are zero at some
+time, which is how Struphy stores a marker that has left the domain.
+
+The plot scatters each marker's initial phase-space position. Its default
+plane, `v_par` against `mu` (or `v_perp`), shows the trapped cone directly:
+markers with a small |`v_par`| for their `mu` bounce. The legend gives each
+class's count and fraction. `x="p_phi"` gives the canonical-momentum view when
+`p_phi` was saved (Struphy fills it only with `save_constants_of_motion`).
+
+![Initial v_par against mu, colored as passing, trapped or lost](../../../assets/figures/orbit_classification.png)
+
+## Orbits in the poloidal plane
+
+```python
+orbits.plasma.plot.poloidal(boundary=field)  # R = sqrt(x² + y²) against z
+orbits.plasma.plot.quantities(markers=4)  # v_par and the drift of mu over time
+```
+
+`poloidal()` projects each orbit onto the poloidal plane, colored as passing,
+trapped or lost (see [orbit classification](#orbit-classification)).
+Passing orbits circle the magnetic axis and trapped ones trace bananas.
+Samples after a marker leaves the domain are dropped. `boundary` is any field
+whose outer surface is drawn as the domain boundary.
+
+![Guiding-center orbits in the poloidal plane](../../../assets/figures/orbits_poloidal.png)
+
+`quantities()` shows saved quantities over time for a few markers, spread over
+the classes. By default these are `v_par`, whose sign reversals are the bounces
+of trapped markers, and the change of the magnetic moment `mu` since `t = 0`.
+`mu` is an invariant of guiding-center motion, so its drift measures the
+pusher's accuracy.
+
+![v_par and the drift of mu for a few markers](../../../assets/figures/orbits_quantities.png)
+
+`orbit_grid()` draws one small poloidal panel per marker, with shared axes, so
+individual orbits (bananas, passing, lost) can be compared side by side.
+`markers` is a number, spread over the classes, or a list of indices:
+
+```python
+orbits.plasma.plot.orbit_grid(markers=8, ncols=4, boundary=field)
+orbits.plasma.plot.orbit_grid(markers=[3, 17, 42])
+```
+
+![One poloidal panel per marker, titled with its class](../../../assets/figures/orbit_grid.png)
+
+## Invariants and bounce periods
+
+`orbit_invariants()` computes the invariants that the saved quantities allow,
+over `(t, marker)`:
+
+- the `speed` from `v1`, `v2`, `v3`
+- for guiding centers, the `energy` `½ v_par² + μ |B|` and the `pitch`
+  `v_par / sqrt(2 × energy)`, given `absB`: a function of `x, y, z`, such as a
+  wrapper around the equilibrium's `absB0` mapped to Cartesian points
+
+Samples after a marker leaves the domain are NaN. The drift of the invariants
+measures the pusher's accuracy:
+
+```python
+invariants = orbits.plasma.analysis.orbit_invariants(absB=absB_xyz)
+drift = abs(invariants.energy / invariants.energy.isel(t=0) - 1).max("marker")
+drift.plasma.plot.timeseries()
+```
+
+`bounce_period()` gives each trapped marker's bounce period: twice the mean
+time between sign changes of `v_par`, interpolated between samples. It is NaN
+for passing markers and for markers with fewer than two reversals:
+
+```python
+periods = orbits.plasma.analysis.bounce_period()
+codes = orbits.plasma.analysis.classify_orbits()
+periods.where(codes == 1).plot.hist()
+```
+
+## Marker scatter and particle clouds
+
+```python
+markers.plasma.plot.scatter(x="x", y="y", color="density", t=-1)
+```
+
+Scatters two position-like variables from any per-marker Dataset (not just
+an orbits product — any Dataset with a `marker` dimension), optionally
+colored by a third variable such as a density, weight, or a Lagrangian
+tracer a particle carries. Useful for checking a marker loading scheme, or
+visualizing an SPH particle cloud:
+
+![An expanding particle cloud, colored by a density-like tracer](../../../assets/figures/marker_scatter.png)
+
+The data behind this plot: `markers.plasma.data.scatter(x="x", y="y", color="density")` returns the selected Dataset; `.to_dataframe()` makes it a table (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+markers.plasma.plot.scatter(
+    x="x", y="y", color="density", t=-1, backend="plotly"
+)
+```
+
+<PlotlyChart src="/plotly/plotly_scatter.json" />
+
+</details>
+
+## Markers over a field
+
+`scatter()` draws a field behind the markers, at the same time
+(`background=`, with its other dimensions selected). The field is drawn in
+logical or physical coordinates, whichever the marker positions are.
+`color_at` colors each marker by a variable at another time, e.g. its initial
+position, to follow where fluid parcels go:
+
+```python
+markers.plasma.plot.scatter(
+    x="x",
+    y="y",
+    color="x",
+    color_at=0,
+    t=-1,
+    background=density.isel(eta3=0),
+    background_options={"cmap": "Blues"},
+)
+```
+
+![Fluid markers colored by their initial x over the kernel density](../../../assets/figures/markers_over_density.png)
+
+## Marker animations
+
+`animation()` moves the markers through time, optionally over a field animated
+in sync (drawn at the nearest time of each frame, with fixed color limits).
+Markers that leave the domain disappear, and the axes limits stay fixed:
+
+```python
+anim = markers.plasma.plot.animation(
+    x="x",
+    y="y",
+    color="x",
+    color_at=0,
+    background=density.isel(eta3=0),
+    background_options={"cmap": "Blues"},
+)
+anim.save("dam_break.gif", writer="pillow", fps=8)
+```
+
+![A collapsing column of fluid markers over its density](/plasma-plots/figures/markers_animation.gif)
+
+For orbits, a few more options:
+
+- A `background` without a `t` dimension (e.g. flux-surface contours, with
+  `background_options={"levels": 6, "fill": False}`) is drawn once and stays fixed.
+- `trail=60` draws each marker's last 60 samples behind it; `paths=True` its whole path, faint.
+- `color="classification"` colors the markers as passing, trapped or lost (from `v_par`, see
+  [orbit classification](#orbit-classification)), with a legend.
+- `x="R"` is the major radius `√(x² + y²)`, so `x="R", y="z"` is the poloidal plane.
+- `max_frames=80` keeps at most 80 evenly spaced frames.
+
+```python
+anim = orbits.plasma.plot.animation(
+    x="R",
+    y="z",
+    color="classification",
+    trail=60,
+    paths=True,
+    max_frames=80,
+    background=psi,
+    background_options={"levels": 6, "fill": False, "cmap": "Greys"},
+)
+```
+
+![Guiding-center orbits in the poloidal plane, passing and trapped, with trails over flux surfaces](/plasma-plots/figures/orbits_animation.gif)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+orbits.plasma.plot.animation(
+    x="R",
+    y="z",
+    color="classification",
+    trail=60,
+    paths=True,
+    max_frames=80,
+    background=psi,
+    background_options={"levels": 6, "fill": False, "cmap": "Greys"},
+    backend="plotly",
+)
+```
+
+<PlotlyChart src="/plotly/plotly_orbits_animation.json" height="560px" />
+
+</details>
+
+## Marker paths
+
+`paths()` draws the paths of a few markers in a plane, with a circle where
+each starts and a cross where it ends. `markers` is a number (spread over the
+saved markers) or a list of indices. `near` picks instead the marker starting
+closest to each of a list of points. A background field, e.g. the contour
+lines of a stream function, shows what the markers should follow:
+
+```python
+markers.plasma.plot.paths(
+    near=[(x, 0.25) for x in np.linspace(0.28, 0.46, 6)],
+    background=psi,
+    background_options={"levels": 12, "fill": False, "cmap": "Greys"},
+)
+```
+
+![Marker paths along the closed streamlines of a cellular flow](../../../assets/figures/marker_paths.png)
+
+## Orbits over a background field
+
+```python
+field.plasma.plot.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)
+```
+
+Draws this field's 2-D slice with marker paths from an orbits-like Dataset
+overlaid — a Poincare-style diagnostic for checking particle confinement or
+orbit topology against a background field (e.g. `|B|` or a flux function in
+a poloidal cross-section). `orbits` needs position variables named `x` and
+`y` too, matching the field's chosen axes:
+
+![Confined orbits at different radii overlaid on a potential well](../../../assets/figures/orbit_overlay.png)
+
+The data behind this plot: `field.plasma.data.overlay_orbits(orbits, x="eta1", y="eta2", t=-1)` returns the field slice and the orbit subset as a tuple (see [Selecting data](/plasma-plots/guides/data/)).
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+The same call with `backend="plotly"`: an interactive figure with the same data, fits and
+labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
+
+```python
+field.plasma.plot.overlay_orbits(
+    orbits, x="eta1", y="eta2", t=-1, backend="plotly"
+)
+```
+
+<PlotlyChart src="/plotly/plotly_overlay_orbits.json" />
+
+</details>

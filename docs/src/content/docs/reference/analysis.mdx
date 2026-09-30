@@ -1,0 +1,166 @@
+---
+title: "array.plasma.analysis"
+description: "Diagnostics of one labeled array: fits, norms, errors, spectra, vector calculus."
+sidebar:
+  order: 2
+---
+
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Numerical diagnostics of one labeled `xarray.DataArray`, as `array.plasma.analysis.<method>(...)`. They return labeled arrays and Datasets, so their results can be plotted with `.plasma.plot` in turn.
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads plasma-plots and its
+`.plasma` accessors. For other xarray data, run `import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## array.plasma.analysis
+
+Quantitative diagnostics of one array, as `array.plasma.analysis.<quantity>(...)`.
+
+### `growth_rate`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.growth_rate" package="plasma_plots" headingLevel={3} />
+
+### `damping_rate`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.damping_rate" package="plasma_plots" headingLevel={3} />
+
+### `oscillation_frequency`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.oscillation_frequency" package="plasma_plots" headingLevel={3} />
+
+### `map_coordinate`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.map_coordinate" package="plasma_plots" headingLevel={3} />
+
+### `envelope`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.envelope" package="plasma_plots" headingLevel={3} />
+
+### `norm`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.norm" package="plasma_plots" headingLevel={3} />
+
+### `drift`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.drift" package="plasma_plots" headingLevel={3} />
+
+### `relative_error`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.relative_error" package="plasma_plots" headingLevel={3} />
+
+### `spatial_average`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.spatial_average" package="plasma_plots" headingLevel={3} />
+
+### `velocity_moments`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.velocity_moments" package="plasma_plots" headingLevel={3} />
+
+### `dispersion`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.dispersion" package="plasma_plots" headingLevel={3} />
+
+### `fit_branches`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.fit_branches" package="plasma_plots" headingLevel={3} />
+
+### `fft`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.fft" package="plasma_plots" headingLevel={3} />
+
+### `time_fft`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.time_fft" package="plasma_plots" headingLevel={3} />
+
+### `filter_time`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.filter_time" package="plasma_plots" headingLevel={3} />
+
+### `band_filter`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.band_filter" package="plasma_plots" headingLevel={3} />
+
+### `spectral_peaks`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.spectral_peaks" package="plasma_plots" headingLevel={3} />
+
+### `spectrogram`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.spectrogram" package="plasma_plots" headingLevel={3} />
+
+### `mode_spectrum`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.mode_spectrum" package="plasma_plots" headingLevel={3} />
+
+### `mode_amplitudes`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.mode_amplitudes" package="plasma_plots" headingLevel={3} />
+
+### `mode_structure`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.mode_structure" package="plasma_plots" headingLevel={3} />
+
+### `cross_spectrum`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.cross_spectrum" package="plasma_plots" headingLevel={3} />
+
+### `matrix_pencil`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.matrix_pencil" package="plasma_plots" headingLevel={3} />
+
+### `gradient`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.gradient" package="plasma_plots" headingLevel={3} />
+
+### `surface_average`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.surface_average" package="plasma_plots" headingLevel={3} />
+
+### `rational_surfaces`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.rational_surfaces" package="plasma_plots" headingLevel={3} />
+
+### `error`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.error" package="plasma_plots" headingLevel={3} />
+
+### `project_mode`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.project_mode" package="plasma_plots" headingLevel={3} />
+
+### `divergence`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.divergence" package="plasma_plots" headingLevel={3} />
+
+### `curl`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.curl" package="plasma_plots" headingLevel={3} />
+
+### `flux_function`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.flux_function" package="plasma_plots" headingLevel={3} />
+
+### `cylindrical_components`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.cylindrical_components" package="plasma_plots" headingLevel={3} />
+
+### `toroidal_components`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.toroidal_components" package="plasma_plots" headingLevel={3} />
+
+### `polar_coordinates`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.polar_coordinates" package="plasma_plots" headingLevel={3} />
+
+### `trace_branch`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.trace_branch" package="plasma_plots" headingLevel={3} />
+
+### `drop_periodic_endpoint`
+
+<Autodoc name="plasma_plots.accessors.ArrayAnalysis.drop_periodic_endpoint" package="plasma_plots" headingLevel={3} />

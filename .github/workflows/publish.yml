@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -15,11 +17,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install build tool
-        run: pip install build
+      - name: Read release metadata
+        id: metadata
+        run: |
+          python - <<'PYCODE'
+          import os
+          import pathlib
+          import tomllib
+          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          assert pathlib.Path(f"releases/{version}.md").is_file(), "Missing versioned release notes"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={version}\n")
+          PYCODE
+
+      - name: Install build tools
+        run: pip install build twine
 
       - name: Build sdist and wheel
-        run: python -m build
+        run: |
+          python -m build
+          python -m twine check dist/*
 
       - uses: actions/upload-artifact@v4
         with:
@@ -27,11 +44,12 @@ jobs:
           path: dist/
 
   publish:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/struphy-plots/
+      url: https://pypi.org/project/plasma-plots/
     permissions:
       id-token: write
     steps:
@@ -44,3 +62,36 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+  github-release:
+    needs: [build, publish]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish GitHub release with distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          tag="v${VERSION}"
+          notes="releases/${VERSION}.md"
+          if gh release view "$tag" --json isDraft > release-state.json 2>/dev/null; then
+            if jq -e '.isDraft' release-state.json > /dev/null; then
+              gh release upload "$tag" dist/* --clobber
+              gh release edit "$tag" --target "$RELEASE_COMMIT" --title "plasma-plots ${VERSION}" --notes-file "$notes" --draft=false
+            else
+              echo "Release ${tag} is already published; leaving its assets unchanged."
+            fi
+          else
+            gh release create "$tag" dist/* --target "$RELEASE_COMMIT" --title "plasma-plots ${VERSION}" --notes-file "$notes"
+          fi

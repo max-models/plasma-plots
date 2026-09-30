@@ -1,30 +1,53 @@
 ---
-title: struphy-plots
-description: Optional plotting and diagnostics layer for labeled Struphy output.
+title: plasma-plots
+description: Plots and diagnostics of labeled xarray output from plasma simulations, such as Struphy.
 template: splash
 hero:
-  tagline: Plotting, animation, and diagnostics for Struphy simulation output — built on xarray.
+  tagline: Definitely **not** another standard plotting library for "all" plasma simulations.
+  image:
+    file: ../../assets/figures/panels.png
   actions:
     - text: Getting started
-      link: /struphy-plots/guides/getting-started/
+      link: /plasma-plots/guides/getting-started/
       icon: right-arrow
+    - text: Struphy examples
+      link: https://struphy-hub.github.io/examples/
+      icon: external
+      variant: minimal
     - text: View on GitHub
-      link: https://github.com/struphy-hub/struphy-plots
+      link: https://github.com/struphy-hub/plasma-plots
       icon: external
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## What is struphy-plots?
+## What is plasma-plots?
 
-`struphy-plots` registers a `.struphy` accessor on `xarray.DataArray` and adds
-whole-run helpers for [Struphy](https://github.com/struphy-hub/struphy)
-output, so you can go from a saved simulation to a figure in one line:
+`plasma-plots` registers a `.plasma` accessor on `xarray.DataArray` and
+`xarray.Dataset`, and adds whole-run helpers for
+[Struphy](https://github.com/struphy-hub/struphy) output, so you can go from a
+saved simulation to a figure in one line:
 
 ```python
-out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
+from struphy.post_processing.output import Output
+
+out = Output("path/to/run")
+out.evaluate("em_fields/phi").plasma.plot.slice(x="eta1", y="eta2", t=-1)
 ```
+
+:::note[Loaded by Struphy]
+Creating a Struphy `Output` loads plasma-plots. For xarray data from
+elsewhere, `import plasma_plots` first; without it, `.plasma` raises
+`AttributeError: 'DataArray' object has no attribute 'plasma'`.
+:::
+
+:::tip[Output of other codes]
+plasma-plots reads labeled arrays, not Struphy files: arrays from any code work
+when their dimensions and coordinates follow the same names (`t`,
+`eta1`/`eta2`/`eta3`, `X`/`Y`/`Z`, `marker`). See
+[Data from other codes](/plasma-plots/guides/getting-started/#data-from-other-codes).
+:::
 
 <CardGrid stagger>
 	<Card title="Field plots" icon="seti:image">
@@ -33,7 +56,7 @@ out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
 	</Card>
 	<Card title="Diagnostics" icon="seti:graphql">
 		Growth/damping rate fits, envelopes, spatial averages, velocity moments,
-		and dispersion relations via `.struphy.analysis`.
+		and dispersion relations via `.plasma.analysis`.
 	</Card>
 	<Card title="Whole-run overviews" icon="seti:folder">
 		Scalar energy histories and equilibrium profiles straight from a
@@ -44,3 +67,42 @@ out.evaluate("em_fields/phi").struphy.plot.slice(x="e1", y="e2", t="last")
 		scalar fields and equilibria.
 	</Card>
 </CardGrid>
+
+## A few examples
+
+<CardGrid>
+	<Card title="Vector field">
+		![Quiver plot of a vector field](../../assets/figures/vector.png)
+	</Card>
+	<Card title="Marker trajectories">
+		![3-D marker trajectories](../../assets/figures/trajectories.png)
+	</Card>
+	<Card title="Phase-space distributions">
+		![A bump-on-tail distribution](../../assets/figures/phase_space.png)
+	</Card>
+	<Card title="3-D equilibrium views">
+		![A 3-D equilibrium view](../../assets/figures/equilibrium_3d.png)
+	</Card>
+</CardGrid>
+
+See [Field plots](/plasma-plots/guides/field-plots/),
+[Time series & comparisons](/plasma-plots/guides/timeseries/),
+[Diagnostics](/plasma-plots/guides/analysis/),
+[Particles & distributions](/plasma-plots/guides/particles/), and
+[Whole-run plots](/plasma-plots/guides/output-plots/) for the rest — every
+kind of plot and diagnostic plasma-plots has, with a real figure for each.
+
+## Looking for a simulation to plot?
+
+`plasma-plots` plots data recorded by simulations such as
+[Struphy](https://github.com/struphy-hub/struphy)'s; it doesn't run any physics itself. If you want simulations to
+generate output from:
+
+- **[Struphy's examples gallery](https://struphy-hub.github.io/examples/)** —
+  Landau damping, the Orszag–Tang vortex, bump-on-tail, and dozens more,
+  each with the model, domain, and parameters that produced it.
+- **[MHD slab waves](/plasma-plots/guides/real-example/)** — every figure
+  on that page comes from an actual Struphy run, reproduced by this repo's
+  own docs build.
+- **[Struphy's own documentation](https://struphy-hub.github.io/)** — models,
+  propagators, domains, and everything else plasma-plots reads output from.

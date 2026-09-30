@@ -1,0 +1,4 @@
+[submodule "struphy"]
+	path = struphy
+	url = git@github.com:struphy-hub/struphy.git
+	branch = struphy-plots-integration

@@ -1,0 +1,102 @@
+---
+title: "dataset.plasma"
+description: "Plots, diagnostics and data of marker Datasets such as orbits."
+sidebar:
+  order: 4
+---
+
+{/* Written by scripts/accessor_pages.py; edit that script, not this page. */}
+
+import { Autodoc } from 'starlight-pydocs/components';
+
+Plots, diagnostics and data of an `xarray.Dataset` with per-marker variables, such as an orbits product.
+
+:::note[Where the accessors come from]
+The examples use output of a Struphy `Output`, which loads plasma-plots and its
+`.plasma` accessors. For other xarray data, run `import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+## dataset.plasma.plot
+
+Plots of one dataset, as `dataset.plasma.plot.<kind>(...)`.
+
+### `power_spectrum`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.power_spectrum" package="plasma_plots" headingLevel={3} />
+
+### `cross_spectrum`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.cross_spectrum" package="plasma_plots" headingLevel={3} />
+
+### `trajectories`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.trajectories" package="plasma_plots" headingLevel={3} />
+
+### `scatter`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.scatter" package="plasma_plots" headingLevel={3} />
+
+### `orbit_classification`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.orbit_classification" package="plasma_plots" headingLevel={3} />
+
+### `animation`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.animation" package="plasma_plots" headingLevel={3} />
+
+### `paths`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.paths" package="plasma_plots" headingLevel={3} />
+
+### `poloidal`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.poloidal" package="plasma_plots" headingLevel={3} />
+
+### `orbit_grid`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.orbit_grid" package="plasma_plots" headingLevel={3} />
+
+### `quantities`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.quantities" package="plasma_plots" headingLevel={3} />
+
+### `orbits_3d`
+
+<Autodoc name="plasma_plots.accessors.DatasetPlots.orbits_3d" package="plasma_plots" headingLevel={3} />
+
+## dataset.plasma.analysis
+
+Quantitative diagnostics of one dataset, as `dataset.plasma.analysis.<quantity>(...)`.
+
+### `classify_orbits`
+
+<Autodoc name="plasma_plots.accessors.DatasetAnalysis.classify_orbits" package="plasma_plots" headingLevel={3} />
+
+### `orbit_invariants`
+
+<Autodoc name="plasma_plots.accessors.DatasetAnalysis.orbit_invariants" package="plasma_plots" headingLevel={3} />
+
+### `bounce_period`
+
+<Autodoc name="plasma_plots.accessors.DatasetAnalysis.bounce_period" package="plasma_plots" headingLevel={3} />
+
+### `surface_average`
+
+<Autodoc name="plasma_plots.accessors.DatasetAnalysis.surface_average" package="plasma_plots" headingLevel={3} />
+
+## dataset.plasma.data
+
+The data behind each plot in :class:`DatasetPlots`, without rendering it.
+
+### `trajectories`
+
+<Autodoc name="plasma_plots.accessors.DatasetData.trajectories" package="plasma_plots" headingLevel={3} />
+
+### `scatter`
+
+<Autodoc name="plasma_plots.accessors.DatasetData.scatter" package="plasma_plots" headingLevel={3} />
+
+### `orbit_classification`
+
+<Autodoc name="plasma_plots.accessors.DatasetData.orbit_classification" package="plasma_plots" headingLevel={3} />
