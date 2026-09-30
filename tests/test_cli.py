@@ -91,9 +91,7 @@ def test_at_names_another_product_of_the_same_source(nc):
 def test_plot_methods_leave_out_3d_scenes_and_interactive_views():
     phi = xr.DataArray(np.zeros((2, 3)), dims=("t", "eta1"))
     methods = plot_methods(phi)
-    assert {"slice", "lineout", "timeseries", "animation", "movie", "frames"} <= set(
-        methods
-    )
+    assert {"slice", "lineout", "timeseries", "animation", "movie", "frames"} <= set(methods)
     left_out = {
         name
         for name in dir(accessors.ArrayPlots)
@@ -129,31 +127,21 @@ def test_info_lists_variables_dimensions_and_units(nc, capsys):
 
 def test_plot_saves_the_figure(nc, tmp_path, capsys):
     out = tmp_path / "phi.png"
-    assert (
-        main(["plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "-o", str(out)]) == 0
-    )
+    assert main(["plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "-o", str(out)]) == 0
     assert out.stat().st_size > 0
     assert f"wrote {out}" in capsys.readouterr().out
 
 
 def test_plot_passes_other_products_and_json(nc, tmp_path):
     out = tmp_path / "energy.png"
-    assert (
-        main(["plot", str(nc), "energy", "compare", "other=@energy", "-o", str(out)])
-        == 0
-    )
-    assert (
-        main(["plot", str(nc), "energy", "timeseries", "fit=[1,4]", "-o", str(out)])
-        == 0
-    )
+    assert main(["plot", str(nc), "energy", "compare", "other=@energy", "-o", str(out)]) == 0
+    assert main(["plot", str(nc), "energy", "timeseries", "fit=[1,4]", "-o", str(out)]) == 0
 
 
 def test_an_html_output_draws_with_plotly(nc, tmp_path):
     pytest.importorskip("plotly")
     out = tmp_path / "phi.html"
-    assert (
-        main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(out)]) == 0
-    )
+    assert main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(out)]) == 0
     assert "plotly" in out.read_text()
 
 
@@ -167,7 +155,7 @@ def test_movie_animates_2d_and_1d_data(nc, tmp_path):
 def test_errors_are_one_line_with_exit_code_1(nc, tmp_path, capsys):
     out = str(tmp_path / "x.png")
     assert main(["plot", str(nc), "phi", "isosurface", "-o", out]) == 1
-    assert "not a plot this command can save" in capsys.readouterr().err
+    assert "interactive method; add --show" in capsys.readouterr().err
     assert main(["plot", str(nc), "nosuch", "slice", "-o", out]) == 1
     assert "the variables are phi, energy, profile" in capsys.readouterr().err
     assert main(["plot", str(nc), "phi", "slice", "bogus=1", "-o", out]) == 1
@@ -210,14 +198,9 @@ def test_run_products_by_name(run, tmp_path, capsys):
 
 def test_the_whole_run_plots_with_out_plot(run, tmp_path, capsys):
     assert main(["plot", str(run.path_out), ".", "--list"]) == 0
-    assert {"energies", "scalars", "profile.gantt"} <= set(
-        capsys.readouterr().out.split()
-    )
+    assert {"energies", "scalars", "profile.gantt"} <= set(capsys.readouterr().out.split())
     out = tmp_path / "energies.png"
-    assert (
-        main(["plot", str(run.path_out), ".", "energies", "-o", str(out)]) == 0
-        and out.exists()
-    )
+    assert main(["plot", str(run.path_out), ".", "energies", "-o", str(out)]) == 0 and out.exists()
 
 
 def test_a_product_named_as_a_method_gets_a_hint(run, capsys):
@@ -256,8 +239,13 @@ def test_commands_process_runs_automatically(run, tmp_path, monkeypatch, command
     args = [command, str(run.path_out)]
     if command == "plot":
         args += [
-            "em_fields/E", "slice", "t=-1", "component=0", "eta3=0",
-            "-o", str(tmp_path / "E.png"),
+            "em_fields/E",
+            "slice",
+            "t=-1",
+            "component=0",
+            "eta3=0",
+            "-o",
+            str(tmp_path / "E.png"),
         ]
     elif command == "movie":
         args += ["em_fields/E", "component=0", "eta3=0", "-o", str(tmp_path / "E.gif")]
@@ -287,9 +275,7 @@ def test_python_m_runs_the_command():
         check=True,
     )
     assert result.stdout.startswith("# plasma-plots API index")
-    bad = subprocess.run(
-        [sys.executable, "-m", "plasma_plots", "bogus"], capture_output=True, text=True
-    )
+    bad = subprocess.run([sys.executable, "-m", "plasma_plots", "bogus"], capture_output=True, text=True)
     assert bad.returncode == 2 and "invalid choice" in bad.stderr
 
 
@@ -304,14 +290,13 @@ def test_the_installed_command_runs(nc, tmp_path):
         capture_output=True,
     )
     assert out.stat().st_size > 0
-    bad = subprocess.run(
-        [command, "info", str(tmp_path / "missing.nc")], capture_output=True, text=True
-    )
+    bad = subprocess.run([command, "info", str(tmp_path / "missing.nc")], capture_output=True, text=True)
     assert bad.returncode == 1 and bad.stderr.startswith("plasma-plots: error:")
 
 
 @pytest.mark.parametrize("save", [False, True])
 def test_show_displays_plot_and_optionally_saves(nc, tmp_path, monkeypatch, save):
+    monkeypatch.setattr(cli, "_check_display", lambda: None)
     shown = []
     out = tmp_path / "shown.png"
 
@@ -330,6 +315,7 @@ def test_show_displays_plot_and_optionally_saves(nc, tmp_path, monkeypatch, save
 
 
 def test_show_movie_keeps_animation_alive(nc, monkeypatch):
+    monkeypatch.setattr(cli, "_check_display", lambda: None)
     import gc
     from matplotlib.animation import FuncAnimation
 
@@ -357,6 +343,7 @@ def test_show_plotly_opens_browser(nc, monkeypatch):
 
 
 def test_quicklook_can_show_without_output(nc, monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_check_display", lambda: None)
     shown = []
     monkeypatch.setattr(plt, "show", lambda **kw: shown.append(plt.gcf()))
     assert main(["quicklook", str(nc), "--show"]) == 0
@@ -364,11 +351,14 @@ def test_quicklook_can_show_without_output(nc, monkeypatch, tmp_path):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["fields.nc"]
 
 
-@pytest.mark.parametrize("command,options", [
-    ("plot", ["energy", "timeseries"]),
-    ("movie", ["phi", "eta3=0"]),
-    ("quicklook", []),
-])
+@pytest.mark.parametrize(
+    "command,options",
+    [
+        ("plot", ["energy", "timeseries"]),
+        ("movie", ["phi", "eta3=0"]),
+        ("quicklook", []),
+    ],
+)
 def test_requires_save_or_show(nc, capsys, command, options):
     assert main([command, str(nc), *options]) == 1
     assert "--show" in capsys.readouterr().err
@@ -380,6 +370,7 @@ def test_file_writing_method_requires_output_with_show(nc, capsys):
 
 
 def test_show_result_accepts_figure_and_tuple(monkeypatch):
+    monkeypatch.setattr(cli, "_check_display", lambda: None)
     calls = []
     monkeypatch.setattr(plt, "show", lambda **kw: calls.append(kw))
     fig, ax = plt.subplots()
@@ -394,3 +385,128 @@ def test_show_result_skips_other_mpi_ranks(monkeypatch):
     monkeypatch.setattr(mpi, "is_plotting_rank", lambda: False)
     monkeypatch.setattr(plt, "show", lambda **kw: pytest.fail("displayed on another rank"))
     cli._show_result(plt.figure())
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["plot", "missing", "phi", "slice"],
+        ["plot", "missing", "phi", "slic", "--show"],
+        ["plot", "missing", "phi", "slice", "t=0", "t=1", "--show"],
+        ["plot", "missing", "phi", "slice", "levels=[oops", "--show"],
+        ["plot", "missing", "phi", "slice", "bad-option", "--show"],
+        ["plot", "missing", "phi", "frames", "--show", "-o", "frames"],
+        ["movie", "missing", "phi", "--dpi", "0", "--show"],
+        ["quicklook", "missing", "--format", ",", "--show"],
+        ["quicklook", "missing", "--select", "t=last", "--show"],
+    ],
+)
+def test_usage_errors_do_not_open_data(args, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "open_source", lambda *a: pytest.fail("opened data for invalid command"))
+    assert main(args) == 1
+    assert "error:" in capsys.readouterr().err
+
+
+def test_method_help_needs_no_data(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "open_source", lambda *a: pytest.fail("opened data for help"))
+    assert main(["help", "slice"]) == 0
+    text = capsys.readouterr().out
+    assert "Parameters" in text and "x:" in text and "t=-1" in text
+    assert main(["help", "energies"]) == 0
+    assert "run plot: energies" in capsys.readouterr().out
+    assert main(["help", "profile.gantt"]) == 0
+    assert "min_duration" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as done:
+        main(["plot", "missing.nc", "phi", "slice", "--help"])
+    assert done.value.code == 0
+    assert "array plot: slice" in capsys.readouterr().out
+
+
+def test_method_and_product_typos_offer_suggestions(nc, capsys):
+    assert main(["help", "slic"]) == 1
+    assert "did you mean 'slice'" in capsys.readouterr().err
+    assert main(["plot", str(nc), "energi", "timeseries", "--show"]) == 1
+    assert "did you mean 'energy'" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("method", ["viewer", "view"])
+def test_interactive_view_can_show_and_save(nc, tmp_path, monkeypatch, method):
+    monkeypatch.setattr(cli, "_check_display", lambda: None)
+    shown = []
+    monkeypatch.setattr(plt, "show", lambda **kw: shown.append(plt.gcf()))
+    out = tmp_path / "viewer.png"
+    assert main(["plot", str(nc), "phi", method, "eta3=0", "--show", "-o", str(out)]) == 0
+    assert out.stat().st_size > 0
+    assert shown and len(shown[0].axes) >= 2
+
+
+def test_interactive_methods_are_listed_with_show(nc, capsys):
+    assert main(["plot", str(nc), "phi", "--list", "--show"]) == 0
+    assert {"viewer", "view", "volume", "isosurface"} <= set(capsys.readouterr().out.split())
+
+
+def test_headless_show_fails_with_recovery_instructions(nc, capsys):
+    assert main(["plot", str(nc), "energy", "timeseries", "--show"]) == 1
+    error = capsys.readouterr().err
+    assert "cannot open a window" in error
+    assert "-o figure.png" in error and "backend=plotly" in error
+
+
+def test_pyvista_show_dispatch(nc, monkeypatch, tmp_path):
+    calls = []
+
+    class Scene:
+        __module__ = "pyvista.plotting.plotter"
+
+        def show(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(accessors.ArrayPlots, "volume", lambda self, **kwargs: Scene())
+    output = tmp_path / "scene.png"
+    assert main(["plot", str(nc), "phi", "volume", "t=-1", "--show", "-o", str(output)]) == 0
+    assert calls == [{"screenshot": str(output)}]
+
+
+def test_quicklook_product_and_dimension_selection(nc, tmp_path, monkeypatch):
+    calls = []
+    original = cli._call_plot
+
+    def record(obj, name, options, output, **kwargs):
+        calls.append((obj, name, options))
+        return original(obj, name, options, output, **kwargs)
+
+    monkeypatch.setattr(cli, "_call_plot", record)
+    folder = tmp_path / "selected"
+    assert main(["quicklook", str(nc), "--products", "phi", "--select", "t=2.4", "eta3=0", "-o", str(folder)]) == 0
+    assert [p.name for p in folder.iterdir()] == ["phi-slice.png"]
+    assert len(calls) == 1
+    data, method, options = calls[0]
+    assert data.dims == ("eta1", "eta2")
+    assert float(data.t) == pytest.approx(25 / 11)
+    assert method == "slice" and "t" not in options
+
+
+def test_quicklook_unknown_selection_is_error(nc, tmp_path, capsys):
+    assert main(["quicklook", str(nc), "--select", "oops=0", "-o", str(tmp_path / "figures")]) == 1
+    assert "unknown selection dimensions: oops" in capsys.readouterr().err
+
+
+def test_empty_option_value_and_duplicate_options():
+    assert parse_value("") == ""
+    with pytest.raises(CLIError, match="duplicate option 't'"):
+        _parse_options(["t=0", "t=1"])
+
+
+def test_quicklook_headless_error_reaches_stderr(nc, capsys):
+    assert main(["quicklook", str(nc), "--show"]) == 1
+    assert "cannot open a window" in capsys.readouterr().err
+
+
+def test_quicklook_selection_error_names_product(nc, tmp_path, capsys):
+    assert main(["quicklook", str(nc), "--products", "phi", "--select", "t=999", "-o", str(tmp_path / "plots")]) == 1
+    assert "cannot select 'phi'" in capsys.readouterr().err
+
+
+def test_traceback_preserves_plot_failure(nc):
+    with pytest.raises(CLIError, match="Available dimensions"):
+        main(["plot", str(nc), "phi", "slice", "bogus=1", "-o", "unused.png", "--traceback"])

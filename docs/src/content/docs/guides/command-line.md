@@ -23,7 +23,22 @@ plasma-plots quicklook sim_1 -o figures/                   # the standard figure
 
 `plasma-plots guide` prints the package guide and `plasma-plots api` the
 [API index](/plasma-plots/reference/). `plasma-plots COMMAND --help` lists the
-options of each command.
+options of each command. Running `plasma-plots` without arguments also prints
+command help.
+
+For a method's signature, parameters and examples, no input file is needed:
+
+```bash
+plasma-plots help slice
+plasma-plots help energies --kind run
+plasma-plots help profile.gantt
+plasma-plots help trajectories --kind dataset
+```
+
+You can also put `--help` after a selected method:
+`plasma-plots plot run.nc phi slice --help`. This does not open or process the run.
+Use `--kind array`, `dataset`, or `run` with the `help` command to choose a
+namespace when a method name exists in several places.
 
 ## What is in it: `info`
 
@@ -93,9 +108,20 @@ A scalar time series is a product of its own:
 `plasma-plots plot sim_1 electric_energy timeseries -o e.png`.
 
 `plasma-plots plot PATH PRODUCT --list` lists the methods a product has.
-PyVista scenes and the interactive viewer are left out, since neither is a
-file. `movie` and `frames` write the file (or folder) given with `-o`
-themselves.
+Add `--show` to the listing to include interactive viewers and PyVista scenes.
+These methods require `--show`:
+
+```bash
+plasma-plots plot run.nc phi viewer eta3=0 --show
+plasma-plots plot run.nc phi isosurface t=-1 --show
+plasma-plots plot run.nc phi volume t=-1 --show -o volume.png
+```
+
+`view` opens its slider viewer. A viewer can also save its initial figure with
+`-o`; a PyVista scene can save a screenshot. PyVista requires the `pyvista`
+optional dependency. `movie` and `frames` write the file (or folder) given with
+`-o` themselves and do not accept `--show`; use the `movie` command or an
+`animation` method for display.
 
 **PRODUCT `.`** stands for all of `PATH`: the run's own plots (`out.plot`)
 for a Struphy folder, or the file's Dataset (`dataset.plasma.plot`), e.g. for
@@ -154,7 +180,19 @@ plasma-plots quicklook sim_1 -o figures/
 plasma-plots quicklook sim_1 -o figures/ --format png,html
 ```
 
-The command writes one figure per product into the folder:
+To limit the work and choose a time, component or plane:
+
+```bash
+plasma-plots quicklook sim_1 --products em_fields/e_field em_fields/b_field --select t=-1 component=2 eta3=0 -o fields/
+plasma-plots quicklook run.nc --products phi --select t=0.5 eta3=0 --show
+```
+
+`--products` omits run overview figures and draws only the named products.
+`--select` applies before choosing a slice, lineout or time series: integers
+select indices; decimals select the nearest coordinate. Each selection applies
+to products that have that dimension; a dimension absent from all selected
+products is an error. Without these options, the standard figures are:
+
 
 - **For a Struphy run:** the energy budget (`energies`), the scalars, the
   equilibrium.
@@ -184,8 +222,15 @@ needed. To choose custom processing options, run `struphy output pproc PATH` fir
 `struphy output info` and `struphy output report` describe the run's data;
 `plasma-plots` draws it.
 
-Errors are one line, and exit with status 1. `--traceback` shows where an
-error came from.
+Errors exit with status 1; argument-parser errors exit with status 2.
+Messages suggest close method/product names, show dimensions for plotting
+errors, and point to method help. Basic argument mistakes are checked before
+opening or post-processing a run. `--traceback` shows where an error came from.
+
+If `--show` cannot open a Matplotlib window, save with `-o`, choose
+`backend=plotly --show` for a browser figure, or configure an interactive
+Matplotlib backend with a working display. A noninteractive backend such as
+Agg now reports an error instead of silently returning without a window.
 
 ## When to use Python instead
 

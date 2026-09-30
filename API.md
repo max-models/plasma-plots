@@ -436,9 +436,9 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 
 - `open_source(path)`: Open path: a Struphy Output for a run folder, else an xarray.Dataset.
 - `parse_value(text, source=None)`: A key=value value as Python: an int, a float, a bool, None, a list or a string.
-- `plot_methods(obj)`: The plot methods of obj that plasma-plots plot can call and save.
+- `plot_methods(obj, *, show=False)`: The plot methods of obj available to plasma-plots plot.
 - `quicklook_plot(array)`: The plot method and options of a quick look at array, or None if there is none.
-- `quicklook(source, directory=None, *, formats=('png',), dpi=None, log=None, show=False)`: Save or display the standard figures of source; return the files written.
+- `quicklook(source, directory=None, *, formats=('png',), dpi=None, log=None, show=False, products=None, selection=None)`: Save or display the standard figures of source; return the files written.
 - `main(argv=None)`: Run the plasma-plots command.
 
 ## Theory: plasma_plots.theory
