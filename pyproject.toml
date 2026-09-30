@@ -9,7 +9,7 @@ description = "Plots and diagnostics of labeled xarray output from plasma simula
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Max Lindqvist", email = "max.lindqvist@ipp.mpg.de" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["matplotlib", "numpy", "xarray", "ipywidgets"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -23,6 +23,8 @@ classifiers = [
 plasma-plots = "plasma_plots.cli:main"
 
 [project.optional-dependencies]
+# Read netCDF3 and netCDF4 files through xarray (including the CLI).
+netcdf = ["netCDF4"]
 pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]
 # backend="plotly": interactive Plotly versions of the plots; kaleido saves them as PNG/SVG/PDF

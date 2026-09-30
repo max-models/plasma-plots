@@ -209,3 +209,20 @@ to the test's cases.
   `struphy-hub/plasma-plots`, workflow `publish.yml`, environment `pypi`.
   The workflow passes `skip-existing: true`, so re-pushing `main` without a
   version bump is a safe no-op rather than a failing build.
+
+## Releasing
+
+Merging or pushing to `main` triggers `.github/workflows/publish.yml` and
+publishes to **PyPI** using the `pypi` environment's Trusted Publisher.
+It then publishes the corresponding **GitHub release** (`v<version>`) and
+attaches the same wheel and source archive. An existing draft is completed;
+an already published GitHub release is left unchanged.
+
+Before merging the release PR, wait for the Python tests and docs build,
+update `pyproject.toml`'s version, and add `releases/<version>.md` with features,
+optional dependencies and the exact tested Struphy revision. A draft release
+can be created in advance; it does not publish the package. The workflow
+validates distribution metadata before publishing. Configure PyPI Trusted
+Publishing for this repository, `publish.yml`, and the `pypi` environment.
+A manual dispatch on a non-main branch does not create a GitHub release;
+release dispatches should use `main`.

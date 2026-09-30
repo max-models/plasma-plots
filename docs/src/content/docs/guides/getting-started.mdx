@@ -5,15 +5,40 @@ description: Install plasma-plots and make your first plot.
 
 ## Installation
 
+Python **3.11 or newer** is required; CI tests Python 3.11 and 3.12.
+The base install plots in-memory xarray data. Install extras for file formats
+and optional renderers:
+
 ```bash
 pip install plasma-plots
+pip install "plasma-plots[netcdf]"
+pip install "plasma-plots[netcdf,plotly]"
 ```
 
-For interactive 3-D volume rendering, install the optional PyVista extra:
+| Extra | Enables | Dependencies |
+| --- | --- | --- |
+| `netcdf` | Read netCDF3/netCDF4 files through xarray and the CLI | `netCDF4` |
+| `plotly` | Interactive browser plots and static Plotly exports | `plotly`, `kaleido` |
+| `pyvista` | 3-D scenes and rendering | `pyvista`, `imageio` |
+| `profiling` | Timing summaries and profiling plots | `scope-profiler[pproc]` |
+| `desc` | Evaluate DESC equilibria | `desc-opt` |
+| `gallery` | Export Struphy example-gallery figures and profiling | `plotly`, `kaleido`, `scope-profiler[pproc]>=0.6.1` |
+| `dev` | Tests, linting and documentation tooling | `pytest`, `ruff`, `h5py`, `griffe` |
 
-```bash
-pip install "plasma-plots[pyvista]"
-```
+Struphy, GVEC and Zarr are separate installations; no extra above installs
+them. Struphy users need the compatible output API described below. Install
+`gvec` for GVEC evaluation or `zarr` to open Zarr stores. MP4 export requires
+system `ffmpeg`; Matplotlib windows require a working GUI/display, and static
+Plotly exports through Kaleido require a compatible Chrome installation.
+
+## Struphy compatibility
+
+Struphy integration is tested against commit
+[`caddd229a3fcba1fada577d1af46d012e93d8b49`](https://github.com/struphy-hub/struphy/commit/caddd229a3fcba1fada577d1af46d012e93d8b49)
+(the repository's pinned submodule, reporting version **3.3.0**). Use that
+revision for a reproducible installation; compatibility with other Struphy
+revisions, including older published builds, is not guaranteed. Struphy is
+optional when working with ordinary xarray data.
 
 ## Loading plasma-plots
 
