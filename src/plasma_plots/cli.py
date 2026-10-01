@@ -381,9 +381,7 @@ def _save_result(result, path, *, dpi=None) -> list[str]:
                 "this animation has no Plotly version; save it as .gif or .mp4"
             )
         if suffix in _TIKZ_SUFFIXES:
-            raise CLIError(
-                "an animation has no TikZ version; save it as .gif or .mp4"
-            )
+            raise CLIError("an animation has no TikZ version; save it as .gif or .mp4")
         writer = _ANIMATION_WRITERS.get(suffix)
         result.save(str(path), writer=writer, **({"dpi": dpi} if dpi else {}))
         return [str(path)]

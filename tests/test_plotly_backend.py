@@ -13,14 +13,14 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 go = pytest.importorskip("plotly.graph_objects")
 
+from plot_cases import CASES, energy, orbits, torus_field, wave  # noqa: E402
+
 import plasma_plots  # noqa: E402
 from plasma_plots import accessors, output_accessors  # noqa: E402
 from plasma_plots.mpi import SkippedPlot  # noqa: E402
 from plasma_plots.plotly_backend import ConversionWarning  # noqa: E402
 from plasma_plots.plotly_backend import plotly_text, to_plotly
 from plasma_plots.plotting import PlotResult, plot_slice  # noqa: E402
-
-from plot_cases import CASES, energy, orbits, torus_field, wave  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:The input coordinates to pcolormesh")
 
@@ -33,8 +33,6 @@ def strict_and_clean():
         yield
     plt.close("all")
     assert plasma_plots.get_backend() == "matplotlib"
-
-
 
 
 @pytest.mark.parametrize("name", sorted(CASES))

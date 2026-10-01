@@ -11,6 +11,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 pytest.importorskip("maxplotlib.backends.tikzfigure")
+from plot_cases import CASES, energy, torus_field  # noqa: E402
 from tikzfigure import TikzFigure  # noqa: E402
 
 import plasma_plots  # noqa: E402
@@ -18,15 +19,20 @@ from plasma_plots.mpi import SkippedPlot  # noqa: E402
 from plasma_plots.plotting import PlotResult, plot_lineout  # noqa: E402
 from plasma_plots.tikz_backend import to_tikz  # noqa: E402
 
-from plot_cases import CASES, energy, torus_field  # noqa: E402
-
 pytestmark = pytest.mark.filterwarnings("ignore:The input coordinates to pcolormesh")
 
 needs_pdflatex = pytest.mark.skipif(
     shutil.which("pdflatex") is None, reason="pdflatex not installed"
 )
 # plots that are not still figures: they have no TikZ version
-MOVING = {"animation", "line_animation", "viewer", "view_viewer", "view_animation", "ds_animation"}
+MOVING = {
+    "animation",
+    "line_animation",
+    "viewer",
+    "view_viewer",
+    "view_animation",
+    "ds_animation",
+}
 # plots that draw 3-D axes, which become images
 THREE_D = {"trajectories", "ds_trajectories"}
 
@@ -72,7 +78,9 @@ def test_fits_and_data_are_kept():
 
 
 def test_a_slice_is_an_image_with_a_colorbar(tmp_path):
-    result = torus_field().plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, backend="tikz")
+    result = torus_field().plasma.plot.slice(
+        x="eta1", y="eta2", t=-1, eta3=0, backend="tikz"
+    )
     tikz = result.fig.generate_tikz()
     assert len(result.fig.axes) == 2, "the slice and its colorbar"
     assert tikz.count("graphics[") == 2

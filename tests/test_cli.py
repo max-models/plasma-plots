@@ -624,7 +624,9 @@ def test_missing_netcdf_backend_suggests_extra(tmp_path, monkeypatch):
     path.touch()
 
     def missing_backend(*args, **kwargs):
-        raise ValueError("found matches with xarray's IO backends, but their dependencies may not be installed")
+        raise ValueError(
+            "found matches with xarray's IO backends, but their dependencies may not be installed"
+        )
 
     monkeypatch.setattr(xr, "open_dataset", missing_backend)
     with pytest.raises(CLIError, match=r'pip install "plasma-plots\[netcdf\]"'):

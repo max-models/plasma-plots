@@ -316,7 +316,9 @@ class PlotResult:
         if self._plotly:
             return self
         if self._tikz:
-            raise TypeError("a TikZ figure cannot be converted to Plotly; draw it again")
+            raise TypeError(
+                "a TikZ figure cannot be converted to Plotly; draw it again"
+            )
         result = _plotly_result(to_plotly(self.fig), self)
         if close:
             plt.close(self.fig)
@@ -356,7 +358,9 @@ class PlotResult:
         if self._tikz:
             return self
         if self._plotly:
-            raise TypeError("a Plotly figure cannot be converted to TikZ; draw it again")
+            raise TypeError(
+                "a Plotly figure cannot be converted to TikZ; draw it again"
+            )
         result = _tikz_result(to_tikz(self.fig, **options), self)
         if close:
             plt.close(self.fig)
