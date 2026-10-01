@@ -152,6 +152,25 @@ def test_an_html_output_draws_with_plotly(nc, tmp_path):
     assert "plotly" in out.read_text()
 
 
+def test_a_tex_or_tikz_output_draws_with_tikz(nc, tmp_path):
+    pytest.importorskip("maxplotlib.backends.tikzfigure")
+    tex, tikz = tmp_path / "phi.tex", tmp_path / "phi.tikz"
+    assert (
+        main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(tex)]) == 0
+    )
+    assert tex.read_text().startswith("\\documentclass")
+    assert main(["plot", str(nc), "energy", "timeseries", "-o", str(tikz)]) == 0
+    assert "\\begin{axis}" in tikz.read_text()
+    assert list(tmp_path.glob("*.png")), "the slice's images are written next to it"
+
+
+def test_an_animation_has_no_tikz_version(nc, tmp_path, capsys):
+    pytest.importorskip("maxplotlib.backends.tikzfigure")
+    out = str(tmp_path / "phi.tex")
+    assert main(["plot", str(nc), "phi", "animation", "eta3=0", "-o", out]) == 1
+    assert "still figures" in capsys.readouterr().err
+
+
 def test_movie_animates_2d_and_1d_data(nc, tmp_path):
     two, one = tmp_path / "phi.gif", tmp_path / "profile.gif"
     assert main(["movie", str(nc), "phi", "eta3=0", "step=4", "-o", str(two)]) == 0

@@ -2142,5 +2142,40 @@ for _argv in (
         raise RuntimeError(f"plasma-plots {' '.join(_argv)} failed")
 plt.close("all")
 
+# =============================================================================
+# backend="tikz": the same plots as TikZ/pgfplots code, converted by maxplotlib (needs
+# `pip install maxplotlibx` and pdflatex); the "LaTeX figures" guide shows them compiled.
+# =============================================================================
+try:
+    import shutil
+
+    from maxplotlib.backends.tikzfigure import figure_to_tikz  # noqa: F401
+
+    if shutil.which("pdflatex") is None:
+        raise RuntimeError("pdflatex is not installed")
+
+    def save_tikz(result, filename):
+        path = OUT / filename
+        result.save(path, dpi=150, transparent=False)
+        print(f"wrote {path}")
+
+    save_tikz(
+        energy.plasma.plot.timeseries(
+            fit=(0.0, 2.0), title="Field energy growth", backend="tikz"
+        ),
+        "tikz_timeseries.png",
+    )
+    save_tikz(
+        field.plasma.plot.slice(x="eta1", y="eta2", t=-1, backend="tikz"),
+        "tikz_slice.png",
+    )
+    with plasma_plots.figure(2, 1, sharex=True, backend="tikz") as composed_tikz:
+        energy.plasma.plot.timeseries(fit=(0.0, 2.0), ax=composed_tikz[0])
+        total.plasma.analysis.drift().plasma.plot.timeseries(
+            logy=False, ax=composed_tikz[1]
+        )
+    save_tikz(composed_tikz, "tikz_composed_energies.png")
+except Exception as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped tikz_*.png (maxplotlib or pdflatex unavailable): {exc}")
 plt.close("all")
 print("done")

@@ -33,7 +33,7 @@ from .plotly_backend import with_backend
 
 Coordinates = Literal["logical", "physical"]
 Plane = Literal["XY", "XZ", "YZ", "RZ", "X1X2"]
-Backend = Literal["matplotlib", "plotly"]
+Backend = Literal["matplotlib", "plotly", "tikz"]
 
 
 class _ArrayAccessor:
@@ -120,10 +120,11 @@ class ArrayPlots(_ArrayAccessor):
         reference : callable, array, (t, values) pair or dict, optional
             Exact or expected curves, drawn dashed: a function of ``t``, an array, a
             ``(t, values)`` pair, or a mapping of labels to these.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -184,10 +185,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             The other dimensions: an integer is a position (``t=-1`` the last), a float the
             nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -318,10 +320,11 @@ class ArrayPlots(_ArrayAccessor):
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -374,10 +377,11 @@ class ArrayPlots(_ArrayAccessor):
             Further 1-D error arrays, e.g. of other methods or norms, drawn in the same axes.
         xlabel : str, optional
             The horizontal axis label. Default: the coordinate's label.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -446,10 +450,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but ``x``, ``y`` and the component dimension, e.g. ``t=-1, eta3=0``:
             an integer is a position, a float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -494,10 +499,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but the three of the volume, e.g. ``t=-1``: an integer is a
             position, a float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -836,10 +842,11 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         other : xarray.DataArray
             The array to compare with, e.g. a reference run; aligned with this one first.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -888,10 +895,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every other dimension of this field, e.g. ``t=-1``: an integer is a position, a
             float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -946,10 +954,11 @@ class ArrayPlots(_ArrayAccessor):
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1031,10 +1040,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions other than ``t`` to select first (e.g. a probe point ``eta1=0.4``): an
             integer is a position, a float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1080,10 +1090,11 @@ class ArrayPlots(_ArrayAccessor):
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1138,10 +1149,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions other than ``t`` to select first: an integer is a position, a float the
             nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1218,10 +1230,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions other than ``t`` to select first: an integer is a position, a float the
             nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1286,10 +1299,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             The time and any other dimensions to select first, e.g. ``t=-1``: an integer is a
             position, a float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1346,10 +1360,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions to select first: an integer is a position, a float the nearest
             coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1421,10 +1436,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Dimensions to select first (without ``omega``, the time): an integer is a position,
             a float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1500,10 +1516,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every other dimension, e.g. ``eta2=0.125, eta3=0``: an integer is a position, a
             float the nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1558,10 +1575,11 @@ class ArrayPlots(_ArrayAccessor):
             The second signal, on the same time grid; its phase is relative to this one.
         omega_max : float, optional
             The largest angular frequency shown. Default: all.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1608,10 +1626,11 @@ class ArrayPlots(_ArrayAccessor):
         **selection
             Every dimension but ``t``, e.g. a probe point: an integer is a position, a float the
             nearest coordinate value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1801,10 +1820,11 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         ax : matplotlib.axes.Axes, optional
             The axes to draw into. Default: a new figure.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -1886,10 +1906,11 @@ class ArrayPlots(_ArrayAccessor):
             The number of panel rows. Default: 3.
         ncols : int, optional
             The number of panel columns. Default: 4.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -2194,10 +2215,11 @@ class ArrayPlots(_ArrayAccessor):
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3718,10 +3740,11 @@ class DatasetPlots:
         **options
             The keyword options of :func:`plasma_plots.spectral_plots.plot_power_spectrum`,
             e.g. ``peaks=2``.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3752,10 +3775,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3791,10 +3815,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3842,10 +3867,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -3897,10 +3923,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4019,10 +4046,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4068,10 +4096,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4110,10 +4139,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4152,10 +4182,11 @@ class DatasetPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4391,10 +4422,11 @@ class SliceView:
             Further dimensions to select, e.g. ``t=-1``, in addition to (or overriding) the
             view's own selection: an integer is a position, a float the nearest coordinate
             value.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -4429,10 +4461,11 @@ class SliceView:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------

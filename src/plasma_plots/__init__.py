@@ -103,7 +103,9 @@ Every Matplotlib plot also draws as an interactive Plotly figure (``pip install
 "plasma-plots[plotly]"``): ``phi.plasma.plot.slice(t=-1, eta3=0, backend="plotly")``, or
 ``plasma_plots.set_backend("plotly")`` for all of them. The result is a ``PlotResult`` too
 (``.save("phi.html")``); animations and viewers get a slider. See
-:mod:`plasma_plots.plotly_backend`.
+:mod:`plasma_plots.plotly_backend`. For a paper, ``backend="tikz"`` (``pip install
+"plasma-plots[tikz]"``) converts the plot into TikZ/pgfplots code with LaTeX text
+(``.save("phi.tex")``, ``.tikz``, ``.pdf``); see :mod:`plasma_plots.tikz_backend`.
 
 Under MPI (``mpirun -n 4 python script.py``), plots are drawn and saved on rank 0 only; the other
 ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchanged in serial and

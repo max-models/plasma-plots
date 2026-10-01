@@ -8,6 +8,7 @@ arguments, so every plot method works from the command line::
     plasma-plots info sim_1
     plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 -o phi.png
     plasma-plots plot sim_1 . energies -o energies.html
+    plasma-plots plot sim_1 . energies -o energies.tex
     plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 --show
     plasma-plots movie sim_1 em_fields/phi eta3=0 -o phi.gif
     plasma-plots quicklook sim_1 -o figures/
@@ -29,6 +30,7 @@ WHOLE = "."
 """The PRODUCT that names the whole source: the run (``out.plot``) or the file's Dataset."""
 
 _PLOTLY_SUFFIXES = (".html", ".htm", ".json")
+_TIKZ_SUFFIXES = (".tex", ".tikz")
 _ANIMATION_WRITERS = {".gif": "pillow", ".apng": "pillow", ".webp": "pillow"}
 _INTERACTIVE_RETURNS = ("Plotter", "SliceView", "InteractiveSliceViewer")
 _NOT_SPATIAL = ("t", "component", "marker")
@@ -300,18 +302,19 @@ def _call_plot(obj, name: str, options: dict, output, *, show=False):
 
     A method whose first parameter is a file or folder (``movie``, ``frames``) gets ``output``
     there and writes it itself. A Plotly output (``.html``, ``.json``) draws with
-    ``backend="plotly"`` unless ``options`` choose a backend.
+    ``backend="plotly"``, a LaTeX output (``.tex``, ``.tikz``) with ``backend="tikz"``, unless
+    ``options`` choose a backend.
     """
     method = _method(obj, name, show=show)
     parameters = inspect.signature(method).parameters
     first = next(iter(parameters), None)
     options = dict(options)
-    if (
-        output is not None
-        and Path(output).suffix.lower() in _PLOTLY_SUFFIXES
-        and "backend" in parameters
-    ):
-        options.setdefault("backend", "plotly")
+    suffix = Path(output).suffix.lower() if output is not None else ""
+    if "backend" in parameters:
+        if suffix in _PLOTLY_SUFFIXES:
+            options.setdefault("backend", "plotly")
+        elif suffix in _TIKZ_SUFFIXES:
+            options.setdefault("backend", "tikz")
     if first in ("path", "directory"):
         if show:
             raise CLIError(
@@ -377,6 +380,10 @@ def _save_result(result, path, *, dpi=None) -> list[str]:
             raise CLIError(
                 "this animation has no Plotly version; save it as .gif or .mp4"
             )
+        if suffix in _TIKZ_SUFFIXES:
+            raise CLIError(
+                "an animation has no TikZ version; save it as .gif or .mp4"
+            )
         writer = _ANIMATION_WRITERS.get(suffix)
         result.save(str(path), writer=writer, **({"dpi": dpi} if dpi else {}))
         return [str(path)]
@@ -390,6 +397,14 @@ def _save_result(result, path, *, dpi=None) -> list[str]:
         raise CLIError(
             f"this plot has no Plotly version; save it as .png, .pdf or .svg instead of {suffix}"
         )
+    if suffix in _TIKZ_SUFFIXES and not type(result.fig).__module__.startswith(
+        "tikzfigure"
+    ):
+        if type(result.fig).__module__.startswith("plotly"):
+            raise CLIError(
+                f"a Plotly figure has no TikZ version; draw it with backend=tikz for {suffix}"
+            )
+        result = result.to_tikz()
     return [result.save(path, **({"dpi": dpi} if dpi else {}))]
 
 
