@@ -113,8 +113,8 @@ The functions behind the accessors, for plain ``xarray.DataArray`` input, are in
 ``plasma_plots.plotting``, ``.analysis``, ``.spectral``, ``.spectral_plots``, ``.pyvista_plots``
 and ``.arrays``.
 
-Guides and the full reference: https://struphy-hub.github.io/plasma-plots (for language models:
-https://struphy-hub.github.io/plasma-plots/llms.txt).
+Guides and the full reference: https://max-models.github.io/plasma-plots (for language models:
+https://max-models.github.io/plasma-plots/llms.txt).
 
 Example
 -------

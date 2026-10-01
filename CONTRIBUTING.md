@@ -28,7 +28,7 @@ by `scripts/generate_docs_figures.py` -- the point of those guides is
 `plasma-plots` and its optional extras, no struphy install at all.
 
 The one exception is the [A real
-simulation](https://struphy-hub.github.io/plasma-plots/guides/real-example/)
+simulation](https://max-models.github.io/plasma-plots/guides/real-example/)
 guide, whose `real_*.png` figures (and the full source shown on that page,
 via an Astro `?raw` import) come from actually running struphy
 (`scripts/generate_real_example_figures.py`, a real `LinearMHD` slab-waves
@@ -37,14 +37,14 @@ script needs the full **compiled** `struphy` runtime (from the submodule,
 see above -- `struphy compile -y` if you haven't); `scipy` comes along with
 it (struphy's own dependency).
 
-The [GVEC equilibria](https://struphy-hub.github.io/plasma-plots/guides/gvec/) guide is the
+The [GVEC equilibria](https://max-models.github.io/plasma-plots/guides/gvec/) guide is the
 other: its `gvec_*` figures, interactive 3-D scenes and `docs/src/assets/gvec/numbers.txt` come
 from real GVEC equilibria (`scripts/generate_gvec_figures.py`: GVEC's tutorial stellarator and
 tokamak, and W7-X), so it needs `pip install gvec`, which builds GVEC's Fortran core (gfortran, a
 LAPACK and CMake). W7-X takes about a minute; `PLASMA_PLOTS_SKIP_W7X=1` leaves it out, but then
 the page misses its figures.
 
-The [DESC equilibria](https://struphy-hub.github.io/plasma-plots/guides/desc/) guide evaluates the
+The [DESC equilibria](https://max-models.github.io/plasma-plots/guides/desc/) guide evaluates the
 example equilibria that DESC ships (`scripts/generate_desc_figures.py`: W7-X, the precise QA and QH
 stellarators, NCSX, HELIOTRON, ESTELL and the tokamak DSHAPE), so it needs `pip install desc-opt`
 (pure Python, on JAX; the `desc` extra). It takes about two minutes. `tests/test_desc.py` needs it
@@ -206,7 +206,7 @@ to the test's cases.
   [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC),
   so no API token is stored in the repo — this needs a one-time "pending
   publisher" set up on the PyPI project settings for
-  `struphy-hub/plasma-plots`, workflow `publish.yml`, environment `pypi`.
+  `max-models/plasma-plots`, workflow `publish.yml`, environment `pypi`.
   The workflow passes `skip-existing: true`, so re-pushing `main` without a
   version bump is a safe no-op rather than a failing build.
 

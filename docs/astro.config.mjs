@@ -6,7 +6,7 @@ import starlightPydocs, { pydocsSidebarGroup } from 'starlight-pydocs';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://struphy-hub.github.io',
+	site: 'https://max-models.github.io',
 	base: '/plasma-plots',
 	integrations: [
 		starlight({
@@ -25,7 +25,7 @@ export default defineConfig({
 							docstringStyle: 'numpy',
 							// accessor methods get the parameter docs of the functions they wrap
 							extensions: ['../scripts/griffe_extension.py'],
-							sourceLink: { host: 'github', repo: 'struphy-hub/plasma-plots', ref: 'devel', root: '..' },
+							sourceLink: { host: 'github', repo: 'max-models/plasma-plots', ref: 'devel', root: '..' },
 							sidebar: { collapsed: true },
 						},
 					],
@@ -56,12 +56,12 @@ export default defineConfig({
 					optionalLinks: [
 						{
 							label: 'API index',
-							url: 'https://struphy-hub.github.io/plasma-plots/llms-api.txt',
+							url: 'https://max-models.github.io/plasma-plots/llms-api.txt',
 							description: 'the conventions, then every accessor method and function with its signature and summary, one line each (about 40 kB)',
 						},
 						{
 							label: 'API reference',
-							url: 'https://struphy-hub.github.io/plasma-plots/api/plasma_plots/llms.txt',
+							url: 'https://max-models.github.io/plasma-plots/api/plasma_plots/llms.txt',
 							description: 'every module, class and function of plasma_plots with all parameters, as plain text',
 						},
 					],
@@ -71,7 +71,7 @@ export default defineConfig({
 				Header: './src/components/Header.astro',
 			},
 			social: [
-				{ icon: 'github', label: 'GitHub', href: 'https://github.com/struphy-hub/plasma-plots' },
+				{ icon: 'github', label: 'GitHub', href: 'https://github.com/max-models/plasma-plots' },
 			],
 			sidebar: [
 				{

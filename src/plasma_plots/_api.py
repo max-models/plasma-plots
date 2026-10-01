@@ -21,7 +21,7 @@ Plots and diagnostics of labeled xarray data from plasma simulations (Struphy, a
 whose output follows the same conventions, e.g. GENE). Generated from the code by
 `python -m plasma_plots api`: every accessor method and public function, with its signature
 and one-line summary. `help()` on any of them shows every parameter; the guides with figures are
-at https://struphy-hub.github.io/plasma-plots.
+at https://max-models.github.io/plasma-plots.
 
 ## Conventions every method shares
 

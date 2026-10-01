@@ -37,10 +37,10 @@ dev = ["pytest", "ruff", "h5py", "griffe"]
 desc = ["desc-opt"]
 
 [project.urls]
-Homepage = "https://github.com/struphy-hub/plasma-plots"
-Repository = "https://github.com/struphy-hub/plasma-plots"
-Documentation = "https://struphy-hub.github.io/plasma-plots"
-Issues = "https://github.com/struphy-hub/plasma-plots/issues"
+Homepage = "https://github.com/max-models/plasma-plots"
+Repository = "https://github.com/max-models/plasma-plots"
+Documentation = "https://max-models.github.io/plasma-plots"
+Issues = "https://github.com/max-models/plasma-plots/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
