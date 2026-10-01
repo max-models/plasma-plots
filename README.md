@@ -28,6 +28,7 @@ pip install "plasma-plots[netcdf,plotly]"
 | --- | --- | --- |
 | `netcdf` | Read netCDF3/netCDF4 files through xarray and the CLI | `netCDF4` |
 | `plotly` | Interactive browser plots and static Plotly exports | `plotly`, `kaleido` |
+| `tikz` | TikZ/pgfplots versions of the plots for LaTeX (`backend="tikz"`) | `maxplotlibx` (and `pdflatex` to compile) |
 | `pyvista` | 3-D scenes and rendering | `pyvista`, `imageio` |
 | `profiling` | Timing summaries and profiling plots | `scope-profiler[pproc]` |
 | `desc` | Evaluate DESC equilibria | `desc-opt` |
@@ -94,3 +95,8 @@ Every Matplotlib plot can also be an interactive Plotly figure, with hover value
 for animations, a slider: `pip install plasma-plots[plotly]` and pass `backend="plotly"`
 (`field.plasma.plot.slice(t=-1, backend="plotly")`), or call
 `plasma_plots.set_backend("plotly")` once.
+
+For a paper, every still plot can also be TikZ/pgfplots code with LaTeX text, converted by
+[maxplotlib](https://github.com/max-models/maxplotlib): `pip install plasma-plots[tikz]` and
+pass `backend="tikz"`, then `result.save("phi.tikz")` (or `.tex`, `.pdf`); see the
+[LaTeX figures guide](https://max-models.github.io/plasma-plots/guides/latex/).

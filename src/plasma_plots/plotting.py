@@ -117,8 +117,9 @@ class PlotResult:
 
     Every plotting function returns one. As the last expression of a notebook cell it displays
     its figure once; there is no need to write ``.fig``. With ``backend="plotly"`` (see
-    :mod:`plasma_plots.plotly_backend`) the figure is a Plotly figure instead, with the same
-    ``fit_results`` and ``data``.
+    :mod:`plasma_plots.plotly_backend`) the figure is a Plotly figure instead, and with
+    ``backend="tikz"`` (see :mod:`plasma_plots.tikz_backend`) a TikZ/pgfplots figure, with the
+    same ``fit_results`` and ``data``.
 
     A figure made some other way (e.g. with ``plotly.graph_objects`` directly) is saved with the
     same defaults as ``PlotResult(figure).save("page.html")``. Saving and showing do nothing on
@@ -126,14 +127,14 @@ class PlotResult:
 
     Attributes
     ----------
-    fig : matplotlib.figure.Figure or plotly.graph_objects.Figure
+    fig : matplotlib.figure.Figure, plotly.graph_objects.Figure or tikzfigure.TikzFigure
         The figure.
     ax : matplotlib.axes.Axes, array of matplotlib.axes.Axes or None
         The axes drawn into; an array (or list) of axes for multi-panel plots; ``None`` for a
-        Plotly figure.
+        Plotly or TikZ figure.
     artists : list
         The drawn artists (lines, meshes, scatter collections, ...); for a Plotly figure its
-        traces.
+        traces; empty for a TikZ figure.
     fit_results : list of FitResult or None
         The growth-rate fits of :func:`plot_timeseries`, one per series (``None`` where no fit
         was made); empty for other plots.
@@ -160,6 +161,10 @@ class PlotResult:
     def _plotly(self) -> bool:
         return type(self.fig).__module__.startswith("plotly")
 
+    @property
+    def _tikz(self) -> bool:
+        return type(self.fig).__module__.startswith("tikzfigure")
+
     def save(self, path, *, close=False, frame=None, **kwargs):
         """Save the figure to a file, as drawn.
 
@@ -169,7 +174,10 @@ class PlotResult:
             The file to write; its extension picks the format. A Plotly figure is written as a
             standalone page (``.html``, loading Plotly's JavaScript from its CDN, responsive, an
             animation not playing until asked), as figure JSON (``.json``), or as an image through
-            kaleido (``.png``, ``.svg``, ``.pdf``, ...).
+            kaleido (``.png``, ``.svg``, ``.pdf``, ...). A TikZ figure is written as its
+            ``tikzpicture`` (``.tikz``, to ``\\input`` in a document loading ``pgfplots``) or as
+            a standalone document (``.tex``), with the images it refers to next to the file, or
+            compiled with ``pdflatex`` (``.pdf``, ``.png``).
         close : bool, optional
             Close the Matplotlib figure afterwards, to free its memory. Default: ``False``.
         frame : int, optional
@@ -180,7 +188,8 @@ class PlotResult:
             Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``;
             ``bbox_inches="tight"`` unless given), or to Plotly's ``write_html``, ``write_json``
             or ``write_image`` (e.g. ``width``, ``height``, ``scale``; ``dpi`` sets the
-            ``scale``, 100 dpi per unit).
+            ``scale``, 100 dpi per unit), or to ``tikzfigure.TikzFigure.savefig`` (e.g. ``dpi``
+            of a ``.png``).
 
         Returns
         -------
@@ -190,6 +199,15 @@ class PlotResult:
         from .mpi import is_plotting_rank
 
         if not is_plotting_rank():
+            return str(path)
+        if self._tikz:
+            suffix = Path(path).suffix.lower()
+            if suffix not in (".tikz", ".tex", ".pdf", ".png", ".jpg", ".jpeg"):
+                raise ValueError(
+                    f"a TikZ figure is saved as .tikz, .tex, .pdf or .png, not {suffix!r}"
+                )
+            kwargs.pop("bbox_inches", None)
+            self.fig.savefig(path, **kwargs)
             return str(path)
         if self._plotly:
             suffix = Path(path).suffix.lower()
@@ -242,7 +260,9 @@ class PlotResult:
         return still
 
     def show(self):
-        """Show the figure with ``matplotlib.pyplot.show``, or a Plotly figure with its ``show``.
+        """Show the figure with ``matplotlib.pyplot.show``, or a Plotly or TikZ figure with its ``show``.
+
+        A TikZ figure is compiled with ``pdflatex`` to be shown.
 
         Afterwards a notebook no longer displays the result again as a cell result.
 
@@ -257,6 +277,8 @@ class PlotResult:
             return self
         if self._plotly:
             self.fig.show()
+        elif self._tikz:
+            self.fig.show(transparent=False)
         else:
             plt.show()
         self._shown = True
@@ -293,7 +315,53 @@ class PlotResult:
 
         if self._plotly:
             return self
+        if self._tikz:
+            raise TypeError(
+                "a TikZ figure cannot be converted to Plotly; draw it again"
+            )
         result = _plotly_result(to_plotly(self.fig), self)
+        if close:
+            plt.close(self.fig)
+        return result
+
+    def to_tikz(self, *, close: bool = False, **options) -> "PlotResult":
+        """The same result with the figure converted to TikZ/pgfplots code for LaTeX.
+
+        For the plotting functions, whose results are Matplotlib figures; the accessor methods
+        take ``backend="tikz"`` instead.
+
+        Parameters
+        ----------
+        close : bool, optional
+            Close the Matplotlib figure afterwards. Default: ``False``.
+        **options
+            Passed to :func:`plasma_plots.tikz_backend.to_tikz`, e.g. ``raster_dpi``.
+
+        Returns
+        -------
+        PlotResult
+            A new result: the ``tikzfigure.TikzFigure``, and this result's ``fit_results`` and
+            ``data``.
+
+        See Also
+        --------
+        plasma_plots.tikz_backend.to_tikz : The conversion.
+
+        Examples
+        --------
+        >>> plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_tikz().save(
+        ...     "energy.tex"
+        ... )
+        """
+        from .tikz_backend import _tikz_result, to_tikz
+
+        if self._tikz:
+            return self
+        if self._plotly:
+            raise TypeError(
+                "a Plotly figure cannot be converted to TikZ; draw it again"
+            )
+        result = _tikz_result(to_tikz(self.fig, **options), self)
         if close:
             plt.close(self.fig)
         return result
@@ -305,6 +373,8 @@ class PlotResult:
             from IPython.display import display
 
             display(self.fig)
+        elif self._tikz:
+            self.fig.show(transparent=False)
         else:
             _display_figure(self.fig)
 

@@ -44,7 +44,7 @@ import warnings
 
 import numpy as np
 
-BACKENDS = ("matplotlib", "plotly")
+BACKENDS = ("matplotlib", "plotly", "tikz")
 PX_PER_INCH = 100.0
 PX_PER_PT = PX_PER_INCH / 72.0
 #: The longer side, in pixels, of the image a mesh on a mapped (curvilinear) grid is drawn as. Lower it
@@ -72,8 +72,8 @@ def set_backend(backend: str) -> str:
 
     Parameters
     ----------
-    backend : {"matplotlib", "plotly"}
-        The new default.
+    backend : {"matplotlib", "plotly", "tikz"}
+        The new default (``"tikz"``: see :mod:`plasma_plots.tikz_backend`).
 
     Returns
     -------
@@ -83,7 +83,7 @@ def set_backend(backend: str) -> str:
     Raises
     ------
     ValueError
-        If ``backend`` is neither ``"matplotlib"`` nor ``"plotly"``.
+        If ``backend`` is not ``"matplotlib"``, ``"plotly"`` or ``"tikz"``.
 
     See Also
     --------
@@ -106,7 +106,7 @@ def get_backend() -> str:
     Returns
     -------
     str
-        ``"matplotlib"`` (the default) or ``"plotly"``.
+        ``"matplotlib"`` (the default), ``"plotly"`` or ``"tikz"``.
 
     See Also
     --------
@@ -129,13 +129,13 @@ def resolve_backend(backend: str | None) -> str:
 
     Parameters
     ----------
-    backend : {"matplotlib", "plotly"} or None
+    backend : {"matplotlib", "plotly", "tikz"} or None
         The backend asked for.
 
     Returns
     -------
     str
-        ``"matplotlib"`` or ``"plotly"``.
+        ``"matplotlib"``, ``"plotly"`` or ``"tikz"``.
     """
     if _drawing.get():
         return "matplotlib"
@@ -156,10 +156,11 @@ def with_backend(method):
     """Give an accessor plot method the ``backend`` option.
 
     The decorated method declares ``backend=None`` in its signature (so that its docs and
-    ``help()`` show it) and draws with Matplotlib as before; with ``backend="plotly"`` (or that
-    default, see :func:`set_backend`) the decorator draws off screen and returns the converted
-    result instead. An ``ax`` given with ``backend="plotly"`` raises ``TypeError``, since a Plotly
-    figure cannot be drawn into a Matplotlib axes.
+    ``help()`` show it) and draws with Matplotlib as before; with ``backend="plotly"`` or
+    ``backend="tikz"`` (or that default, see :func:`set_backend`) the decorator draws off screen
+    and returns the converted result instead (see :mod:`plasma_plots.tikz_backend`). An ``ax``
+    given with either raises ``TypeError``, since such a figure cannot be drawn into a
+    Matplotlib axes.
 
     Parameters
     ----------
@@ -190,8 +191,12 @@ def with_backend(method):
             ax = arguments.get("ax", (arguments.get("options") or {}).get("ax"))
             if ax is not None:
                 raise TypeError(
-                    "ax= draws into a Matplotlib axes; it cannot be combined with backend='plotly'"
+                    f"ax= draws into a Matplotlib axes; it cannot be combined with backend={backend!r}"
                 )
+            if backend == "tikz":
+                from .tikz_backend import _drawn_as_tikz
+
+                return _drawn_as_tikz(lambda: method(*args, **kwargs))
             return _drawn_as_plotly(lambda: method(*args, **kwargs))
         finally:
             _drawing.reset(token)

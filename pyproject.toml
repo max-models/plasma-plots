@@ -29,6 +29,8 @@ pyvista = ["pyvista", "imageio"]
 profiling = ["scope-profiler[pproc]"]
 # backend="plotly": interactive Plotly versions of the plots; kaleido saves them as PNG/SVG/PDF
 plotly = ["plotly", "kaleido"]
+# backend="tikz": TikZ/pgfplots versions of the plots, converted by maxplotlib (compiled with pdflatex)
+tikz = ["maxplotlibx>=0.2.0"]
 # the output helpers of the struphy-hub example gallery (plasma_plots.gallery): Plotly figures,
 # their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
 gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]
