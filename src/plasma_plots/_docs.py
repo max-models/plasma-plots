@@ -170,7 +170,7 @@ def complete_class(cls) -> None:
 # ---------------------------------------------------------------------------------------------
 # Menus: what an accessor prints, e.g. ``phi.plasma.plot`` in a REPL or notebook
 # ---------------------------------------------------------------------------------------------
-REFERENCE = "https://struphy-hub.github.io/plasma-plots/reference"
+REFERENCE = "https://max-models.github.io/plasma-plots/reference"
 # class name -> (how users reach it, reference page)
 MENUS = {
     "ArrayPlots": ("array.plasma.plot", "plot"),
