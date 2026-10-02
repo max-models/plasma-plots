@@ -40,6 +40,7 @@ optional-dependencies.dev = [
   "h5py",
   "pytest",
   "ruff",
+  "struphy>=3.4.0",
 ]
 optional-dependencies.gallery = [
   "kaleido",
