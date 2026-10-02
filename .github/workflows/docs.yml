@@ -23,8 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -37,9 +35,7 @@ jobs:
       # come from an actual struphy run (generate_real_example_figures.py), so
       # the full compiled struphy runtime is still required for every docs
       # build. It has compiled dependencies (pyccel/mpi4py), hence the system
-      # packages below. struphy comes from the `struphy` submodule (pinned to a
-      # known-good commit), not a fresh clone, so the version used here is
-      # reproducible.
+      # packages below. Install struphy>=3.4.0 from PyPI.
       - name: Install struphy system dependencies
         run: |
           sudo apt-get update -y
@@ -47,10 +43,8 @@ jobs:
             liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
             libnetcdf-dev libnetcdff-dev cmake
 
-      # Editable, so that `struphy compile` writes its kernels into the checkout
-      # (struphy/src/struphy), where they can be cached between runs.
-      - name: Install struphy (from the struphy submodule)
-        run: pip install -e ./struphy
+      - name: Install struphy from PyPI
+        run: pip install "struphy>=3.4.0"
 
       # Simulations need compiled pyccel kernels, not just the pure-Python
       # package -- the test suite doesn't hit this (it only builds fake
@@ -60,11 +54,12 @@ jobs:
       # language and compiler) and those psydac-accelerate builds inside the
       # installed feectools package. The key covers everything the binaries
       # depend on: the runner image (system compilers and libraries), the Python
-      # version, the kernel sources and build recipe, and struphy's dependency
-      # pins (e.g. feectools).
+      # version and the installed package versions (including struphy and feectools).
       - name: Locate compiled-kernel paths
         id: kernel-paths
         run: |
+          echo "struphy=$(python -c 'import importlib.util; print(next(iter(importlib.util.find_spec("struphy").submodule_search_locations)))')" >> "$GITHUB_OUTPUT"
+          echo "dependencies=$(pip freeze --all | LC_ALL=C sort | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
           echo "feectools=$(python -c 'import os, feectools; print(os.path.dirname(feectools.__file__))')" >> "$GITHUB_OUTPUT"
           echo "python=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')" >> "$GITHUB_OUTPUT"
           # ImageOS/ImageVersion are the runner's environment variables, not part of the `env`
@@ -76,13 +71,13 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            struphy/src/struphy/**/*.so
-            struphy/src/struphy/**/__pyccel__
-            struphy/src/struphy/state.yml
-            struphy/src/struphy/kernels.txt
+            ${{ steps.kernel-paths.outputs.struphy }}/**/*.so
+            ${{ steps.kernel-paths.outputs.struphy }}/**/__pyccel__
+            ${{ steps.kernel-paths.outputs.struphy }}/state.yml
+            ${{ steps.kernel-paths.outputs.struphy }}/kernels.txt
             ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
             ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
-          key: struphy-kernels-fortran-${{ runner.os }}-${{ steps.kernel-paths.outputs.image }}-py${{ steps.kernel-paths.outputs.python }}-${{ hashFiles('struphy/src/struphy/**/*kernels*.py', 'struphy/src/struphy/compile_struphy.mk', 'struphy/pyproject.toml') }}
+          key: struphy-kernels-fortran-${{ runner.os }}-${{ steps.kernel-paths.outputs.image }}-py${{ steps.kernel-paths.outputs.python }}-${{ steps.kernel-paths.outputs.dependencies }}
 
       # Compile on a cache miss, or if the restored kernels are incomplete or don't import (then
       # struphy itself doesn't import, `struphy compile` included: remove them first).
@@ -97,9 +92,9 @@ jobs:
           else
             if [ "${{ steps.kernel-cache.outputs.cache-hit }}" = "true" ]; then
               echo "The cached kernels are unusable; compiling from scratch"
-              find struphy/src/struphy "${{ steps.kernel-paths.outputs.feectools }}" \
+              find "${{ steps.kernel-paths.outputs.struphy }}" "${{ steps.kernel-paths.outputs.feectools }}" \
                 \( -name "*.so" -o -name "__pyccel__" -prune \) -exec rm -rf {} +
-              rm -f struphy/src/struphy/state.yml struphy/src/struphy/kernels.txt
+              rm -f "${{ steps.kernel-paths.outputs.struphy }}/state.yml" "${{ steps.kernel-paths.outputs.struphy }}/kernels.txt"
             fi
             struphy compile -y --language fortran
             echo "compiled=true" >> "$GITHUB_OUTPUT"
@@ -112,10 +107,10 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            struphy/src/struphy/**/*.so
-            struphy/src/struphy/**/__pyccel__
-            struphy/src/struphy/state.yml
-            struphy/src/struphy/kernels.txt
+            ${{ steps.kernel-paths.outputs.struphy }}/**/*.so
+            ${{ steps.kernel-paths.outputs.struphy }}/**/__pyccel__
+            ${{ steps.kernel-paths.outputs.struphy }}/state.yml
+            ${{ steps.kernel-paths.outputs.struphy }}/kernels.txt
             ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
             ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
           key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
