@@ -46,7 +46,7 @@ For development, install with `pip install -e ".[dev]"`.
 ## Docker
 
 The Ubuntu image includes Struphy with compiled kernels, MPI, LaTeX and
-plasma-plots. It is published to GitHub Container Registry on pushes to `main`.
+plasma-plots. Pushes to `main` publish `latest`; pushes to `devel` publish `devel`.
 
 ```bash
 docker run --rm -it -v "$PWD:/work" ghcr.io/max-models/plasma-plots:latest

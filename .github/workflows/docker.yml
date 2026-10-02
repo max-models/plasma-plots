@@ -2,7 +2,7 @@ name: Docker image
 
 on:
   push:
-    branches: [main]
+    branches: [main, devel]
   pull_request:
     branches: [main, devel]
     paths:
@@ -43,6 +43,7 @@ jobs:
           images: ghcr.io/max-models/plasma-plots
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=branch
             type=sha
 
       - name: Build image for testing
@@ -75,7 +76,7 @@ jobs:
             tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile
 
       - name: Log in to GitHub Container Registry
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel') && github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -84,7 +85,7 @@ jobs:
 
       # Push the image that passed the checks above, without rebuilding it.
       - name: Publish tested image
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel') && github.event_name != 'pull_request'
         env:
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         run: |
