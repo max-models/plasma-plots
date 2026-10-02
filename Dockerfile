@@ -46,7 +46,9 @@ RUN apt-get update \
     && python -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Keep the expensive runtime build cached independently of plasma-plots sources.
-RUN python -m pip install --no-cache-dir "struphy[mpi]>=3.4.0" \
+# Install equilibrium tools before compiling so their NumPy/JAX requirements
+# are resolved before building the kernels. DESC's PyPI package is desc-opt.
+RUN python -m pip install --no-cache-dir "struphy[mpi]>=3.4.0" gvec desc-opt \
     && struphy compile -y --language fortran \
     && struphy compile --status | grep -E '^0 of [1-9][0-9]* Struphy kernels are not compiled'
 
@@ -56,7 +58,7 @@ COPY src /tmp/plasma-plots/src
 # Chrome for Plotly exports. Omit gallery/profiling: their current profiling
 # dependency pins a maxplotlib version incompatible with the tikz extra.
 RUN python -m pip install --no-cache-dir \
-        "/tmp/plasma-plots[dev,netcdf,plotly,tikz,pyvista]" \
+        "/tmp/plasma-plots[dev,netcdf,plotly,tikz,pyvista,desc]" \
     && python -m pip check \
     && plotly_get_chrome -y \
     && rm -rf /tmp/plasma-plots

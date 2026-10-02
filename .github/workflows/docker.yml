@@ -13,6 +13,8 @@ on:
       - src/**
       - tests/test_real_simulations.py
       - tests/test_tikz_backend.py
+      - tests/test_gvec.py
+      - tests/test_desc.py
       - tests/plot_cases.py
       - tests/conftest.py
   workflow_dispatch:
@@ -62,6 +64,7 @@ jobs:
         run: |
           docker run --rm plasma-plots:test bash -e -c '
             python -m pip check
+            python -c "import gvec, desc; print(\"GVEC and DESC imports passed\")"
             struphy compile --status | grep -E "^0 of [1-9][0-9]* Struphy kernels are not compiled"
             pdflatex --version
             plasma-plots --help
@@ -69,11 +72,12 @@ jobs:
             python -c "import plotly.graph_objects as go; go.Figure(go.Scatter(y=[1, 2, 3])).write_image(\"/tmp/plotly.png\")"
           '
 
-      - name: Run simulation and LaTeX export tests in the image
+      - name: Run simulation, equilibrium and LaTeX export tests in the image
         run: |
           docker run --rm --init -v "$PWD/tests:/work/tests:ro" plasma-plots:test \
             xvfb-run -a pytest -v --run-simulations \
-            tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile
+            tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile \
+            tests/test_gvec.py tests/test_desc.py
 
       - name: Log in to GitHub Container Registry
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel') && github.event_name != 'pull_request'
