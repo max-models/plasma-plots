@@ -51,7 +51,14 @@ RUN apt-get update \
 # GVEC uses the system GNU/BLAS libraries, so the guide's MKL/Conda LD_PRELOAD
 # workarounds are unnecessary. Set -e OMP_NUM_THREADS=N when running a container
 # to control GVEC's OpenMP threads, especially alongside MPI processes.
-RUN python -m pip install --no-cache-dir "struphy[mpi]>=3.4.0" gvec desc-opt \
+RUN python -m pip install --no-cache-dir "struphy[mpi]>=3.4.0" desc-opt \
+    # GVEC's Release build hard-codes -march=native, which can cause SIGILL on
+    # another runner CPU. RelWithDebInfo avoids that override; explicitly target
+    # baseline x86-64 for the published linux/amd64 image, retaining optimization.
+    && python -m pip install --no-cache-dir --no-binary=gvec \
+        --config-settings=cmake.build-type=RelWithDebInfo \
+        --config-settings="cmake.define.CMAKE_Fortran_FLAGS_RELWITHDEBINFO=-O3 -g -DNDEBUG -march=x86-64 -mtune=generic" \
+        gvec \
     && struphy compile -y --language fortran \
     && struphy compile --status | grep -E '^0 of [1-9][0-9]* Struphy kernels are not compiled'
 

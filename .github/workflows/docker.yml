@@ -64,7 +64,7 @@ jobs:
           docker run --rm --init -v "$PWD/tests:/work/tests:ro" plasma-plots:test \
             xvfb-run -a pytest -s -v --run-simulations \
             tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile \
-            tests/test_gvec.py tests/test_desc.py
+            tests/test_gvec.py tests/test_gvec_runtime.py tests/test_desc.py
 
       - name: Log in to GitHub Container Registry
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel')
