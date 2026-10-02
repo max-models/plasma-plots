@@ -21,7 +21,7 @@ Plots and diagnostics of labeled xarray data from plasma simulations (Struphy, a
 whose output follows the same conventions, e.g. GENE). Generated from the code by
 `python -m plasma_plots api`: every accessor method and public function, with its signature
 and one-line summary. `help()` on any of them shows every parameter; the guides with figures are
-at https://struphy-hub.github.io/plasma-plots.
+at https://max-models.github.io/plasma-plots.
 
 ## Conventions every method shares
 
@@ -45,14 +45,17 @@ at https://struphy-hub.github.io/plasma-plots.
   coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
   the Jacobian.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
-  `.data`, `.save(path)`, `.show()`, `.to_plotly()`); Matplotlib animations a `FuncAnimation`;
+  `.data`, `.save(path)`, `.show()`, `.to_plotly()`, `.to_tikz()`); Matplotlib animations a
+  `FuncAnimation`;
   PyVista views a `pyvista.Plotter`; analysis methods labeled xarray objects (which have
   `.plasma` again) or small result dataclasses (`FitResult`, `OscillationFit`, ...).
   `array.plasma.data.<plot>(...)` returns the data a plot would draw, without drawing it.
 - **Backends.** Every Matplotlib plot takes `backend="plotly"` for an interactive Plotly figure
-  (in a `PlotResult`; animations get a slider); `plasma_plots.set_backend("plotly")` sets the
-  default. `ax=` draws into your own axes (Matplotlib only); `plasma_plots.figure(rows, cols)`
-  composes several plots into one figure, with either backend.
+  (in a `PlotResult`; animations get a slider), or `backend="tikz"` for TikZ/pgfplots code with
+  LaTeX text (`result.save("fig.tex")`, `.tikz`, `.pdf`; still figures only);
+  `plasma_plots.set_backend("plotly")` sets the default. `ax=` draws into your own axes
+  (Matplotlib only); `plasma_plots.figure(rows, cols)` composes several plots into one figure,
+  with any backend.
 - **MPI.** Under `mpirun`, plots draw and save on rank 0 only; other ranks get a `SkippedPlot`
   whose methods do nothing. Analysis runs on every rank.
 - **Theory.** `plasma_plots.theory.*` are plain functions (complex ω for dispersion relations)
@@ -114,6 +117,8 @@ TOP_LEVEL = [
     "plasma_plots.plotting.PlotResult.to_plotly",
     "plasma_plots.plotly_backend.to_plotly",
     "plasma_plots.plotly_backend.animation_to_plotly",
+    "plasma_plots.plotting.PlotResult.to_tikz",
+    "plasma_plots.tikz_backend.to_tikz",
 ]
 RESULTS = [
     "plasma_plots.plotting.PlotResult",
@@ -229,6 +234,9 @@ def _resolve(path):
     if obj is None:
         import plasma_plots as obj
     for part in rest.split("."):
+        if not hasattr(obj, part) and inspect.ismodule(obj):
+            # a submodule the package does not import itself (e.g. tikz_backend)
+            importlib.import_module(f"{obj.__name__}.{part}")
         obj = getattr(obj, part)
     return obj
 

@@ -6,15 +6,15 @@ Plots and diagnostics of labeled xarray data from plasma simulations: the
 output of [Struphy](https://github.com/struphy-hub/struphy), and of any code
 whose arrays follow the same conventions (dimensions `t`, `eta1`/`eta2`/`eta3`,
 mapped coordinates `X`/`Y`/`Z`, see
-[Getting started](https://struphy-hub.github.io/plasma-plots/guides/getting-started/)).
+[Getting started](https://max-models.github.io/plasma-plots/guides/getting-started/)).
 It also reads [GVEC](https://gvec.readthedocs.io)'s equilibrium evaluations directly. It is a
 separate package, so it can evolve and release independently of the Struphy runtime.
 
-Full documentation: https://struphy-hub.github.io/plasma-plots
+Full documentation: https://max-models.github.io/plasma-plots
 
 ## Installation
 
-Python **3.11 or newer** is required; CI tests Python 3.11 and 3.12.
+Python **3.10 or newer** is required; CI tests Python 3.10 to 3.14.
 The base install plots in-memory xarray data. Install extras for file formats
 and optional renderers:
 
@@ -28,6 +28,7 @@ pip install "plasma-plots[netcdf,plotly]"
 | --- | --- | --- |
 | `netcdf` | Read netCDF3/netCDF4 files through xarray and the CLI | `netCDF4` |
 | `plotly` | Interactive browser plots and static Plotly exports | `plotly`, `kaleido` |
+| `tikz` | TikZ/pgfplots versions of the plots for LaTeX (`backend="tikz"`) | `maxplotlibx` (and `pdflatex` to compile) |
 | `pyvista` | 3-D scenes and rendering | `pyvista`, `imageio` |
 | `profiling` | Timing summaries and profiling plots | `scope-profiler[pproc]` |
 | `desc` | Evaluate DESC equilibria | `desc-opt` |
@@ -72,7 +73,7 @@ In Python, `import plasma_plots; help(plasma_plots)` (or `plasma-plots guide` in
 printing an accessor lists its methods (`print(phi.plasma.plot)`), and `help()`
 on a method shows every parameter. For language models and coding agents, the
 documentation is available as plain text at
-https://struphy-hub.github.io/plasma-plots/llms.txt. [API.md](API.md) (or
+https://max-models.github.io/plasma-plots/llms.txt. [API.md](API.md) (or
 `plasma-plots api`) is a one-page index of every accessor method and function, and
 [AGENTS.md](AGENTS.md) explains the code for agents working on it.
 
@@ -80,7 +81,7 @@ From the shell, the `plasma-plots` command saves figures of a Struphy run folder
 netCDF file without any Python: `plasma-plots info sim_1`,
 `plasma-plots plot sim_1 em_fields/phi slice t=-1 eta3=0 -o phi.png`,
 `plasma-plots quicklook sim_1 -o figures/` (see the
-[command-line guide](https://struphy-hub.github.io/plasma-plots/guides/command-line/)).
+[command-line guide](https://max-models.github.io/plasma-plots/guides/command-line/)).
 
 Direct plotting functions are available from
 `plasma_plots.plotting`; analysis functions are in `plasma_plots.analysis`.
@@ -94,3 +95,8 @@ Every Matplotlib plot can also be an interactive Plotly figure, with hover value
 for animations, a slider: `pip install plasma-plots[plotly]` and pass `backend="plotly"`
 (`field.plasma.plot.slice(t=-1, backend="plotly")`), or call
 `plasma_plots.set_backend("plotly")` once.
+
+For a paper, every still plot can also be TikZ/pgfplots code with LaTeX text, converted by
+[maxplotlib](https://github.com/max-models/maxplotlib): `pip install plasma-plots[tikz]` and
+pass `backend="tikz"`, then `result.save("phi.tikz")` (or `.tex`, `.pdf`); see the
+[LaTeX figures guide](https://max-models.github.io/plasma-plots/guides/latex/).

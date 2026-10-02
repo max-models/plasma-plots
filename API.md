@@ -4,7 +4,7 @@ Plots and diagnostics of labeled xarray data from plasma simulations (Struphy, a
 whose output follows the same conventions, e.g. GENE). Generated from the code by
 `python -m plasma_plots api`: every accessor method and public function, with its signature
 and one-line summary. `help()` on any of them shows every parameter; the guides with figures are
-at https://struphy-hub.github.io/plasma-plots.
+at https://max-models.github.io/plasma-plots.
 
 ## Conventions every method shares
 
@@ -28,14 +28,17 @@ at https://struphy-hub.github.io/plasma-plots.
   coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
   the Jacobian.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
-  `.data`, `.save(path)`, `.show()`, `.to_plotly()`); Matplotlib animations a `FuncAnimation`;
+  `.data`, `.save(path)`, `.show()`, `.to_plotly()`, `.to_tikz()`); Matplotlib animations a
+  `FuncAnimation`;
   PyVista views a `pyvista.Plotter`; analysis methods labeled xarray objects (which have
   `.plasma` again) or small result dataclasses (`FitResult`, `OscillationFit`, ...).
   `array.plasma.data.<plot>(...)` returns the data a plot would draw, without drawing it.
 - **Backends.** Every Matplotlib plot takes `backend="plotly"` for an interactive Plotly figure
-  (in a `PlotResult`; animations get a slider); `plasma_plots.set_backend("plotly")` sets the
-  default. `ax=` draws into your own axes (Matplotlib only); `plasma_plots.figure(rows, cols)`
-  composes several plots into one figure, with either backend.
+  (in a `PlotResult`; animations get a slider), or `backend="tikz"` for TikZ/pgfplots code with
+  LaTeX text (`result.save("fig.tex")`, `.tikz`, `.pdf`; still figures only);
+  `plasma_plots.set_backend("plotly")` sets the default. `ax=` draws into your own axes
+  (Matplotlib only); `plasma_plots.figure(rows, cols)` composes several plots into one figure,
+  with any backend.
 - **MPI.** Under `mpirun`, plots draw and save on rank 0 only; other ranks get a `SkippedPlot`
   whose methods do nothing. Analysis runs on every rank.
 - **Theory.** `plasma_plots.theory.*` are plain functions (complex ω for dispersion relations)
@@ -383,7 +386,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 
 ## Top level
 
-- `plasma_plots.figure(nrows=1, ncols=1, *, backend=None, sharex=False, sharey=False, figsize=None, title=None, **options)`: Compose several plots into one figure, drawn with Matplotlib or as one Plotly figure.
+- `plasma_plots.figure(nrows=1, ncols=1, *, backend=None, sharex=False, sharey=False, figsize=None, title=None, **options)`: Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
   - e.g. `with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig: energy.plasma.plot.timeseries(fit=(0.0, 5.0), ax=fig[0]) drift.plasma.plot.timeseries(logy=True, ax=fig[1])`
   - e.g. `fig.save("energies.html")`
 - `plasma_plots.set_backend(backend)`: Set the backend of every plot that does not pass backend= itself.
@@ -394,7 +397,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
   - e.g. `mpi_rank()  # in a serial run`
 - `plasma_plots.is_plotting_rank()`: Tell whether this process draws plots and writes their files.
 - `plasma_plots.plotting.PlotResult.save(path, *, close=False, frame=None, **kwargs)`: Save the figure to a file, as drawn.
-- `plasma_plots.plotting.PlotResult.show()`: Show the figure with matplotlib.pyplot.show, or a Plotly figure with its show.
+- `plasma_plots.plotting.PlotResult.show()`: Show the figure with matplotlib.pyplot.show, or a Plotly or TikZ figure with its show.
 - `plasma_plots.plotting.PlotResult.to_plotly(*, close=False)`: The same result with the figure converted to an interactive Plotly figure.
   - e.g. `plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")`
 - `plasma_plots.plotly_backend.to_plotly(figure, *, strict=False)`: Convert a drawn Matplotlib figure into an interactive Plotly figure.
@@ -403,6 +406,11 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.plotly_backend.animation_to_plotly(animation, *, labels=None, prefix=None, play=True, strict=False)`: Convert a Matplotlib animation of the plotting functions into a Plotly figure with frames.
   - e.g. `animation = animate_slices(phi.isel(eta3=0), step=2)`
   - e.g. `animation_to_plotly(animation).write_html("phi.html")`
+- `plasma_plots.plotting.PlotResult.to_tikz(*, close=False, **options)`: The same result with the figure converted to TikZ/pgfplots code for LaTeX.
+  - e.g. `plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_tikz().save("energy.tex")`
+- `plasma_plots.tikz_backend.to_tikz(figure, **options)`: Convert a drawn Matplotlib figure into a TikZ/pgfplots figure.
+  - e.g. `figure = to_tikz(plot_lineout(phi.isel(t=-1, eta2=0, eta3=0)).fig)`
+  - e.g. `figure.savefig("phi.tex")`
 
 ## Result types
 

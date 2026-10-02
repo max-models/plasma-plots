@@ -1,77 +1,107 @@
 [build-system]
-requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=61",
+]
 
 [project]
 name = "plasma-plots"
-version = "0.1.0"
+version = "0.1.1"
 description = "Plots and diagnostics of labeled xarray output from plasma simulations, such as Struphy"
 readme = "README.md"
-license = { text = "MIT" }
-authors = [{ name = "Max Lindqvist", email = "max.lindqvist@ipp.mpg.de" }]
-requires-python = ">=3.11"
-dependencies = ["matplotlib", "numpy", "xarray", "ipywidgets"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Topic :: Scientific/Engineering :: Visualization",
+license.text = "MIT"
+authors = [
+  { email = "max.lindqvist@ipp.mpg.de", name = "Max Lindqvist" },
 ]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+  "ipywidgets",
+  "matplotlib",
+  "numpy",
+  "xarray",
+]
+optional-dependencies.desc = [
+  "desc-opt",
+]
+optional-dependencies.dev = [
+  "griffe",
+  "h5py",
+  "pytest",
+  "ruff",
+]
+optional-dependencies.gallery = [
+  "kaleido",
+  "plotly",
+  "scope-profiler[pproc]>=0.6.1",
+]
+optional-dependencies.netcdf = [
+  "netcdf4",
+]
+optional-dependencies.plotly = [
+  "kaleido",
+  "plotly",
+]
+optional-dependencies.profiling = [
+  "scope-profiler[pproc]",
+]
+optional-dependencies.pyvista = [
+  "imageio",
+  "pyvista",
+]
+optional-dependencies.tikz = [
+  "maxplotlibx>=0.2",
+]
+urls.Documentation = "https://max-models.github.io/plasma-plots"
+urls.Homepage = "https://github.com/max-models/plasma-plots"
+urls.Issues = "https://github.com/max-models/plasma-plots/issues"
+urls.Repository = "https://github.com/max-models/plasma-plots"
+scripts.plasma-plots = "plasma_plots.cli:main"
 
-[project.scripts]
-plasma-plots = "plasma_plots.cli:main"
-
-[project.optional-dependencies]
-# Read netCDF3 and netCDF4 files through xarray (including the CLI).
-netcdf = ["netCDF4"]
-pyvista = ["pyvista", "imageio"]
-profiling = ["scope-profiler[pproc]"]
-# backend="plotly": interactive Plotly versions of the plots; kaleido saves them as PNG/SVG/PDF
-plotly = ["plotly", "kaleido"]
-# the output helpers of the struphy-hub example gallery (plasma_plots.gallery): Plotly figures,
-# their static PNGs (kaleido) and the profiling export, which needs scope-profiler 0.6.1 or newer
-gallery = ["plotly", "kaleido", "scope-profiler[pproc]>=0.6.1"]
-dev = ["pytest", "ruff", "h5py", "griffe"]
-# plasma_plots.from_desc: evaluating DESC equilibria (tests/test_desc.py, the DESC guide)
-desc = ["desc-opt"]
-
-[project.urls]
-Homepage = "https://github.com/struphy-hub/plasma-plots"
-Repository = "https://github.com/struphy-hub/plasma-plots"
-Documentation = "https://struphy-hub.github.io/plasma-plots"
-Issues = "https://github.com/struphy-hub/plasma-plots/issues"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.pytest.ini_options]
-# Restrict collection to our own tests: the struphy submodule now lives at
-# ./struphy (with its own nested feectools submodule), and bare `pytest`
-# would otherwise recurse into their test suites too -- and fail on their
-# own optional dependencies (e.g. psydac) that plasma-plots has no need of.
-testpaths = ["tests"]
-# Real struphy simulations (compiled kernels, ~1 min): skipped unless requested with
-# `pytest --run-simulations` (see tests/conftest.py); run in the docs workflow.
-markers = ["simulation: runs a real struphy simulation; needs compiled kernels"]
+[tool.setuptools]
+packages.find.where = [
+  "src",
+]
 
 [tool.ruff]
 line-length = 120
+lint.select = [
+  "E4",
+  "E7",
+  "E9",
+  "F",
+]
+lint.ignore = [
+  "E265",
+  "E402",
+  "E701",
+  "E722",
+  "E731",
+  "E741",
+  "E742",
+  "E743",
+  "E902",
+  "F401",
+  "F403",
+  "F405",
+  "F841",
+]
 
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
-ignore = [
-    "E265",
-    "E402",
-    "E701",
-    "E722",
-    "E731",
-    "E741",
-    "E742",
-    "E743",
-    "E902",
-    "F401",
-    "F403",
-    "F405",
-    "F841",
+[tool.pytest]
+ini_options.markers = [
+  "simulation: runs a real struphy simulation; needs compiled kernels",
+]
+ini_options.testpaths = [
+  "tests",
 ]

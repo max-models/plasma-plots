@@ -197,10 +197,11 @@ class OutputPlots:
             Show every scalar divided by this one.
         logy : bool, optional
             Logarithmic value axis.
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -244,10 +245,11 @@ class OutputPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------
@@ -285,10 +287,11 @@ class OutputPlots:
 
         Parameters
         ----------
-        backend : {"matplotlib", "plotly"}, optional
-            Draw with Matplotlib, or as an interactive Plotly figure (in ``result.fig``; needs
-            plotly, see :mod:`plasma_plots.plotly_backend`). Default: the one set with
-            :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
 
         Returns
         -------

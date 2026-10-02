@@ -1,4 +1,4 @@
-"""Several plots in one figure, with either backend: ``plasma_plots.figure(...)``.
+"""Several plots in one figure, with any backend: ``plasma_plots.figure(...)``.
 
 >>> with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
 ...     energy.plasma.plot.timeseries(fit=(0.0, 5.0), ax=fig[0])
@@ -7,7 +7,8 @@
 
 Every plot method that takes ``ax=`` draws into one panel. The figure is drawn with Matplotlib and,
 with ``backend="plotly"``, converted to one Plotly figure when the block ends, so the panels share
-zoom where their axes are shared and every panel keeps its colorbar and legend.
+zoom where their axes are shared and every panel keeps its colorbar and legend; with
+``backend="tikz"``, to one TikZ/pgfplots figure (see :mod:`plasma_plots.tikz_backend`).
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ class Figure:
     ----------
     nrows, ncols : int
         The number of rows and columns of panels.
-    backend : {"matplotlib", "plotly"} or None
+    backend : {"matplotlib", "plotly", "tikz"} or None
         How the figure is finished; ``None`` for the default (see :func:`plasma_plots.set_backend`).
     sharex, sharey : bool or {"row", "col", "all"}
         Share the horizontal or vertical axes.
@@ -54,9 +55,8 @@ class Figure:
         from .mpi import is_plotting_rank
 
         self.backend = backend
-        self._plotly = (
-            resolve_backend(backend) == "plotly"
-        )  # before the block makes every plot Matplotlib
+        # before the block makes every plot Matplotlib
+        self._finish_as = resolve_backend(backend)
         self.results = []
         self._result = None
         self._title = title
@@ -137,9 +137,19 @@ class Figure:
             fit for result in self.results for fit in getattr(result, "fit_results", [])
         ]
         try:
-            if not self._plotly:
+            if self._finish_as == "matplotlib":
                 return PlotResult(fig, self.axes, [], fits)
             import matplotlib.pyplot as plt
+
+            if self._finish_as == "tikz":
+                from .tikz_backend import _maxplotlib, to_tikz
+
+                _maxplotlib()
+                with _offscreen():
+                    converted = to_tikz(fig)
+                if final:
+                    plt.close(fig)
+                return PlotResult(converted, None, [], fits)
 
             from .plotly_backend import _plotly, to_plotly
 
@@ -166,7 +176,7 @@ class Figure:
         Returns
         -------
         PlotResult or SkippedPlot
-            The figure, Matplotlib or Plotly, with the ``fit_results`` of every panel.
+            The figure, Matplotlib, Plotly or TikZ, with the ``fit_results`` of every panel.
         """
         if self._result is None:
             return self._drawn(final=False)
@@ -174,7 +184,7 @@ class Figure:
 
     @property
     def fig(self):
-        """The finished Matplotlib or Plotly figure."""
+        """The finished Matplotlib, Plotly or TikZ figure."""
         return self.result.fig
 
     def save(self, path, **kwargs):
@@ -226,10 +236,11 @@ def figure(
     title: str | None = None,
     **options,
 ) -> Figure:
-    """Compose several plots into one figure, drawn with Matplotlib or as one Plotly figure.
+    """Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
 
     Use it as a ``with`` block: every plot method given ``ax=fig[i]`` draws into panel ``i``;
-    at the end of the block the figure is finished, and with ``backend="plotly"`` converted once.
+    at the end of the block the figure is finished, and with ``backend="plotly"`` or
+    ``backend="tikz"`` converted once.
 
     Parameters
     ----------
@@ -237,9 +248,10 @@ def figure(
         The number of rows of panels. Default: 1.
     ncols : int, optional
         The number of columns of panels. Default: 1.
-    backend : {"matplotlib", "plotly"}, optional
-        Finish the figure as a Matplotlib or as an interactive Plotly figure. Default: the one set
-        with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+    backend : {"matplotlib", "plotly", "tikz"}, optional
+        Finish the figure as a Matplotlib figure, as an interactive Plotly figure, or as a
+        TikZ/pgfplots figure for LaTeX. Default: the one set with :func:`plasma_plots.set_backend`,
+        ``"matplotlib"`` unless changed.
     sharex : bool or {"row", "col", "all"}, optional
         Share the horizontal axes (and their zoom, in Plotly), as for ``matplotlib.pyplot.subplots``.
         Default: ``False``.

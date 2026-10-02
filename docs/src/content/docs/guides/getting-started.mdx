@@ -5,7 +5,7 @@ description: Install plasma-plots and make your first plot.
 
 ## Installation
 
-Python **3.11 or newer** is required; CI tests Python 3.11 and 3.12.
+Python **3.10 or newer** is required; CI tests Python 3.10 to 3.14.
 The base install plots in-memory xarray data. Install extras for file formats
 and optional renderers:
 
@@ -19,6 +19,7 @@ pip install "plasma-plots[netcdf,plotly]"
 | --- | --- | --- |
 | `netcdf` | Read netCDF3/netCDF4 files through xarray and the CLI | `netCDF4` |
 | `plotly` | Interactive browser plots and static Plotly exports | `plotly`, `kaleido` |
+| `tikz` | TikZ/pgfplots versions of the plots for LaTeX (`backend="tikz"`) | `maxplotlibx` (and `pdflatex` to compile) |
 | `pyvista` | 3-D scenes and rendering | `pyvista`, `imageio` |
 | `profiling` | Timing summaries and profiling plots | `scope-profiler[pproc]` |
 | `desc` | Evaluate DESC equilibria | `desc-opt` |
