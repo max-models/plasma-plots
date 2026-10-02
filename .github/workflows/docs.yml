@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
   pages: write
   id-token: write
 
@@ -21,149 +22,39 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Reuse compiled Struphy/GVEC, DESC, LaTeX and rendering dependencies.
+    container:
+      image: ghcr.io/max-models/plasma-plots:devel
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+      options: --init
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
+      # Use this checkout's code without resolving or replacing image dependencies.
+      - name: Install current plasma-plots source
+        run: python -m pip install --no-deps -e .
 
-      # Most docs figures use small synthetic data (generate_docs_figures.py) and
-      # don't need struphy at all -- but the "A real simulation" guide's figures
-      # come from an actual struphy run (generate_real_example_figures.py), so
-      # the full compiled struphy runtime is still required for every docs
-      # build. It has compiled dependencies (pyccel/mpi4py), hence the system
-      # packages below. Install struphy>=3.4.0 from PyPI.
-      - name: Install struphy system dependencies
+      # scope-profiler[pproc] pins an older maxplotlib than our TikZ backend.
+      # Install its remaining tools directly, retaining the image's maxplotlib.
+      # The image already supplies scope-profiler, Jupyter, Matplotlib and Plotly.
+      - name: Install docs-only profiling and interactive rendering tools
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y gfortran gcc g++ \
-            liblapack-dev libblas-dev libopenmpi-dev openmpi-bin \
-            libnetcdf-dev libnetcdff-dev cmake
-
-      - name: Install struphy from PyPI
-        run: pip install "struphy>=3.4.0"
-
-      # Simulations need compiled pyccel kernels, not just the pure-Python
-      # package -- the test suite doesn't hit this (it only builds fake
-      # Output fixtures), but running real simulations here does. Compiling
-      # takes most of this job's time, so the compiled kernels are cached:
-      # struphy's (next to its sources, plus state.yml, which records the
-      # language and compiler) and those psydac-accelerate builds inside the
-      # installed feectools package. The key covers everything the binaries
-      # depend on: the runner image (system compilers and libraries), the Python
-      # version and the installed package versions (including struphy and feectools).
-      - name: Locate compiled-kernel paths
-        id: kernel-paths
-        run: |
-          echo "struphy=$(python -c 'import importlib.util; print(next(iter(importlib.util.find_spec("struphy").submodule_search_locations)))')" >> "$GITHUB_OUTPUT"
-          echo "dependencies=$(pip freeze --all | LC_ALL=C sort | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
-          echo "feectools=$(python -c 'import os, feectools; print(os.path.dirname(feectools.__file__))')" >> "$GITHUB_OUTPUT"
-          echo "python=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')" >> "$GITHUB_OUTPUT"
-          # ImageOS/ImageVersion are the runner's environment variables, not part of the `env`
-          # context, so ${{ env.ImageOS }} in the key expands to nothing: read them here
-          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
-
-      - name: Restore compiled struphy kernels
-        id: kernel-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ steps.kernel-paths.outputs.struphy }}/**/*.so
-            ${{ steps.kernel-paths.outputs.struphy }}/**/__pyccel__
-            ${{ steps.kernel-paths.outputs.struphy }}/state.yml
-            ${{ steps.kernel-paths.outputs.struphy }}/kernels.txt
-            ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
-            ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
-          key: struphy-kernels-fortran-${{ runner.os }}-${{ steps.kernel-paths.outputs.image }}-py${{ steps.kernel-paths.outputs.python }}-${{ steps.kernel-paths.outputs.dependencies }}
-
-      # Compile on a cache miss, or if the restored kernels are incomplete or don't import (then
-      # struphy itself doesn't import, `struphy compile` included: remove them first).
-      - name: Compile struphy kernels
-        id: compile
-        run: |
-          if [ "${{ steps.kernel-cache.outputs.cache-hit }}" = "true" ] \
-             && struphy compile --status | grep -q "^0 of [0-9]* Struphy kernels are not compiled"; then
-            echo "Using cached struphy kernels:"
-            struphy compile --status
-            echo "compiled=false" >> "$GITHUB_OUTPUT"
-          else
-            if [ "${{ steps.kernel-cache.outputs.cache-hit }}" = "true" ]; then
-              echo "The cached kernels are unusable; compiling from scratch"
-              find "${{ steps.kernel-paths.outputs.struphy }}" "${{ steps.kernel-paths.outputs.feectools }}" \
-                \( -name "*.so" -o -name "__pyccel__" -prune \) -exec rm -rf {} +
-              rm -f "${{ steps.kernel-paths.outputs.struphy }}/state.yml" "${{ steps.kernel-paths.outputs.struphy }}/kernels.txt"
-            fi
-            struphy compile -y --language fortran
-            echo "compiled=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      # Saved right after compiling, so a failure later in the job does not
-      # lose them.
-      - name: Save compiled struphy kernels
-        if: steps.compile.outputs.compiled == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.kernel-paths.outputs.struphy }}/**/*.so
-            ${{ steps.kernel-paths.outputs.struphy }}/**/__pyccel__
-            ${{ steps.kernel-paths.outputs.struphy }}/state.yml
-            ${{ steps.kernel-paths.outputs.struphy }}/kernels.txt
-            ${{ steps.kernel-paths.outputs.feectools }}/**/*.so
-            ${{ steps.kernel-paths.outputs.feectools }}/**/__pyccel__
-          key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
-
-      - name: Install plasma-plots (with PyVista, profiling and test tools)
-        run: pip install -e ".[pyvista,profiling,dev]"
-
-      # The 3-D views guide embeds interactive scenes exported with
-      # plotter.trame.export_html(). trame-vtk >= 2.11.15 is needed for VTK 9.7 and
-      # trame-pyvista requires < 2.11.17. struphy pins an older trame-vtk, which pip
-      # reports as a conflict; figure generation does not use struphy's trame code.
-      - name: Install trame-pyvista (docs interactive scenes only)
-        run: pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
-
-      # The docs embed live interactive Plotly charts (via <PlotlyChart>) to
-      # demonstrate `array.plasma.data`; plotly is not a plasma-plots
-      # dependency, only needed here to export each figure's JSON.
-      - name: Install Plotly (docs examples only)
-        run: pip install plotly
-
-      # The "LaTeX figures" guide shows backend="tikz" figures (tikz_*.png), converted by
-      # maxplotlib and compiled with pdflatex and pgfplots.
-      - name: Install maxplotlib and LaTeX (docs examples only)
-        run: |
-          pip install -e ".[tikz]"
-          sudo apt-get install -y --no-install-recommends \
-            texlive-latex-base texlive-latex-extra texlive-pictures \
-            texlive-fonts-recommended lmodern
-
-      # The "GVEC equilibria" guide runs real GVEC equilibria (generate_gvec_figures.py). The
-      # PyPI package is a source distribution that builds GVEC's Fortran core with the gfortran,
-      # LAPACK and CMake installed above; pip's cache (setup-python) keeps the built wheel.
-      - name: Install GVEC (docs examples only)
-        run: pip install gvec
-
-      # The "DESC equilibria" guide evaluates DESC's own example equilibria
-      # (generate_desc_figures.py); DESC is pure Python (on JAX), nothing to build.
-      - name: Install DESC (docs examples only)
-        run: pip install desc-opt
-
-      # A few example figures render an interactive PyVista scene off-screen
-      # (3-D volumes, equilibria), which needs a virtual display and Mesa's
-      # software OpenGL/EGL implementation.
-      - name: Install headless rendering dependencies
-        run: |
-          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libosmesa6
+          python -m pip install flameprof pyarrow pyvis snakeviz textual
+          # VTK 9.7 needs newer trame-vtk; this overrides Struphy's older pin
+          # only for the docs' interactive PyVista exports.
+          python -m pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
 
       # The plotting layer on real struphy output: small torus, guiding-center and
       # slab runs (tests/test_real_simulations.py, ~1 min), and the `plasma-plots`
       # command on them. They need the compiled kernels, so they run here rather
       # than in the test workflow.
       - name: Run real-simulation tests
-        run: xvfb-run -a pytest -v --run-simulations tests/test_real_simulations.py
+        run: xvfb-run -a pytest -s -v --run-simulations tests/test_real_simulations.py
 
       - name: Generate example figures
         run: xvfb-run -a make figures

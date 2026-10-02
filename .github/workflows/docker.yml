@@ -3,20 +3,6 @@ name: Docker image
 on:
   push:
     branches: [main, devel]
-  pull_request:
-    branches: [main, devel]
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - .github/workflows/docker.yml
-      - pyproject.toml
-      - src/**
-      - tests/test_real_simulations.py
-      - tests/test_tikz_backend.py
-      - tests/test_gvec.py
-      - tests/test_desc.py
-      - tests/plot_cases.py
-      - tests/conftest.py
   workflow_dispatch:
 
 permissions:
@@ -24,7 +10,7 @@ permissions:
 
 concurrency:
   group: docker-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -81,7 +67,7 @@ jobs:
             tests/test_gvec.py tests/test_desc.py
 
       - name: Log in to GitHub Container Registry
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel') && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel')
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -90,7 +76,7 @@ jobs:
 
       # Push the image that passed the checks above, without rebuilding it.
       - name: Publish tested image
-        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel') && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel')
         env:
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         run: |

@@ -79,9 +79,11 @@ make docs-build     # figures + npm run build
   will fail to build without the referenced JSON, the same as the PyVista
   figures above.
 
-CI regenerates the figures the same way (with the same heavy struphy install
-as the test suite, since the real-example page still needs it) on every push
-to `devel`, before deploying to GitHub Pages.
+CI regenerates the figures on every push to `devel`, before deploying to
+GitHub Pages. It uses `ghcr.io/max-models/plasma-plots:devel` for the compiled
+Struphy/GVEC runtime and plotting dependencies, then installs the current
+checkout and the remaining docs tools. Publish that image once before running
+the container-based docs workflow.
 
 The docs site shows about 80 characters of code before a block scrolls sideways, so the
 ` ```python ` blocks of the guides are formatted with `ruff format` at 79 characters (not the

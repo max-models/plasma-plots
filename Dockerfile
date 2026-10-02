@@ -14,7 +14,7 @@ FROM ubuntu:latest
 # .github/workflows/docker.yml builds and tests on pushes to main and devel,
 # then publishes ghcr.io/max-models/plasma-plots (linux/amd64). Main publishes
 # latest and main tags; devel publishes a devel tag. Both publish sha-<commit>.
-# Pull requests check the build without publishing. GITHUB_TOKEN needs package
+# Builds run on branch pushes and manual dispatches. GITHUB_TOKEN needs package
 # write permission. For publishing from a repository outside max-models, set
 # GHCR_TOKEN to a classic personal access token with write:packages permission
 # for max-models (or grant the repository Actions access to an existing package).
