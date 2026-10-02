@@ -73,9 +73,10 @@ jobs:
           '
 
       - name: Run simulation, equilibrium and LaTeX export tests in the image
+        # Native runtimes can close pytest's capture streams; use real stdout/stderr.
         run: |
           docker run --rm --init -v "$PWD/tests:/work/tests:ro" plasma-plots:test \
-            xvfb-run -a pytest -v --run-simulations \
+            xvfb-run -a pytest -s -v --run-simulations \
             tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile \
             tests/test_gvec.py tests/test_desc.py
 
