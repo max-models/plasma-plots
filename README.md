@@ -43,6 +43,17 @@ Plotly exports through Kaleido require a compatible Chrome installation.
 
 For development, install with `pip install -e ".[dev]"`.
 
+## Docker
+
+The Ubuntu image includes Struphy with compiled kernels, MPI, LaTeX and
+plasma-plots. It is published to GitHub Container Registry on pushes to `main`.
+
+```bash
+docker run --rm -it -v "$PWD:/work" ghcr.io/struphy-hub/plasma-plots:latest
+```
+
+See the [Dockerfile](Dockerfile) for build and usage notes.
+
 ## Struphy compatibility
 
 Struphy integration requires **Struphy 3.4.0 or newer** from PyPI:
