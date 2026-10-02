@@ -14,7 +14,7 @@ Full documentation: https://max-models.github.io/plasma-plots
 
 ## Installation
 
-Python **3.11 or newer** is required; CI tests Python 3.11 and 3.12.
+Python **3.10 or newer** is required; CI tests Python 3.10 to 3.14.
 The base install plots in-memory xarray data. Install extras for file formats
 and optional renderers:
 
