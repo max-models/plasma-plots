@@ -12,10 +12,12 @@ FROM ubuntu:latest
 # to docker run when launching xvfb-run directly.
 #
 # .github/workflows/docker.yml builds and tests on pushes to main, then publishes
-# ghcr.io/struphy-hub/plasma-plots:latest and sha-<commit> tags (linux/amd64).
+# ghcr.io/max-models/plasma-plots:latest and sha-<commit> tags (linux/amd64).
 # Pull requests check the build without publishing. GITHUB_TOKEN needs package
-# write permission; no registry secret is needed. After the first publish, set
-# the GitHub package visibility to public to allow anonymous pulls.
+# write permission. For publishing from a repository outside max-models, set
+# GHCR_TOKEN to a classic personal access token with write:packages permission
+# for max-models (or grant the repository Actions access to an existing package).
+# After the first publish, set the package visibility to public for anonymous pulls.
 
 # Python's virtual environment is already on PATH. Matplotlib uses Agg and
 # PyVista renders off-screen.

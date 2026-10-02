@@ -49,7 +49,7 @@ The Ubuntu image includes Struphy with compiled kernels, MPI, LaTeX and
 plasma-plots. It is published to GitHub Container Registry on pushes to `main`.
 
 ```bash
-docker run --rm -it -v "$PWD:/work" ghcr.io/struphy-hub/plasma-plots:latest
+docker run --rm -it -v "$PWD:/work" ghcr.io/max-models/plasma-plots:latest
 ```
 
 See the [Dockerfile](Dockerfile) for build and usage notes.
