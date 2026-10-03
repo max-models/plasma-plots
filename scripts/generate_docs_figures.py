@@ -33,8 +33,12 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
 from plasma_plots.arrays import axis_label, value_label
-from plasma_plots.plotting import (PlotResult, plot_convergence,
-                                   plot_dispersion, plot_scalars)
+from plasma_plots.plotting import (
+    PlotResult,
+    plot_convergence,
+    plot_dispersion,
+    plot_scalars,
+)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -763,7 +767,7 @@ boundary_field = field_array(
 ).assign_coords(
     X=(
         ("eta1", "eta2", "eta3"),
-        ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None],
+        (3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b))[..., None],
     ),
     Y=(("eta1", "eta2", "eta3"), np.zeros((5, 64, 1))),
     Z=(
@@ -1348,8 +1352,13 @@ save_fig(fig, "data_selection.png")
 # =============================================================================
 # Theory: plasma_plots.theory, the analytic results to compare runs against
 # =============================================================================
-from plasma_plots.theory import (exact, kinetic, numerics,  # noqa: E402
-                                 orbits, waves)
+from plasma_plots.theory import (
+    exact,
+    kinetic,
+    numerics,  # noqa: E402
+    orbits,
+    waves,
+)
 
 # Landau damping of Langmuir waves: the kinetic root against Bohm-Gross and the weak-damping formula
 k_th = np.linspace(0.1, 0.6, 101)
@@ -1607,8 +1616,7 @@ save_fig(fig, "theory_numerics.png")
 try:
     import pyvista as pv
 
-    from plasma_plots.plotting import (plot_equilibrium_profile,
-                                       show_equilibrium)
+    from plasma_plots.plotting import plot_equilibrium_profile, show_equilibrium
 
     pv.OFF_SCREEN = True
 
@@ -2226,7 +2234,10 @@ lines_fl = B_fl.plasma.analysis.field_lines(
     seeds={"eta1": np.linspace(0.3, 0.9, 16), "eta2": 0.5 / 48, "eta3": 0.5 / 32},
     turns=100,
 )
-save(lines_fl.plasma.plot.field_lines(plane="RZ", color_by="iota", max_lines=8), "fieldlines_rz.png")
+save(
+    lines_fl.plasma.plot.field_lines(plane="RZ", color_by="iota", max_lines=8),
+    "fieldlines_rz.png",
+)
 iota_fl = lines_fl.plasma.analysis.rotational_transform().swap_dims(line="eta1_start")
 iota_fl.eta1_start.attrs["label"] = r"$\eta_1$ of the seed"
 save(
@@ -2335,7 +2346,11 @@ eta1_df = rng_df.uniform(0.05, 0.95, n_df) ** 0.7
 v_par_df = rng_df.normal(0, 1, n_df)
 mu_df = rng_df.exponential(0.5, n_df)
 prompt = np.abs(v_par_df) < 0.4 * np.sqrt(mu_df)
-loss_step = np.where(prompt, rng_df.integers(3, 20, n_df), np.where(eta1_df > 0.85, rng_df.integers(20, nt_df, n_df), nt_df + 1))
+loss_step = np.where(
+    prompt,
+    rng_df.integers(3, 20, n_df),
+    np.where(eta1_df > 0.85, rng_df.integers(20, nt_df, n_df), nt_df + 1),
+)
 alive_df = np.arange(nt_df)[:, None] < loss_step[None]
 
 
@@ -2355,7 +2370,10 @@ markers_df = xr.Dataset(
     },
     coords={"t": t_df, "marker": np.arange(n_df)},
 )
-save(markers_df.plasma.plot.weight_histogram(t=[0, 10.0, -1], bins=40), "weight_histogram.png")
+save(
+    markers_df.plasma.plot.weight_histogram(t=[0, 10.0, -1], bins=40),
+    "weight_histogram.png",
+)
 n_ref = xr.DataArray(
     np.linspace(0.01, 1, 50) ** 0.7 * 0 + (1 - np.linspace(0.01, 1, 50) ** 2) ** 0.5,
     dims="eta1",
@@ -2375,7 +2393,9 @@ save(fig_df, "losses.png")
 try:
     import plotly  # noqa: F401
 
-    print(f"wrote {lines_fl.plasma.plot.poincare(backend='plotly').save(PLOTLY_OUT / 'plotly_poincare.json')}")
+    print(
+        f"wrote {lines_fl.plasma.plot.poincare(backend='plotly').save(PLOTLY_OUT / 'plotly_poincare.json')}"
+    )
 except ImportError:
     print("skipped plotly_poincare.json (plotly unavailable)")
 plt.close("all")

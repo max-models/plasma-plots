@@ -2434,11 +2434,15 @@ def quasisymmetry_error(
     if not mean.any():
         raise ValueError("the spectrum has no (0, 0) harmonic to normalize with")
     B00 = amplitudes.isel(mode=int(np.flatnonzero(mean)[0]))
-    candidates = [N, -N] if isinstance(helicity, str) and helicity.upper() == "QH" else [N]
+    candidates = (
+        [N, -N] if isinstance(helicity, str) and helicity.upper() == "QH" else [N]
+    )
     best = None
     for sign_N in candidates:
         breaking = (m * sign_N + n * M != 0) & ~mean
-        error = np.sqrt((amplitudes.isel(mode=np.flatnonzero(breaking)) ** 2).sum("mode"))
+        error = np.sqrt(
+            (amplitudes.isel(mode=np.flatnonzero(breaking)) ** 2).sum("mode")
+        )
         error = error / B00.where(B00 != 0)
         if best is None or float(error.mean()) < float(best[0].mean()):
             best = (error, sign_N)
@@ -2452,7 +2456,9 @@ def quasisymmetry_error(
     }
     if "nfp" in data.attrs:
         error.attrs["nfp"] = data.attrs["nfp"]
-    return error.drop_vars([c for c in error.coords if c not in error.dims], errors="ignore")
+    return error.drop_vars(
+        [c for c in error.coords if c not in error.dims], errors="ignore"
+    )
 
 
 # ---------------------------------------------------------------------------------------------
@@ -2473,7 +2479,8 @@ def _plane(data: xr.DataArray):
     if all(name in data.coords for name in ("X", "Y", "Z")):
         grid = data.isel({d: 0 for d in spatial if d not in plane})
         points = np.stack(
-            [np.asarray(grid.coords[n].transpose(*plane), dtype=float) for n in "XYZ"], -1
+            [np.asarray(grid.coords[n].transpose(*plane), dtype=float) for n in "XYZ"],
+            -1,
         )
         periodic = [periodic[i] or periodicity(points, i) is not None for i in range(2)]
     return plane, periodic
@@ -2485,7 +2492,9 @@ def _differences(frame, axis, coordinate, periodic):
     if periodic:
         h = coordinate[1] - coordinate[0]
         return (np.roll(frame, -1, axis=axis) - np.roll(frame, 1, axis=axis)) / (2 * h)
-    return np.gradient(frame, coordinate, axis=axis, edge_order=2 if coordinate.size > 2 else 1)
+    return np.gradient(
+        frame, coordinate, axis=axis, edge_order=2 if coordinate.size > 2 else 1
+    )
 
 
 def _bilinear(corners, u, v):
@@ -2575,7 +2584,9 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
     def physical_corners(array, i, j, i1, j1):
         """Corner values of a physical coordinate, continued past the seam of a wrap-around cell."""
         c00, c10, c01, c11 = corners(array, i, j, i1, j1)
-        if i1 < i:  # the cell wraps around the first direction: one step on from the last row
+        if (
+            i1 < i
+        ):  # the cell wraps around the first direction: one step on from the last row
             c10 = 2 * array[i, j] - array[i - 1, j]
             c11 = 2 * array[i, j1 if j1 > j else j] - array[i - 1, j1 if j1 > j else j]
         if j1 < j:
@@ -2631,14 +2642,24 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
                         continue
                     u, v = float(np.clip(u, 0, 1)), float(np.clip(v, 0, 1))
                 position = np.array(
-                    [axes[0][i] + u * (axes[0][i1] - axes[0][i] if i1 > i else steps[0]),
-                     axes[1][j] + v * (axes[1][j1] - axes[1][j] if j1 > j else steps[1])]
+                    [
+                        axes[0][i]
+                        + u * (axes[0][i1] - axes[0][i] if i1 > i else steps[0]),
+                        axes[1][j]
+                        + v * (axes[1][j1] - axes[1][j] if j1 > j else steps[1]),
+                    ]
                 )
                 value = _bilinear(corners(frame, i, j, i1, j1), u, v)
                 H = np.array(
                     [
-                        [_bilinear(corners(hxx, i, j, i1, j1), u, v), _bilinear(corners(hxy, i, j, i1, j1), u, v)],
-                        [_bilinear(corners(hxy, i, j, i1, j1), u, v), _bilinear(corners(hyy, i, j, i1, j1), u, v)],
+                        [
+                            _bilinear(corners(hxx, i, j, i1, j1), u, v),
+                            _bilinear(corners(hxy, i, j, i1, j1), u, v),
+                        ],
+                        [
+                            _bilinear(corners(hxy, i, j, i1, j1), u, v),
+                            _bilinear(corners(hyy, i, j, i1, j1), u, v),
+                        ],
                     ]
                 )
                 det = float(np.linalg.det(H))
@@ -2815,7 +2836,9 @@ def _marker_alive(markers: xr.Dataset) -> xr.DataArray:
                 zero &= np.asarray(markers[name]) == 0
         return xr.DataArray(~zero, dims="marker", coords={"marker": markers["marker"]})
     return xr.DataArray(
-        _alive(ordered), dims=("t", "marker"), coords={"t": markers["t"], "marker": markers["marker"]}
+        _alive(ordered),
+        dims=("t", "marker"),
+        coords={"t": markers["t"], "marker": markers["marker"]},
     )
 
 
@@ -2940,7 +2963,9 @@ def marker_density(
     >>> (physical / sampling).isel(t=-1).plasma.plot.lineout()
     """
     dims = [dims] if isinstance(dims, str) else list(dims)
-    missing = [d for d in (*dims, *([weight] if weight else [])) if d not in markers.data_vars]
+    missing = [
+        d for d in (*dims, *([weight] if weight else [])) if d not in markers.data_vars
+    ]
     if missing:
         raise ValueError(
             f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}"
@@ -2966,7 +2991,9 @@ def marker_density(
     for k in frames:
         frame = markers.isel(t=k) if k is not None else markers
         keep = np.asarray(alive.isel(t=k) if k is not None else alive, dtype=bool)
-        sample = np.column_stack([np.asarray(frame[d], dtype=float)[keep] for d in dims])
+        sample = np.column_stack(
+            [np.asarray(frame[d], dtype=float)[keep] for d in dims]
+        )
         w = np.asarray(frame[weight], dtype=float)[keep] if weight else None
         hist, _ = np.histogramdd(sample, bins=edges, weights=w)
         out.append(hist / volume)
@@ -2982,7 +3009,9 @@ def marker_density(
         attrs={
             **_provenance(markers),
             "label": (
-                f"density of {_label(markers[weight]) or weight}" if weight else "marker density"
+                f"density of {_label(markers[weight]) or weight}"
+                if weight
+                else "marker density"
             ),
             "edges": [e.tolist() for e in edges],
         },
@@ -3108,8 +3137,12 @@ def loss_map(
             raise ValueError(
                 f"{name!r} is neither a variable of this dataset nor an invariant (energy, pitch, speed)"
             )
-        selected = resolve_marker_selection(source.to_dataset(name=name), {"t": t})[name]
-        columns[name] = selected.drop_vars([c for c in selected.coords if c not in selected.dims])
+        selected = resolve_marker_selection(source.to_dataset(name=name), {"t": t})[
+            name
+        ]
+        columns[name] = selected.drop_vars(
+            [c for c in selected.coords if c not in selected.dims]
+        )
     alive = np.asarray(_marker_alive(markers).transpose("t", "marker"), dtype=bool)
     gone = ~alive
     lost = gone.any(axis=0)

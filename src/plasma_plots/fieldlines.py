@@ -39,8 +39,13 @@ from math import gcd
 import numpy as np
 import xarray as xr
 
-from .arrays import (angle_period, logical_dims, mapping_jacobian, periodicity,
-                     validate_array)
+from .arrays import (
+    angle_period,
+    logical_dims,
+    mapping_jacobian,
+    periodicity,
+    validate_array,
+)
 
 #: The classes of :func:`classify_field_lines`: on a flux surface, inside an island, or chaotic.
 LINE_CLASSES = {0: "surface", 1: "island", 2: "chaotic"}
@@ -107,13 +112,20 @@ class _Grid:
         self.uniform = []
         for axis in self.unique_axes:
             h = np.diff(axis)
-            self.uniform.append(h.size > 0 and bool(np.allclose(h, h[0], rtol=1e-6, atol=0)))
+            self.uniform.append(
+                h.size > 0 and bool(np.allclose(h, h[0], rtol=1e-6, atol=0))
+            )
         self.nfp = int(data.attrs.get("nfp", 1) or 1)
-        self.radial_step = float(np.median(np.diff(self.axes[0]))) if self.axes[0].size > 1 else 0.0
+        self.radial_step = (
+            float(np.median(np.diff(self.axes[0]))) if self.axes[0].size > 1 else 0.0
+        )
 
-    def strip(self, values: np.ndarray, direction: int | None = None, axis: int | None = None) -> np.ndarray:
+    def strip(
+        self, values: np.ndarray, direction: int | None = None, axis: int | None = None
+    ) -> np.ndarray:
         """``values`` without the repeated endpoint of each closed direction: of one logical
-        ``direction`` (its array ``axis``), or of all three, the last three axes of ``values``."""
+        ``direction`` (its array ``axis``), or of all three, the last three axes of ``values``.
+        """
         if direction is not None:
             if self.kinds[direction] == "closed":
                 return np.take(values, range(values.shape[axis] - 1), axis=axis)
@@ -161,7 +173,9 @@ class _Grid:
                 k = np.clip(np.floor((x - axis[0]) / h).astype(int), 0, last)
                 fractions.append((x - axis[0]) / h - k)
             else:
-                edges = np.append(axis, axis[0] + period) if period is not None else axis
+                edges = (
+                    np.append(axis, axis[0] + period) if period is not None else axis
+                )
                 k = np.clip(np.searchsorted(edges, x, side="right") - 1, 0, last)
                 fractions.append((x - edges[k]) / (edges[k + 1] - edges[k]))
             indices.append(k)
@@ -185,7 +199,9 @@ class _Grid:
         finite = np.isfinite(flat).all(axis=1)
         out = np.full((3, flat.shape[0]), np.nan)
         if finite.any():
-            out[:, finite] = self.interpolate(np.moveaxis(self.points, -1, 0), flat[finite])
+            out[:, finite] = self.interpolate(
+                np.moveaxis(self.points, -1, 0), flat[finite]
+            )
         return out.reshape(3, *eta.shape[:-1])
 
     def values_at(self, values: np.ndarray, eta: np.ndarray) -> np.ndarray:
@@ -222,9 +238,7 @@ def _direction_field(data: xr.DataArray, components: str):
             f"field lines need at least two points along each of {grid.dims}; {short} have fewer"
         )
     field = np.asarray(data.transpose("component", *grid.dims), dtype=float)
-    jacobian = mapping_jacobian(
-        data.isel(component=0, drop=True).transpose(*grid.dims)
-    )
+    jacobian = mapping_jacobian(data.isel(component=0, drop=True).transpose(*grid.dims))
     if components == "contravariant":
         cartesian = np.einsum("ai...,i...->a...", jacobian, field)
         contravariant = field
@@ -523,7 +537,9 @@ def trace_field_lines(
 
     with np.errstate(invalid="ignore", divide="ignore"):
         pol_turns = (
-            poloidal / period_pol if period_pol is not None else np.full(n_lines, np.nan)
+            poloidal / period_pol
+            if period_pol is not None
+            else np.full(n_lines, np.nan)
         )
         tor_turns = toroidal / turn if turn is not None else np.full(n_lines, np.nan)
         iota = np.where(np.abs(tor_turns) > 0, pol_turns / tor_turns, np.nan)
@@ -562,7 +578,11 @@ def trace_field_lines(
         iota,
         {"label": "$\\iota$", "long_name": "rotational transform"},
     )
-    variables["transits"] = (("line",), np.abs(tor_turns), {"long_name": "toroidal transits"})
+    variables["transits"] = (
+        ("line",),
+        np.abs(tor_turns),
+        {"long_name": "toroidal transits"},
+    )
     variables["length"] = (("line",), traced, {"long_name": "traced arc length"})
     variables["exited"] = (("line",), exited)
     variables["connection_length"] = (
@@ -703,7 +723,11 @@ def poincare_section(lines: xr.Dataset, *, angle: float | None = None) -> xr.Dat
         names = (radial, pol, "x", "y", "z", "s")
         arrays = {
             name: np.asarray(
-                lines[name] if name != "s" else lines["s"].broadcast_like(lines[radial]),
+                (
+                    lines[name]
+                    if name != "s"
+                    else lines["s"].broadcast_like(lines[radial])
+                ),
                 dtype=float,
             )
             for name in names
@@ -899,9 +923,7 @@ def classify_field_lines(
     for i in range(r.shape[1]):
         keep = np.isfinite(r[:, i]) & np.isfinite(th[:, i])
         tol = (
-            tolerance
-            if tolerance is not None
-            else max(2 / max(transits[i], 1.0), 1e-3)
+            tolerance if tolerance is not None else max(2 / max(transits[i], 1.0), 1e-3)
         )
         rational = _nearest_rational(float(iota[i]), max_denominator, nfp, tol)
         if rational:
@@ -916,7 +938,9 @@ def classify_field_lines(
         psi = (m * thi) % period
         if rational:
             advance = np.cumsum(_fold(np.diff(psi), period))
-            if np.ptp(advance) < period:  # libration: never a full turn around the island
+            if (
+                np.ptp(advance) < period
+            ):  # libration: never a full turn around the island
                 codes[i] = 1
                 continue
         sorted_r = ri[np.argsort(thi)]
@@ -1019,7 +1043,13 @@ def islands(
         o_point = float(((psi[lo] + _fold(psi[hi] - psi[lo], period) / 2) % period) / m)
         entry = chains.setdefault(
             (n, m),
-            {"width": -1.0, "width_physical": np.nan, "radii": [], "lines": 0, "o_point": np.nan},
+            {
+                "width": -1.0,
+                "width_physical": np.nan,
+                "radii": [],
+                "lines": 0,
+                "o_point": np.nan,
+            },
         )
         if width > entry["width"]:
             entry.update(width=width, width_physical=width_physical, o_point=o_point)

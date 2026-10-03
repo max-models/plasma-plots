@@ -13,9 +13,15 @@ from . import spectral
 from .analysis import GrowthFit, growth_rate
 from .arrays import axis_label, logical_dims, value_label
 from .mpi import rank_zero
-from .plotting import (PLOT_STYLE, PlotResult, _finish, _label,
-                       prepare_continuous_spectrum, resolve_marker_selection,
-                       shared_run_label)
+from .plotting import (
+    PLOT_STYLE,
+    PlotResult,
+    _finish,
+    _label,
+    prepare_continuous_spectrum,
+    resolve_marker_selection,
+    shared_run_label,
+)
 
 OMEGA = r"$\omega$"
 
@@ -1031,7 +1037,7 @@ def plot_boozer_spectrum(
     n = np.asarray(amplitudes["n"], dtype=int)
     if error is not None:
         M, N = error.attrs["helicity"]
-        symmetric = (m * N + n * M == 0)
+        symmetric = m * N + n * M == 0
     else:
         symmetric = np.ones(m.size, dtype=bool)
     for i in range(amplitudes.sizes["mode"]):
@@ -1050,7 +1056,9 @@ def plot_boozer_spectrum(
     )
     axes[0].legend(fontsize="small", ncol=2)
     if error is not None:
-        artists += axes[1].plot(xs, np.asarray(error.transpose(x), dtype=float), color="C3")
+        artists += axes[1].plot(
+            xs, np.asarray(error.transpose(x), dtype=float), color="C3"
+        )
         if log:
             axes[1].set_yscale("log")
         M, N = error.attrs["helicity"]
@@ -1059,4 +1067,6 @@ def plot_boozer_spectrum(
     data_out = {"amplitudes": amplitudes}
     if error is not None:
         data_out["error"] = error
-    return PlotResult(fig, axes if error is not None else axes[0], artists, data=data_out)
+    return PlotResult(
+        fig, axes if error is not None else axes[0], artists, data=data_out
+    )

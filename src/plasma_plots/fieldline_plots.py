@@ -12,14 +12,33 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from .arrays import (DIM_LABELS, angle_period, axis_label, logical_dims,
-                     validate_array, value_label)
-from .fieldlines import (LINE_CLASSES, classify_field_lines, islands,
-                         parallel_wavenumber, poincare_section)
+from .arrays import (
+    DIM_LABELS,
+    angle_period,
+    axis_label,
+    logical_dims,
+    validate_array,
+    value_label,
+)
+from .fieldlines import (
+    LINE_CLASSES,
+    classify_field_lines,
+    islands,
+    parallel_wavenumber,
+    poincare_section,
+)
 from .mpi import rank_zero
-from .plotting import (PLOT_STYLE, PlotResult, View, _boundary_edge,
-                       _colored_path, _finish, _label, plot_slice,
-                       shared_run_label)
+from .plotting import (
+    PLOT_STYLE,
+    PlotResult,
+    View,
+    _boundary_edge,
+    _colored_path,
+    _finish,
+    _label,
+    plot_slice,
+    shared_run_label,
+)
 
 LINE_CLASS_COLORS = {"surface": "C0", "island": "C3", "chaotic": "0.55"}
 PLANES_2D = {"RZ": ("R", "z"), "XY": ("x", "y"), "XZ": ("x", "z"), "YZ": ("y", "z")}
@@ -151,8 +170,7 @@ def plot_poincare(
         raise ValueError(f'coords must be "physical" or "logical"; got {coords!r}')
     if color_by not in ("line", "iota", "classification", "connection_length", None):
         raise ValueError(
-            'color_by must be "line", "iota", "classification", "connection_length" or None; '
-            f"got {color_by!r}"
+            f'color_by must be "line", "iota", "classification", "connection_length" or None; got {color_by!r}'
         )
     section = poincare_section(section)
     if max_lines is not None:
@@ -227,7 +245,9 @@ def plot_poincare(
         period = _periods(section)[1] or 1.0
         for k in range(chains.sizes["chain"]):
             n, m = int(chains.n[k]), int(chains.m[k])
-            members = np.flatnonzero((values == 1) & (np.asarray(codes.n) == n) & (np.asarray(codes.m) == m))
+            members = np.flatnonzero(
+                (values == 1) & (np.asarray(codes.n) == n) & (np.asarray(codes.m) == m)
+            )
             if not members.size:
                 continue
             # the puncture of the chain nearest its O-point, in the drawn coordinates
@@ -334,7 +354,9 @@ def plot_field_lines(
     >>> plot_field_lines(lines, plane="3d", max_lines=20)
     """
     if plane not in (*PLANES_2D, "3d"):
-        raise ValueError(f'plane must be one of {tuple(PLANES_2D)} or "3d"; got {plane!r}')
+        raise ValueError(
+            f'plane must be one of {tuple(PLANES_2D)} or "3d"; got {plane!r}'
+        )
     if color_by not in ("line", "iota", "absB", "s", None):
         raise ValueError(
             f'color_by must be "line", "iota", "absB", "s" or None; got {color_by!r}'
@@ -414,7 +436,9 @@ def plot_field_lines(
         from matplotlib.cm import ScalarMappable
 
         fig.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax, label="$\\iota$")
-    ax.set_title(title if title is not None else lines.attrs.get("label", "field lines"))
+    ax.set_title(
+        title if title is not None else lines.attrs.get("label", "field lines")
+    )
     if plane != "3d":
         _finish(fig, run_label=shared_run_label(lines))
     return PlotResult(fig, ax, artists)
@@ -586,11 +610,15 @@ def plot_connection_length(
             return result
         forward = lines
         if "direction" in lines.coords and (np.asarray(lines["direction"]) == -1).any():
-            forward = lines.isel(line=np.flatnonzero(np.asarray(lines["direction"]) == 1))
+            forward = lines.isel(
+                line=np.flatnonzero(np.asarray(lines["direction"]) == 1)
+            )
         starts = {d: np.asarray(forward[f"{d}_start"], dtype=float) for d in dims}
         varying = [d for d in dims if np.unique(starts[d]).size > 1]
         if len(varying) < 2:
-            varying = [d for d in dims if d not in varying][: 2 - len(varying)] + varying
+            varying = [d for d in dims if d not in varying][
+                : 2 - len(varying)
+            ] + varying
             varying = [d for d in dims if d in varying]
         values = np.asarray(forward["connection_length"], dtype=float)
         colors = np.log10(values) if log else values
@@ -692,7 +720,9 @@ def plot_along_field_lines(
             label += f", $\\iota$ = {float(iota[i]):.3g}"
         if k_par is not None and np.isfinite(float(k_par[i])):
             label += f", $k_\\parallel$ = {float(k_par[i]):.3g}"
-        artists += ax.plot(s, np.asarray(samples[:, i], dtype=float), lw=1.0, label=label)
+        artists += ax.plot(
+            s, np.asarray(samples[:, i], dtype=float), lw=1.0, label=label
+        )
     ax.set(
         xlabel=axis_label(samples, "s"),
         ylabel=value_label(samples),
@@ -847,7 +877,9 @@ def plot_surface_map(
                     keep = keep & (np.arange(keep.size) <= stop)
             if keep.sum() < 2:
                 continue
-            lx, ly = _split_wraps(lx_all[keep, i], ly_all[keep, i], periods[2], periods[1])
+            lx, ly = _split_wraps(
+                lx_all[keep, i], ly_all[keep, i], periods[2], periods[1]
+            )
             result.artists += ax.plot(
                 lx,
                 ly,

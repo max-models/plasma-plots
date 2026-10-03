@@ -969,8 +969,7 @@ class _FigureConverter:
 
     # --- artists ------------------------------------------------------------------------------
     def _artists(self, axes):
-        from matplotlib.collections import (LineCollection, PathCollection,
-                                            QuadMesh)
+        from matplotlib.collections import LineCollection, PathCollection, QuadMesh
         from matplotlib.contour import ContourSet
         from matplotlib.legend import Legend
         from matplotlib.lines import Line2D
@@ -2081,8 +2080,7 @@ def viewer_to_plotly(viewer):
     controls = [dim for dim in controls if dim not in single]
     if len(controls) > 1:
         raise ValueError(
-            f"a Plotly viewer has one slider, but {controls} remain; select all but one of them "
-            f"(e.g. {controls[-1]}=0)"
+            f"a Plotly viewer has one slider, but {controls} remain; select all but one of them (e.g. {controls[-1]}=0)"
         )
     base = View(x=x, y=y, coordinates=viewer.view.coordinates, plane=viewer.view.plane)
     options = dict(viewer.options)

@@ -197,9 +197,7 @@ save(fig, "gvec_tokamak.png")
 # over the Boozer grid
 # =============================================================================
 with plasma_plots.figure(1, 2) as fig:
-    ev.mod_B.plasma.plot.slice(
-        x="zeta", y="theta", rho=0.5, levels=12, ax=fig[0]
-    )
+    ev.mod_B.plasma.plot.slice(x="zeta", y="theta", rho=0.5, levels=12, ax=fig[0])
     boozer.mod_B.plasma.plot.slice(
         x="zeta_B", y="theta_B", rho=0.5, levels=12, ax=fig[1]
     )
@@ -218,9 +216,7 @@ save(
 # Fourier modes of |B| on the Boozer grid
 # =============================================================================
 save(
-    boozer.mod_B.plasma.plot.mode_map(
-        rho=0.5, m_range=(-4, 4), n_range=(-9, 9)
-    ),
+    boozer.mod_B.plasma.plot.mode_map(rho=0.5, m_range=(-4, 4), n_range=(-9, 9)),
     "gvec_mode_map.png",
 )
 save(boozer.mod_B.plasma.plot.mode_profiles(top=5), "gvec_mode_profiles.png")
@@ -249,10 +245,7 @@ gauss = plasma_plots.from_gvec(
         "mod_B", "Jac", "pos", "N_FP", rho="int", theta="int", zeta="int"
     )
 )
-volume = (
-    float(volume_integral(xr.ones_like(gauss.Jac), jacobian=gauss.Jac))
-    * gauss.nfp
-)
+volume = float(volume_integral(xr.ones_like(gauss.Jac), jacobian=gauss.Jac)) * gauss.nfp
 numerical = float(volume_integral(xr.ones_like(ev.mod_B))) * ev.nfp
 gvec_volume = float(stellarator.evaluate("V", rho=[1.0]).V)
 average = ev.plasma.analysis.surface_average("mod_B")
@@ -262,9 +255,7 @@ rows = [
     ("volume_integral(1) * nfp, sqrt(g) from X, Y, Z", numerical),  # 17x64x40
     ("<|B|> at rho = 0.5", float(average.sel(rho=0.5))),
 ]
-NUMBERS.write_text(
-    "".join(f"{label:<48} {value:.10f}\n" for label, value in rows)
-)
+NUMBERS.write_text("".join(f"{label:<48} {value:.10f}\n" for label, value in rows))
 print(NUMBERS.read_text())
 
 # =============================================================================
@@ -291,9 +282,7 @@ try:
             plotter.trame.export_html(str(html))
             print(f"wrote {html}")
         except Exception as exc:  # needs trame-pyvista
-            print(
-                f"skipped {html.name} (interactive export unavailable): {exc}"
-            )
+            print(f"skipped {html.name} (interactive export unavailable): {exc}")
         plotter.close()
 
     torus = plasma_plots.from_gvec(
@@ -379,9 +368,7 @@ if not os.environ.get("PLASMA_PLOTS_SKIP_W7X"):
                 zeta=np.linspace(0, 2 * np.pi, 48 * w7x.nfp, endpoint=False),
             )
         )
-        shot(
-            surface.mod_B.plasma.plot.slices_3d(), "gvec_3d_w7x.png", zoom=1.3
-        )
+        shot(surface.mod_B.plasma.plot.slices_3d(), "gvec_3d_w7x.png", zoom=1.3)
     except ImportError as exc:  # pragma: no cover - optional
         print(f"skipped the W7-X 3-D view (pyvista unavailable): {exc}")
 

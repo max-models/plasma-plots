@@ -125,7 +125,9 @@ def flux_box(n=24):
     E1, E2 = np.meshgrid(e, e, indexing="ij")
     X, Y = 2 * np.pi * E1, 2 * np.pi * E2
     t = np.linspace(0, 2, 3)
-    values = np.stack([-np.cos(Y - 0.3) + 0.2 * np.exp(ti) * np.cos(X - 0.7) for ti in t])
+    values = np.stack(
+        [-np.cos(Y - 0.3) + 0.2 * np.exp(ti) * np.cos(X - 0.7) for ti in t]
+    )
     return xr.DataArray(
         values[..., None],
         dims=("t", "eta1", "eta2", "eta3"),

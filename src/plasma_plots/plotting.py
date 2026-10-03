@@ -23,12 +23,28 @@ import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
-from .analysis import (ORBIT_CLASSES, FitResult, GrowthFit, classify_orbits,
-                       convergence_order, drift, growth_rate, power_spectrum,
-                       relative_error)
-from .arrays import (LOGICAL_DIMS, SCALARS_EXCLUDE, axis_label, close_periodic,
-                     logical_dims, save_scalars, scalar_names, validate_array,
-                     value_label)
+from .analysis import (
+    ORBIT_CLASSES,
+    FitResult,
+    GrowthFit,
+    classify_orbits,
+    convergence_order,
+    drift,
+    growth_rate,
+    power_spectrum,
+    relative_error,
+)
+from .arrays import (
+    LOGICAL_DIMS,
+    SCALARS_EXCLUDE,
+    axis_label,
+    close_periodic,
+    logical_dims,
+    save_scalars,
+    scalar_names,
+    validate_array,
+    value_label,
+)
 from .mpi import rank_zero
 
 logger = logging.getLogger("plasma_plots")
@@ -5578,8 +5594,16 @@ def plot_critical_points(
     kinds = np.asarray(points["kind"]).ravel()
     physical = view.coordinates == "physical"
     names = PLANES[view.plane][:2] if physical else plane
-    xs = np.asarray(points[names[0]], dtype=float).ravel() if names[0] in points else None
-    ys = np.asarray(points[names[1]], dtype=float).ravel() if names[1] in points else None
+    xs = (
+        np.asarray(points[names[0]], dtype=float).ravel()
+        if names[0] in points
+        else None
+    )
+    ys = (
+        np.asarray(points[names[1]], dtype=float).ravel()
+        if names[1] in points
+        else None
+    )
     if xs is None or ys is None:
         raise ValueError(
             "the critical points have no physical coordinates; draw them in logical coordinates"
@@ -5701,13 +5725,21 @@ def plot_weight_histogram(
     alive = _marker_alive(markers)
     frames = []
     for when in times:
-        selected = resolve_marker_selection(markers[[weight]], {"t": when} if "t" in markers.dims else {})
+        selected = resolve_marker_selection(
+            markers[[weight]], {"t": when} if "t" in markers.dims else {}
+        )
         keep = (
-            np.asarray(resolve_marker_selection(alive.to_dataset(name="alive"), {"t": when})["alive"])
+            np.asarray(
+                resolve_marker_selection(alive.to_dataset(name="alive"), {"t": when})[
+                    "alive"
+                ]
+            )
             if "t" in markers.dims
             else np.asarray(alive)
         )
-        frames.append((selected, np.asarray(selected[weight], dtype=float)[keep.astype(bool)]))
+        frames.append(
+            (selected, np.asarray(selected[weight], dtype=float)[keep.astype(bool)])
+        )
     lo = min(float(values.min()) for _, values in frames if values.size)
     hi = max(float(values.max()) for _, values in frames if values.size)
     if lo == hi:
@@ -5723,14 +5755,17 @@ def plot_weight_histogram(
             else None
         )
         if values.size:
-            label = (label + ": " if label else "") + f"mean {values.mean():.3g}, std {values.std():.3g}"
+            label = (
+                label + ": " if label else ""
+            ) + f"mean {values.mean():.3g}, std {values.std():.3g}"
         artists += ax.plot(*_steps(edges, counts), lw=1.2, label=label)
     if log:
         ax.set_yscale("log")
     statistics = weight_statistics(markers, weight=weight)
     if "t" in statistics.dims:
         statistics = xr.concat(
-            [resolve_marker_selection(statistics, {"t": when}) for when in times], dim="t"
+            [resolve_marker_selection(statistics, {"t": when}) for when in times],
+            dim="t",
         )
     noise = float(np.asarray(statistics["noise"]).ravel()[-1])
     ax.set(
@@ -5829,7 +5864,12 @@ def plot_marker_density(
         return values
 
     centres = np.asarray(sampling[x], dtype=float)
-    artists += ax.plot(centres, shown(sampling), drawstyle="steps-mid", label="markers (sampling density)")
+    artists += ax.plot(
+        centres,
+        shown(sampling),
+        drawstyle="steps-mid",
+        label="markers (sampling density)",
+    )
     if weighted is not None:
         artists += ax.plot(
             centres,
@@ -5840,8 +5880,16 @@ def plot_marker_density(
     if against is not None:
         reference = against
         if "t" in reference.dims:
-            when = float(frame["t"]) if "t" in frame.coords and frame["t"].ndim == 0 else None
-            reference = reference.sel(t=when, method="nearest") if when is not None else reference.isel(t=-1)
+            when = (
+                float(frame["t"])
+                if "t" in frame.coords and frame["t"].ndim == 0
+                else None
+            )
+            reference = (
+                reference.sel(t=when, method="nearest")
+                if when is not None
+                else reference.isel(t=-1)
+            )
         if reference.ndim != 1:
             raise ValueError(
                 f"against must be a 1-D profile over {x!r} after selection; it has dims {reference.dims}"
@@ -5860,7 +5908,9 @@ def plot_marker_density(
     )
     ax.legend(fontsize="small")
     _finish(fig, run_label=shared_run_label(markers))
-    return PlotResult(fig, ax, artists, data={"sampling": sampling, "weighted": weighted})
+    return PlotResult(
+        fig, ax, artists, data={"sampling": sampling, "weighted": weighted}
+    )
 
 
 @rank_zero

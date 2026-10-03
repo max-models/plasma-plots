@@ -5,10 +5,18 @@ problems), conservation laws, and the differential equations checked by finite d
 import numpy as np
 import pytest
 
-from plasma_plots.theory.exact import (advected, caustic_time, dalembert,
-                                       dam_break, heat_kernel, pressureless,
-                                       pressureless_eulerian, riemann_euler,
-                                       sod_shock_tube, star_state)
+from plasma_plots.theory.exact import (
+    advected,
+    caustic_time,
+    dalembert,
+    dam_break,
+    heat_kernel,
+    pressureless,
+    pressureless_eulerian,
+    riemann_euler,
+    sod_shock_tube,
+    star_state,
+)
 
 H = 1e-4  # finite-difference step: central differences are accurate to about H² ~ 1e-8
 
@@ -163,8 +171,9 @@ def test_riemann_solution_values_and_structure():
     # the mirror image of a problem is the mirrored solution
     left, right = (1.0, 0.3, 2.0), (0.4, -0.7, 0.5)
     x = np.linspace(-1, 1, 101)
-    a, b = riemann_euler(x, 0.3, left, right, 5 / 3), riemann_euler(
-        -x, 0.3, right[:1] + (0.7, 0.5), (1.0, -0.3, 2.0), 5 / 3
+    a, b = (
+        riemann_euler(x, 0.3, left, right, 5 / 3),
+        riemann_euler(-x, 0.3, right[:1] + (0.7, 0.5), (1.0, -0.3, 2.0), 5 / 3),
     )
     np.testing.assert_allclose(a.density, b.density, rtol=1e-12)
     np.testing.assert_allclose(a.velocity, -b.velocity, rtol=1e-12, atol=1e-14)

@@ -162,8 +162,9 @@ Runs as is, on synthetic data:
 'PlotResult'
 """
 
-from . import \
-    output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
+from . import (
+    output_accessors,
+)  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
 from .desc import from_desc
 from .figures import figure

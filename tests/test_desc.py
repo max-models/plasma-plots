@@ -19,8 +19,10 @@ import desc.examples  # noqa: E402
 from desc.grid import LinearGrid  # noqa: E402
 
 import plasma_plots  # noqa: E402
-from plasma_plots.analysis import (surface_average,  # noqa: E402
-                                   volume_integral)
+from plasma_plots.analysis import (
+    surface_average,  # noqa: E402
+    volume_integral,
+)
 from plasma_plots.arrays import angle_period, logical_dims  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore")

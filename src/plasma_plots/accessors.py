@@ -2433,7 +2433,12 @@ class ArrayPlots(_ArrayAccessor):
         view = self._view(None, None, "t", "logical", "XY", selection)
         samples = sample_along(_select(self._array, view), lines)
         return plot_along_field_lines(
-            samples, k_parallel=k_parallel, method=method, max_lines=max_lines, ax=ax, title=title
+            samples,
+            k_parallel=k_parallel,
+            method=method,
+            max_lines=max_lines,
+            ax=ax,
+            title=title,
         )
 
     @with_backend
@@ -2494,7 +2499,12 @@ class ArrayPlots(_ArrayAccessor):
 
         view = self._view(x, y, "t", coords, plane, selection)
         return plot_critical_points(
-            self._array, view=view, ax=ax, levels=levels, cmap=cmap, label_values=label_values
+            self._array,
+            view=view,
+            ax=ax,
+            levels=levels,
+            cmap=cmap,
+            label_values=label_values,
         )
 
     @with_backend
@@ -4035,7 +4045,11 @@ class ArrayAnalysis(_ArrayAccessor):
         return sample_along(self._array, lines)
 
     def parallel_wavenumber(
-        self, *, lines: xr.Dataset | None = None, method: str = "fft", detrend: bool = True
+        self,
+        *,
+        lines: xr.Dataset | None = None,
+        method: str = "fft",
+        detrend: bool = True,
     ) -> xr.DataArray:
         """Return the dominant parallel wavenumber of this field along field lines.
 
@@ -4088,7 +4102,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return boozer_spectrum(self._array, top=top, angles=angles)
 
-    def quasisymmetry_error(self, *, helicity="QA", angles: str = "boozer") -> xr.DataArray:
+    def quasisymmetry_error(
+        self, *, helicity="QA", angles: str = "boozer"
+    ) -> xr.DataArray:
         """Return the quasi-symmetry error of this ``|B|`` on each flux surface.
 
         Returns
