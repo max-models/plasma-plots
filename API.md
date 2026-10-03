@@ -154,6 +154,19 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.frames(directory, *, x=None, y=None, sweep='t', coords='logical', plane='XY', vmin=None, vmax=None, shared_clim=True, cmap=None, equal_aspect=None, title=None, symmetric=False, robust=False, levels=None, fill=True, overlays=None, xlabel=None, ylabel=None, colorbar_label=None, step=1, prefix='frame', dpi=110, **selection)`: Export the sweep as PNG frames.
   - e.g. `phi.plasma.plot.frames("frames", x="eta1", y="eta2", eta3=0, step=5)`
 - `array.plasma.plot.trajectories(*, max_markers=200, show_paths=None, ax=None, backend=None)`: Plot the three-dimensional paths of saved markers, for an orbit product.
+- `array.plasma.plot.poincare(*, seeds=8, turns=None, section=None, coords='physical', color_by='line', islands=False, boundary=None, ax=None, backend=None, **selection)`: Trace field lines of this vector field and plot their Poincaré section.
+  - e.g. `B.plasma.plot.poincare(seeds=12, turns=100, t=-1)`
+  - e.g. `B.plasma.plot.poincare(color_by="classification", islands=True, t=-1)`
+- `array.plasma.plot.surface_map(*, x=None, y=None, iota=None, lines=None, count=6, start=0.0, turns=2.0, line_color='w', ax=None, backend=None, **options)`: Plot this quantity on one flux surface, unfolded over the angles, with field lines.
+  - e.g. `boozer.mod_B.plasma.plot.surface_map(rho=0.5, iota=boozer.iota, count=8)`
+  - e.g. `phi.plasma.plot.surface_map(eta1=0.5, t=-1, lines=lines)`
+- `array.plasma.plot.along_field_lines(lines, *, k_parallel=False, method='fft', max_lines=12, ax=None, title=None, backend=None, **selection)`: Plot this scalar field along traced field lines, one curve per line.
+  - e.g. `phi.plasma.plot.along_field_lines(lines, k_parallel=True, t=-1)`
+- `array.plasma.plot.critical_points(*, x=None, y=None, coords='logical', plane='XY', levels=14, cmap=None, label_values=False, ax=None, backend=None, **selection)`: Plot the contours of this flux function with its O-points and X-points.
+  - e.g. `A = B.plasma.analysis.flux_function()`
+  - e.g. `A.plasma.plot.critical_points(t=-1, eta3=0)`
+- `array.plasma.plot.boozer_spectrum(*, top=8, helicity=None, log=True, angles='boozer', x_of=None, xlabel=None, title=None, backend=None, **selection)`: Plot the strongest Boozer harmonics of this |B| over the radius, and the quasi-symmetry error.
+  - e.g. `boozer.mod_B.plasma.plot.boozer_spectrum(top=8, helicity="QA")`
 
 ### array.plasma.plot.view(...)
 
@@ -245,6 +258,23 @@ Quantitative diagnostics of one array, as array.plasma.analysis.<quantity>(...).
 - `array.plasma.analysis.trace_branch(theory, *, window=0.2, k_range=None, threshold=0.001)`: Return the measured frequency of a dispersion branch near theory(k) in this (omega, k) spectrum.
   - e.g. `spectrum.plasma.analysis.trace_branch(bohm_gross, window=0.2, k_range=(1.5, 5.5))`
 - `array.plasma.analysis.drop_periodic_endpoint(dim, *, period=1.0)`: Return this array without a duplicated periodic endpoint along dim.
+- `array.plasma.analysis.field_lines(*, seeds=8, turns=None, length=None, step=None, direction='forward', section=None, stride=None, components='cartesian', **selection)`: Trace field lines of this vector field through its mapped grid.
+  - e.g. `lines = B.plasma.analysis.field_lines(seeds=12, turns=100, t=-1)`
+  - e.g. `lines.plasma.plot.poincare(color_by="iota")`
+- `array.plasma.analysis.sample_along(lines)`: Return this scalar field interpolated along traced field lines.
+  - e.g. `along = phi.plasma.analysis.sample_along(lines)`
+  - e.g. `along.isel(line=0).plasma.plot.slice(x="s", y="t")`
+- `array.plasma.analysis.parallel_wavenumber(*, lines=None, method='fft', detrend=True)`: Return the dominant parallel wavenumber of this field along field lines.
+  - e.g. `phi.plasma.analysis.parallel_wavenumber(lines=lines)`
+- `array.plasma.analysis.boozer_spectrum(*, top=None, angles='boozer')`: Return the Boozer harmonics B_mn of this quantity over the radius.
+  - e.g. `boozer.mod_B.plasma.analysis.boozer_spectrum(top=8)`
+- `array.plasma.analysis.quasisymmetry_error(*, helicity='QA', angles='boozer')`: Return the quasi-symmetry error of this |B| on each flux surface.
+  - e.g. `boozer.mod_B.plasma.analysis.quasisymmetry_error(helicity="QH")`
+- `array.plasma.analysis.critical_points(*, refine=True)`: Return the O-points and X-points of this flux function (at every time).
+  - e.g. `B.plasma.analysis.flux_function().plasma.analysis.critical_points()`
+- `array.plasma.analysis.reconnected_flux(*, relative=True, o_point=None, x_point=None)`: Return the reconnected flux over time: this flux function between an O- and an X-point.
+  - e.g. `A = B.plasma.analysis.flux_function()`
+  - e.g. `A.plasma.analysis.reconnected_flux().plasma.plot.timeseries(fit=(10.0, 30.0))`
 
 ### array.plasma.data
 
@@ -273,6 +303,10 @@ The data behind each plot in ArrayPlots, without rendering it.
 - `array.plasma.data.trajectories(*, max_markers=200)`: Return the marker-position subset ArrayPlots.trajectories would plot.
 - `array.plasma.data.timeseries(*others)`: Return this time series and any others, validated, as ArrayPlots.timeseries plots them.
   - e.g. `energy.plasma.data.timeseries(other_run_energy)`
+- `array.plasma.data.poincare(*, seeds=8, turns=None, section=None, **selection)`: Return the Poincaré section ArrayPlots.poincare would plot.
+  - e.g. `B.plasma.data.poincare(seeds=12, turns=100, t=-1)`
+- `array.plasma.data.critical_points(*, refine=True, **selection)`: Return the O- and X-points ArrayPlots.critical_points would mark.
+  - e.g. `A.plasma.data.critical_points(t=-1)`
 
 ### dataset.plasma.plot
 
@@ -304,6 +338,24 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
   - e.g. `orbits.plasma.plot.quantities(markers=4)`
 - `dataset.plasma.plot.orbits_3d(*, color_by='t', max_markers=200, tube_radius=None, cmap=None, domain=None, title=None, plotter=None)`: Draw PyVista 3-D orbit lines, colored by "t", "classification" or any variable.
   - e.g. `orbits.plasma.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0)).show()`
+- `dataset.plasma.plot.poincare(*, coords='physical', color_by='line', s=3.0, cmap=None, islands=False, boundary=None, max_lines=None, ax=None, title=None, backend=None, **classification)`: Plot the Poincaré section of these traced field lines.
+  - e.g. `lines.plasma.plot.poincare(color_by="iota")`
+  - e.g. `lines.plasma.plot.poincare(color_by="classification", islands=True)`
+- `dataset.plasma.plot.field_lines(*, plane='RZ', color_by='line', max_lines=200, cmap=None, boundary=None, ax=None, title=None, backend=None)`: Plot these traced field lines projected onto a plane, or in 3-D.
+  - e.g. `lines.plasma.plot.field_lines(plane="RZ", color_by="iota")`
+  - e.g. `lines.plasma.plot.field_lines(plane="3d", max_lines=20)`
+- `dataset.plasma.plot.footprint(*, log=True, s=14.0, cmap=None, ax=None, title=None, backend=None)`: Plot where these open field lines leave the grid, colored by connection length.
+  - e.g. `edge.plasma.plot.footprint()`
+- `dataset.plasma.plot.connection_length(*, log=True, cmap=None, s=14.0, ax=None, title=None, backend=None)`: Plot the connection length of each field line over its seed.
+  - e.g. `edge.plasma.plot.connection_length()`
+- `dataset.plasma.plot.weight_histogram(*, weight='weight', t=-1, bins=50, log=True, density=True, ax=None, title=None, backend=None)`: Plot the distribution of the marker weights at one or several times.
+  - e.g. `orbits.plasma.plot.weight_histogram(t=[0, 0.5, -1])`
+- `dataset.plasma.plot.marker_density(*, x='eta1', weight='weight', against=None, bins=32, normalize=True, ax=None, title=None, backend=None, **selection)`: Plot where the markers are against what they represent, along one coordinate.
+  - e.g. `orbits.plasma.plot.marker_density(x="eta1", against=n.isel(eta2=0, eta3=0), t=-1)`
+- `dataset.plasma.plot.lost_fraction(*, weight=None, percent=True, ax=None, title=None, backend=None)`: Plot the fraction of markers lost from the domain, against time.
+  - e.g. `orbits.plasma.plot.lost_fraction(weight="weight")`
+- `dataset.plasma.plot.loss_map(*, x='v_par', y=None, t=0, absB=None, ax=None, s=10, cmap=None, title=None, backend=None)`: Plot which markers are lost, over their initial phase-space position, colored by when.
+  - e.g. `orbits.plasma.plot.loss_map(x="energy", y="pitch", absB=absB)`
 
 ### dataset.plasma.analysis
 
@@ -317,6 +369,26 @@ Quantitative diagnostics of one dataset, as dataset.plasma.analysis.<quantity>(.
   - e.g. `orbits.plasma.analysis.bounce_period()`
 - `dataset.plasma.analysis.surface_average(name, *, jacobian='Jac', domain=None, quadrature=None)`: Return the flux-surface average of one variable, with this Dataset's Jacobian.
   - e.g. `ev.plasma.analysis.surface_average("mod_B")`
+- `dataset.plasma.analysis.poincare_section(*, angle=None)`: Return the punctures of a poloidal plane by these traced field lines.
+  - e.g. `lines.plasma.analysis.poincare_section(angle=np.pi / 5)`
+- `dataset.plasma.analysis.rotational_transform()`: Return the rotational transform of each traced field line.
+  - e.g. `lines.plasma.analysis.rotational_transform()`
+- `dataset.plasma.analysis.classify_field_lines(*, max_denominator=12, tolerance=None, threshold=0.1, min_spread=None)`: Classify each traced field line: on a flux surface (0), in an island (1) or chaotic (2).
+  - e.g. `lines.plasma.analysis.classify_field_lines()`
+- `dataset.plasma.analysis.islands(*, max_denominator=12, tolerance=None, threshold=0.1, min_spread=None)`: Return the island chains these traced field lines show, with their widths.
+  - e.g. `lines.plasma.analysis.islands().to_dataframe()`
+- `dataset.plasma.analysis.footprint()`: Return where these traced field lines left the grid, with their connection lengths.
+  - e.g. `edge.plasma.analysis.footprint()`
+- `dataset.plasma.analysis.seed_grid(name='connection_length')`: Return a per-line quantity of these field lines over their grid of seeds.
+  - e.g. `edge.plasma.analysis.seed_grid("connection_length").plasma.plot.slice()`
+- `dataset.plasma.analysis.weight_statistics(*, weight='weight')`: Return the statistics of the marker weights over time, with the noise estimate.
+  - e.g. `orbits.plasma.analysis.weight_statistics().noise.plasma.plot.timeseries()`
+- `dataset.plasma.analysis.marker_density(*, dims=('eta1',), bins=32, weight=None, ranges=None)`: Return the markers binned over position variables, per unit volume.
+  - e.g. `orbits.plasma.analysis.marker_density(dims="eta1", weight="weight")`
+- `dataset.plasma.analysis.lost_fraction(*, weight=None)`: Return the fraction of markers lost from the domain, over time.
+  - e.g. `orbits.plasma.analysis.lost_fraction(weight="weight")`
+- `dataset.plasma.analysis.loss_map(*, x='v_par', y=None, t=0, absB=None)`: Return each marker's initial phase-space position, whether it is lost, and when.
+  - e.g. `orbits.plasma.analysis.loss_map(x="energy", y="pitch", absB=absB)`
 
 ### dataset.plasma.data
 
@@ -329,6 +401,12 @@ The data behind each plot in DatasetPlots, without rendering it.
   - e.g. `markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)  # colored by the start`
 - `dataset.plasma.data.orbit_classification(*, x='v_par', y=None, v_par='v_par', t=0)`: Return the per-marker x, y and classification that orbit_classification plots.
   - e.g. `orbits.plasma.data.orbit_classification(x="p_phi")`
+- `dataset.plasma.data.poincare(*, angle=None)`: Return the punctures DatasetPlots.poincare would plot.
+  - e.g. `lines.plasma.data.poincare().to_dataframe()`
+- `dataset.plasma.data.footprint()`: Return the exit points DatasetPlots.footprint would plot.
+  - e.g. `edge.plasma.data.footprint()`
+- `dataset.plasma.data.loss_map(*, x='v_par', y=None, t=0, absB=None)`: Return the per-marker values DatasetPlots.loss_map would plot.
+  - e.g. `orbits.plasma.data.loss_map(x="energy", y="pitch", absB=absB)`
 
 ### out.plot (a Struphy Output)
 
@@ -429,10 +507,12 @@ What the methods return, with their fields (`help()` on the class explains each)
 
 The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel(t=-1))`; each accessor method names its function first under See Also, and `help()` shows the parameters.
 
-- `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `energy_names`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`
-- `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`
-- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`
+- `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `energy_names`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`, `plot_critical_points`, `plot_weight_histogram`, `plot_marker_density`, `plot_lost_fraction`, `plot_loss_map`
+- `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`, `plot_boozer_spectrum`
+- `plasma_plots.fieldline_plots`: `plot_poincare`, `plot_field_lines`, `plot_footprint`, `plot_connection_length`, `plot_along_field_lines`, `plot_surface_map`
+- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
+- `plasma_plots.fieldlines`: `trace_field_lines`, `poincare_section`, `rotational_transform`, `classify_field_lines`, `islands`, `footprint`, `seed_grid`, `sample_along`, `parallel_wavenumber`
 - `plasma_plots.arrays`: `logical_dims`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
