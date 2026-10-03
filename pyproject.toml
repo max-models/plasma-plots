@@ -39,7 +39,7 @@ optional-dependencies.dev = [
   "griffe",
   "h5py",
   "pytest",
-  "ruff>=0.15,<0.16",
+  "ruff",
   "struphy>=3.4.0",
 ]
 optional-dependencies.gallery = [
