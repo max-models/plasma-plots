@@ -324,8 +324,9 @@ def test_scipy_eigenvalues_agree():
     eig = np.sort(
         np.sqrt(np.clip(linalg.eigh(stiff, mass, eigvals_only=True), 0, None))
     )
+    # the zero eigenvalue carries round-off of ~1e-13 in omega², i.e. ~1e-6 in omega
     np.testing.assert_allclose(
         eig,
         np.sort(nm.spline_galerkin_dispersion(2 * np.pi * np.arange(16), 1 / 16, 2)),
-        atol=1e-8,
+        atol=1e-5,
     )

@@ -252,7 +252,10 @@ def test_spectrogram_filtered_cross_and_pencil_plots():
     data = series(np.sin((0.5 + 0.01 * t) * t), t)
     assert data.plasma.plot.spectrogram(length=20.0, frequencies={"start": 0.5}).data[
         "spectrogram"
-    ].dims == ("omega", "t")
+    ].dims == (
+        "omega",
+        "t",
+    )
     field = torus_field(n_t=64)
     result = field.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
     probe = field.plasma.plot.filtered(result, eta1=0.4, eta2=0.0, eta3=0.0)
@@ -268,8 +271,7 @@ def test_spectrogram_filtered_cross_and_pencil_plots():
 
 def test_output_analysis_matches_the_array_accessor(tmp_path):
     from struphy.post_processing.output import Output
-    from struphy.post_processing.tests.test_output import (write_manifest,
-                                                           write_tree)
+    from struphy.post_processing.tests.test_output import write_manifest, write_tree
 
     path = os.path.join(tmp_path, "sim_1")
     os.makedirs(path)

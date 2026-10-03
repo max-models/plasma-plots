@@ -33,8 +33,12 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
 from plasma_plots.arrays import axis_label, value_label
-from plasma_plots.plotting import (PlotResult, plot_convergence,
-                                   plot_dispersion, plot_scalars)
+from plasma_plots.plotting import (
+    PlotResult,
+    plot_convergence,
+    plot_dispersion,
+    plot_scalars,
+)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -763,7 +767,7 @@ boundary_field = field_array(
 ).assign_coords(
     X=(
         ("eta1", "eta2", "eta3"),
-        ((3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b)))[..., None],
+        (3.0 + (0.1 + 0.9 * E1_b) * np.cos(2 * np.pi * E2_b))[..., None],
     ),
     Y=(("eta1", "eta2", "eta3"), np.zeros((5, 64, 1))),
     Z=(
@@ -1348,8 +1352,13 @@ save_fig(fig, "data_selection.png")
 # =============================================================================
 # Theory: plasma_plots.theory, the analytic results to compare runs against
 # =============================================================================
-from plasma_plots.theory import (exact, kinetic, numerics,  # noqa: E402
-                                 orbits, waves)
+from plasma_plots.theory import (
+    exact,
+    kinetic,
+    numerics,  # noqa: E402
+    orbits,
+    waves,
+)
 
 # Landau damping of Langmuir waves: the kinetic root against Bohm-Gross and the weak-damping formula
 k_th = np.linspace(0.1, 0.6, 101)
@@ -1607,8 +1616,7 @@ save_fig(fig, "theory_numerics.png")
 try:
     import pyvista as pv
 
-    from plasma_plots.plotting import (plot_equilibrium_profile,
-                                       show_equilibrium)
+    from plasma_plots.plotting import plot_equilibrium_profile, show_equilibrium
 
     pv.OFF_SCREEN = True
 
@@ -2177,5 +2185,218 @@ try:
     save_tikz(composed_tikz, "tikz_composed_energies.png")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped tikz_*.png (maxplotlib or pdflatex unavailable): {exc}")
+plt.close("all")
+
+# =============================================================================
+# Field lines: an analytic tokamak with q = 1 + 2 r² and a resonant perturbation that opens an
+# island chain at q = 2; a periodic slab whose lines leave through the x faces
+# =============================================================================
+R0_fl = 3.0
+
+
+def q_fl(r):
+    return 1.0 + 2.0 * r**2
+
+
+def tokamak_fl(n1=24, n2=48, n3=32, epsilon=0.0, m=2, n=1):
+    e1 = np.linspace(0, 1, n1)
+    e2, e3 = (np.arange(n2) + 0.5) / n2, (np.arange(n3) + 0.5) / n3
+    E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    r, th, ph = 0.1 + 0.9 * E1, 2 * np.pi * E2, 2 * np.pi * E3
+    R = R0_fl + r * np.cos(th)
+    e_r = np.stack([np.cos(th) * np.cos(ph), np.cos(th) * np.sin(ph), np.sin(th)])
+    e_th = np.stack([-np.sin(th) * np.cos(ph), -np.sin(th) * np.sin(ph), np.cos(th)])
+    e_ph = np.stack([-np.sin(ph), np.cos(ph), 0 * ph])
+    B = (
+        R0_fl / R * e_ph
+        + r / (q_fl(r) * R0_fl) * e_th
+        + epsilon * np.sin(m * th - n * ph) * e_r
+    )
+    return xr.DataArray(
+        B,
+        dims=("component", "eta1", "eta2", "eta3"),
+        coords={
+            "component": [0, 1, 2],
+            "eta1": e1,
+            "eta2": e2,
+            "eta3": e3,
+            "X": (("eta1", "eta2", "eta3"), R * np.cos(ph)),
+            "Y": (("eta1", "eta2", "eta3"), R * np.sin(ph)),
+            "Z": (("eta1", "eta2", "eta3"), r * np.sin(th)),
+        },
+        name="B",
+        attrs={"label": "$B$"},
+    )
+
+
+B_fl = tokamak_fl(epsilon=0.001)
+lines_fl = B_fl.plasma.analysis.field_lines(
+    seeds={"eta1": np.linspace(0.3, 0.9, 16), "eta2": 0.5 / 48, "eta3": 0.5 / 32},
+    turns=100,
+)
+save(
+    lines_fl.plasma.plot.field_lines(plane="RZ", color_by="iota", max_lines=8),
+    "fieldlines_rz.png",
+)
+iota_fl = lines_fl.plasma.analysis.rotational_transform().swap_dims(line="eta1_start")
+iota_fl.eta1_start.attrs["label"] = r"$\eta_1$ of the seed"
+save(
+    iota_fl.plasma.plot.lineout(
+        reference={
+            "exact": lambda eta1: (1 - ((0.1 + 0.9 * eta1) / R0_fl) ** 2) ** 1.5
+            / q_fl(0.1 + 0.9 * eta1)
+        }
+    ),
+    "fieldlines_iota.png",
+)
+save(lines_fl.plasma.plot.poincare(boundary=B_fl.isel(component=0)), "poincare.png")
+save(
+    lines_fl.plasma.plot.poincare(
+        color_by="classification", islands=True, boundary=B_fl.isel(component=0)
+    ),
+    "poincare_islands.png",
+)
+phi_fl = (
+    np.cos(3 * 2 * np.pi * B_fl.eta2 - 2 * np.pi * B_fl.eta3)
+    + 0 * B_fl.isel(component=0, drop=True)
+).rename("phi")
+phi_fl.attrs = {"label": r"$\phi$"}
+save(
+    phi_fl.plasma.plot.along_field_lines(
+        lines_fl.isel(line=[0, 2, 4, 6]).sel(s=slice(0, 60)), k_parallel=True
+    ),
+    "along_field_lines.png",
+)
+save(
+    phi_fl.plasma.plot.surface_map(
+        eta1=0.5, iota=float(lines_fl.iota[5]), count=5, lines=lines_fl.isel(line=[5])
+    ),
+    "surface_map.png",
+)
+n_slab = 24
+e_slab = (np.arange(n_slab) + 0.5) / n_slab
+S1, S2, S3 = np.meshgrid(e_slab, e_slab, e_slab, indexing="ij")
+slab_fl = xr.DataArray(
+    np.stack([0.2 + 0.1 * np.sin(2 * np.pi * S2), 0 * S1, 1 + 0 * S1]),
+    dims=("component", "eta1", "eta2", "eta3"),
+    coords={
+        "component": [0, 1, 2],
+        "eta1": e_slab,
+        "eta2": ("eta2", e_slab, {"period": 1.0}),
+        "eta3": ("eta3", e_slab, {"period": 1.0}),
+        "X": (("eta1", "eta2", "eta3"), S1),
+        "Y": (("eta1", "eta2", "eta3"), 2 * np.pi * S2),
+        "Z": (("eta1", "eta2", "eta3"), 2 * np.pi * S3),
+    },
+    name="B",
+)
+edge_fl = slab_fl.plasma.analysis.field_lines(
+    seeds={
+        "eta1": 0.5,
+        "eta2": np.linspace(0.02, 0.98, 25),
+        "eta3": np.linspace(0.02, 0.98, 13),
+    },
+    direction="both",
+    length=30.0,
+)
+save(edge_fl.plasma.plot.connection_length(), "connection_length.png")
+save(edge_fl.plasma.plot.footprint(), "footprint.png")
+
+# =============================================================================
+# Magnetic topology: a tearing island's O- and X-points and its reconnected flux
+# =============================================================================
+n_cp = 64
+e_cp = (np.arange(n_cp) + 0.5) / n_cp
+C1, C2 = np.meshgrid(e_cp, e_cp, indexing="ij")
+X_cp, Y_cp = 2 * np.pi * C1, 2 * np.pi * C2
+t_cp = np.linspace(0, 6, 13)
+A_cp = xr.DataArray(
+    np.stack([-np.cos(Y_cp) + 0.02 * np.exp(0.5 * ti) * np.cos(X_cp) for ti in t_cp])[
+        ..., None
+    ],
+    dims=("t", "eta1", "eta2", "eta3"),
+    coords={
+        "t": t_cp,
+        "eta1": ("eta1", e_cp, {"period": 1.0}),
+        "eta2": ("eta2", e_cp, {"period": 1.0}),
+        "eta3": [0.0],
+        "X": (("eta1", "eta2", "eta3"), X_cp[..., None]),
+        "Y": (("eta1", "eta2", "eta3"), Y_cp[..., None]),
+        "Z": (("eta1", "eta2", "eta3"), 0 * X_cp[..., None]),
+    },
+    name="A",
+    attrs={"label": "$A$"},
+)
+with plasma_plots.figure(1, 2) as fig_cp:
+    A_cp.plasma.plot.critical_points(coords="physical", t=-1, eta3=0, ax=fig_cp[0])
+    A_cp.plasma.analysis.reconnected_flux(relative=False).plasma.plot.timeseries(
+        fit=(2.0, 6.0), ax=fig_cp[1]
+    )
+save(fig_cp, "critical_points.png")
+
+# =============================================================================
+# δf weights, marker density and losses, on synthetic markers
+# =============================================================================
+rng_df = np.random.default_rng(5)
+n_df, nt_df = 400, 60
+t_df = np.linspace(0, 20, nt_df)
+w0_df = 1e-3 * rng_df.standard_normal(n_df)
+w_df = w0_df[None] * np.exp(0.2 * t_df)[:, None]
+eta1_df = rng_df.uniform(0.05, 0.95, n_df) ** 0.7
+v_par_df = rng_df.normal(0, 1, n_df)
+mu_df = rng_df.exponential(0.5, n_df)
+prompt = np.abs(v_par_df) < 0.4 * np.sqrt(mu_df)
+loss_step = np.where(
+    prompt,
+    rng_df.integers(3, 20, n_df),
+    np.where(eta1_df > 0.85, rng_df.integers(20, nt_df, n_df), nt_df + 1),
+)
+alive_df = np.arange(nt_df)[:, None] < loss_step[None]
+
+
+def _column(values, **attrs):
+    return (("t", "marker"), np.where(alive_df, values, 0.0), attrs)
+
+
+markers_df = xr.Dataset(
+    {
+        "eta1": _column(eta1_df[None] + 0 * w_df, label=r"$\eta_1$"),
+        "x": _column(3 + 0 * w_df),
+        "y": _column(0 * w_df),
+        "z": _column(0.1 + 0 * w_df),
+        "v_par": _column(v_par_df[None] + 0 * w_df, label=r"$v_\parallel$"),
+        "mu": _column(mu_df[None] + 0 * w_df, label=r"$\mu$"),
+        "weight": _column(w_df, label="$w$"),
+    },
+    coords={"t": t_df, "marker": np.arange(n_df)},
+)
+save(
+    markers_df.plasma.plot.weight_histogram(t=[0, 10.0, -1], bins=40),
+    "weight_histogram.png",
+)
+n_ref = xr.DataArray(
+    np.linspace(0.01, 1, 50) ** 0.7 * 0 + (1 - np.linspace(0.01, 1, 50) ** 2) ** 0.5,
+    dims="eta1",
+    coords={"eta1": np.linspace(0.01, 1, 50)},
+    name="n",
+    attrs={"label": "$n_0$"},
+)
+save(
+    markers_df.plasma.plot.marker_density(x="eta1", bins=20, against=n_ref, t=0),
+    "marker_density.png",
+)
+with plasma_plots.figure(1, 2) as fig_df:
+    markers_df.plasma.plot.lost_fraction(ax=fig_df[0])
+    markers_df.plasma.plot.loss_map(ax=fig_df[1])
+save(fig_df, "losses.png")
+
+try:
+    import plotly  # noqa: F401
+
+    print(
+        f"wrote {lines_fl.plasma.plot.poincare(backend='plotly').save(PLOTLY_OUT / 'plotly_poincare.json')}"
+    )
+except ImportError:
+    print("skipped plotly_poincare.json (plotly unavailable)")
 plt.close("all")
 print("done")

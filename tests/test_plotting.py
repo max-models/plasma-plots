@@ -10,15 +10,30 @@ from matplotlib import pyplot as plt  # noqa: E402
 from struphy.post_processing.arrays import data_array  # noqa: E402
 
 from plasma_plots.plotting import GrowthFit  # noqa: E402
-from plasma_plots.plotting import (InteractiveSliceViewer, View,
-                                   animate_slices, convergence_order, drift,
-                                   growth_rate, logical_grids, physical_grids,
-                                   plot_convergence, plot_dispersion,
-                                   plot_lineout, plot_panels, plot_scalars,
-                                   plot_slice, plot_timeseries, plot_vector,
-                                   plot_volume_slices, power_spectrum,
-                                   pyvista_volume, relative_error,
-                                   save_all_scalars, save_frames)
+from plasma_plots.plotting import (
+    InteractiveSliceViewer,
+    View,
+    animate_slices,
+    convergence_order,
+    drift,
+    growth_rate,
+    logical_grids,
+    physical_grids,
+    plot_convergence,
+    plot_dispersion,
+    plot_lineout,
+    plot_panels,
+    plot_scalars,
+    plot_slice,
+    plot_timeseries,
+    plot_vector,
+    plot_volume_slices,
+    power_spectrum,
+    pyvista_volume,
+    relative_error,
+    save_all_scalars,
+    save_frames,
+)
 
 pytestmark = pytest.mark.filterwarnings("ignore:Animation was deleted")
 

@@ -17,8 +17,13 @@ import numpy as np
 import xarray as xr
 
 from .analysis import ORBIT_CLASSES, classify_orbits
-from .arrays import (close_periodic, logical_dims, mapping_jacobian,
-                     validate_array, value_label)
+from .arrays import (
+    close_periodic,
+    logical_dims,
+    mapping_jacobian,
+    validate_array,
+    value_label,
+)
 from .mpi import rank_zero
 
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}

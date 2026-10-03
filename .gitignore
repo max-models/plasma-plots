@@ -32,3 +32,11 @@ docs/public/llms-api.txt
 
 sim_1/
 struphy.*
+
+# Local agent configuration and scratch scripts
+.claude/
+
+# Scratch output of local quickstart runs
+quickstart_*
+struphy_quickstart.py
+tikzfigure-*.png

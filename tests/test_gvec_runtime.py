@@ -51,6 +51,6 @@ assert np.isfinite(data.pos).all()
         text=True,
         timeout=60,
     )
-    assert result.returncode == 0, (
-        f"GVEC exited with status {result.returncode}:\n{result.stdout}\n{result.stderr}"
-    )
+    assert (
+        result.returncode == 0
+    ), f"GVEC exited with status {result.returncode}:\n{result.stdout}\n{result.stderr}"

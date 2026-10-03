@@ -5,8 +5,7 @@ import pytest
 import xarray as xr
 
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
-from plasma_plots.analysis import (BranchFit, fit_dispersion_branches,
-                                   power_spectrum)
+from plasma_plots.analysis import BranchFit, fit_dispersion_branches, power_spectrum
 
 
 def multi_branch_field(
