@@ -137,7 +137,9 @@ def pproc(out: Output):
         print(f"{branch}: measured {measured:.4f}, exact {exact:.4f}")
 
     # Show the whole resolved spectrum
-    k_top = min(float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max()))
+    k_top = min(
+        float(velocity_spectrum.k.max()), float(pressure_spectrum.k.max())
+    )
     omega_nyquist = min(
         float(velocity_spectrum.omega.max()),
         float(pressure_spectrum.omega.max()),
@@ -180,7 +182,9 @@ def pproc(out: Output):
 if __name__ == "__main__":
     import argparse
 
-    argparser = argparse.ArgumentParser(description="Run the mhd slab waves example.")
+    argparser = argparse.ArgumentParser(
+        description="Run the mhd slab waves example."
+    )
     argparser.add_argument(
         "--pproc-only",
         action="store_true",

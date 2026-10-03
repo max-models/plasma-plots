@@ -185,9 +185,15 @@ save(
 # =============================================================================
 # Numbers: plasma-plots' integrals against DESC's own
 # =============================================================================
-fine = plasma_plots.from_desc(w7x, ["|B|", "sqrt(g)", "V"], rho=33, theta=64, zeta=48)
+fine = plasma_plots.from_desc(
+    w7x, ["|B|", "sqrt(g)", "V"], rho=33, theta=64, zeta=48
+)
 volume = (
-    float(volume_integral(xr.ones_like(fine["sqrt(g)"]), jacobian=fine["sqrt(g)"]))
+    float(
+        volume_integral(
+            xr.ones_like(fine["sqrt(g)"]), jacobian=fine["sqrt(g)"]
+        )
+    )
     * w7x.NFP
 )
 numerical = float(volume_integral(xr.ones_like(fine["|B|"]))) * w7x.NFP
@@ -206,7 +212,9 @@ rows = [  # on 33 x 64 x 48 points
     ("<|B|> at rho = 0.5, DESC's own", desc_average),
     ("surface_average(|B|, jacobian=sqrt(g))", average),
 ]
-NUMBERS.write_text("".join(f"{label:<48} {value:.10f}\n" for label, value in rows))
+NUMBERS.write_text(
+    "".join(f"{label:<48} {value:.10f}\n" for label, value in rows)
+)
 print(NUMBERS.read_text())
 
 # =============================================================================
@@ -230,7 +238,9 @@ try:
             plotter.trame.export_html(str(html))
             print(f"wrote {html}")
         except Exception as exc:  # needs trame-pyvista
-            print(f"skipped {html.name} (interactive export unavailable): {exc}")
+            print(
+                f"skipped {html.name} (interactive export unavailable): {exc}"
+            )
         plotter.close()
 
     qh_torus = plasma_plots.from_desc(
