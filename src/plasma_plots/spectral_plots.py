@@ -14,10 +14,10 @@ from .analysis import GrowthFit, growth_rate
 from .arrays import axis_label, logical_dims, value_label
 from .mpi import rank_zero
 from .plotting import (
-    PLOT_STYLE,
     PlotResult,
     _finish,
     _label,
+    _plot_style,
     prepare_continuous_spectrum,
     resolve_marker_selection,
     shared_run_label,
@@ -717,7 +717,7 @@ def plot_mode_profiles(
     order = candidates[np.argsort(strength[candidates])[::-1][:top]]
     phase = phase and np.iscomplexobj(stacked.values)  # real amplitudes carry no phase
     xs, default_label = _x_values(stacked, x, x_of)
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             2 if phase else 1,
             1,
@@ -804,7 +804,7 @@ def plot_cross_spectrum(
         )
     if omega_max is not None:
         cross = cross.sel(omega=slice(None, omega_max))
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             2, 1, sharex=True, figsize=(7.5, 5.5), layout="constrained"
         )
@@ -894,7 +894,7 @@ def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = 
     >>> series = energy.sel(t=slice(0.0, 5.0))
     >>> plot_pencil_fit(series, matrix_pencil(series, n_modes=2))
     """
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             1,
             2,
@@ -1022,7 +1022,7 @@ def plot_boozer_spectrum(
         else None
     )
     xs, default_label = _x_values(amplitudes, x, x_of)
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             2 if error is not None else 1,
             1,

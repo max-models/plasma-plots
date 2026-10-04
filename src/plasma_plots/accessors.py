@@ -4707,10 +4707,11 @@ class DatasetPlots:
         color_at=None,
         background: xr.DataArray | None = None,
         background_options: dict | None = None,
+        equal_aspect: bool | None = None,
         backend: Backend | None = None,
         **selection,
     ):
-        """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
+        """Scatter two marker variables, optionally colored by a third (e.g. density or a tracer).
 
         Remaining dimensions such as ``t`` are selected by keyword, exactly like
         :meth:`ArrayPlots.lineout`: an integer is a position (``-1`` the last), and a float is the
@@ -4754,6 +4755,7 @@ class DatasetPlots:
             color_at=color_at,
             background=background,
             background_options=background_options,
+            equal_aspect=equal_aspect,
             **selection,
         )
 

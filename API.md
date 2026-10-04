@@ -318,7 +318,7 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
   - e.g. `u.plasma.analysis.cross_spectrum(b, dims="eta3").plasma.plot.cross_spectrum(omega_max=1.5)`
 - `dataset.plasma.plot.trajectories(*, max_markers=200, show_paths=None, ax=None, backend=None)`: Plot the three-dimensional paths of saved markers, for an orbits product.
   - e.g. `orbits.plasma.plot.trajectories(max_markers=200)`
-- `dataset.plasma.plot.scatter(*, x, y, color=None, ax=None, cmap=None, s=8, color_at=None, background=None, background_options=None, backend=None, **selection)`: Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
+- `dataset.plasma.plot.scatter(*, x, y, color=None, ax=None, cmap=None, s=8, color_at=None, background=None, background_options=None, equal_aspect=None, backend=None, **selection)`: Scatter two marker variables, optionally colored by a third (e.g. density or a tracer).
   - e.g. `markers.plasma.plot.scatter(x="x", y="y", color="density", t=-1)`
   - e.g. `markers.plasma.plot.scatter(x="x", y="y", color="tracer", color_at=0, t=-1)`
 - `dataset.plasma.plot.orbit_classification(*, x='v_par', y=None, v_par='v_par', t=0, ax=None, s=8, backend=None)`: Plot markers in a phase-space plane, colored as passing, trapped or lost.
