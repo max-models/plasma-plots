@@ -66,7 +66,7 @@ class Figure:
             return
         import matplotlib.pyplot as plt
 
-        from .plotting import PLOT_STYLE
+        from .plotting import PLOT_STYLE, _plot_style
 
         if figsize is None:
             figsize = (
@@ -74,7 +74,7 @@ class Figure:
                 + 2.0 * (ncols > 2) * (ncols - 2),
                 3.2 * nrows + 0.8,
             )
-        with plt.rc_context(PLOT_STYLE):
+        with _plot_style():
             self._fig, axes = plt.subplots(
                 nrows,
                 ncols,

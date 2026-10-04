@@ -14,10 +14,12 @@ two to draw and whether in logical or physical coordinates. The slice functions
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -58,6 +60,27 @@ PLOT_STYLE = {
     "legend.frameon": False,
     "image.cmap": "viridis",
 }
+
+
+@contextmanager
+def _plot_style():
+    """Draw with :data:`PLOT_STYLE`, like ``plt.rc_context(PLOT_STYLE)``.
+
+    Unlike a bare ``rc_context``, the interactive state set while drawing is kept on exit:
+    IPython switches interactive mode on when a kernel's first figure is created. When that
+    happens inside ``rc_context``, restoring the old (off) state on exit would stop every
+    later figure of the notebook, including plain Matplotlib ones, from being shown inline.
+    """
+    interactive = None
+    try:
+        with plt.rc_context(PLOT_STYLE):
+            try:
+                yield
+            finally:
+                interactive = matplotlib.is_interactive()
+    finally:
+        if interactive is not None:
+            matplotlib.interactive(interactive)
 
 PLANES = {
     "XY": ("X", "Y", "X", "Y"),
@@ -868,7 +891,7 @@ def plot_timeseries(
 
     run_label = shared_run_label(series) if run_label is None else run_label
     own_figure = ax is None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         artists, fits = [], []
         for item in series:
@@ -2038,7 +2061,7 @@ def plot_slice(
     )
     run_label = shared_run_label(data) if run_label is None else run_label
     own_figure = ax is None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = renderer.draw(ax, renderer.data)
         fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
@@ -2193,7 +2216,7 @@ def plot_panels(
     sweep = renderer.view.sweep
     indices = np.linspace(0, renderer.data.sizes[sweep] - 1, nrows * ncols).astype(int)
     run_label = shared_run_label(data) if run_label is None else run_label
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             nrows,
             ncols,
@@ -2393,7 +2416,7 @@ class InteractiveSliceViewer:
         )
         controls = [dim for dim in base.dims if dim not in {x, y}]
         indices = {dim: 0 for dim in controls}
-        with plt.rc_context(PLOT_STYLE):
+        with _plot_style():
             fig, ax = plt.subplots()
             fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
             mesh = renderer.draw(ax, base.isel(indices))
@@ -2575,7 +2598,7 @@ def animate_slices(
     )
     frames = renderer.indices(step, max_frames)
     sweep = renderer.view.sweep
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots()
         mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
         colorbar = fig.colorbar(
@@ -2681,7 +2704,7 @@ def animate_fields(
             f"every field needs the same number of {sweep!r} values; got {sorted(lengths)}"
         )
     titles = titles or [renderer.title for renderer in renderers]
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             1,
             len(fields),
@@ -2864,7 +2887,7 @@ def save_frames(
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots()
         try:
             sweep = renderer.view.sweep
@@ -3473,11 +3496,14 @@ def _boundary_edge(field: xr.DataArray) -> xr.DataArray:
     return field.isel({radial: -1})
 
 
-def _background_view(x: str, y: str) -> View:
+def _background_view(x: str, y: str, background: xr.DataArray | None = None) -> View:
     """How a field is drawn behind markers whose positions are the variables ``x`` and ``y``:
-    in logical coordinates for ``eta1``/``eta2``/``eta3``, in the physical plane for
-    ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates)."""
-    if x in LOGICAL and y in LOGICAL:
+    on its own ``x`` and ``y`` dimensions when it has them (e.g. a Cartesian field with dims
+    ``("x", "y")``), in logical coordinates for ``eta1``/``eta2``/``eta3``, else in the physical
+    plane for ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates)."""
+    if (x in LOGICAL and y in LOGICAL) or (
+        background is not None and x in background.dims and y in background.dims
+    ):
         return View(x=x, y=y)
     plane = f"{x}{y}".upper()
     if plane in PLANES and (
@@ -3586,6 +3612,7 @@ def plot_marker_scatter(
     color_at=None,
     background: xr.DataArray | None = None,
     background_options: dict | None = None,
+    equal_aspect: bool | None = None,
     **selection,
 ):
     """Scatter marker positions from a Dataset (an orbits product, or any per-marker data).
@@ -3615,13 +3642,17 @@ def plot_marker_scatter(
         e.g. each marker's initial position, to follow where fluid parcels go. Default: the
         selected time.
     background : xarray.DataArray, optional
-        A field drawn behind the markers at the same time (select its other dimensions first),
-        in logical coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the
-        physical plane of ``x``/``y`` (``x``, ``y``, ``z``; the field then needs its ``X``,
-        ``Y``, ``Z`` coordinates).
+        A field drawn behind the markers at the same time (select its other dimensions first):
+        on its own ``x``/``y`` dimensions if it has them (a Cartesian field), in logical
+        coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical plane of
+        ``x``/``y`` (``x``, ``y``, ``z``; the field then needs its ``X``, ``Y``, ``Z``
+        coordinates).
     background_options : dict, optional
         Passed to :func:`plot_slice` for the background (e.g. ``cmap``, ``levels``,
         ``fill=False``).
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: when ``x`` and ``y`` have the same ``units``
+        attribute (e.g. two positions), not for a phase space such as ``x`` against ``vx``.
     **selection
         The remaining dimensions, such as ``t``, exactly like :meth:`ArrayPlots.lineout`: an
         integer is a position (``t=-1`` the last), a float the nearest coordinate value.
@@ -3669,7 +3700,7 @@ def plot_marker_scatter(
         )
         shown = plot_slice(
             _at_time(background, when),
-            view=_background_view(x, y),
+            view=_background_view(x, y, background),
             ax=ax,
             **(background_options or {}),
         )
@@ -3692,13 +3723,22 @@ def plot_marker_scatter(
             else ""
         )
         fig.colorbar(scatter, ax=ax, label=label)
+    if equal_aspect is None:
+        equal_aspect = markers[x].attrs.get("units") == markers[y].attrs.get("units")
     ax.set(
         xlabel=x,
         ylabel=y,
         title=markers.attrs.get("label", "") or "Markers",
-        aspect="equal",
+        aspect="equal" if equal_aspect else "auto",
     )
     return PlotResult(fig, ax, artists)
+
+
+def _marker_label(data: xr.Dataset, marker: int) -> str:
+    """Name the marker at position ``marker``: by its ``marker`` coordinate (its id) if present."""
+    if "marker" in data.coords and data["marker"].ndim == 1:
+        return f"marker {data['marker'].values[marker]}"
+    return f"marker {marker}"
 
 
 def _alive(orbits: xr.Dataset) -> np.ndarray:
@@ -3773,9 +3813,10 @@ def animate_markers(
         to follow fluid parcels, or a float value). Default: the colors of each frame.
     background : xarray.DataArray, optional
         A field drawn behind the markers: with a ``t`` dimension (other dimensions selected) at the
-        nearest time of each frame, with shared color limits; without one, fixed (drawn once). In
-        logical coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical
-        plane of ``x``/``y`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
+        nearest time of each frame, with shared color limits; without one, fixed (drawn once). On
+        its own ``x``/``y`` dimensions if it has them (a Cartesian field), in logical coordinates
+        if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y``
+        (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
     background_options : dict, optional
         Rendering options for the background, as for :func:`plot_slice` (``cmap``,
         ``symmetric``, ``levels``, ...).
@@ -3839,11 +3880,13 @@ def animate_markers(
     frames = _thin(range(0, subset.sizes["t"], step), max_frames)
     times = np.asarray(subset.t)
     renderer = None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots()
         if background is not None:
             options = dict(background_options or {})
-            renderer = _SliceRenderer(background, _background_view(x, y), **options)
+            renderer = _SliceRenderer(
+                background, _background_view(x, y, background), **options
+            )
             mesh = renderer.draw(ax, _at_time(renderer.data, times[0]))
             fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         first = positions[0]
@@ -3978,9 +4021,10 @@ def plot_marker_paths(
         Picks instead the marker starting closest to each of a list of ``(x, y)`` points, e.g. a
         row across the domain.
     background : xarray.DataArray, optional
-        A field drawn behind the paths at the time ``t``, in logical coordinates if ``x``/``y``
-        are ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field
-        then needs its ``X``, ``Y``, ``Z`` coordinates).
+        A field drawn behind the paths at the time ``t``: on its own ``x``/``y`` dimensions if
+        it has them (a Cartesian field), in logical coordinates if ``x``/``y`` are
+        ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field then
+        needs its ``X``, ``Y``, ``Z`` coordinates).
     background_options : dict, optional
         Passed to :func:`plot_slice` for the background, e.g. ``dict(levels=12, fill=False)``
         for the contour lines of a stream function.
@@ -4033,7 +4077,7 @@ def plot_marker_paths(
             when = float(resolve_marker_selection(subset[[x]], {"t": t}).t)
         shown = plot_slice(
             _at_time(background, when),
-            view=_background_view(x, y),
+            view=_background_view(x, y, background),
             ax=ax,
             **(background_options or {}),
         )
@@ -4049,7 +4093,7 @@ def plot_marker_paths(
             ys[keep, marker],
             color=color,
             lw=2,
-            label=f"marker {marker}",
+            label=_marker_label(subset, marker),
         )
         starts.append((xs[keep[0], marker], ys[keep[0], marker]))
         ends.append((xs[keep[-1], marker], ys[keep[-1], marker]))
@@ -4566,7 +4610,7 @@ def plot_energy_budget(
         if run_label is None
         else run_label
     )
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             1, panels, figsize=(5.2 * panels, 4.0), layout="constrained", squeeze=False
         )
@@ -4939,7 +4983,7 @@ def plot_orbit_quantities(
     drifted = set(quantities) if drift_of is True else set(drift_of or ())
     alive = _alive(subset)
     codes = np.asarray(classify_orbits(subset)) if "v_par" in subset else None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             len(quantities),
             1,
@@ -4956,7 +5000,7 @@ def plot_orbit_quantities(
             values = np.asarray(subset[name].isel(marker=marker))
             if name in drifted:
                 values = values - values[0]
-            label = f"marker {marker}" + (
+            label = _marker_label(subset, marker) + (
                 f" ({ORBIT_CLASSES[int(codes[marker])]})" if codes is not None else ""
             )
             artists += ax.plot(
@@ -5094,7 +5138,7 @@ def animate_lines(
         lo, hi = np.nanmin(stacked), np.nanmax(stacked)
         pad = 0.05 * (hi - lo if hi > lo else 1.0)
         ylim = (lo - pad, hi + pad)
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         if panels:
             width, height = PLOT_STYLE["figure.figsize"]
             fig, axes = plt.subplots(
@@ -5322,7 +5366,7 @@ def plot_measured_vs_theory(
         raise ValueError("no measured values")
     theories = _references(theory, default="theory")
     panels = 2 if show_error and theories else 1
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             panels,
             1,
@@ -5452,7 +5496,7 @@ def plot_orbit_grid(
     R = np.hypot(np.asarray(subset.x), np.asarray(subset.y))
     Z = np.asarray(subset.z)
     rows = int(np.ceil(len(markers) / ncols))
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             rows,
             ncols,
@@ -5500,7 +5544,8 @@ def plot_orbit_grid(
         if edge is not None:
             artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=0.8)
         ax.set_title(
-            f"marker {marker}" + (f" ({name})" if name else ""), fontsize="small"
+            _marker_label(subset, marker) + (f" ({name})" if name else ""),
+            fontsize="small",
         )
         ax.set_aspect("equal")
     for ax in axes.ravel()[len(markers) :]:
