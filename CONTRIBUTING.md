@@ -2,12 +2,10 @@
 
 ## Local development
 
-`struphy` lives in this repo as a git submodule (`struphy/`), pinned to a
-known-good commit -- clone/update it, then install from it:
+`struphy>=3.4.0` is installed from PyPI by the `dev` extra. It needs a
+Fortran/C compiler, MPI and netCDF system libraries:
 
 ```bash
-git submodule update --init --recursive
-pip install -e ./struphy   # struphy itself; needs a Fortran/C compiler + MPI + netCDF
 pip install -e ".[dev,profiling]"
 pytest
 ruff check src tests scripts
@@ -33,7 +31,7 @@ guide, whose `real_*.png` figures (and the full source shown on that page,
 via an Astro `?raw` import) come from actually running struphy
 (`scripts/generate_real_example_figures.py`, a real `LinearMHD` slab-waves
 run), to show the same functions working end-to-end on genuine output. That
-script needs the full **compiled** `struphy` runtime (from the submodule,
+script needs the full **compiled** `struphy` runtime (installed from PyPI,
 see above -- `struphy compile -y` if you haven't); `scipy` comes along with
 it (struphy's own dependency).
 
@@ -81,9 +79,11 @@ make docs-build     # figures + npm run build
   will fail to build without the referenced JSON, the same as the PyVista
   figures above.
 
-CI regenerates the figures the same way (with the same heavy struphy install
-as the test suite, since the real-example page still needs it) on every push
-to `devel`, before deploying to GitHub Pages.
+CI regenerates the figures on every push to `devel`, before deploying to
+GitHub Pages. It uses `ghcr.io/max-models/plasma-plots:devel` for the compiled
+Struphy/GVEC runtime and plotting dependencies, then installs the current
+checkout and the remaining docs tools. Publish that image once before running
+the container-based docs workflow.
 
 The docs site shows about 80 characters of code before a block scrolls sideways, so the
 ` ```python ` blocks of the guides are formatted with `ruff format` at 79 characters (not the
@@ -220,7 +220,7 @@ an already published GitHub release is left unchanged.
 
 Before merging the release PR, wait for the Python tests and docs build,
 update `pyproject.toml`'s version, and add `releases/<version>.md` with features,
-optional dependencies and the exact tested Struphy revision. A draft release
+optional dependencies and the tested Struphy version. A draft release
 can be created in advance; it does not publish the package. The workflow
 validates distribution metadata before publishing. Configure PyPI Trusted
 Publishing for this repository, `publish.yml`, and the `pypi` environment.

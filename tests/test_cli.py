@@ -16,8 +16,13 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 from plasma_plots import accessors, cli  # noqa: E402
 from plasma_plots.cli import main  # noqa: E402
-from plasma_plots.cli import (CLIError, _parse_options, parse_value,
-                              plot_methods, quicklook_plot)
+from plasma_plots.cli import (
+    CLIError,
+    _parse_options,
+    parse_value,
+    plot_methods,
+    quicklook_plot,
+)
 
 
 @pytest.fixture(autouse=True)

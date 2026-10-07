@@ -26,10 +26,8 @@ import numpy as np
 import plotly.graph_objects as go
 
 try:
-    from struphy.utils.mpi_launch import \
-        launched_under_mpi as _launched_under_mpi
-
     from struphy import set_logging_level as _set_logging_level
+    from struphy.utils.mpi_launch import launched_under_mpi as _launched_under_mpi
 except (
     ImportError
 ):  # the figure helpers work without struphy; the example scripts always have it
@@ -703,8 +701,7 @@ def export_profiling(sim, stem: str) -> dict:
     >>> profiling = export_profiling(sim, "weak-landau-damping")
     >>> merge_metadata("weak-landau-damping", **profiling)
     """
-    from scope_profiler import (plot_gantt, read_h5,
-                                write_region_statistics_json)
+    from scope_profiler import plot_gantt, read_h5, write_region_statistics_json
 
     barrier()  # the ranks write the profiling file together
     profile_h5_path = Path(f"{stem}-profile.h5")

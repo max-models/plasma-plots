@@ -279,7 +279,12 @@ def test_rational_surfaces_of_iota_and_q_profiles():
     assert [
         (int(n), int(m))
         for n, m in zip(*(rational_surfaces(q).n, rational_surfaces(q).m))
-    ] == [(1, 1), (2, 1), (3, 1), (3, 2)]
+    ] == [
+        (1, 1),
+        (2, 1),
+        (3, 1),
+        (3, 2),
+    ]
     hollow = xr.DataArray(
         0.45 - (rho - 0.5) ** 2, dims="rho", coords={"rho": rho}
     )  # in [0.2, 0.45]

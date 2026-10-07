@@ -134,8 +134,10 @@ RESULTS = [
 MODULES = [
     "plotting",
     "spectral_plots",
+    "fieldline_plots",
     "analysis",
     "spectral",
+    "fieldlines",
     "arrays",
     "gvec",
     "desc",

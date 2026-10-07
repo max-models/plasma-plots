@@ -70,11 +70,25 @@ What is where
   ``analysis.project_mode``; convergence studies with ``plot.convergence``.
 * Vector calculus on mapped domains: ``analysis.gradient``, ``analysis.divergence``,
   ``analysis.curl``, ``analysis.flux_function``, ``analysis.toroidal_components``.
+* Magnetic topology: ``analysis.critical_points`` (O- and X-points of a flux function),
+  ``analysis.reconnected_flux``, ``plot.critical_points``.
+* Field lines: ``analysis.field_lines`` traces them through the mapped grid; the lines Dataset
+  has ``dataset.plasma.plot.poincare`` (``islands=True`` labels the island chains),
+  ``.field_lines``, ``.footprint``, ``.connection_length`` and
+  ``dataset.plasma.analysis.poincare_section``, ``.classify_field_lines``, ``.islands``,
+  ``.footprint``, ``.seed_grid``; a field along the lines with ``analysis.sample_along``,
+  ``analysis.parallel_wavenumber`` and ``plot.along_field_lines``; a flux surface unfolded with
+  ``plot.surface_map`` (straight field lines of slope ι); ``plot.poincare`` traces and plots
+  in one go.
 * Particles: ``dataset.plasma.plot.scatter``, ``.animation`` (``trail=``, ``paths=``,
   ``color="classification"``), ``.paths``, ``.poloidal``,
   ``.orbit_grid``, ``.orbit_classification``, ``.orbits_3d``; ``dataset.plasma.analysis.
   classify_orbits``, ``.orbit_invariants``, ``.bounce_period``; binned distributions with
   ``plot.slice(x="eta1", y="v1")`` and ``analysis.velocity_moments``.
+* δf and losses: ``dataset.plasma.plot.weight_histogram``, ``.marker_density`` (sampling
+  against physical density), ``.lost_fraction``, ``.loss_map`` (initial phase space colored
+  by loss time); ``dataset.plasma.analysis.weight_statistics`` (noise, effective markers),
+  ``.marker_density``, ``.lost_fraction``, ``.loss_map``.
 * Whole runs: ``out.plot.energies``, ``out.plot.scalars``, ``out.plot.equilibrium``,
   ``out.plot.profile``; ``out.analysis.linear_mhd_energies``, ``out.analysis.time_fft``,
   ``out.analysis.mode_spectrum``.
@@ -83,7 +97,8 @@ What is where
 * GVEC equilibria: ``.plasma`` reads ``state.evaluate(...)`` itself, ``plasma_plots.from_gvec(ds)``
   attaches the geometry to every variable; poloidal planes with
   ``overlays={"coordinate_lines": {"rho": 4, "theta_P": 8}}`` (and ``plane="X1X2"``), ι with
-  ``plot.lineout(rationals=4)`` and ``analysis.rational_surfaces``.
+  ``plot.lineout(rationals=4)`` and ``analysis.rational_surfaces``; on a Boozer grid
+  ``analysis.boozer_spectrum``, ``analysis.quasisymmetry_error`` and ``plot.boozer_spectrum``.
 * DESC equilibria: ``plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64,
   zeta=40)`` evaluates them into the same flux-coordinate Datasets (``sfl="pest"`` for the PEST
   angle ``theta_P``); DESC's names stay, ``ev["|B|"].plasma.plot...``.
@@ -112,8 +127,8 @@ ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchang
 in parallel. Analysis runs on every rank. See :mod:`plasma_plots.mpi`.
 
 The functions behind the accessors, for plain ``xarray.DataArray`` input, are in
-``plasma_plots.plotting``, ``.analysis``, ``.spectral``, ``.spectral_plots``, ``.pyvista_plots``
-and ``.arrays``.
+``plasma_plots.plotting``, ``.analysis``, ``.spectral``, ``.spectral_plots``, ``.fieldlines``,
+``.fieldline_plots``, ``.pyvista_plots`` and ``.arrays``.
 
 Guides and the full reference: https://max-models.github.io/plasma-plots (for language models:
 https://max-models.github.io/plasma-plots/llms.txt).
@@ -147,8 +162,9 @@ Runs as is, on synthetic data:
 'PlotResult'
 """
 
-from . import \
-    output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
+from . import (
+    output_accessors,
+)  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
 from .desc import from_desc
 from .figures import figure

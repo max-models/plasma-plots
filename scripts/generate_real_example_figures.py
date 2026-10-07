@@ -35,10 +35,6 @@ OUT = DOCS / "src" / "assets" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
 
-from struphy.models import LinearMHD
-from struphy.post_processing.output import Output
-from struphy.simulation.sim import Simulation
-
 # =============================================================================
 # A real magnetized slab: struphy.models.LinearMHD, in a uniform, obliquely
 # magnetized plasma (struphy.fields_background.equils.HomogenSlab). Broadband
@@ -55,6 +51,9 @@ from struphy import (
     grids,
     perturbations,
 )
+from struphy.models import LinearMHD
+from struphy.post_processing.output import Output
+from struphy.simulation.sim import Simulation
 
 # The background: B0 = (0, 1, 1), density 0.7, plasma beta 3 (thermal over
 # magnetic pressure).

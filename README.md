@@ -33,24 +33,36 @@ pip install "plasma-plots[netcdf,plotly]"
 | `profiling` | Timing summaries and profiling plots | `scope-profiler[pproc]` |
 | `desc` | Evaluate DESC equilibria | `desc-opt` |
 | `gallery` | Export Struphy example-gallery figures and profiling | `plotly`, `kaleido`, `scope-profiler[pproc]>=0.6.1` |
-| `dev` | Tests, linting and documentation tooling | `pytest`, `ruff`, `h5py`, `griffe` |
+| `dev` | Tests, linting and documentation tooling | `pytest`, `ruff`, `h5py`, `griffe`, `struphy>=3.4.0` |
 
-Struphy, GVEC and Zarr are separate installations; no extra above installs
-them. Struphy users need the compatible output API described below. Install
+Struphy is installed by the `dev` extra; otherwise install it separately as
+described below. GVEC and Zarr are separate installations. Install
 `gvec` for GVEC evaluation or `zarr` to open Zarr stores. MP4 export requires
 system `ffmpeg`; Matplotlib windows require a working GUI/display, and static
 Plotly exports through Kaleido require a compatible Chrome installation.
 
 For development, install with `pip install -e ".[dev]"`.
 
+## Docker
+
+The Ubuntu image includes Struphy with compiled kernels, MPI, LaTeX and
+plasma-plots. Pushes to `main` publish `latest`; pushes to `devel` publish `devel`.
+
+```bash
+docker run --rm -it -v "$PWD:/work" ghcr.io/max-models/plasma-plots:latest
+```
+
+See the [Dockerfile](Dockerfile) for build and usage notes.
+
 ## Struphy compatibility
 
-Struphy integration is tested against commit
-[`caddd229a3fcba1fada577d1af46d012e93d8b49`](https://github.com/struphy-hub/struphy/commit/caddd229a3fcba1fada577d1af46d012e93d8b49)
-(the repository's pinned submodule, reporting version **3.3.0**). Use that
-revision for a reproducible installation; compatibility with other Struphy
-revisions, including older published builds, is not guaranteed. Struphy is
-optional when working with ordinary xarray data.
+Struphy integration requires **Struphy 3.4.0 or newer** from PyPI:
+
+```bash
+pip install "struphy>=3.4.0"
+```
+
+Struphy is optional when working with ordinary xarray data.
 
 ## Usage
 

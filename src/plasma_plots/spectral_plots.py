@@ -13,9 +13,15 @@ from . import spectral
 from .analysis import GrowthFit, growth_rate
 from .arrays import axis_label, logical_dims, value_label
 from .mpi import rank_zero
-from .plotting import (PLOT_STYLE, PlotResult, _finish, _label,
-                       prepare_continuous_spectrum, resolve_marker_selection,
-                       shared_run_label)
+from .plotting import (
+    PlotResult,
+    _finish,
+    _label,
+    _plot_style,
+    prepare_continuous_spectrum,
+    resolve_marker_selection,
+    shared_run_label,
+)
 
 OMEGA = r"$\omega$"
 
@@ -711,7 +717,7 @@ def plot_mode_profiles(
     order = candidates[np.argsort(strength[candidates])[::-1][:top]]
     phase = phase and np.iscomplexobj(stacked.values)  # real amplitudes carry no phase
     xs, default_label = _x_values(stacked, x, x_of)
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             2 if phase else 1,
             1,
@@ -798,7 +804,7 @@ def plot_cross_spectrum(
         )
     if omega_max is not None:
         cross = cross.sel(omega=slice(None, omega_max))
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             2, 1, sharex=True, figsize=(7.5, 5.5), layout="constrained"
         )
@@ -888,7 +894,7 @@ def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = 
     >>> series = energy.sel(t=slice(0.0, 5.0))
     >>> plot_pencil_fit(series, matrix_pencil(series, n_modes=2))
     """
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             1,
             2,
@@ -945,3 +951,122 @@ def plot_pencil_fit(data: xr.DataArray, fit: xr.Dataset, *, title: str | None = 
         title="Complex frequencies",
     )
     return PlotResult(fig, axes, artists, data={"fit": fit, "model": model})
+
+
+@rank_zero
+def plot_boozer_spectrum(
+    data: xr.DataArray,
+    *,
+    top: int = 8,
+    helicity=None,
+    log: bool = True,
+    angles: str = "boozer",
+    x_of=None,
+    xlabel: str | None = None,
+    title: str | None = None,
+):
+    """The strongest Boozer harmonics of ``|B|`` over the radius, and the quasi-symmetry error.
+
+    One line per harmonic ``(m, n)`` (``n`` the full-torus mode number, in the convention of
+    :func:`~plasma_plots.analysis.boozer_spectrum`). With ``helicity`` the symmetry-breaking
+    harmonics are dashed, and a second panel shows the quasi-symmetry error
+    :func:`~plasma_plots.analysis.quasisymmetry_error` over the radius.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        ``|B|`` on a Boozer grid, over ``(rho, theta_B, zeta_B)``.
+    top : int, optional
+        The number of harmonics drawn, strongest first. Default: 8.
+    helicity : {"QA", "QP", "QH"} or (int, int), optional
+        The symmetry to judge against (see
+        :func:`~plasma_plots.analysis.quasisymmetry_error`). Default: none.
+    log : bool, optional
+        A logarithmic amplitude axis. Default: True.
+    angles : {"boozer", "any"}, optional
+        As for :func:`~plasma_plots.analysis.boozer_spectrum`.
+    x_of : callable, optional
+        Maps the radial coordinate to the plotted axis, e.g. ``lambda rho: a * rho``.
+    xlabel : str, optional
+        The horizontal axis label. Default: the coordinate's.
+    title : str, optional
+        The title. Default: the harmonics' label.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes (one, or two with ``helicity``) and the lines; ``data`` holds the
+        ``amplitudes`` and, with ``helicity``, the ``error``.
+
+    See Also
+    --------
+    plasma_plots.analysis.boozer_spectrum : The harmonics.
+    plot_mode_profiles : The same for the harmonics of a mode at one frequency.
+
+    Examples
+    --------
+    >>> plot_boozer_spectrum(boozer.mod_B, top=8, helicity="QA")
+    """
+    from .analysis import boozer_spectrum, quasisymmetry_error
+
+    amplitudes = boozer_spectrum(data, top=top, angles=angles)
+    radial = [d for d in amplitudes.dims if d != "mode"]
+    if len(radial) != 1:
+        raise ValueError(
+            f"select every dimension but the radius first; the harmonics are over {amplitudes.dims}"
+        )
+    x = radial[0]
+    error = (
+        quasisymmetry_error(data, helicity=helicity, angles=angles)
+        if helicity is not None
+        else None
+    )
+    xs, default_label = _x_values(amplitudes, x, x_of)
+    with _plot_style():
+        fig, axes = plt.subplots(
+            2 if error is not None else 1,
+            1,
+            sharex=True,
+            figsize=(7.5, 6.5 if error is not None else 4.5),
+            squeeze=False,
+            layout="constrained",
+        )
+    axes = axes[:, 0]
+    artists = []
+    m = np.asarray(amplitudes["m"], dtype=int)
+    n = np.asarray(amplitudes["n"], dtype=int)
+    if error is not None:
+        M, N = error.attrs["helicity"]
+        symmetric = m * N + n * M == 0
+    else:
+        symmetric = np.ones(m.size, dtype=bool)
+    for i in range(amplitudes.sizes["mode"]):
+        profile = np.asarray(amplitudes.isel(mode=i).transpose(x), dtype=float)
+        artists += axes[0].plot(
+            xs,
+            profile,
+            ls="-" if symmetric[i] else "--",
+            label=f"({m[i]}, {n[i]})" + ("" if symmetric[i] else " breaking"),
+        )
+    if log:
+        axes[0].set_yscale("log")
+    axes[0].set(
+        ylabel=f"|{_label(data) or 'B'}| harmonics",
+        title=title if title is not None else _label(amplitudes),
+    )
+    axes[0].legend(fontsize="small", ncol=2)
+    if error is not None:
+        artists += axes[1].plot(
+            xs, np.asarray(error.transpose(x), dtype=float), color="C3"
+        )
+        if log:
+            axes[1].set_yscale("log")
+        M, N = error.attrs["helicity"]
+        axes[1].set(ylabel=f"$f_{{QS}}$, helicity ({M}, {N})")
+    axes[-1].set(xlabel=xlabel or default_label)
+    data_out = {"amplitudes": amplitudes}
+    if error is not None:
+        data_out["error"] = error
+    return PlotResult(
+        fig, axes if error is not None else axes[0], artists, data=data_out
+    )

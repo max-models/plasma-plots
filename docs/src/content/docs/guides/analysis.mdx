@@ -213,6 +213,34 @@ J.sel(component=2).plasma.plot.slice(
 )
 ```
 
+## O-points, X-points and the reconnected flux
+
+```python
+A = B.plasma.analysis.flux_function()
+# (t, point): positions, values, kinds
+points = A.plasma.analysis.critical_points()
+A.plasma.plot.critical_points(t=-1, eta3=0)
+flux = A.plasma.analysis.reconnected_flux(relative=False)
+flux.plasma.plot.timeseries(fit=(10.0, 30.0))
+```
+
+The critical points of the flux function are where the gradient vanishes: `critical_points`
+finds every grid cell whose corners carry both signs of each gradient component, locates the
+zero of the gradient's bilinear interpolant in it by Newton's method (so the position is
+accurate to a fraction of a cell), and tells O-points (extrema, `det H > 0`) from X-points
+(saddles) by the Hessian. A periodic direction wraps when its coordinate has a `period`
+attribute or its physical coordinates close around; a plain periodic box without either is
+treated as bounded and loses the points on its edges. The plot marks the O-points as dots and
+the X-points as crosses on the flux contours.
+
+`reconnected_flux` is the flux of the dominant island over time, `|A(O) − A(X)|` between an
+O-point and the X-point on its separatrix (the one nearest in flux), relative to the first time
+by default: for a tearing mode it grows as `exp(γt)`, for the GEM challenge it is the usual
+reconnected-flux curve. `o_point=` and `x_point=` pin the pair to the points nearest given
+logical positions.
+
+![A tearing island: the flux contours with O-points and X-points, and the reconnected flux growing in time](../../../assets/figures/critical_points.png)
+
 ## Local components
 
 For waves in a cylinder or torus, the Cartesian components are hard to read.
