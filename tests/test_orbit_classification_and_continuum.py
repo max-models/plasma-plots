@@ -7,14 +7,13 @@ import xarray as xr
 
 matplotlib.use("Agg")
 from struphy.dispersion_relations.analytic import (  # noqa: E402
-    MhdContinousSpectraCylinder,
-    MhdContinousSpectraShearedSlab,
-)
+    MhdContinousSpectraCylinder, MhdContinousSpectraShearedSlab)
 
 import plasma_plots  # noqa: E402, F401  (registers the accessors)
 from plasma_plots.analysis import classify_orbits  # noqa: E402
 from plasma_plots.plotting import plot_continuous_spectrum  # noqa: E402
-from plasma_plots.plotting import plot_orbit_classification, prepare_continuous_spectrum
+from plasma_plots.plotting import (plot_orbit_classification,
+                                   prepare_continuous_spectrum)
 
 
 def guiding_center_orbits():

@@ -33,12 +33,8 @@ import xarray as xr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
 from plasma_plots.arrays import axis_label, value_label
-from plasma_plots.plotting import (
-    PlotResult,
-    plot_convergence,
-    plot_dispersion,
-    plot_scalars,
-)
+from plasma_plots.plotting import (PlotResult, plot_convergence,
+                                   plot_dispersion, plot_scalars)
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
@@ -1352,13 +1348,8 @@ save_fig(fig, "data_selection.png")
 # =============================================================================
 # Theory: plasma_plots.theory, the analytic results to compare runs against
 # =============================================================================
-from plasma_plots.theory import (
-    exact,
-    kinetic,
-    numerics,  # noqa: E402
-    orbits,
-    waves,
-)
+from plasma_plots.theory import numerics  # noqa: E402
+from plasma_plots.theory import exact, kinetic, orbits, waves
 
 # Landau damping of Langmuir waves: the kinetic root against Bohm-Gross and the weak-damping formula
 k_th = np.linspace(0.1, 0.6, 101)
@@ -1616,7 +1607,8 @@ save_fig(fig, "theory_numerics.png")
 try:
     import pyvista as pv
 
-    from plasma_plots.plotting import plot_equilibrium_profile, show_equilibrium
+    from plasma_plots.plotting import (plot_equilibrium_profile,
+                                       show_equilibrium)
 
     pv.OFF_SCREEN = True
 

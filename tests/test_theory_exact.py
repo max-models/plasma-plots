@@ -5,18 +5,10 @@ problems), conservation laws, and the differential equations checked by finite d
 import numpy as np
 import pytest
 
-from plasma_plots.theory.exact import (
-    advected,
-    caustic_time,
-    dalembert,
-    dam_break,
-    heat_kernel,
-    pressureless,
-    pressureless_eulerian,
-    riemann_euler,
-    sod_shock_tube,
-    star_state,
-)
+from plasma_plots.theory.exact import (advected, caustic_time, dalembert,
+                                       dam_break, heat_kernel, pressureless,
+                                       pressureless_eulerian, riemann_euler,
+                                       sod_shock_tube, star_state)
 
 H = 1e-4  # finite-difference step: central differences are accurate to about H² ~ 1e-8
 

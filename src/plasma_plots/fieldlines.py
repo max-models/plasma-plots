@@ -39,13 +39,8 @@ from math import gcd
 import numpy as np
 import xarray as xr
 
-from .arrays import (
-    angle_period,
-    logical_dims,
-    mapping_jacobian,
-    periodicity,
-    validate_array,
-)
+from .arrays import (angle_period, logical_dims, mapping_jacobian, periodicity,
+                     validate_array)
 
 #: The classes of :func:`classify_field_lines`: on a flux surface, inside an island, or chaotic.
 LINE_CLASSES = {0: "surface", 1: "island", 2: "chaotic"}

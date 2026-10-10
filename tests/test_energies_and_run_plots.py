@@ -15,14 +15,9 @@ from plasma_plots import spectral as sp  # noqa: E402
 from plasma_plots.analysis import field_energy  # noqa: E402
 from plasma_plots.analysis import quadrature_weights, volume_integral
 from plasma_plots.plotting import _slice_data  # noqa: E402
-from plasma_plots.plotting import (
-    View,
-    color_limits,
-    plot_energy_budget,
-    plot_orbit_poloidal,
-    plot_orbit_quantities,
-    plot_profiles,
-)
+from plasma_plots.plotting import (View, color_limits, plot_energy_budget,
+                                   plot_orbit_poloidal, plot_orbit_quantities,
+                                   plot_profiles)
 
 R0 = 3.0
 

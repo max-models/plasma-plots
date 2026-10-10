@@ -25,28 +25,12 @@ import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
-from .analysis import (
-    ORBIT_CLASSES,
-    FitResult,
-    GrowthFit,
-    classify_orbits,
-    convergence_order,
-    drift,
-    growth_rate,
-    power_spectrum,
-    relative_error,
-)
-from .arrays import (
-    LOGICAL_DIMS,
-    SCALARS_EXCLUDE,
-    axis_label,
-    close_periodic,
-    logical_dims,
-    save_scalars,
-    scalar_names,
-    validate_array,
-    value_label,
-)
+from .analysis import (ORBIT_CLASSES, FitResult, GrowthFit, classify_orbits,
+                       convergence_order, drift, growth_rate, power_spectrum,
+                       relative_error)
+from .arrays import (LOGICAL_DIMS, SCALARS_EXCLUDE, axis_label, close_periodic,
+                     logical_dims, save_scalars, scalar_names, validate_array,
+                     value_label)
 from .mpi import rank_zero
 
 logger = logging.getLogger("plasma_plots")
@@ -81,6 +65,7 @@ def _plot_style():
     finally:
         if interactive is not None:
             matplotlib.interactive(interactive)
+
 
 PLANES = {
     "XY": ("X", "Y", "X", "Y"),
@@ -1647,7 +1632,15 @@ def _line_values(coordinate: np.ndarray, spec, period: float | None) -> np.ndarr
 
 
 def _coordinate_lines(
-    ax, selected: xr.DataArray, xg, yg, spec: dict, color, *, linestyle="-", key="coordinate_lines"
+    ax,
+    selected: xr.DataArray,
+    xg,
+    yg,
+    spec: dict,
+    color,
+    *,
+    linestyle="-",
+    key="coordinate_lines",
 ) -> list:
     """Draw lines of constant coordinate on a slice whose grid ``xg``, ``yg`` follows the dims
     of ``selected``; see the ``coordinate_lines`` and ``rank_boundaries`` overlays.
@@ -1681,9 +1674,7 @@ def _coordinate_lines(
                 take = (lambda g, k: g[k]) if axis == 0 else (lambda g, k: g[:, k])
                 x = (1 - frac) * take(xg, i) + frac * take(xg, j)
                 y = (1 - frac) * take(yg, i) + frac * take(yg, j)
-                artists += ax.plot(
-                    x, y, color=color, lw=0.8, alpha=0.9, ls=linestyle
-                )
+                artists += ax.plot(x, y, color=color, lw=0.8, alpha=0.9, ls=linestyle)
             continue
         if set(coordinate.dims) != set(selected.dims):
             raise ValueError(
@@ -3560,7 +3551,8 @@ def _background_view(x: str, y: str, background: xr.DataArray | None = None) -> 
     """How a field is drawn behind markers whose positions are the variables ``x`` and ``y``:
     on its own ``x`` and ``y`` dimensions when it has them (e.g. a Cartesian field with dims
     ``("x", "y")``), in logical coordinates for ``eta1``/``eta2``/``eta3``, else in the physical
-    plane for ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates)."""
+    plane for ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
+    """
     if (x in LOGICAL and y in LOGICAL) or (
         background is not None and x in background.dims and y in background.dims
     ):

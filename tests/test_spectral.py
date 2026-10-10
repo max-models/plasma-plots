@@ -8,13 +8,8 @@ import pytest
 import xarray as xr
 
 import plasma_plots  # noqa: F401  (registers the accessors)
-from plasma_plots.spectral import (
-    fft,
-    filter_time,
-    fwhm_window,
-    inverse_time_fft,
-    time_fft,
-)
+from plasma_plots.spectral import (fft, filter_time, fwhm_window,
+                                   inverse_time_fft, time_fft)
 
 
 def signal(n=400, bins=5.0, dt=0.5):

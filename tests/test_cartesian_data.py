@@ -61,7 +61,9 @@ def test_animation_over_a_cartesian_background(orbits, phi):
     plt.close("all")
 
 
-def test_a_background_without_matching_dims_still_needs_physical_coordinates(orbits, phi):
+def test_a_background_without_matching_dims_still_needs_physical_coordinates(
+    orbits, phi
+):
     """Only a field with the markers' position dims is drawn on them directly."""
     renamed = phi.rename(x="a", y="b")
     with pytest.raises(ValueError, match="physical coordinates"):

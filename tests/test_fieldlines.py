@@ -13,24 +13,14 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 import plasma_plots  # noqa: E402, F401
 from plasma_plots.fieldline_plots import plot_along_field_lines  # noqa: E402
-from plasma_plots.fieldline_plots import (
-    plot_connection_length,
-    plot_field_lines,
-    plot_footprint,
-    plot_poincare,
-    plot_surface_map,
-)
+from plasma_plots.fieldline_plots import (plot_connection_length,
+                                          plot_field_lines, plot_footprint,
+                                          plot_poincare, plot_surface_map)
 from plasma_plots.fieldlines import classify_field_lines  # noqa: E402
-from plasma_plots.fieldlines import (
-    footprint,
-    islands,
-    parallel_wavenumber,
-    poincare_section,
-    rotational_transform,
-    sample_along,
-    seed_grid,
-    trace_field_lines,
-)
+from plasma_plots.fieldlines import (footprint, islands, parallel_wavenumber,
+                                     poincare_section, rotational_transform,
+                                     sample_along, seed_grid,
+                                     trace_field_lines)
 from plasma_plots.plotting import PlotResult  # noqa: E402
 
 R0 = 3.0

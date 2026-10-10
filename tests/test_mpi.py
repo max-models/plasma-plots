@@ -12,11 +12,8 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 import plasma_plots  # noqa: E402,F401  (registers array.plasma)
 from plasma_plots.arrays import save_scalars  # noqa: E402
-from plasma_plots.mpi import (
-    SkippedPlot,
-    is_plotting_rank,  # noqa: E402
-    mpi_rank,
-)
+from plasma_plots.mpi import is_plotting_rank  # noqa: E402
+from plasma_plots.mpi import SkippedPlot, mpi_rank
 from plasma_plots.plotting import InteractiveSliceViewer  # noqa: E402
 from plasma_plots.plotting import plot_timeseries, save_all_scalars
 

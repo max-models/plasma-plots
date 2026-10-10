@@ -271,7 +271,8 @@ def test_spectrogram_filtered_cross_and_pencil_plots():
 
 def test_output_analysis_matches_the_array_accessor(tmp_path):
     from struphy.post_processing.output import Output
-    from struphy.post_processing.tests.test_output import write_manifest, write_tree
+    from struphy.post_processing.tests.test_output import (write_manifest,
+                                                           write_tree)
 
     path = os.path.join(tmp_path, "sim_1")
     os.makedirs(path)

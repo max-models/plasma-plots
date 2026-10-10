@@ -13,15 +13,9 @@ from . import spectral
 from .analysis import GrowthFit, growth_rate
 from .arrays import axis_label, logical_dims, value_label
 from .mpi import rank_zero
-from .plotting import (
-    PlotResult,
-    _finish,
-    _label,
-    _plot_style,
-    prepare_continuous_spectrum,
-    resolve_marker_selection,
-    shared_run_label,
-)
+from .plotting import (PlotResult, _finish, _label, _plot_style,
+                       prepare_continuous_spectrum, resolve_marker_selection,
+                       shared_run_label)
 
 OMEGA = r"$\omega$"
 

@@ -12,33 +12,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from .arrays import (
-    DIM_LABELS,
-    angle_period,
-    axis_label,
-    logical_dims,
-    validate_array,
-    value_label,
-)
-from .fieldlines import (
-    LINE_CLASSES,
-    classify_field_lines,
-    islands,
-    parallel_wavenumber,
-    poincare_section,
-)
+from .arrays import (DIM_LABELS, angle_period, axis_label, logical_dims,
+                     validate_array, value_label)
+from .fieldlines import (LINE_CLASSES, classify_field_lines, islands,
+                         parallel_wavenumber, poincare_section)
 from .mpi import rank_zero
-from .plotting import (
-    PLOT_STYLE,
-    PlotResult,
-    View,
-    _boundary_edge,
-    _colored_path,
-    _finish,
-    _label,
-    plot_slice,
-    shared_run_label,
-)
+from .plotting import (PLOT_STYLE, PlotResult, View, _boundary_edge,
+                       _colored_path, _finish, _label, plot_slice,
+                       shared_run_label)
 
 LINE_CLASS_COLORS = {"surface": "C0", "island": "C3", "chaotic": "0.55"}
 PLANES_2D = {"RZ": ("R", "z"), "XY": ("x", "y"), "XZ": ("x", "z"), "YZ": ("y", "z")}

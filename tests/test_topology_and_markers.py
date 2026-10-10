@@ -12,24 +12,13 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 import plasma_plots  # noqa: E402
 from plasma_plots.analysis import critical_points  # noqa: E402
-from plasma_plots.analysis import (
-    boozer_spectrum,
-    loss_map,
-    lost_fraction,
-    marker_density,
-    quasisymmetry_error,
-    reconnected_flux,
-    weight_statistics,
-)
+from plasma_plots.analysis import (boozer_spectrum, loss_map, lost_fraction,
+                                   marker_density, quasisymmetry_error,
+                                   reconnected_flux, weight_statistics)
 from plasma_plots.plotting import View  # noqa: E402
-from plasma_plots.plotting import (
-    PlotResult,
-    plot_critical_points,
-    plot_loss_map,
-    plot_lost_fraction,
-    plot_marker_density,
-    plot_weight_histogram,
-)
+from plasma_plots.plotting import (PlotResult, plot_critical_points,
+                                   plot_loss_map, plot_lost_fraction,
+                                   plot_marker_density, plot_weight_histogram)
 from plasma_plots.spectral_plots import plot_boozer_spectrum  # noqa: E402
 
 

@@ -7,23 +7,14 @@ import numpy as np
 import pytest
 
 from plasma_plots.theory import kinetic
-from plasma_plots.theory.kinetic import (
-    Maxwellian,
-    beam_plasma_cold,
-    bohm_gross,
-    bump_on_tail,
-    electrostatic_dielectric,
-    ion_acoustic,
-    ion_acoustic_fluid,
-    landau_damping_weak,
-    langmuir,
-    maximum_growth,
-    solve_dispersion,
-    susceptibility,
-    two_stream,
-    two_stream_cold,
-    weibel,
-)
+from plasma_plots.theory.kinetic import (Maxwellian, beam_plasma_cold,
+                                         bohm_gross, bump_on_tail,
+                                         electrostatic_dielectric,
+                                         ion_acoustic, ion_acoustic_fluid,
+                                         landau_damping_weak, langmuir,
+                                         maximum_growth, solve_dispersion,
+                                         susceptibility, two_stream,
+                                         two_stream_cold, weibel)
 
 
 def scipy_dielectric(omega, k, species):

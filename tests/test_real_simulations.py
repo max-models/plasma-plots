@@ -24,16 +24,8 @@ from plasma_plots import pyvista_plots as p3  # noqa: E402
 def torus_run(tmp_path_factory):
     """LinearMHD in a sixth of a hollow torus, seeded with the m = 10, 11 harmonics of the
     TAE tutorial (coarse and short: seconds)."""
-    from struphy import (
-        BaseUnits,
-        DerhamOptions,
-        EnvironmentOptions,
-        Time,
-        domains,
-        equils,
-        grids,
-        perturbations,
-    )
+    from struphy import (BaseUnits, DerhamOptions, EnvironmentOptions, Time,
+                         domains, equils, grids, perturbations)
     from struphy.models import LinearMHD
     from struphy.simulation.sim import Simulation
 
@@ -101,21 +93,11 @@ def torus_run(tmp_path_factory):
 @pytest.fixture(scope="module")
 def orbit_run(tmp_path_factory):
     """GuidingCenter markers in a tokamak-like torus, 60 of them with saved orbits."""
-    from struphy import (
-        BaseUnits,
-        BoundaryParameters,
-        DerhamOptions,
-        EnvironmentOptions,
-        LoadingParameters,
-        SavingParameters,
-        SortingParameters,
-        Time,
-        WeightsParameters,
-        domains,
-        equils,
-        grids,
-        maxwellians,
-    )
+    from struphy import (BaseUnits, BoundaryParameters, DerhamOptions,
+                         EnvironmentOptions, LoadingParameters,
+                         SavingParameters, SortingParameters, Time,
+                         WeightsParameters, domains, equils, grids,
+                         maxwellians)
     from struphy.models import GuidingCenter
     from struphy.simulation.sim import Simulation
 
@@ -267,15 +249,8 @@ def test_physical_slices_and_vtk_export_on_real_output(torus_run, tmp_path):
 def test_linear_mhd_two_alfven_modes(tmp_path):
     """Ported from struphy's postprocessing-fft branch: the dominant-band filter separates two
     shear-Alfven modes of a real LinearMHD run, through out.analysis."""
-    from struphy import (
-        DerhamOptions,
-        EnvironmentOptions,
-        Time,
-        domains,
-        equils,
-        grids,
-        perturbations,
-    )
+    from struphy import (DerhamOptions, EnvironmentOptions, Time, domains,
+                         equils, grids, perturbations)
     from struphy.models import LinearMHD
     from struphy.simulation.sim import Simulation
 

@@ -969,7 +969,8 @@ class _FigureConverter:
 
     # --- artists ------------------------------------------------------------------------------
     def _artists(self, axes):
-        from matplotlib.collections import LineCollection, PathCollection, QuadMesh
+        from matplotlib.collections import (LineCollection, PathCollection,
+                                            QuadMesh)
         from matplotlib.contour import ContourSet
         from matplotlib.legend import Legend
         from matplotlib.lines import Line2D
