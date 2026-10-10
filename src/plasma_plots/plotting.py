@@ -1589,6 +1589,8 @@ OVERLAY_KEYS = {
     "grid_lines",
     "coordinate_lines",
     "coordinate_line_color",
+    "rank_boundaries",
+    "rank_boundary_color",
     "lines",
     "line_color",
     "points",
@@ -1644,16 +1646,22 @@ def _line_values(coordinate: np.ndarray, spec, period: float | None) -> np.ndarr
     ]  # the lowest value is often a point (the axis)
 
 
-def _coordinate_lines(ax, selected: xr.DataArray, xg, yg, spec: dict, color) -> list:
+def _coordinate_lines(
+    ax, selected: xr.DataArray, xg, yg, spec: dict, color, *, linestyle="-", key="coordinate_lines"
+) -> list:
     """Draw lines of constant coordinate on a slice whose grid ``xg``, ``yg`` follows the dims
-    of ``selected``; see the ``coordinate_lines`` overlay."""
+    of ``selected``; see the ``coordinate_lines`` and ``rank_boundaries`` overlays.
+
+    ``key`` names the overlay in error messages, so ``rank_boundaries`` (which reuses this
+    function) reports its own name rather than ``coordinate_lines``.
+    """
     from .arrays import angle_period
 
     artists = []
     for name, lines in spec.items():
         if name not in selected.coords:
             raise ValueError(
-                f"coordinate_lines: {name!r} is not a coordinate of the slice; it has {tuple(selected.coords)}"
+                f"{key}: {name!r} is not a coordinate of the slice; it has {tuple(selected.coords)}"
             )
         coordinate = selected.coords[name]
         period = angle_period(selected, name)
@@ -1673,18 +1681,26 @@ def _coordinate_lines(ax, selected: xr.DataArray, xg, yg, spec: dict, color) -> 
                 take = (lambda g, k: g[k]) if axis == 0 else (lambda g, k: g[:, k])
                 x = (1 - frac) * take(xg, i) + frac * take(xg, j)
                 y = (1 - frac) * take(yg, i) + frac * take(yg, j)
-                artists += ax.plot(x, y, color=color, lw=0.8, alpha=0.9)
+                artists += ax.plot(
+                    x, y, color=color, lw=0.8, alpha=0.9, ls=linestyle
+                )
             continue
         if set(coordinate.dims) != set(selected.dims):
             raise ValueError(
-                f"coordinate_lines: {name!r} must vary over the drawn dimensions {selected.dims}"
+                f"{key}: {name!r} must vary over the drawn dimensions {selected.dims}"
             )
         field = np.asarray(coordinate.transpose(*selected.dims), dtype=float)
         for value in _line_values(field.ravel(), lines, period):
             if period is None:
                 artists.append(
                     ax.contour(
-                        xg, yg, field, levels=[value], colors=color, linewidths=0.8
+                        xg,
+                        yg,
+                        field,
+                        levels=[value],
+                        colors=color,
+                        linewidths=0.8,
+                        linestyles=linestyle,
                     )
                 )
                 continue
@@ -1695,7 +1711,15 @@ def _coordinate_lines(ax, selected: xr.DataArray, xg, yg, spec: dict, color) -> 
                 np.cos(phase) > 0, np.sin(phase), np.nan
             )  # not the branch half a period away
             artists.append(
-                ax.contour(xg, yg, where, levels=[0.0], colors=color, linewidths=0.8)
+                ax.contour(
+                    xg,
+                    yg,
+                    where,
+                    levels=[0.0],
+                    colors=color,
+                    linewidths=0.8,
+                    linestyles=linestyle,
+                )
             )
     return artists
 
@@ -1775,6 +1799,17 @@ class _SliceRenderer:
                 yg,
                 overlays["coordinate_lines"],
                 overlays.get("coordinate_line_color", "w"),
+            )
+        if overlays.get("rank_boundaries") and selected is not None:
+            artists += _coordinate_lines(
+                ax,
+                selected,
+                xg,
+                yg,
+                overlays["rank_boundaries"],
+                overlays.get("rank_boundary_color", "red"),
+                linestyle="--",
+                key="rank_boundaries",
             )
         other = overlays.get("contours_of")
         if other is not None:
@@ -2002,6 +2037,11 @@ def plot_slice(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
+          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
+          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
+          lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2158,6 +2198,11 @@ def plot_panels(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
+          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
+          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
+          lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2304,6 +2349,11 @@ class InteractiveSliceViewer:
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
+          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
+          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
+          lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2540,6 +2590,11 @@ def animate_slices(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
+          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
+          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
+          lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2832,6 +2887,11 @@ def save_frames(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
+          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
+          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
+          lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
