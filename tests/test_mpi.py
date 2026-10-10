@@ -107,9 +107,7 @@ def test_viewer_is_skipped_on_other_ranks(monkeypatch, field):
 
 def test_files_are_written_by_rank_zero_only(monkeypatch, scalars, tmp_path):
     monkeypatch.setenv("PMIX_RANK", "1")
-    assert save_scalars(scalars, str(tmp_path / "scalars.csv")) == str(
-        tmp_path / "scalars.csv"
-    )
+    assert save_scalars(scalars, str(tmp_path / "scalars.csv")) == str(tmp_path / "scalars.csv")
     assert list(save_all_scalars(scalars, tmp_path / "out")) == []
     assert not list(tmp_path.iterdir())
     monkeypatch.setenv("PMIX_RANK", "0")

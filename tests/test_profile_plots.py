@@ -28,9 +28,7 @@ class FakeOutput:
 
 @pytest.fixture
 def results(tmp_path):
-    with scope_profiler.session(
-        verbose=False, file_path=str(tmp_path / "profiling_data.h5")
-    ):
+    with scope_profiler.session(verbose=False, file_path=str(tmp_path / "profiling_data.h5")):
         with scope_profiler.region("solve"):
             time.sleep(0.001)
             with scope_profiler.region("kernel: push"):

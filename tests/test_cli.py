@@ -16,8 +16,7 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 from plasma_plots import accessors, cli  # noqa: E402
 from plasma_plots.cli import main  # noqa: E402
-from plasma_plots.cli import (CLIError, _parse_options, parse_value,
-                              plot_methods, quicklook_plot)
+from plasma_plots.cli import CLIError, _parse_options, parse_value, plot_methods, quicklook_plot
 
 
 @pytest.fixture(autouse=True)
@@ -86,9 +85,7 @@ def test_at_names_another_product_of_the_same_source(nc):
 def test_plot_methods_leave_out_3d_scenes_and_interactive_views():
     phi = xr.DataArray(np.zeros((2, 3)), dims=("t", "eta1"))
     methods = plot_methods(phi)
-    assert {"slice", "lineout", "timeseries", "animation", "movie", "frames"} <= set(
-        methods
-    )
+    assert {"slice", "lineout", "timeseries", "animation", "movie", "frames"} <= set(methods)
     left_out = {
         name
         for name in dir(accessors.ArrayPlots)
@@ -124,40 +121,28 @@ def test_info_lists_variables_dimensions_and_units(nc, capsys):
 
 def test_plot_saves_the_figure(nc, tmp_path, capsys):
     out = tmp_path / "phi.png"
-    assert (
-        main(["plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "-o", str(out)]) == 0
-    )
+    assert main(["plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "-o", str(out)]) == 0
     assert out.stat().st_size > 0
     assert f"wrote {out}" in capsys.readouterr().out
 
 
 def test_plot_passes_other_products_and_json(nc, tmp_path):
     out = tmp_path / "energy.png"
-    assert (
-        main(["plot", str(nc), "energy", "compare", "other=@energy", "-o", str(out)])
-        == 0
-    )
-    assert (
-        main(["plot", str(nc), "energy", "timeseries", "fit=[1,4]", "-o", str(out)])
-        == 0
-    )
+    assert main(["plot", str(nc), "energy", "compare", "other=@energy", "-o", str(out)]) == 0
+    assert main(["plot", str(nc), "energy", "timeseries", "fit=[1,4]", "-o", str(out)]) == 0
 
 
 def test_an_html_output_draws_with_plotly(nc, tmp_path):
     pytest.importorskip("plotly")
     out = tmp_path / "phi.html"
-    assert (
-        main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(out)]) == 0
-    )
+    assert main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(out)]) == 0
     assert "plotly" in out.read_text()
 
 
 def test_a_tex_or_tikz_output_draws_with_tikz(nc, tmp_path):
     pytest.importorskip("maxplotlib.backends.tikzfigure")
     tex, tikz = tmp_path / "phi.tex", tmp_path / "phi.tikz"
-    assert (
-        main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(tex)]) == 0
-    )
+    assert main(["plot", str(nc), "phi", "slice", "t=2.5", "eta3=0", "-o", str(tex)]) == 0
     assert tex.read_text().startswith("\\documentclass")
     assert main(["plot", str(nc), "energy", "timeseries", "-o", str(tikz)]) == 0
     assert "\\begin{axis}" in tikz.read_text()
@@ -224,14 +209,9 @@ def test_run_products_by_name(run, tmp_path, capsys):
 
 def test_the_whole_run_plots_with_out_plot(run, tmp_path, capsys):
     assert main(["plot", str(run.path_out), ".", "--list"]) == 0
-    assert {"energies", "scalars", "profile.gantt"} <= set(
-        capsys.readouterr().out.split()
-    )
+    assert {"energies", "scalars", "profile.gantt"} <= set(capsys.readouterr().out.split())
     out = tmp_path / "energies.png"
-    assert (
-        main(["plot", str(run.path_out), ".", "energies", "-o", str(out)]) == 0
-        and out.exists()
-    )
+    assert main(["plot", str(run.path_out), ".", "energies", "-o", str(out)]) == 0 and out.exists()
 
 
 def test_a_product_named_as_a_method_gets_a_hint(run, capsys):
@@ -294,9 +274,7 @@ def test_open_source_processes_by_default(run, monkeypatch):
     from struphy.post_processing.tests.test_output import write_manifest
 
     (run.path_pproc / "manifest.json").unlink()
-    monkeypatch.setattr(
-        Output, "pproc", lambda output: write_manifest(str(output.path_out))
-    )
+    monkeypatch.setattr(Output, "pproc", lambda output: write_manifest(str(output.path_out)))
     assert cli.open_source(run.path_out).is_processed
 
 
@@ -308,9 +286,7 @@ def test_python_m_runs_the_command():
         check=True,
     )
     assert result.stdout.startswith("# plasma-plots API index")
-    bad = subprocess.run(
-        [sys.executable, "-m", "plasma_plots", "bogus"], capture_output=True, text=True
-    )
+    bad = subprocess.run([sys.executable, "-m", "plasma_plots", "bogus"], capture_output=True, text=True)
     assert bad.returncode == 2 and "invalid choice" in bad.stderr
 
 
@@ -325,9 +301,7 @@ def test_the_installed_command_runs(nc, tmp_path):
         capture_output=True,
     )
     assert out.stat().st_size > 0
-    bad = subprocess.run(
-        [command, "info", str(tmp_path / "missing.nc")], capture_output=True, text=True
-    )
+    bad = subprocess.run([command, "info", str(tmp_path / "missing.nc")], capture_output=True, text=True)
     assert bad.returncode == 1 and bad.stderr.startswith("plasma-plots: error:")
 
 
@@ -343,9 +317,7 @@ def test_show_displays_plot_and_optionally_saves(nc, tmp_path, monkeypatch, save
         shown.append(plt.gcf())
 
     monkeypatch.setattr(plt, "show", show)
-    monkeypatch.setattr(
-        matplotlib, "use", lambda *a, **kw: pytest.fail("forced backend with --show")
-    )
+    monkeypatch.setattr(matplotlib, "use", lambda *a, **kw: pytest.fail("forced backend with --show"))
     args = ["plot", str(nc), "phi", "slice", "t=-1", "eta3=0", "--show"]
     if save:
         args += ["-o", str(out)]
@@ -378,9 +350,7 @@ def test_show_plotly_opens_browser(nc, monkeypatch):
     go = pytest.importorskip("plotly.graph_objects")
     shown = []
     monkeypatch.setattr(go.Figure, "show", lambda self, **kw: shown.append(kw))
-    assert (
-        main(["plot", str(nc), "energy", "timeseries", "backend=plotly", "--show"]) == 0
-    )
+    assert main(["plot", str(nc), "energy", "timeseries", "backend=plotly", "--show"]) == 0
     assert shown == [{"renderer": "browser"}]
 
 
@@ -425,9 +395,7 @@ def test_show_result_skips_other_mpi_ranks(monkeypatch):
     from plasma_plots import mpi
 
     monkeypatch.setattr(mpi, "is_plotting_rank", lambda: False)
-    monkeypatch.setattr(
-        plt, "show", lambda **kw: pytest.fail("displayed on another rank")
-    )
+    monkeypatch.setattr(plt, "show", lambda **kw: pytest.fail("displayed on another rank"))
     cli._show_result(plt.figure())
 
 
@@ -446,17 +414,13 @@ def test_show_result_skips_other_mpi_ranks(monkeypatch):
     ],
 )
 def test_usage_errors_do_not_open_data(args, monkeypatch, capsys):
-    monkeypatch.setattr(
-        cli, "open_source", lambda *a: pytest.fail("opened data for invalid command")
-    )
+    monkeypatch.setattr(cli, "open_source", lambda *a: pytest.fail("opened data for invalid command"))
     assert main(args) == 1
     assert "error:" in capsys.readouterr().err
 
 
 def test_method_help_needs_no_data(monkeypatch, capsys):
-    monkeypatch.setattr(
-        cli, "open_source", lambda *a: pytest.fail("opened data for help")
-    )
+    monkeypatch.setattr(cli, "open_source", lambda *a: pytest.fail("opened data for help"))
     assert main(["help", "slice"]) == 0
     text = capsys.readouterr().out
     assert "Parameters" in text and "x:" in text and "t=-1" in text
@@ -483,18 +447,14 @@ def test_interactive_view_can_show_and_save(nc, tmp_path, monkeypatch, method):
     shown = []
     monkeypatch.setattr(plt, "show", lambda **kw: shown.append(plt.gcf()))
     out = tmp_path / "viewer.png"
-    assert (
-        main(["plot", str(nc), "phi", method, "eta3=0", "--show", "-o", str(out)]) == 0
-    )
+    assert main(["plot", str(nc), "phi", method, "eta3=0", "--show", "-o", str(out)]) == 0
     assert out.stat().st_size > 0
     assert shown and len(shown[0].axes) >= 2
 
 
 def test_interactive_methods_are_listed_with_show(nc, capsys):
     assert main(["plot", str(nc), "phi", "--list", "--show"]) == 0
-    assert {"viewer", "view", "volume", "isosurface"} <= set(
-        capsys.readouterr().out.split()
-    )
+    assert {"viewer", "view", "volume", "isosurface"} <= set(capsys.readouterr().out.split())
 
 
 def test_headless_show_fails_with_recovery_instructions(nc, capsys):
@@ -515,10 +475,7 @@ def test_pyvista_show_dispatch(nc, monkeypatch, tmp_path):
 
     monkeypatch.setattr(accessors.ArrayPlots, "volume", lambda self, **kwargs: Scene())
     output = tmp_path / "scene.png"
-    assert (
-        main(["plot", str(nc), "phi", "volume", "t=-1", "--show", "-o", str(output)])
-        == 0
-    )
+    assert main(["plot", str(nc), "phi", "volume", "t=-1", "--show", "-o", str(output)]) == 0
     assert calls == [{"screenshot": str(output)}]
 
 
@@ -624,9 +581,7 @@ def test_missing_netcdf_backend_suggests_extra(tmp_path, monkeypatch):
     path.touch()
 
     def missing_backend(*args, **kwargs):
-        raise ValueError(
-            "found matches with xarray's IO backends, but their dependencies may not be installed"
-        )
+        raise ValueError("found matches with xarray's IO backends, but their dependencies may not be installed")
 
     monkeypatch.setattr(xr, "open_dataset", missing_backend)
     with pytest.raises(CLIError, match=r'pip install "plasma-plots\[netcdf\]"'):

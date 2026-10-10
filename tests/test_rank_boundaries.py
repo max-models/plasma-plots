@@ -21,16 +21,12 @@ def field():
     eta1 = np.linspace(0.0, 1.0, 9)
     eta2 = np.linspace(0.0, 2.0, 7)
     data = np.outer(eta1, eta2)
-    return xr.DataArray(
-        data, dims=("eta1", "eta2"), coords={"eta1": eta1, "eta2": eta2}
-    )
+    return xr.DataArray(data, dims=("eta1", "eta2"), coords={"eta1": eta1, "eta2": eta2})
 
 
 def test_rank_boundaries_draws_a_dashed_line_per_value():
     plain = plot_slice(field())
-    marked = plot_slice(
-        field(), overlays={"rank_boundaries": {"eta1": [0.25, 0.75], "eta2": [1.0]}}
-    )
+    marked = plot_slice(field(), overlays={"rank_boundaries": {"eta1": [0.25, 0.75], "eta2": [1.0]}})
     assert len(marked.ax.lines) - len(plain.ax.lines) == 3
     new_lines = marked.ax.lines[len(plain.ax.lines) :]
     assert all(line.get_linestyle() == "--" for line in new_lines)

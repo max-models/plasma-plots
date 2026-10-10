@@ -42,8 +42,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # the shear Alfvén wave, and the slow and fast magnetosonic waves.
 # Adapted from struphy's own gallery example (mhd-slab-waves).
 # =============================================================================
-from struphy import (DerhamOptions, EnvironmentOptions, Time, domains, equils,
-                     grids, perturbations)
+from struphy import DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, perturbations
 from struphy.models import LinearMHD
 from struphy.post_processing.output import Output
 from struphy.simulation.sim import Simulation
@@ -71,13 +70,9 @@ exact_speeds = {
 def run_simulation() -> Output:
 
     model = LinearMHD()
-    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(
-        algo="implicit"
-    )
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo="implicit")
     for component in range(3):
-        model.mhd.velocity.add_perturbation(
-            perturbations.Noise(amp=0.1, comp=component, seed=123)
-        )
+        model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=component, seed=123))
     equil = equils.HomogenSlab(B0x=B0x, B0y=B0y, B0z=B0z, beta=beta, n0=n0)
 
     sim = Simulation(

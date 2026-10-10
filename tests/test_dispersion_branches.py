@@ -5,8 +5,7 @@ import pytest
 import xarray as xr
 
 import plasma_plots  # noqa: F401  (registers .plasma on DataArray/Dataset)
-from plasma_plots.analysis import (BranchFit, fit_dispersion_branches,
-                                   power_spectrum)
+from plasma_plots.analysis import BranchFit, fit_dispersion_branches, power_spectrum
 
 
 def multi_branch_field(
@@ -47,9 +46,7 @@ def multi_branch_field(
 
 def test_fit_dispersion_branches_recovers_a_single_branch_velocity():
     spectrum = power_spectrum(multi_branch_field([1.0]))
-    (branch,) = fit_dispersion_branches(
-        spectrum, n_branches=1, noise_level=0.3, order=3
-    )
+    (branch,) = fit_dispersion_branches(spectrum, n_branches=1, noise_level=0.3, order=3)
     assert isinstance(branch, BranchFit)
     assert branch.velocity == pytest.approx(1.0, rel=0.01)
     assert branch.k.shape == branch.omega.shape
@@ -58,9 +55,7 @@ def test_fit_dispersion_branches_recovers_a_single_branch_velocity():
 
 def test_fit_dispersion_branches_separates_two_branches_by_increasing_omega():
     spectrum = power_spectrum(multi_branch_field([0.9, 2.2]))
-    slow, fast = fit_dispersion_branches(
-        spectrum, n_branches=2, k_range=(5.0, 15.0), noise_level=0.3, order=3
-    )
+    slow, fast = fit_dispersion_branches(spectrum, n_branches=2, k_range=(5.0, 15.0), noise_level=0.3, order=3)
     assert slow.velocity == pytest.approx(0.9, rel=0.02)
     assert fast.velocity == pytest.approx(2.2, rel=0.02)
 
@@ -86,10 +81,6 @@ def test_fit_dispersion_branches_raises_when_nothing_matches():
 def test_accessor_fit_branches_matches_the_function():
     field = multi_branch_field([1.0])
     spectrum = field.plasma.analysis.dispersion()
-    via_accessor = spectrum.plasma.analysis.fit_branches(
-        n_branches=1, noise_level=0.3, order=3
-    )
-    via_function = fit_dispersion_branches(
-        spectrum, n_branches=1, noise_level=0.3, order=3
-    )
+    via_accessor = spectrum.plasma.analysis.fit_branches(n_branches=1, noise_level=0.3, order=3)
+    via_function = fit_dispersion_branches(spectrum, n_branches=1, noise_level=0.3, order=3)
     assert via_accessor[0].velocity == pytest.approx(via_function[0].velocity)

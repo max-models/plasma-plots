@@ -101,9 +101,7 @@ save(
 gallery = ["precise_QA", "precise_QH", "NCSX", "HELIOTRON", "ESTELL", "DSHAPE"]
 with plasma_plots.figure(2, 3, figsize=(12, 8)) as fig:
     for ax, name in zip(fig, gallery):
-        plane = plasma_plots.from_desc(
-            example(name), ["|B|", "theta_PEST"], rho=9, theta=64, zeta=[0.0]
-        )
+        plane = plasma_plots.from_desc(example(name), ["|B|", "theta_PEST"], rho=9, theta=64, zeta=[0.0])
         plane["|B|"].plasma.plot.slice(
             coords="physical",
             plane="RZ",
@@ -120,22 +118,16 @@ save(fig, "desc_gallery.png")
 # =============================================================================
 qa, qh = example("precise_QA"), example("precise_QH")
 surfaces = {
-    name: plasma_plots.from_desc(
-        eq, "|B|", rho=[0.5, 1.0], theta=64, zeta=64, sfl="pest"
-    )
+    name: plasma_plots.from_desc(eq, "|B|", rho=[0.5, 1.0], theta=64, zeta=64, sfl="pest")
     for name, eq in (("precise_QA", qa), ("precise_QH", qh))
 }
 with plasma_plots.figure(1, 2, figsize=(12, 4.5)) as fig:
     for ax, (name, surface) in zip(fig, surfaces.items()):
-        surface["|B|"].plasma.plot.slice(
-            x="zeta", y="theta_P", rho=1.0, levels=12, title=name, ax=ax
-        )
+        surface["|B|"].plasma.plot.slice(x="zeta", y="theta_P", rho=1.0, levels=12, title=name, ax=ax)
 save(fig, "desc_surfaces.png")
 with plasma_plots.figure(1, 2, figsize=(12, 4.5)) as fig:
     for ax, (name, surface) in zip(fig, surfaces.items()):
-        surface["|B|"].plasma.plot.mode_map(
-            rho=1.0, m_range=(-4, 4), n_range=(-16, 16), ax=ax
-        ).ax.set_title(name)
+        surface["|B|"].plasma.plot.mode_map(rho=1.0, m_range=(-4, 4), n_range=(-16, 16), ax=ax).ax.set_title(name)
 save(fig, "desc_mode_maps.png")
 
 # =============================================================================
@@ -147,15 +139,11 @@ with plasma_plots.figure(2, 2) as fig:
     ev.p.plasma.plot.lineout(ax=fig[1])
     # singular on the axis
     ev.D_Mercier.sel(rho=slice(0.1, None)).plasma.plot.lineout(ax=fig[2])
-    ev["|B|"].plasma.analysis.surface_average(
-        jacobian=ev["sqrt(g)"]
-    ).plasma.plot.lineout(ax=fig[3])
+    ev["|B|"].plasma.analysis.surface_average(jacobian=ev["sqrt(g)"]).plasma.plot.lineout(ax=fig[3])
 save(fig, "desc_profiles.png")
 
 dshape = example("DSHAPE")
-tok = plasma_plots.from_desc(
-    dshape, ["|B|", "iota", "theta_PEST"], rho=17, theta=64, zeta=[0.0]
-)
+tok = plasma_plots.from_desc(dshape, ["|B|", "iota", "theta_PEST"], rho=17, theta=64, zeta=[0.0])
 q = (1 / tok.iota).rename("q")
 q.attrs = {"label": "$q$", "nfp": 1}
 with plasma_plots.figure(1, 2) as fig:
@@ -172,13 +160,9 @@ save(fig, "desc_tokamak.png")
 # =============================================================================
 # Fields: the current density in W7-X's bean-shaped plane
 # =============================================================================
-fields = plasma_plots.from_desc(
-    w7x, ["|J|", "theta_PEST"], rho=np.linspace(0.05, 1, 20), theta=64, zeta=24
-)
+fields = plasma_plots.from_desc(w7x, ["|J|", "theta_PEST"], rho=np.linspace(0.05, 1, 20), theta=64, zeta=24)
 save(
-    fields["|J|"].plasma.plot.slice(
-        coords="physical", plane="RZ", zeta=0.0, overlays=lines
-    ),
+    fields["|J|"].plasma.plot.slice(coords="physical", plane="RZ", zeta=0.0, overlays=lines),
     "desc_current.png",
 )
 
@@ -186,19 +170,10 @@ save(
 # Numbers: plasma-plots' integrals against DESC's own
 # =============================================================================
 fine = plasma_plots.from_desc(w7x, ["|B|", "sqrt(g)", "V"], rho=33, theta=64, zeta=48)
-volume = (
-    float(volume_integral(xr.ones_like(fine["sqrt(g)"]), jacobian=fine["sqrt(g)"]))
-    * w7x.NFP
-)
+volume = float(volume_integral(xr.ones_like(fine["sqrt(g)"]), jacobian=fine["sqrt(g)"])) * w7x.NFP
 numerical = float(volume_integral(xr.ones_like(fine["|B|"]))) * w7x.NFP
-average = float(
-    surface_average(
-        fine["|B|"].sel(rho=[0.5]), jacobian=fine["sqrt(g)"].sel(rho=[0.5])
-    ).squeeze()
-)
-desc_average = w7x.compute(
-    "<|B|>", grid=LinearGrid(rho=np.array([0.5]), M=32, N=24, NFP=w7x.NFP)
-)["<|B|>"][0]
+average = float(surface_average(fine["|B|"].sel(rho=[0.5]), jacobian=fine["sqrt(g)"].sel(rho=[0.5])).squeeze())
+desc_average = w7x.compute("<|B|>", grid=LinearGrid(rho=np.array([0.5]), M=32, N=24, NFP=w7x.NFP))["<|B|>"][0]
 rows = [  # on 33 x 64 x 48 points
     ("W7-X volume, DESC's own V", float(fine.V)),
     ("volume_integral(1, jacobian=sqrt(g)) * nfp", volume),
@@ -249,9 +224,7 @@ try:
         zeta=np.linspace(0, 2 * np.pi, 32 * w7x.NFP, endpoint=False),
     )
     shot(
-        torus["|B|"].plasma.plot.slices_3d(
-            cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}
-        ),
+        torus["|B|"].plasma.plot.slices_3d(cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}),
         "desc_3d_cutaway.png",
         zoom=1.2,
     )
@@ -286,9 +259,7 @@ try:
         "plotly_desc_poloidal_plane",
     )
     save_plotly(
-        surfaces["precise_QH"]["|B|"].plasma.plot.slice(
-            x="zeta", y="theta_P", rho=1.0, levels=12, backend="plotly"
-        ),
+        surfaces["precise_QH"]["|B|"].plasma.plot.slice(x="zeta", y="theta_P", rho=1.0, levels=12, backend="plotly"),
         "plotly_desc_qh_surface",
     )
     save_plotly(

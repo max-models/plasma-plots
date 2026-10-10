@@ -198,9 +198,7 @@ save(fig, "gvec_tokamak.png")
 # =============================================================================
 with plasma_plots.figure(1, 2) as fig:
     ev.mod_B.plasma.plot.slice(x="zeta", y="theta", rho=0.5, levels=12, ax=fig[0])
-    boozer.mod_B.plasma.plot.slice(
-        x="zeta_B", y="theta_B", rho=0.5, levels=12, ax=fig[1]
-    )
+    boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5, levels=12, ax=fig[1])
 save(fig, "gvec_surfaces.png")
 save(
     boozer.mod_B.plasma.plot.slice(
@@ -240,11 +238,7 @@ save(fig, "gvec_profiles.png")
 # Numbers: the volume from GVEC's Jacobian on its integration points, against
 # GVEC's own
 # =============================================================================
-gauss = plasma_plots.from_gvec(
-    stellarator.evaluate(
-        "mod_B", "Jac", "pos", "N_FP", rho="int", theta="int", zeta="int"
-    )
-)
+gauss = plasma_plots.from_gvec(stellarator.evaluate("mod_B", "Jac", "pos", "N_FP", rho="int", theta="int", zeta="int"))
 volume = float(volume_integral(xr.ones_like(gauss.Jac), jacobian=gauss.Jac)) * gauss.nfp
 numerical = float(volume_integral(xr.ones_like(ev.mod_B))) * ev.nfp
 gvec_volume = float(stellarator.evaluate("V", rho=[1.0]).V)
@@ -301,9 +295,7 @@ try:
         "gvec_3d_surface.png",
     )
     shot(
-        torus.mod_B.plasma.plot.slices_3d(
-            cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}
-        ),
+        torus.mod_B.plasma.plot.slices_3d(cuts={"rho": [0.5], "zeta": [0.0, np.pi / 2, np.pi]}),
         "gvec_3d_cutaway.png",
     )
     axis = torus.isel(rho=0, theta=0, zeta=0)
@@ -389,9 +381,7 @@ try:
         "plotly_gvec_poloidal_plane",
     )
     save_plotly(
-        boozer.mod_B.plasma.plot.slice(
-            x="zeta_B", y="theta_B", rho=0.5, levels=12, backend="plotly"
-        ),
+        boozer.mod_B.plasma.plot.slice(x="zeta_B", y="theta_B", rho=0.5, levels=12, backend="plotly"),
         "plotly_gvec_boozer_surface",
     )
     save_plotly(

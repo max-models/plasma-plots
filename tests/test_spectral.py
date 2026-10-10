@@ -8,8 +8,7 @@ import pytest
 import xarray as xr
 
 import plasma_plots  # noqa: F401  (registers the accessors)
-from plasma_plots.spectral import (fft, filter_time, fwhm_window,
-                                   inverse_time_fft, time_fft)
+from plasma_plots.spectral import fft, filter_time, fwhm_window, inverse_time_fft, time_fft
 
 
 def signal(n=400, bins=5.0, dt=0.5):
@@ -31,17 +30,13 @@ def signal(n=400, bins=5.0, dt=0.5):
 @pytest.mark.parametrize("n", [399, 400])
 def test_normalization_and_inverse_for_odd_even_records(n):
     data, _ = signal(n=n)
-    data = data.assign_coords(
-        X=("eta1", data.eta1.values * 2), moving=("t", data.t.values + 1)
-    )
+    data = data.assign_coords(X=("eta1", data.eta1.values * 2), moving=("t", data.t.values + 1))
     spectrum = time_fft(data)
     assert spectrum.coefficients.dims == ("omega", "eta1")
     assert "X" in spectrum.coords and "moving" not in spectrum.coords
     assert spectrum.attrs["run"] == "synthetic"
     assert spectrum.power.attrs["units"] == "(m/s)^2"
-    np.testing.assert_allclose(
-        spectrum.power.sum("omega"), (data**2).mean("t"), rtol=1e-12
-    )
+    np.testing.assert_allclose(spectrum.power.sum("omega"), (data**2).mean("t"), rtol=1e-12)
     xr.testing.assert_allclose(inverse_time_fft(spectrum.coefficients, data), data)
 
 
@@ -87,29 +82,19 @@ def test_off_bin_padding_migrated_from_tae_branch(bins):
 def test_component_bands_and_nonleading_time_axis():
     first, main = signal()
     second, second_main = signal(bins=8)
-    data = xr.concat(
-        [first, second, xr.zeros_like(first), xr.ones_like(first)], dim="component"
-    )
-    data = data.assign_coords(
-        component=["radial", "poloidal", "zero", "constant"]
-    ).transpose("eta1", "component", "t")
+    data = xr.concat([first, second, xr.zeros_like(first), xr.ones_like(first)], dim="component")
+    data = data.assign_coords(component=["radial", "poloidal", "zero", "constant"]).transpose("eta1", "component", "t")
     result = filter_time(data)
     assert result.filtered.dims == data.dims
     assert result.spectrum.power.dims == ("omega", "component")
     np.testing.assert_array_equal(result.spectrum.idx_dominant, [5, 8, -1, -1])
     np.testing.assert_array_equal(result.spectrum.has_peak, [True, True, False, False])
-    np.testing.assert_allclose(
-        result.filtered.sel(component="radial").T, main, atol=1e-14
-    )
-    np.testing.assert_allclose(
-        result.filtered.sel(component="poloidal").T, second_main, atol=1e-14
-    )
+    np.testing.assert_allclose(result.filtered.sel(component="radial").T, main, atol=1e-14)
+    np.testing.assert_allclose(result.filtered.sel(component="poloidal").T, second_main, atol=1e-14)
     assert not result.filtered.sel(component=["zero", "constant"]).values.any()
     assert np.isnan(result.spectrum.dominant_frequency.sel(component="zero"))
     # A shared band can also be selected explicitly across components.
-    assert filter_time(data, dims=("eta1", "component")).spectrum.power.dims == (
-        "omega",
-    )
+    assert filter_time(data, dims=("eta1", "component")).spectrum.power.dims == ("omega",)
     assert filter_time(data, dims=()).spectrum.power.dims == (
         "omega",
         "eta1",
@@ -133,19 +118,11 @@ def test_hann_window_detrending_and_complex_spatial_fft():
     data, _ = signal()
     transformed = time_fft(data, detrend=True, window="hann")
     window = 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(400) / 400)
-    expected = (data - data.mean("t")) * xr.DataArray(
-        window, dims="t", coords={"t": data.t}
-    )
-    np.testing.assert_allclose(
-        transformed.power.sum("omega"), (expected**2).mean("t"), atol=1e-14
-    )
-    xr.testing.assert_allclose(
-        inverse_time_fft(transformed.coefficients, data), expected
-    )
+    expected = (data - data.mean("t")) * xr.DataArray(window, dims="t", coords={"t": data.t})
+    np.testing.assert_allclose(transformed.power.sum("omega"), (expected**2).mean("t"), atol=1e-14)
+    xr.testing.assert_allclose(inverse_time_fft(transformed.coefficients, data), expected)
     theta = np.arange(64) / 64
-    wave = xr.DataArray(
-        np.exp(2j * np.pi * 11 * theta), dims="eta2", coords={"eta2": theta}
-    )
+    wave = xr.DataArray(np.exp(2j * np.pi * 11 * theta), dims="eta2", coords={"eta2": theta})
     modes = fft(wave, dim="eta2")
     peak = int(abs(modes).argmax(dim="k_eta2"))
     assert float(modes.k_eta2[peak]) == pytest.approx(2 * np.pi * 11)
@@ -159,14 +136,10 @@ def test_seconds_units_and_saved_sample_spacing():
     spectrum = time_fft(data.isel(t=slice(None, None, 2)))
     assert spectrum.omega.attrs["units"] == "rad / s"
     assert spectrum.attrs["sample_spacing"] == pytest.approx(4e-9)
-    assert spectrum.attrs["frequency_resolution"] == pytest.approx(
-        2 * np.pi / (400 * 2e-9)
-    )
+    assert spectrum.attrs["frequency_resolution"] == pytest.approx(2 * np.pi / (400 * 2e-9))
 
 
-@pytest.mark.parametrize(
-    "times", [[0], [0, 1, 1], [2, 1, 0], [0, 1, 3], [0, np.nan], [0, 1e-9, 3e-9]]
-)
+@pytest.mark.parametrize("times", [[0], [0, 1, 1], [2, 1, 0], [0, 1, 3], [0, np.nan], [0, 1e-9, 3e-9]])
 def test_invalid_time_grids(times):
     with pytest.raises(ValueError):
         time_fft(xr.DataArray(np.ones(len(times)), dims="t", coords={"t": times}))

@@ -21,9 +21,7 @@ from plasma_plots.tikz_backend import to_tikz  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore:The input coordinates to pcolormesh")
 
-needs_pdflatex = pytest.mark.skipif(
-    shutil.which("pdflatex") is None, reason="pdflatex not installed"
-)
+needs_pdflatex = pytest.mark.skipif(shutil.which("pdflatex") is None, reason="pdflatex not installed")
 # plots that are not still figures: they have no TikZ version
 MOVING = {
     "animation",
@@ -58,9 +56,7 @@ def test_every_still_plot_converts(name):
     assert result.ax is None and result.artists == []
     tikz = result.fig.generate_tikz()
     assert "\\begin{axis}" in tikz
-    assert (
-        set(plt.get_fignums()) == before
-    ), "the Matplotlib figures drawn for the conversion are closed"
+    assert set(plt.get_fignums()) == before, "the Matplotlib figures drawn for the conversion are closed"
 
 
 @pytest.mark.parametrize("name", sorted(MOVING))
@@ -78,9 +74,7 @@ def test_fits_and_data_are_kept():
 
 
 def test_a_slice_is_an_image_with_a_colorbar(tmp_path):
-    result = torus_field().plasma.plot.slice(
-        x="eta1", y="eta2", t=-1, eta3=0, backend="tikz"
-    )
+    result = torus_field().plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, backend="tikz")
     tikz = result.fig.generate_tikz()
     assert len(result.fig.axes) == 2, "the slice and its colorbar"
     assert tikz.count("graphics[") == 2
@@ -151,9 +145,7 @@ def test_other_mpi_ranks_skip_the_conversion(monkeypatch):
 
 
 @needs_pdflatex
-@pytest.mark.parametrize(
-    "name", ["timeseries", "slice_physical", "dispersion", "panels", "ds_scatter"]
-)
+@pytest.mark.parametrize("name", ["timeseries", "slice_physical", "dispersion", "panels", "ds_scatter"])
 def test_figures_compile(name, tmp_path):
     result = CASES[name](backend="tikz")
     result.save(tmp_path / f"{name}.pdf")

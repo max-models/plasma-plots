@@ -61,9 +61,7 @@ def faddeeva(z):
     upper = np.where(lower, -z, z)
     denominator = _LENGTH - 1j * upper
     ratio = (_LENGTH + 1j * upper) / denominator
-    w = 2 * np.polyval(_COEFFICIENTS, ratio) / denominator**2 + 1 / (
-        _SQRT_PI * denominator
-    )
+    w = 2 * np.polyval(_COEFFICIENTS, ratio) / denominator**2 + 1 / (_SQRT_PI * denominator)
     with np.errstate(over="ignore", invalid="ignore"):
         w = np.where(lower, 2 * np.exp(-(z**2)) - w, w)
     return _out(w)

@@ -190,9 +190,7 @@ def with_backend(method):
                 return result
             ax = arguments.get("ax", (arguments.get("options") or {}).get("ax"))
             if ax is not None:
-                raise TypeError(
-                    f"ax= draws into a Matplotlib axes; it cannot be combined with backend={backend!r}"
-                )
+                raise TypeError(f"ax= draws into a Matplotlib axes; it cannot be combined with backend={backend!r}")
             if backend == "tikz":
                 from .tikz_backend import _drawn_as_tikz
 
@@ -244,9 +242,7 @@ def _drawn_as_plotly(draw):
 def _plotly_result(figure, result):
     from .plotting import PlotResult
 
-    return PlotResult(
-        figure, None, list(figure.data), list(result.fit_results), dict(result.data)
-    )
+    return PlotResult(figure, None, list(figure.data), list(result.fit_results), dict(result.data))
 
 
 def _is_plotly(figure) -> bool:
@@ -440,10 +436,7 @@ def plotly_text(text) -> str:
     parts = re.split(r"(?<!\\)\$", str(text))
     if len(parts) % 2 == 0:  # an unmatched $: not mathtext
         parts = [str(text)]
-    out = [
-        _math(part) if i % 2 else _escape(part.replace(r"\$", "$"))
-        for i, part in enumerate(parts)
-    ]
+    out = [_math(part) if i % 2 else _escape(part.replace(r"\$", "$")) for i, part in enumerate(parts)]
     return "".join(out).replace("\n", "<br>")
 
 
@@ -556,9 +549,7 @@ def _collection_marker(collection):
         return "o"
     vertices = paths[0].vertices
     for name, candidate, _ in _marker_paths():
-        if candidate.shape == vertices.shape and np.allclose(
-            candidate, vertices, atol=1e-6
-        ):
+        if candidate.shape == vertices.shape and np.allclose(candidate, vertices, atol=1e-6):
             return name
     return "o"
 
@@ -671,9 +662,7 @@ class _FigureConverter:
                     if c.kind == "2d"
                     and c.parent is None
                     and c.ax.get_shared_x_axes().joined(c.ax, ax)
-                    and np.allclose(
-                        c.ax.get_position().bounds, ax.get_position().bounds
-                    )
+                    and np.allclose(c.ax.get_position().bounds, ax.get_position().bounds)
                 ),
                 None,
             )
@@ -695,22 +684,13 @@ class _FigureConverter:
     def convert(self):
         self.axes, colorbars = self._classify()
         self.native = (
-            sum(1 for a in self.axes if a.parent is None) == 1
-            and self.axes[0].kind == "2d"
-            if self.axes
-            else True
+            sum(1 for a in self.axes if a.parent is None) == 1 and self.axes[0].kind == "2d" if self.axes else True
         )
-        self.margin = (
-            {"l": 70, "r": 30, "t": 60, "b": 55}
-            if self.native
-            else {"l": 8, "r": 8, "t": 8, "b": 8}
-        )
+        self.margin = {"l": 70, "r": 30, "t": 60, "b": 55} if self.native else {"l": 8, "r": 8, "t": 8, "b": 8}
         # left to right, as Matplotlib placed them (Plotly stacks a lone axes' colorbars in this order)
         for colorbar in sorted(colorbars, key=lambda c: c.ax.get_position().x0):
             self._coloraxis(colorbar.mappable, colorbar)
-        suptitle = (
-            self.figure.get_suptitle() if hasattr(self.figure, "get_suptitle") else ""
-        )
+        suptitle = self.figure.get_suptitle() if hasattr(self.figure, "get_suptitle") else ""
         for axes in self.axes:
             self._axes_layout(axes)
             self._artists(axes)
@@ -724,8 +704,7 @@ class _FigureConverter:
             template="plotly_white",
             plot_bgcolor="white",
             hovermode="closest",
-            showlegend=any(t.get("showlegend") for t in self.data)
-            or any(s.get("showlegend") for s in self.shapes),
+            showlegend=any(t.get("showlegend") for t in self.data) or any(s.get("showlegend") for s in self.shapes),
             meta={"converted_from": "matplotlib"},
         )
         if self.shapes:
@@ -739,11 +718,7 @@ class _FigureConverter:
     def _axes_layout(self, axes):
         ax = axes.ax
         if axes.kind == "3d":
-            domain_x, domain_y = (
-                self._paper(ax.get_position().bounds)
-                if not self.native
-                else ([0, 1], [0, 1])
-            )
+            domain_x, domain_y = self._paper(ax.get_position().bounds) if not self.native else ([0, 1], [0, 1])
             self.layout[axes.scene] = {
                 "domain": {"x": _clip(domain_x), "y": _clip(domain_y)},
                 "xaxis": {"title": {"text": plotly_text(ax.get_xlabel())}},
@@ -760,13 +735,9 @@ class _FigureConverter:
             ticks="outside",
             zeroline=False,
         )
-        y = dict(
-            common, title={"text": plotly_text(ax.get_ylabel())}, **self._scale(ax, "y")
-        )
+        y = dict(common, title={"text": plotly_text(ax.get_ylabel())}, **self._scale(ax, "y"))
         y["showgrid"] = _grid(ax.yaxis)
-        if (
-            axes.parent is not None
-        ):  # a twin: its own y axis on the right, over the parent's
+        if axes.parent is not None:  # a twin: its own y axis on the right, over the parent's
             y.update(
                 overlaying=axes.parent.yref,
                 side="right",
@@ -777,9 +748,7 @@ class _FigureConverter:
             )  # its own ticks, not synced to the parent's grid
             self.layout[axes.yaxis] = y
             return
-        x = dict(
-            common, title={"text": plotly_text(ax.get_xlabel())}, **self._scale(ax, "x")
-        )
+        x = dict(common, title={"text": plotly_text(ax.get_xlabel())}, **self._scale(ax, "x"))
         x["showgrid"] = _grid(ax.xaxis)
         twin = any(a.parent is axes for a in self.axes)
         if twin:
@@ -794,11 +763,7 @@ class _FigureConverter:
             x["constrain"] = y["constrain"] = "domain"
         # sharex/sharey: zooming one panel zooms the others
         for other in self.axes:
-            if (
-                other.index >= axes.index
-                or other.parent is not None
-                or other.kind != "2d"
-            ):
+            if other.index >= axes.index or other.parent is not None or other.kind != "2d":
                 continue
             if "matches" not in x and ax.get_shared_x_axes().joined(ax, other.ax):
                 x["matches"] = other.xref
@@ -822,9 +787,7 @@ class _FigureConverter:
             out["type"] = "log"
             if lo > 0 and hi > 0:
                 out["range"] = [float(np.log10(lo)), float(np.log10(hi))]
-                if (
-                    abs(out["range"][1] - out["range"][0]) >= 1
-                ):  # label the decades only, as Matplotlib
+                if abs(out["range"][1] - out["range"][0]) >= 1:  # label the decades only, as Matplotlib
                     out["dtick"] = 1
         else:
             if scale != "linear":
@@ -911,9 +874,7 @@ class _FigureConverter:
         for name, _, other_colorbar, other_key in self.coloraxes:
             if colorbar is None and other_key == key and other_colorbar is not None:
                 return name
-        name = (
-            "coloraxis" if not self.coloraxes else f"coloraxis{len(self.coloraxes) + 1}"
-        )
+        name = "coloraxis" if not self.coloraxes else f"coloraxis{len(self.coloraxes) + 1}"
         self.coloraxes.append((name, mappable, colorbar, key))
         return name
 
@@ -938,9 +899,7 @@ class _FigureConverter:
                 axis["cmax"] = float(norm.vmax)
             if colorbar is not None:
                 horizontal = colorbar.orientation == "horizontal"
-                label = (
-                    colorbar.ax.get_xlabel() if horizontal else colorbar.ax.get_ylabel()
-                )
+                label = colorbar.ax.get_xlabel() if horizontal else colorbar.ax.get_ylabel()
                 bar = {
                     "title": {"text": plotly_text(label), "side": "right"},
                     "thickness": 14,
@@ -959,18 +918,13 @@ class _FigureConverter:
                         yref="paper",
                     )
                 else:
-                    bar.update(
-                        x=1.02
-                        + 0.14
-                        * sum(1 for c in self.coloraxes[:position] if c[2] is not None)
-                    )
+                    bar.update(x=1.02 + 0.14 * sum(1 for c in self.coloraxes[:position] if c[2] is not None))
                 axis["colorbar"] = bar
             self.layout[name] = axis
 
     # --- artists ------------------------------------------------------------------------------
     def _artists(self, axes):
-        from matplotlib.collections import (LineCollection, PathCollection,
-                                            QuadMesh)
+        from matplotlib.collections import LineCollection, PathCollection, QuadMesh
         from matplotlib.contour import ContourSet
         from matplotlib.legend import Legend
         from matplotlib.lines import Line2D
@@ -980,9 +934,7 @@ class _FigureConverter:
 
         ax = axes.ax
         legend = ax.get_legend()
-        self._legend_labels = (
-            {t.get_text() for t in legend.get_texts()} if legend is not None else set()
-        )
+        self._legend_labels = {t.get_text() for t in legend.get_texts()} if legend is not None else set()
         if legend is not None and self._legend_labels:
             self._legend(axes)
         skip = {
@@ -998,9 +950,7 @@ class _FigureConverter:
         if axes.kind == "3d":
             skip |= {ax.zaxis}
         children = [c for c in ax.get_children() if c not in skip and c.get_visible()]
-        children.sort(
-            key=lambda c: c.get_zorder()
-        )  # stable: equal zorders keep their order
+        children.sort(key=lambda c: c.get_zorder())  # stable: equal zorders keep their order
         self._bins = {}  # colored line collections of this axes, pooled per coloraxis
         for artist in children:
             if axes.kind == "3d":
@@ -1046,9 +996,7 @@ class _FigureConverter:
         colorbars = any(colorbar is not None for _, _, colorbar, _ in self.coloraxes)
         twins = any(a.parent is owner for a in self.axes)
         if self.native and not colorbars and not twins:
-            self.layout[name] = {
-                "bgcolor": "rgba(255, 255, 255, 0.8)"
-            }  # Plotly's place, right of the axes
+            self.layout[name] = {"bgcolor": "rgba(255, 255, 255, 0.8)"}  # Plotly's place, right of the axes
             return
         if self.native:
             x, y = 0.99, 0.99
@@ -1074,9 +1022,7 @@ class _FigureConverter:
     def _shown(self, axes, label) -> dict:
         """The legend options of a trace with this Matplotlib label."""
         label = label or ""
-        visible = (
-            bool(label) and not label.startswith("_") and label in self._legend_labels
-        )
+        visible = bool(label) and not label.startswith("_") and label in self._legend_labels
         out = {
             "name": plotly_text(label) if label and not label.startswith("_") else "",
             "showlegend": visible,
@@ -1107,9 +1053,7 @@ class _FigureConverter:
                 )
                 return
             # axhline / axvline: a shape spanning the axes, whatever the zoom
-            xs, ys = np.asarray(line.get_xdata(), float), np.asarray(
-                line.get_ydata(), float
-            )
+            xs, ys = np.asarray(line.get_xdata(), float), np.asarray(line.get_ydata(), float)
             if y_data:  # horizontal
                 shape = dict(
                     type="line",
@@ -1153,24 +1097,15 @@ class _FigureConverter:
     @staticmethod
     def _line_style(line, color, width, dash):
         linestyle = line.get_linestyle()
-        has_line = (
-            linestyle not in ("None", "", " ", "none") and line.get_linewidth() > 0
-        )
+        has_line = linestyle not in ("None", "", " ", "none") and line.get_linewidth() > 0
         marker = line.get_marker()
         has_marker = marker not in (None, "None", "", " ", "none")
-        mode = (
-            "+".join(
-                m for m, on in (("lines", has_line), ("markers", has_marker)) if on
-            )
-            or "lines"
-        )
+        mode = "+".join(m for m, on in (("lines", has_line), ("markers", has_marker)) if on) or "lines"
         trace = {"mode": mode}
         if has_line:
             trace["line"] = {"color": color, "width": width, "dash": dash}
         if has_marker:
-            symbol = (
-                _MARKERS.get(marker, "circle") if isinstance(marker, str) else "circle"
-            )
+            symbol = _MARKERS.get(marker, "circle") if isinstance(marker, str) else "circle"
             size = line.get_markersize() * PX_PER_PT * (0.5 if marker == "." else 1.0)
             face = line.get_markerfacecolor()
             edge = _rgba(line.get_markeredgecolor(), line.get_alpha())
@@ -1208,24 +1143,18 @@ class _FigureConverter:
         return trace
 
     def _mesh(self, axes, mesh):
-        coordinates = np.asarray(
-            mesh.get_coordinates(), dtype=float
-        )  # (M + 1, N + 1, 2) corners
+        coordinates = np.asarray(mesh.get_coordinates(), dtype=float)  # (M + 1, N + 1, 2) corners
         values = _values(mesh.get_array())
         if values.ndim == 1:
             values = values.reshape(coordinates.shape[0] - 1, coordinates.shape[1] - 1)
         alpha = mesh.get_alpha()
         coloraxis = self._coloraxis(mesh)
-        if (
-            alpha is not None and alpha == 0
-        ):  # fill=False: only its colorbar (and contour lines) show
+        if alpha is not None and alpha == 0:  # fill=False: only its colorbar (and contour lines) show
             self._colorbar_holder(axes, coloraxis)
             return
         X, Y = coordinates[..., 0], coordinates[..., 1]
         hover = self._hover_template(axes, coloraxis, value="%{z:.4g}")
-        if np.allclose(X, X[:, :1]) and np.allclose(
-            Y, Y[:1, :]
-        ):  # x along rows: the "ij" grids of plot_slice
+        if np.allclose(X, X[:, :1]) and np.allclose(Y, Y[:1, :]):  # x along rows: the "ij" grids of plot_slice
             x_edges, y_edges, z = X[:, 0], Y[0, :], values.T
         elif np.allclose(X, X[:1, :]) and np.allclose(Y, Y[:, :1]):
             x_edges, y_edges, z = X[0, :], Y[:, 0], values
@@ -1248,16 +1177,10 @@ class _FigureConverter:
 
     def _hover_template(self, axes, coloraxis, value):
         ax = axes.ax
-        colorbar = next(
-            (c for name, _, c, _ in self.coloraxes if name == coloraxis), None
-        )
+        colorbar = next((c for name, _, c, _ in self.coloraxes if name == coloraxis), None)
         label = ""
         if colorbar is not None:
-            label = (
-                colorbar.ax.get_xlabel()
-                if colorbar.orientation == "horizontal"
-                else colorbar.ax.get_ylabel()
-            )
+            label = colorbar.ax.get_xlabel() if colorbar.orientation == "horizontal" else colorbar.ax.get_ylabel()
         xlabel, ylabel = (
             _hover_label(ax.get_xlabel()) or "x",
             _hover_label(ax.get_ylabel()) or "y",
@@ -1293,9 +1216,7 @@ class _FigureConverter:
         target.set_ylim(y0, y1)
         buffer = io.BytesIO()
         raster.savefig(buffer, format="png", transparent=True, dpi=100)
-        source = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode(
-            "ascii"
-        )
+        source = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
         self.images.append(
             dict(
                 source=source,
@@ -1326,9 +1247,7 @@ class _FigureConverter:
                     "opacity": 0,
                     "size": 6,
                 },
-                hovertemplate=self._hover_template(
-                    axes, coloraxis, value="%{marker.color:.4g}"
-                ),
+                hovertemplate=self._hover_template(axes, coloraxis, value="%{marker.color:.4g}"),
                 showlegend=False,
                 name="",
                 **self._refs(axes),
@@ -1353,9 +1272,7 @@ class _FigureConverter:
 
     def _contours(self, axes, contours):
         if contours.filled:
-            warnings.warn(
-                "filled contours are not converted", ConversionWarning, stacklevel=4
-            )
+            warnings.warn("filled contours are not converted", ConversionWarning, stacklevel=4)
             return
         colors = contours.get_edgecolor()
         widths = np.atleast_1d(contours.get_linewidth())
@@ -1369,11 +1286,7 @@ class _FigureConverter:
                     ys.append(segment[:, 1])
             color = _rgba(colors[i % len(colors)]) if len(colors) else "black"
             style = styles[i % len(styles)] if len(styles) else None
-            dash = (
-                _dash_pattern(style)
-                if isinstance(style, tuple)
-                else _DASHES.get(style, "solid")
-            )
+            dash = _dash_pattern(style) if isinstance(style, tuple) else _DASHES.get(style, "solid")
             self.data.append(
                 dict(
                     type="scatter",
@@ -1393,11 +1306,7 @@ class _FigureConverter:
             )
 
     def _scatter(self, axes, collection):
-        if not all(
-            collection.get_offset_transform().contains_branch_seperately(
-                axes.ax.transData
-            )
-        ):
+        if not all(collection.get_offset_transform().contains_branch_seperately(axes.ax.transData)):
             warnings.warn(
                 "a scatter outside data coordinates is not converted",
                 ConversionWarning,
@@ -1410,9 +1319,7 @@ class _FigureConverter:
             type="scattergl" if len(offsets) > 20000 else "scatter",
             mode="markers",
             x=offsets[:, 0] if len(offsets) else [None],
-            y=(
-                offsets[:, 1] if len(offsets) else [None]
-            ),  # a legend-only entry needs a point
+            y=(offsets[:, 1] if len(offsets) else [None]),  # a legend-only entry needs a point
             marker=marker,
             **self._shown(axes, collection.get_label()),
             **self._refs(axes),
@@ -1431,24 +1338,16 @@ class _FigureConverter:
         faces = collection.get_facecolors()
         edges = collection.get_edgecolors()
         if array is not None:
-            marker.update(
-                color=_values(array).ravel(), coloraxis=self._coloraxis(collection)
-            )
+            marker.update(color=_values(array).ravel(), coloraxis=self._coloraxis(collection))
             if alpha is not None:
                 marker["opacity"] = float(alpha)
         else:
             colors = faces if len(faces) else edges
-            marker["color"] = (
-                _rgba(colors[0]) if len(colors) == 1 else [_rgba(c) for c in colors]
-            )
+            marker["color"] = _rgba(colors[0]) if len(colors) == 1 else [_rgba(c) for c in colors]
         if symbol in _LINE_MARKERS:
             line_colors = edges if len(edges) else faces
             marker["line"] = {
-                "color": (
-                    _rgba(line_colors[0])
-                    if len(line_colors)
-                    else marker.get("color", "black")
-                ),
+                "color": (_rgba(line_colors[0]) if len(line_colors) else marker.get("color", "black")),
                 "width": max(float(widths[0]) * PX_PER_PT, 1.0),
             }
             if array is not None:
@@ -1491,8 +1390,7 @@ class _FigureConverter:
             coloraxis,
             {
                 "cmap": collection.get_cmap(),
-                "width": float(np.atleast_1d(collection.get_linewidths())[0])
-                * PX_PER_PT,
+                "width": float(np.atleast_1d(collection.get_linewidths())[0]) * PX_PER_PT,
                 "segments": [[] for _ in range(self._BINS)],
             },
         )
@@ -1654,13 +1552,9 @@ class _FigureConverter:
                 )
         else:
             x, y = text.get_position()
-            x_data, y_data = text.get_transform().contains_branch_seperately(
-                ax.transData
-            )
+            x_data, y_data = text.get_transform().contains_branch_seperately(ax.transData)
         yref = axes.yref
-        ha = {"left": "left", "center": "center", "right": "right"}.get(
-            text.get_horizontalalignment(), "left"
-        )
+        ha = {"left": "left", "center": "center", "right": "right"}.get(text.get_horizontalalignment(), "left")
         va = {
             "top": "top",
             "center": "middle",
@@ -1715,11 +1609,7 @@ class _FigureConverter:
             xs, ys, zs = (np.asarray(v, dtype=float) for v in artist._offsets3d)
             marker = self._scatter_marker(axes, artist)
             marker.pop("line", None)
-            marker["size"] = (
-                marker["size"] * 0.6
-                if np.isscalar(marker["size"])
-                else marker["size"] * 0.6
-            )
+            marker["size"] = marker["size"] * 0.6 if np.isscalar(marker["size"]) else marker["size"] * 0.6
             self.data.append(
                 dict(
                     type="scatter3d",
@@ -1830,34 +1720,24 @@ def animation_to_plotly(
         for frame in frames:
             animation._func(frame, *animation._args)
             snapshots.append(_FigureConverter(animation._fig).convert())
-    animation._draw_was_started = (
-        True  # it was drawn, frame by frame: no "deleted without rendering" warning
-    )
+    animation._draw_was_started = True  # it was drawn, frame by frame: no "deleted without rendering" warning
     traces = _aligned(snapshots)  # one list per frame, the same traces in every one
     first = snapshots[0]
     figure = go.Figure(data=traces[0], layout=first["layout"])
     # a frame names only what changes: traces that are the same in every frame (a static contour,
     # the domain's boundary, a fixed background) and the coordinates every frame shares (a mesh's
     # grid) are stored once, in the figure itself
-    static = [
-        j
-        for j in range(len(traces[0]))
-        if all(_same(frame[j], traces[0][j]) for frame in traces[1:])
-    ]
+    static = [j for j in range(len(traces[0])) if all(_same(frame[j], traces[0][j]) for frame in traces[1:])]
     changing = [j for j in range(len(traces[0])) if j not in static]
     constant = _constant_keys(traces)
     figure.frames = [
         go.Frame(
-            data=[
-                {k: v for k, v in frame[j].items() if (j, k) not in constant}
-                for j in changing
-            ],
+            data=[{k: v for k, v in frame[j].items() if (j, k) not in constant} for j in changing],
             traces=changing,
             name=str(i),
             layout={
                 key: snapshot["layout"].get(key, [] if key != "title" else {"text": ""})
-                for key in _FRAME_LAYOUT
-                + tuple(k for k in snapshot["layout"] if k.startswith("coloraxis"))
+                for key in _FRAME_LAYOUT + tuple(k for k in snapshot["layout"] if k.startswith("coloraxis"))
             },
         )
         for i, (frame, snapshot) in enumerate(zip(traces, snapshots))
@@ -1961,9 +1841,7 @@ def _aligned(snapshots):
     for snapshot in snapshots[1:]:
         signatures = [_signature(t) for t in snapshot["data"]]
         merged = []
-        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
-            None, union, signatures, autojunk=False
-        ).get_opcodes():
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, union, signatures, autojunk=False).get_opcodes():
             if tag == "equal":
                 merged += union[i1:i2]
             else:  # keep both sides, in order: the union only grows
@@ -2010,9 +1888,7 @@ def _same(a, b) -> bool:
     """Whether two converted traces (nested dicts, lists and arrays) are equal."""
     if isinstance(a, dict) and isinstance(b, dict):
         return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
-    if isinstance(a, (np.ndarray, list, tuple)) or isinstance(
-        b, (np.ndarray, list, tuple)
-    ):
+    if isinstance(a, (np.ndarray, list, tuple)) or isinstance(b, (np.ndarray, list, tuple)):
         try:
             x, y = np.asarray(a), np.asarray(b)
         except ValueError:
@@ -2020,9 +1896,7 @@ def _same(a, b) -> bool:
         if x.shape != y.shape:
             return False
         if x.dtype.kind in "fc" or y.dtype.kind in "fc":
-            return bool(
-                np.array_equal(x.astype(float), y.astype(float), equal_nan=True)
-            )
+            return bool(np.array_equal(x.astype(float), y.astype(float), equal_nan=True))
         return bool(np.array_equal(x, y))
     return a == b
 
@@ -2032,10 +1906,7 @@ def _constant_keys(frames):
     constant = set()
     for i, trace in enumerate(frames[0]):
         for key in ("x", "y", "z"):
-            if key in trace and all(
-                key in frame[i] and _same(frame[i][key], trace[key])
-                for frame in frames[1:]
-            ):
+            if key in trace and all(key in frame[i] and _same(frame[i][key], trace[key]) for frame in frames[1:]):
                 constant.add((i, key))
     return constant
 

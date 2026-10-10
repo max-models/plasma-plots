@@ -39,8 +39,7 @@ from math import gcd
 import numpy as np
 import xarray as xr
 
-from .arrays import (angle_period, logical_dims, mapping_jacobian, periodicity,
-                     validate_array)
+from .arrays import angle_period, logical_dims, mapping_jacobian, periodicity, validate_array
 
 #: The classes of :func:`classify_field_lines`: on a flux surface, inside an island, or chaotic.
 LINE_CLASSES = {0: "surface", 1: "island", 2: "chaotic"}
@@ -51,9 +50,7 @@ def _label(data):
 
 
 def _provenance(data) -> dict:
-    return {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    return {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
 
 
 def _fold(delta, period):
@@ -76,17 +73,12 @@ class _Grid:
         self.dims = logical_dims(data)
         missing = [d for d in self.dims if d not in data.dims]
         if missing:
-            raise ValueError(
-                f"field lines need the logical dimensions {self.dims}; {missing} are missing"
-            )
+            raise ValueError(f"field lines need the logical dimensions {self.dims}; {missing} are missing")
         if any(name not in data.coords for name in ("X", "Y", "Z")):
             raise ValueError("field lines need the X, Y, Z coordinates of the grid")
         self.axes = [np.asarray(data[d], dtype=float) for d in self.dims]
         self.points = np.stack(
-            [
-                np.asarray(data.coords[n].transpose(*self.dims), dtype=float)
-                for n in ("X", "Y", "Z")
-            ],
+            [np.asarray(data.coords[n].transpose(*self.dims), dtype=float) for n in ("X", "Y", "Z")],
             axis=-1,
         )
         self.periods: list[float | None] = []
@@ -107,17 +99,11 @@ class _Grid:
         self.uniform = []
         for axis in self.unique_axes:
             h = np.diff(axis)
-            self.uniform.append(
-                h.size > 0 and bool(np.allclose(h, h[0], rtol=1e-6, atol=0))
-            )
+            self.uniform.append(h.size > 0 and bool(np.allclose(h, h[0], rtol=1e-6, atol=0)))
         self.nfp = int(data.attrs.get("nfp", 1) or 1)
-        self.radial_step = (
-            float(np.median(np.diff(self.axes[0]))) if self.axes[0].size > 1 else 0.0
-        )
+        self.radial_step = float(np.median(np.diff(self.axes[0]))) if self.axes[0].size > 1 else 0.0
 
-    def strip(
-        self, values: np.ndarray, direction: int | None = None, axis: int | None = None
-    ) -> np.ndarray:
+    def strip(self, values: np.ndarray, direction: int | None = None, axis: int | None = None) -> np.ndarray:
         """``values`` without the repeated endpoint of each closed direction: of one logical
         ``direction`` (its array ``axis``), or of all three, the last three axes of ``values``.
         """
@@ -168,9 +154,7 @@ class _Grid:
                 k = np.clip(np.floor((x - axis[0]) / h).astype(int), 0, last)
                 fractions.append((x - axis[0]) / h - k)
             else:
-                edges = (
-                    np.append(axis, axis[0] + period) if period is not None else axis
-                )
+                edges = np.append(axis, axis[0] + period) if period is not None else axis
                 k = np.clip(np.searchsorted(edges, x, side="right") - 1, 0, last)
                 fractions.append((x - edges[k]) / (edges[k + 1] - edges[k]))
             indices.append(k)
@@ -194,9 +178,7 @@ class _Grid:
         finite = np.isfinite(flat).all(axis=1)
         out = np.full((3, flat.shape[0]), np.nan)
         if finite.any():
-            out[:, finite] = self.interpolate(
-                np.moveaxis(self.points, -1, 0), flat[finite]
-            )
+            out[:, finite] = self.interpolate(np.moveaxis(self.points, -1, 0), flat[finite])
         return out.reshape(3, *eta.shape[:-1])
 
     def values_at(self, values: np.ndarray, eta: np.ndarray) -> np.ndarray:
@@ -213,13 +195,9 @@ def _direction_field(data: xr.DataArray, components: str):
     """``(b, absB, grid)``: the contravariant unit field ``(3, n1, n2, n3)``, ``|B|`` and the grid."""
     validate_array(data)
     if "component" not in data.dims or data.sizes["component"] != 3:
-        raise ValueError(
-            "field lines need a vector field with a 'component' dimension of size 3"
-        )
+        raise ValueError("field lines need a vector field with a 'component' dimension of size 3")
     if components not in ("cartesian", "contravariant"):
-        raise ValueError(
-            f'components must be "cartesian" or "contravariant"; got {components!r}'
-        )
+        raise ValueError(f'components must be "cartesian" or "contravariant"; got {components!r}')
     grid = _Grid(data)
     extra = [d for d in data.dims if d not in ("component", *grid.dims)]
     if extra:
@@ -229,9 +207,7 @@ def _direction_field(data: xr.DataArray, components: str):
         )
     short = [d for d in grid.dims if data.sizes[d] < 2]
     if short:
-        raise ValueError(
-            f"field lines need at least two points along each of {grid.dims}; {short} have fewer"
-        )
+        raise ValueError(f"field lines need at least two points along each of {grid.dims}; {short} have fewer")
     field = np.asarray(data.transpose("component", *grid.dims), dtype=float)
     jacobian = mapping_jacobian(data.isel(component=0, drop=True).transpose(*grid.dims))
     if components == "contravariant":
@@ -252,9 +228,7 @@ def _seed_points(grid: _Grid, seeds) -> np.ndarray:
     if isinstance(seeds, (int, np.integer)):
         radial = grid.axes[0]
         span = radial[-1] - radial[0]
-        values = np.linspace(
-            radial[0] + 0.05 * span, radial[-1] - 0.05 * span, int(seeds)
-        )
+        values = np.linspace(radial[0] + 0.05 * span, radial[-1] - 0.05 * span, int(seeds))
         return np.column_stack(
             [
                 values,
@@ -265,12 +239,9 @@ def _seed_points(grid: _Grid, seeds) -> np.ndarray:
     if isinstance(seeds, dict):
         unknown = set(seeds) - set(grid.dims)
         if unknown:
-            raise ValueError(
-                f"unknown seed coordinates {sorted(unknown)}; the logical dimensions are {grid.dims}"
-            )
+            raise ValueError(f"unknown seed coordinates {sorted(unknown)}; the logical dimensions are {grid.dims}")
         arrays = [
-            np.atleast_1d(np.asarray(seeds.get(dim, grid.axes[i][0]), dtype=float))
-            for i, dim in enumerate(grid.dims)
+            np.atleast_1d(np.asarray(seeds.get(dim, grid.axes[i][0]), dtype=float)) for i, dim in enumerate(grid.dims)
         ]
         mesh = np.meshgrid(*arrays, indexing="ij")
         return np.column_stack([m.ravel() for m in mesh])
@@ -278,9 +249,7 @@ def _seed_points(grid: _Grid, seeds) -> np.ndarray:
         missing = [dim for dim in grid.dims if dim not in seeds]
         if missing:
             raise ValueError(f"a seeds Dataset needs the variables {missing}")
-        return np.column_stack(
-            [np.asarray(seeds[dim], dtype=float).ravel() for dim in grid.dims]
-        )
+        return np.column_stack([np.asarray(seeds[dim], dtype=float).ravel() for dim in grid.dims])
     points = np.asarray(seeds, dtype=float)
     if points.ndim == 1 and points.size == 3:
         points = points[None]
@@ -416,9 +385,7 @@ def trace_field_lines(
     ... )
     """
     if direction not in ("forward", "backward", "both"):
-        raise ValueError(
-            f'direction must be "forward", "backward" or "both"; got {direction!r}'
-        )
+        raise ValueError(f'direction must be "forward", "backward" or "both"; got {direction!r}')
     unit, absB, grid = _direction_field(data, components)
     starts = _seed_points(grid, seeds)
     if not grid.inside(starts).all():
@@ -531,11 +498,7 @@ def trace_field_lines(
     xyz_end = grid.positions(ends)
 
     with np.errstate(invalid="ignore", divide="ignore"):
-        pol_turns = (
-            poloidal / period_pol
-            if period_pol is not None
-            else np.full(n_lines, np.nan)
-        )
+        pol_turns = poloidal / period_pol if period_pol is not None else np.full(n_lines, np.nan)
         tor_turns = toroidal / turn if turn is not None else np.full(n_lines, np.nan)
         iota = np.where(np.abs(tor_turns) > 0, pol_turns / tor_turns, np.nan)
     connection = exit_length.copy()
@@ -622,19 +585,12 @@ def _dims_of(lines: xr.Dataset) -> tuple[str, str, str]:
 
 
 def _periods_of(lines: xr.Dataset) -> list[float | None]:
-    return [
-        None if not np.isfinite(p) else float(p)
-        for p in lines.attrs.get("periods", [np.nan] * 3)
-    ]
+    return [None if not np.isfinite(p) else float(p) for p in lines.attrs.get("periods", [np.nan] * 3)]
 
 
 def _line_coords(lines: xr.Dataset) -> dict:
     """The per-line coordinates (seeds, direction) and ``line`` itself."""
-    return {
-        name: lines[name]
-        for name in lines.coords
-        if name == "line" or lines[name].dims == ("line",)
-    }
+    return {name: lines[name] for name in lines.coords if name == "line" or lines[name].dims == ("line",)}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -687,23 +643,16 @@ def poincare_section(lines: xr.Dataset, *, angle: float | None = None) -> xr.Dat
     if lines.attrs.get("kind") == "poincare_section":
         if angle is None or np.isclose(angle, stored):
             return lines
-        raise ValueError(
-            "this is already a Poincaré section; cut the traced lines at another angle instead"
-        )
+        raise ValueError("this is already a Poincaré section; cut the traced lines at another angle instead")
     period = _periods_of(lines)[2]
     if period is None:
-        raise ValueError(
-            "the toroidal direction does not wrap around; there is no plane to cut"
-        )
+        raise ValueError("the toroidal direction does not wrap around; there is no plane to cut")
     if angle is None or np.isclose(angle, stored):
         angle = stored
         values = {
             radial: np.asarray(lines[f"puncture_{radial}"], dtype=float),
             pol: np.asarray(lines[f"puncture_{pol}"], dtype=float),
-            **{
-                name: np.asarray(lines[f"puncture_{name}"], dtype=float)
-                for name in ("x", "y", "z")
-            },
+            **{name: np.asarray(lines[f"puncture_{name}"], dtype=float) for name in ("x", "y", "z")},
             "s": np.asarray(lines["puncture_s"], dtype=float),
         }
     else:
@@ -718,11 +667,7 @@ def poincare_section(lines: xr.Dataset, *, angle: float | None = None) -> xr.Dat
         names = (radial, pol, "x", "y", "z", "s")
         arrays = {
             name: np.asarray(
-                (
-                    lines[name]
-                    if name != "s"
-                    else lines["s"].broadcast_like(lines[radial])
-                ),
+                (lines[name] if name != "s" else lines["s"].broadcast_like(lines[radial])),
                 dtype=float,
             )
             for name in names
@@ -744,14 +689,10 @@ def poincare_section(lines: xr.Dataset, *, angle: float | None = None) -> xr.Dat
     n_punctures = values["s"].shape[0]
     data_vars = {name: (("puncture", "line"), array) for name, array in values.items()}
     data_vars["R"] = (("puncture", "line"), np.hypot(values["x"], values["y"]))
-    out = xr.Dataset(
-        data_vars, coords={"puncture": np.arange(n_punctures), **_line_coords(lines)}
-    )
+    out = xr.Dataset(data_vars, coords={"puncture": np.arange(n_punctures), **_line_coords(lines)})
     for name in ("iota", "transits", "connection_length"):
         if name in lines:
-            out = out.assign_coords(
-                {name: ("line", np.asarray(lines[name]), dict(lines[name].attrs))}
-            )
+            out = out.assign_coords({name: ("line", np.asarray(lines[name]), dict(lines[name].attrs))})
     out[radial].attrs = dict(lines[radial].attrs)
     out[pol].attrs = dict(lines[pol].attrs)
     out["R"].attrs = {"label": "$R$"}
@@ -799,9 +740,7 @@ def rotational_transform(lines: xr.Dataset) -> xr.DataArray:
     >>> iota.swap_dims(line="eta1_start").plasma.plot.lineout()
     """
     if "iota" not in lines.variables:
-        raise ValueError(
-            "expected the Dataset of trace_field_lines, which carries iota per line"
-        )
+        raise ValueError("expected the Dataset of trace_field_lines, which carries iota per line")
     out = xr.DataArray(
         np.asarray(lines["iota"], dtype=float),
         dims="line",
@@ -824,9 +763,7 @@ def _nearest_rational(iota: float, max_denominator: int, nfp: int, tolerance: fl
         n = int(np.rint(iota * m))
         if nfp > 1 and n % nfp:
             continue
-        if (gcd(abs(n), m) == 1 or (n == 0 and m == 1)) and abs(
-            iota - n / m
-        ) <= tolerance:
+        if (gcd(abs(n), m) == 1 or (n == 0 and m == 1)) and abs(iota - n / m) <= tolerance:
             return n, m
     return None
 
@@ -837,11 +774,7 @@ def _folded(section: xr.Dataset):
     period = _periods_of(section)[1] or 1.0
     r = np.asarray(section[radial], dtype=float)
     th = np.asarray(section[pol], dtype=float)
-    iota = (
-        np.asarray(section["iota"], dtype=float)
-        if "iota" in section.variables
-        else np.full(r.shape[1], np.nan)
-    )
+    iota = np.asarray(section["iota"], dtype=float) if "iota" in section.variables else np.full(r.shape[1], np.nan)
     transits = (
         np.asarray(section["transits"], dtype=float)
         if "transits" in section.variables
@@ -917,9 +850,7 @@ def classify_field_lines(
     ns, ms = np.zeros(r.shape[1], dtype=int), np.zeros(r.shape[1], dtype=int)
     for i in range(r.shape[1]):
         keep = np.isfinite(r[:, i]) & np.isfinite(th[:, i])
-        tol = (
-            tolerance if tolerance is not None else max(2 / max(transits[i], 1.0), 1e-3)
-        )
+        tol = tolerance if tolerance is not None else max(2 / max(transits[i], 1.0), 1e-3)
         rational = _nearest_rational(float(iota[i]), max_denominator, nfp, tol)
         if rational:
             ns[i], ms[i] = rational
@@ -933,9 +864,7 @@ def classify_field_lines(
         psi = (m * thi) % period
         if rational:
             advance = np.cumsum(_fold(np.diff(psi), period))
-            if (
-                np.ptp(advance) < period
-            ):  # libration: never a full turn around the island
+            if np.ptp(advance) < period:  # libration: never a full turn around the island
                 codes[i] = 1
                 continue
         sorted_r = ri[np.argsort(thi)]
@@ -1028,11 +957,7 @@ def islands(
         ri, thi, pi = r[keep, i], th[keep, i], xyz[keep, i]
         lo, hi = int(np.argmin(ri)), int(np.argmax(ri))
         width = float(ri[hi] - ri[lo])
-        width_physical = (
-            float(np.linalg.norm(pi[hi] - pi[lo]))
-            if np.isfinite(pi[[lo, hi]]).all()
-            else np.nan
-        )
+        width_physical = float(np.linalg.norm(pi[hi] - pi[lo])) if np.isfinite(pi[[lo, hi]]).all() else np.nan
         # the O-point: the angle (folded by m) of the orbit's widest extent
         psi = (m * thi) % period
         o_point = float(((psi[lo] + _fold(psi[hi] - psi[lo], period) / 2) % period) / m)
@@ -1159,9 +1084,7 @@ def seed_grid(lines: xr.Dataset, name: str = "connection_length") -> xr.DataArra
     starts = {d: np.asarray(lines[f"{d}_start"], dtype=float) for d in dims}
     varying = [d for d in dims if np.unique(starts[d]).size > 1]
     if len(varying) != 2:
-        raise ValueError(
-            f"a seed grid needs seeds varying along exactly two coordinates; these vary along {varying}"
-        )
+        raise ValueError(f"a seed grid needs seeds varying along exactly two coordinates; these vary along {varying}")
     a, b = (np.unique(starts[d]) for d in varying)
     if a.size * b.size != lines.sizes["line"]:
         raise ValueError("the seeds do not fill a grid of the two varying coordinates")
@@ -1225,9 +1148,7 @@ def sample_along(field: xr.DataArray, lines: xr.Dataset) -> xr.DataArray:
         raise ValueError("sample_along takes a scalar field; select a component first")
     dims = _dims_of(lines)
     if tuple(logical_dims(field)) != dims or any(d not in field.dims for d in dims):
-        raise ValueError(
-            f"the field must be over the lines' logical dimensions {dims}; it has {field.dims}"
-        )
+        raise ValueError(f"the field must be over the lines' logical dimensions {dims}; it has {field.dims}")
     grid = _Grid(field)
     others = [d for d in field.dims if d not in dims]
     values = np.asarray(field.transpose(*others, *dims), dtype=float)
@@ -1252,9 +1173,7 @@ def sample_along(field: xr.DataArray, lines: xr.Dataset) -> xr.DataArray:
     )
 
 
-def parallel_wavenumber(
-    samples: xr.DataArray, *, method: str = "fft", detrend: bool = True
-) -> xr.DataArray:
+def parallel_wavenumber(samples: xr.DataArray, *, method: str = "fft", detrend: bool = True) -> xr.DataArray:
     """The dominant wavenumber ``k∥`` of a field along each traced field line.
 
     From the samples of :func:`sample_along`, over the arc length ``s`` of each line (its valid,

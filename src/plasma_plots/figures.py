@@ -49,9 +49,7 @@ class Figure:
         ``fit_results``).
     """
 
-    def __init__(
-        self, nrows, ncols, *, backend, sharex, sharey, figsize, title, **options
-    ):
+    def __init__(self, nrows, ncols, *, backend, sharex, sharey, figsize, title, **options):
         from .mpi import is_plotting_rank
 
         self.backend = backend
@@ -70,8 +68,7 @@ class Figure:
 
         if figsize is None:
             figsize = (
-                PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75
-                + 2.0 * (ncols > 2) * (ncols - 2),
+                PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75 + 2.0 * (ncols > 2) * (ncols - 2),
                 3.2 * nrows + 0.8,
             )
         with _plot_style():
@@ -85,9 +82,7 @@ class Figure:
                 layout="constrained",
                 **options,
             )
-        self._fig._plasma_composed = (
-            True  # the plots in it leave the title and layout to the figure
-        )
+        self._fig._plasma_composed = True  # the plots in it leave the title and layout to the figure
         self.axes = axes
 
     def __getitem__(self, index):
@@ -126,16 +121,10 @@ class Figure:
         fig = self._fig
         if self._title:
             fig.suptitle(self._title)
-        empty = [
-            ax
-            for ax in self.axes.ravel()
-            if not ax.has_data() and not ax.get_legend() and ax.get_visible()
-        ]
+        empty = [ax for ax in self.axes.ravel() if not ax.has_data() and not ax.get_legend() and ax.get_visible()]
         for ax in empty:  # panels left empty are not drawn
             ax.set_visible(False)
-        fits = [
-            fit for result in self.results for fit in getattr(result, "fit_results", [])
-        ]
+        fits = [fit for result in self.results for fit in getattr(result, "fit_results", [])]
         try:
             if self._finish_as == "matplotlib":
                 return PlotResult(fig, self.axes, [], fits)
@@ -160,9 +149,7 @@ class Figure:
                 plt.close(fig)
             return PlotResult(converted, None, list(converted.data), fits)
         finally:
-            if (
-                not final
-            ):  # a snapshot inside the block: later plots may still fill these panels
+            if not final:  # a snapshot inside the block: later plots may still fill these panels
                 for ax in empty:
                     ax.set_visible(True)
 

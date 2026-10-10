@@ -12,7 +12,9 @@ import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 from struphy.post_processing.output import Output  # noqa: E402
 from struphy.post_processing.tests.test_output import (  # noqa: E402
-    write_manifest, write_tree)
+    write_manifest,
+    write_tree,
+)
 
 import plasma_plots  # noqa: F401, E402
 from plasma_plots.analysis import damping_rate, envelope, growth_rate, norm
@@ -112,15 +114,9 @@ def test_scalar_overview_draws_every_scalar_in_one_axes(run):
 
 def test_slices_panels_and_viewer_take_keyword_views(run):
     product = distribution(run)
-    assert (
-        product.plasma.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
-    )
-    assert (
-        len(product.plasma.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
-    )
-    viewer = run.evaluate("em_fields/E").plasma.plot.viewer(
-        x="eta1", y="eta2", component=0
-    )
+    assert product.plasma.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
+    assert len(product.plasma.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
+    viewer = run.evaluate("em_fields/E").plasma.plot.viewer(x="eta1", y="eta2", component=0)
     viewer.draw()
     assert set(viewer.sliders) == {"t", "eta3"}
 
@@ -130,9 +126,7 @@ def test_orbits_plot_their_trajectories(run):
 
 
 def test_report_is_written_below_post_processing(run):
-    paths = save_all_scalars(
-        run.scalars, run.path_pproc / "report", run_label=run.label
-    )
+    paths = save_all_scalars(run.scalars, run.path_pproc / "report", run_label=run.label)
     assert all(path.startswith(str(run.path_pproc / "report")) for path in paths)
     assert {os.path.basename(path) for path in paths} >= {
         "scalars.csv",
@@ -142,27 +136,17 @@ def test_report_is_written_below_post_processing(run):
 
 
 def test_analysis_by_name(run):
-    assert scalar(run, "en_phi").plasma.analysis.growth_rate(
-        window=(0.0, None)
-    ).rate == pytest.approx(RATE)
-    assert scalar(run, "en_phi").plasma.analysis.growth_rate(
-        amplitude=True
-    ).rate == pytest.approx(RATE / 2)
-    np.testing.assert_allclose(
-        scalar(run, "en_tot").plasma.analysis.relative_error(), 0.0
-    )
-    np.testing.assert_allclose(
-        scalar(run, "en_phi").plasma.analysis.drift().isel(t=0), 0.0
-    )
+    assert scalar(run, "en_phi").plasma.analysis.growth_rate(window=(0.0, None)).rate == pytest.approx(RATE)
+    assert scalar(run, "en_phi").plasma.analysis.growth_rate(amplitude=True).rate == pytest.approx(RATE / 2)
+    np.testing.assert_allclose(scalar(run, "en_tot").plasma.analysis.relative_error(), 0.0)
+    np.testing.assert_allclose(scalar(run, "en_phi").plasma.analysis.drift().isel(t=0), 0.0)
 
 
 def test_dispersion_needs_an_explicit_dim_for_a_multi_dimensional_field(run):
     with pytest.raises(ValueError, match="dim is required"):
         run.fields.em_fields.E.plasma.analysis.dispersion()
 
-    spectrum = run.fields.em_fields.E.isel(
-        component=0, eta2=0, eta3=0
-    ).plasma.analysis.dispersion(dim="eta1")
+    spectrum = run.fields.em_fields.E.isel(component=0, eta2=0, eta3=0).plasma.analysis.dispersion(dim="eta1")
     assert set(spectrum.dims) == {"omega", "k"}
 
 
@@ -172,9 +156,7 @@ def test_selection_keywords_take_positions_and_values(run):
 
     by_position = product.plasma.plot.slice(x="eta1", y="v1", t=-1)
     by_value = product.plasma.plot.slice(x="eta1", y="v1", t=float(times[-1]))
-    np.testing.assert_allclose(
-        by_value.artists[0].get_array(), by_position.artists[0].get_array()
-    )
+    np.testing.assert_allclose(by_value.artists[0].get_array(), by_position.artists[0].get_array())
 
     with pytest.raises(TypeError, match="not a dimension"):
         product.plasma.plot.slice(x="eta1", y="v1", time=-1)
@@ -205,52 +187,29 @@ def test_product_namespaces_expose_a_scoped_lazy_catalog(run):
     assert "e1_v1_density/f" in repr(products)
     assert run.distribution_catalog._cache == {}
     assert products["e1_v1_density/f"].dims == ("t", "eta1", "v1")
-    assert (
-        run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f"]
-        is products.catalog["e1_v1_density/f"]
-    )
+    assert run.distribution_catalog._cache["kinetic_ions/e1_v1_density/f"] is products.catalog["e1_v1_density/f"]
 
 
 def test_arrays_plot_themselves(run):
     phase_space = run.kinetic_ions.e1_v1_density.f
-    assert (
-        phase_space.plasma.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel()
-        == r"$\eta_1$"
-    )
-    assert (
-        len(phase_space.plasma.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists)
-        == 2
-    )
+    assert phase_space.plasma.plot.slice(x="eta1", y="v1", t=-1).ax.get_xlabel() == r"$\eta_1$"
+    assert len(phase_space.plasma.plot.panels(x="eta1", y="v1", nrows=1, ncols=2).artists) == 2
     assert set(phase_space.plasma.plot.viewer(x="eta1", y="v1").sliders) == set()
-    assert (
-        run.kinetic_ions.orbits.plasma.plot.trajectories(max_markers=2).ax.name == "3d"
-    )
+    assert run.kinetic_ions.orbits.plasma.plot.trajectories(max_markers=2).ax.name == "3d"
 
 
 def test_the_accessor_works_on_derived_arrays(run):
     energy = run.scalars.en_phi
-    assert energy.isel(
-        t=slice(1, None)
-    ).plasma.analysis.growth_rate().rate == pytest.approx(RATE)
+    assert energy.isel(t=slice(1, None)).plasma.analysis.growth_rate().rate == pytest.approx(RATE)
     error = energy.plasma.analysis.relative_error()
-    assert (
-        error.plasma.plot.timeseries(logy=False).fig._suptitle.get_text() == run.label
-    )
+    assert error.plasma.plot.timeseries(logy=False).fig._suptitle.get_text() == run.label
 
 
 def test_products_by_name_and_by_attribute_agree(run):
     by_output = distribution(run).plasma.plot.slice(x="eta1", y="v1", t=-1)
-    by_attribute = run.kinetic_ions.e1_v1_density.f.plasma.plot.slice(
-        x="eta1", y="v1", t=-1
-    )
-    np.testing.assert_allclose(
-        by_output.artists[0].get_array(), by_attribute.artists[0].get_array()
-    )
-    assert (
-        by_output.fig._suptitle.get_text()
-        == by_attribute.fig._suptitle.get_text()
-        == run.label
-    )
+    by_attribute = run.kinetic_ions.e1_v1_density.f.plasma.plot.slice(x="eta1", y="v1", t=-1)
+    np.testing.assert_allclose(by_output.artists[0].get_array(), by_attribute.artists[0].get_array())
+    assert by_output.fig._suptitle.get_text() == by_attribute.fig._suptitle.get_text() == run.label
 
 
 def test_selection_rejects_unknown_dimensions(run):
@@ -270,9 +229,7 @@ def test_damping_rate_fits_the_envelope_not_the_oscillation(run):
     energy = oscillating_energy(rate=-0.3)
     fit = energy.plasma.analysis.damping_rate(amplitude=True)
     assert fit.rate == pytest.approx(-0.3, rel=1e-2)
-    assert energy.plasma.analysis.damping_rate(
-        window=(2.0, 10.0), amplitude=True
-    ).rate == pytest.approx(-0.3, rel=1e-2)
+    assert energy.plasma.analysis.damping_rate(window=(2.0, 10.0), amplitude=True).rate == pytest.approx(-0.3, rel=1e-2)
 
     peaks = energy.plasma.analysis.envelope()
     assert 0 < peaks.sizes["t"] < energy.sizes["t"] // 10
@@ -287,9 +244,7 @@ def test_norm_reduces_all_but_time(run):
     e_field = run.evaluate("em_fields/E")
     squared = e_field.plasma.analysis.norm(squared=True)
     assert squared.dims == ("t",)
-    np.testing.assert_allclose(
-        squared, (np.asarray(e_field) ** 2).sum(axis=(1, 2, 3, 4))
-    )
+    np.testing.assert_allclose(squared, (np.asarray(e_field) ** 2).sum(axis=(1, 2, 3, 4)))
     assert e_field.plasma.analysis.norm(dims=["eta1"]).dims == (
         "t",
         "component",
@@ -303,9 +258,7 @@ def test_physical_coords_are_attached_to_products_without_them(run):
     density_data = density(run)
     assert "X" not in density_data.coords
     mapped = run.with_physical_coords(density_data)
-    expected = run.domain(
-        *(np.asarray(density_data[dim]) for dim in ("eta1", "eta2", "eta3"))
-    )
+    expected = run.domain(*(np.asarray(density_data[dim]) for dim in ("eta1", "eta2", "eta3")))
     for name, values in zip(("X", "Y", "Z"), expected):
         assert mapped[name].dims == ("eta1", "eta2", "eta3")
         np.testing.assert_allclose(mapped[name], values)

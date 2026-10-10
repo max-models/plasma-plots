@@ -89,9 +89,7 @@ def test_dataset_data_scatter_returns_what_the_plot_draws():
     np.testing.assert_allclose(selected.density, markers.density.isel(t=-1))
     initial = markers.plasma.data.scatter(x="x", y="y", color="x", color_at=0, t=-1)
     assert set(initial.data_vars) == {"x", "y", "color"}
-    np.testing.assert_allclose(
-        initial.color, markers.x.isel(t=0)
-    )  # colored by the start
+    np.testing.assert_allclose(initial.color, markers.x.isel(t=0))  # colored by the start
     np.testing.assert_allclose(initial.x, markers.x.isel(t=-1))
     assert set(markers.plasma.data.scatter(x="x", y="y", t=0).data_vars) == {"x", "y"}
     with pytest.raises(ValueError, match="not data variables"):
@@ -134,14 +132,10 @@ def test_orbit_plots_color_by_a_quantity_and_reject_unknown_values():
     assert len(lines) == paths.sizes["marker"]
     assert len(by_v_par.fig.axes) == 2  # with a color bar
     lo, hi = lines[0].norm.vmin, lines[0].norm.vmax
-    assert lo == pytest.approx(float(paths.v_par.min())) and hi == pytest.approx(
-        float(paths.v_par.max())
-    )
+    assert lo == pytest.approx(float(paths.v_par.min())) and hi == pytest.approx(float(paths.v_par.max()))
     grid = plot_orbit_grid(paths, markers=4, ncols=2, color_by="t")
     assert sum(isinstance(a, LineCollection) for a in grid.artists) == 4
-    assert any(
-        "trapped" in ax.get_title() for ax in grid.ax.ravel()
-    )  # titles still name the class
+    assert any("trapped" in ax.get_title() for ax in grid.ax.ravel())  # titles still name the class
     assert len(paths.plasma.plot.poloidal(color_by=None).fig.axes) == 1
     with pytest.raises(ValueError, match="color_by must be"):
         plot_orbit_poloidal(paths, color_by="speed")
@@ -181,11 +175,7 @@ def test_dispersion_takes_theory_dicts_complex_branches_and_struphy_style_object
     from plasma_plots.analysis import power_spectrum
     from plasma_plots.spectral import trace_branch
 
-    traced = trace_branch(
-        power_spectrum(field), lambda k: 1.0 * k + 0.05j, k_range=(1.5, 2.5)
-    ).dropna("k")
+    traced = trace_branch(power_spectrum(field), lambda k: 1.0 * k + 0.05j, k_range=(1.5, 2.5)).dropna("k")
     assert traced.k.values.tolist() == [2.0]
     result = plot_measured_vs_theory(traced.omega, lambda k: k + 0.2j)
-    np.testing.assert_allclose(
-        result.ax[1].lines[0].get_ydata(), traced.relative_error, atol=1e-12
-    )
+    np.testing.assert_allclose(result.ax[1].lines[0].get_ydata(), traced.relative_error, atol=1e-12)

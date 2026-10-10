@@ -28,12 +28,7 @@ def torus_field(nt=5, n1=6, n2=12, n3=4):
         "Y": (("eta1", "eta2", "eta3"), R * np.sin(2 * np.pi * E3)),
         "Z": (("eta1", "eta2", "eta3"), E1 * np.sin(2 * np.pi * E2)),
     }
-    values = np.stack(
-        [
-            np.exp(0.1 * ti) * E1 * np.cos(2 * np.pi * (3 * E2 - E3) - 0.8 * ti)
-            for ti in t
-        ]
-    )
+    values = np.stack([np.exp(0.1 * ti) * E1 * np.cos(2 * np.pi * (3 * E2 - E3) - 0.8 * ti) for ti in t])
     return xr.DataArray(
         values,
         dims=("t", "eta1", "eta2", "eta3"),
@@ -45,9 +40,7 @@ def torus_field(nt=5, n1=6, n2=12, n3=4):
 
 def wave():
     t, x = np.linspace(0, 60, 200), np.linspace(0, 1, 16, endpoint=False)
-    values = np.cos(2 * np.pi * 3 * x[None] - 0.9 * t[:, None]) + 0.3 * np.cos(
-        2 * np.pi * x[None] - 0.3 * t[:, None]
-    )
+    values = np.cos(2 * np.pi * 3 * x[None] - 0.9 * t[:, None]) + 0.3 * np.cos(2 * np.pi * x[None] - 0.3 * t[:, None])
     return xr.DataArray(
         values,
         dims=("t", "eta1"),
@@ -125,9 +118,7 @@ def flux_box(n=24):
     E1, E2 = np.meshgrid(e, e, indexing="ij")
     X, Y = 2 * np.pi * E1, 2 * np.pi * E2
     t = np.linspace(0, 2, 3)
-    values = np.stack(
-        [-np.cos(Y - 0.3) + 0.2 * np.exp(ti) * np.cos(X - 0.7) for ti in t]
-    )
+    values = np.stack([-np.cos(Y - 0.3) + 0.2 * np.exp(ti) * np.cos(X - 0.7) for ti in t])
     return xr.DataArray(
         values[..., None],
         dims=("t", "eta1", "eta2", "eta3"),
@@ -175,40 +166,22 @@ def cases():
     )
     flux = flux_box()
     probe = u.isel(eta1=3)
-    vec = (
-        xr.concat([phi, 0.5 * phi], dim="component")
-        .transpose("t", "component", ...)
-        .rename("E")
-    )
+    vec = xr.concat([phi, 0.5 * phi], dim="component").transpose("t", "component", ...).rename("E")
     k = np.linspace(0.5, 3, 6)
-    measured = xr.DataArray(
-        np.sqrt(1 + 3 * k**2) * 1.01, dims="k", coords={"k": k}, name="omega"
-    )
+    measured = xr.DataArray(np.sqrt(1 + 3 * k**2) * 1.01, dims="k", coords={"k": k}, name="omega")
     band = phi.plasma.analysis.filter_time(dims=("eta1", "eta2", "eta3"))
     other = e * 1.5
     return {
         "timeseries": lambda **b: e.plasma.plot.timeseries(
             other, fit=(2.0, 8.0), reference=lambda t: 1e-4 * np.exp(0.4 * t), **b
         ),
-        "lineout": lambda **b: phi.plasma.plot.lineout(
-            x="eta1", t=-1, eta2=0, eta3=0, reference=lambda x: x, **b
-        ),
-        "line_animation": lambda **b: phi.plasma.plot.line_animation(
-            x="eta1", eta2=0, eta3=0, **b
-        ),
-        "against_theory": lambda **b: measured.plasma.plot.against_theory(
-            lambda k: np.sqrt(1 + 3 * k**2), **b
-        ),
-        "vector": lambda **b: vec.plasma.plot.vector(
-            x="eta1", y="eta2", t=-1, eta3=0, **b
-        ),
+        "lineout": lambda **b: phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0, eta3=0, reference=lambda x: x, **b),
+        "line_animation": lambda **b: phi.plasma.plot.line_animation(x="eta1", eta2=0, eta3=0, **b),
+        "against_theory": lambda **b: measured.plasma.plot.against_theory(lambda k: np.sqrt(1 + 3 * k**2), **b),
+        "vector": lambda **b: vec.plasma.plot.vector(x="eta1", y="eta2", t=-1, eta3=0, **b),
         "volume_slices": lambda **b: phi.plasma.plot.volume_slices(t=-1, **b),
-        "compare": lambda **b: phi.isel(eta2=0, eta3=0, t=-1).plasma.plot.compare(
-            phi.isel(eta2=0, eta3=0, t=0), **b
-        ),
-        "overlay_orbits": lambda **b: phi.plasma.plot.overlay_orbits(
-            o, x="eta1", y="eta2", t=-1, eta3=0, **b
-        ),
+        "compare": lambda **b: phi.isel(eta2=0, eta3=0, t=-1).plasma.plot.compare(phi.isel(eta2=0, eta3=0, t=0), **b),
+        "overlay_orbits": lambda **b: phi.plasma.plot.overlay_orbits(o, x="eta1", y="eta2", t=-1, eta3=0, **b),
         "dispersion": lambda **b: u.plasma.plot.dispersion(
             dim="eta1",
             branches={"w": lambda k: 0.3 * np.abs(k)},
@@ -218,28 +191,16 @@ def cases():
         "power_spectrum": lambda **b: probe.plasma.plot.power_spectrum(
             peaks=2, band=(0.8, 1.0), frequencies={"x": 0.3}, **b
         ),
-        "filtered": lambda **b: phi.plasma.plot.filtered(
-            band, eta1=0.5, eta2=0.0, eta3=0.0, **b
-        ),
-        "spectrogram": lambda **b: probe.plasma.plot.spectrogram(
-            length=100, step=20, **b
-        ),
-        "mode_amplitudes": lambda **b: phi.plasma.plot.mode_amplitudes(
-            top=2, fit=True, **b
-        ),
+        "filtered": lambda **b: phi.plasma.plot.filtered(band, eta1=0.5, eta2=0.0, eta3=0.0, **b),
+        "spectrogram": lambda **b: probe.plasma.plot.spectrogram(length=100, step=20, **b),
+        "mode_amplitudes": lambda **b: phi.plasma.plot.mode_amplitudes(top=2, fit=True, **b),
         "mode_map": lambda **b: phi.plasma.plot.mode_map(t=-1, **b),
         "radial_power": lambda **b: phi.plasma.plot.radial_power(**b),
         "mode_profiles": lambda **b: phi.plasma.plot.mode_profiles(0.8, top=2, **b),
         "profiles": lambda **b: phi.plasma.plot.profiles(x="eta1", eta2=0, eta3=0, **b),
-        "cross_spectrum": lambda **b: u.plasma.plot.cross_spectrum(
-            u.roll(eta1=2), dims="eta1", **b
-        ),
-        "pencil_fit": lambda **b: probe.sel(t=slice(0, 20)).plasma.plot.pencil_fit(
-            n_modes=2, **b
-        ),
-        "slice": lambda **b: phi.plasma.plot.slice(
-            x="eta1", y="eta2", t=-1, eta3=0, levels=4, **b
-        ),
+        "cross_spectrum": lambda **b: u.plasma.plot.cross_spectrum(u.roll(eta1=2), dims="eta1", **b),
+        "pencil_fit": lambda **b: probe.sel(t=slice(0, 20)).plasma.plot.pencil_fit(n_modes=2, **b),
+        "slice": lambda **b: phi.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, levels=4, **b),
         "slice_physical": lambda **b: phi.plasma.plot.slice(
             coords="physical",
             plane="RZ",
@@ -248,29 +209,17 @@ def cases():
             overlays={"boundary": True, "points": {"o": (3.0, 0.0)}},
             **b,
         ),
-        "panels": lambda **b: phi.plasma.plot.panels(
-            x="eta1", y="eta2", nrows=1, ncols=2, eta3=0, **b
-        ),
+        "panels": lambda **b: phi.plasma.plot.panels(x="eta1", y="eta2", nrows=1, ncols=2, eta3=0, **b),
         "viewer": lambda **b: phi.plasma.plot.viewer(x="eta1", y="eta2", eta3=0, **b),
-        "animation": lambda **b: phi.plasma.plot.animation(
-            coords="physical", plane="RZ", eta3=0, **b
-        ),
+        "animation": lambda **b: phi.plasma.plot.animation(coords="physical", plane="RZ", eta3=0, **b),
         "trajectories": lambda **b: o.plasma.plot.trajectories(**b),
-        "view_slice": lambda **b: phi.plasma.plot.view(
-            x="eta1", y="eta2", eta3=0
-        ).slice(t=-1, **b),
-        "view_panels": lambda **b: phi.plasma.plot.view(
-            x="eta1", y="eta2", eta3=0
-        ).panels(nrows=1, ncols=2, **b),
-        "view_viewer": lambda **b: phi.plasma.plot.view(
-            x="eta1", y="eta2", eta3=0
-        ).viewer(**b),
-        "view_animation": lambda **b: phi.plasma.plot.view(
-            x="eta1", y="eta2", eta3=0
-        ).animation(alongside=[phi**2], **b),
-        "ds_power_spectrum": lambda **b: probe.plasma.analysis.time_fft().plasma.plot.power_spectrum(
-            peaks=1, **b
+        "view_slice": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).slice(t=-1, **b),
+        "view_panels": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).panels(nrows=1, ncols=2, **b),
+        "view_viewer": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).viewer(**b),
+        "view_animation": lambda **b: phi.plasma.plot.view(x="eta1", y="eta2", eta3=0).animation(
+            alongside=[phi**2], **b
         ),
+        "ds_power_spectrum": lambda **b: probe.plasma.analysis.time_fft().plasma.plot.power_spectrum(peaks=1, **b),
         "ds_cross_spectrum": lambda **b: u.plasma.analysis.cross_spectrum(
             u.roll(eta1=2), dims="eta1"
         ).plasma.plot.cross_spectrum(**b),
@@ -279,49 +228,27 @@ def cases():
             x="eta1", y="eta2", color="v_par", t=-1, background=phi.isel(eta3=0), **b
         ),
         "ds_orbit_classification": lambda **b: o.plasma.plot.orbit_classification(**b),
-        "ds_animation": lambda **b: o.plasma.plot.animation(
-            x="eta1", y="eta2", color="v_par", step=10, **b
-        ),
-        "ds_paths": lambda **b: o.plasma.plot.paths(
-            x="eta1", y="eta2", markers=2, background=phi.isel(eta3=0), **b
-        ),
-        "ds_poloidal": lambda **b: o.plasma.plot.poloidal(
-            color_by="t", boundary=phi.isel(t=0), **b
-        ),
+        "ds_animation": lambda **b: o.plasma.plot.animation(x="eta1", y="eta2", color="v_par", step=10, **b),
+        "ds_paths": lambda **b: o.plasma.plot.paths(x="eta1", y="eta2", markers=2, background=phi.isel(eta3=0), **b),
+        "ds_poloidal": lambda **b: o.plasma.plot.poloidal(color_by="t", boundary=phi.isel(t=0), **b),
         "ds_orbit_grid": lambda **b: o.plasma.plot.orbit_grid(markers=2, ncols=2, **b),
         "ds_quantities": lambda **b: o.plasma.plot.quantities(markers=2, **b),
         "poincare": lambda **b: B.plasma.plot.poincare(seeds=3, turns=4, **b),
         "surface_map": lambda **b: phi.plasma.plot.surface_map(
             eta1=0.5, t=-1, iota=0.7, count=3, lines=lines.isel(line=[0]), **b
         ),
-        "along_field_lines": lambda **b: phi.plasma.plot.along_field_lines(
-            lines, k_parallel=True, t=-1, **b
-        ),
-        "critical_points": lambda **b: flux.plasma.plot.critical_points(
-            t=-1, eta3=0, label_values=True, **b
-        ),
-        "critical_points_physical": lambda **b: flux.plasma.plot.critical_points(
-            coords="physical", t=-1, eta3=0, **b
-        ),
-        "boozer_spectrum": lambda **b: boozer_field().plasma.plot.boozer_spectrum(
-            top=3, helicity="QA", **b
-        ),
+        "along_field_lines": lambda **b: phi.plasma.plot.along_field_lines(lines, k_parallel=True, t=-1, **b),
+        "critical_points": lambda **b: flux.plasma.plot.critical_points(t=-1, eta3=0, label_values=True, **b),
+        "critical_points_physical": lambda **b: flux.plasma.plot.critical_points(coords="physical", t=-1, eta3=0, **b),
+        "boozer_spectrum": lambda **b: boozer_field().plasma.plot.boozer_spectrum(top=3, helicity="QA", **b),
         "ds_poincare": lambda **b: lines.plasma.plot.poincare(
             color_by="classification", islands=True, boundary=phi.isel(t=0), **b
         ),
-        "ds_poincare_iota": lambda **b: lines.plasma.plot.poincare(
-            coords="logical", color_by="iota", **b
-        ),
-        "ds_field_lines": lambda **b: lines.plasma.plot.field_lines(
-            plane="RZ", color_by="absB", **b
-        ),
+        "ds_poincare_iota": lambda **b: lines.plasma.plot.poincare(coords="logical", color_by="iota", **b),
+        "ds_field_lines": lambda **b: lines.plasma.plot.field_lines(plane="RZ", color_by="absB", **b),
         "ds_footprint": lambda **b: open_lines.plasma.plot.footprint(**b),
-        "ds_connection_length": lambda **b: open_lines.plasma.plot.connection_length(
-            **b
-        ),
-        "ds_weight_histogram": lambda **b: o.plasma.plot.weight_histogram(
-            t=[0, -1], bins=8, **b
-        ),
+        "ds_connection_length": lambda **b: open_lines.plasma.plot.connection_length(**b),
+        "ds_weight_histogram": lambda **b: o.plasma.plot.weight_histogram(t=[0, -1], bins=8, **b),
         "ds_marker_density": lambda **b: o.plasma.plot.marker_density(
             x="eta1", bins=6, against=phi.isel(t=0, eta2=0, eta3=0), **b
         ),
