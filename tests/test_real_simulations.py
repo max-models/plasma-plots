@@ -24,16 +24,7 @@ from plasma_plots import pyvista_plots as p3  # noqa: E402
 def torus_run(tmp_path_factory):
     """LinearMHD in a sixth of a hollow torus, seeded with the m = 10, 11 harmonics of the
     TAE tutorial (coarse and short: seconds)."""
-    from struphy import (
-        BaseUnits,
-        DerhamOptions,
-        EnvironmentOptions,
-        Time,
-        domains,
-        equils,
-        grids,
-        perturbations,
-    )
+    from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, perturbations
     from struphy.models import LinearMHD
     from struphy.simulation.sim import Simulation
 
@@ -72,9 +63,7 @@ def torus_run(tmp_path_factory):
     )
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(
-            out_folders=str(tmp_path_factory.mktemp("runs")), sim_folder="torus"
-        ),
+        env=EnvironmentOptions(out_folders=str(tmp_path_factory.mktemp("runs")), sim_folder="torus"),
         time_opts=Time(dt=0.5, Tend=4.0),
         domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=10.0, tor_period=6),
         equil=equils.AdhocTorus(
@@ -130,9 +119,7 @@ def orbit_run(tmp_path_factory):
         ),
         time_opts=Time(dt=0.1, Tend=60.0),
         domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=3.0, tor_period=1),
-        equil=equils.AdhocTorus(
-            a=1.0, R0=3.0, B0=1.0, q_kind=0, q0=1.1, q1=1.9, p_kind=1, beta=0.001
-        ),
+        equil=equils.AdhocTorus(a=1.0, R0=3.0, B0=1.0, q_kind=0, q0=1.1, q1=1.9, p_kind=1, beta=0.001),
         grid=grids.TensorProductGrid(num_elements=(8, 16, 8)),
         derham_opts=DerhamOptions(degree=(2, 2, 2)),
     )
@@ -151,11 +138,7 @@ def orbit_run(tmp_path_factory):
 
 def test_mode_spectrum_finds_the_seeded_torus_harmonics(torus_run):
     velocity = torus_run.evaluate("mhd/velocity").isel(t=0, component=0)
-    top = (
-        velocity.plasma.analysis.mode_spectrum()
-        .plasma.analysis.mode_amplitudes(top=2)
-        .max("eta1")
-    )
+    top = velocity.plasma.analysis.mode_spectrum().plasma.analysis.mode_amplitudes(top=2).max("eta1")
     assert set(top.mode.values) == {"(10, -1)", "(11, -1)"}
 
 
@@ -193,9 +176,7 @@ def test_every_3d_view_renders_on_real_output(torus_run):
     cartesian = torus_run.evaluate("mhd/velocity_xyz").isel(t=-1)
     views = {
         "isosurface": velocity.plasma.plot.isosurface(values=4),
-        "slices": velocity.plasma.plot.slices_3d(
-            cuts={"eta3": [0.0, 0.5], "eta1": 0.5}
-        ),
+        "slices": velocity.plasma.plot.slices_3d(cuts={"eta3": [0.0, 0.5], "eta1": 0.5}),
         "plane": velocity.isel(eta3=0).plasma.plot.isosurface(values=4),
         "glyphs": cartesian.plasma.plot.glyphs(stride=2),
         "streamlines": cartesian.plasma.plot.streamlines(n_points=40),
@@ -219,9 +200,7 @@ def test_orbit_classification_on_real_guiding_center_orbits(orbit_run):
     start = orbits.isel(t=0)
     pitch = abs(start.v_par) / np.sqrt(start.mu + 1e-12)
     assert float(pitch.where(trapped).median()) < float(pitch.where(~trapped).median())
-    assert orbits.plasma.plot.orbit_classification().data["counts"]["trapped"] == int(
-        trapped.sum()
-    )
+    assert orbits.plasma.plot.orbit_classification().data["counts"]["trapped"] == int(trapped.sum())
     orbits.plasma.plot.orbits_3d(color_by="classification").close()
     poloidal = orbits.plasma.plot.poloidal()
     assert {"passing", "trapped"} <= {line.get_label() for line in poloidal.ax.lines}
@@ -245,21 +224,15 @@ def test_linear_mhd_energies_from_fields_match_the_saved_scalars(torus_run):
         representation="2",
     )
     filtered = velocity.plasma.analysis.filter_time(pad_bins=1).filtered
-    mode = torus_run.analysis.linear_mhd_energies(
-        velocity=filtered, b_field=None, pressure=None
-    )
+    mode = torus_run.analysis.linear_mhd_energies(velocity=filtered, b_field=None, pressure=None)
     assert 0 < float(mode.en_U.max()) <= 1.5 * float(energies.en_U.max())
 
 
 def test_physical_slices_and_vtk_export_on_real_output(torus_run, tmp_path):
     velocity = torus_run.evaluate("mhd/velocity").isel(component=0)
-    result = velocity.plasma.plot.slice(
-        x="eta1", y="eta2", coords="physical", plane="RZ", t=-1, eta3=0, symmetric=True
-    )
+    result = velocity.plasma.plot.slice(x="eta1", y="eta2", coords="physical", plane="RZ", t=-1, eta3=0, symmetric=True)
     mesh = result.artists[0]
-    assert (
-        mesh.get_coordinates().shape[1] == velocity.sizes["eta2"] + 2
-    )  # seam closed: 33 points, 34 cell edges
+    assert mesh.get_coordinates().shape[1] == velocity.sizes["eta2"] + 2  # seam closed: 33 points, 34 cell edges
     paths = velocity.plasma.data.to_vtk(tmp_path / "velocity")
     assert paths[0].endswith(".pvd") and len(paths) == velocity.sizes["t"] + 1
 
@@ -267,29 +240,17 @@ def test_physical_slices_and_vtk_export_on_real_output(torus_run, tmp_path):
 def test_linear_mhd_two_alfven_modes(tmp_path):
     """Ported from struphy's postprocessing-fft branch: the dominant-band filter separates two
     shear-Alfven modes of a real LinearMHD run, through out.analysis."""
-    from struphy import (
-        DerhamOptions,
-        EnvironmentOptions,
-        Time,
-        domains,
-        equils,
-        grids,
-        perturbations,
-    )
+    from struphy import DerhamOptions, EnvironmentOptions, Time, domains, equils, grids, perturbations
     from struphy.models import LinearMHD
     from struphy.simulation.sim import Simulation
 
     model = LinearMHD()
     model.mhd.velocity.add_perturbation(
-        perturbations.ModesSin(
-            ns=(1, 3), amps=(1e-3, 3e-4), Lz=20, comp=0, given_in_basis="physical"
-        )
+        perturbations.ModesSin(ns=(1, 3), amps=(1e-3, 3e-4), Lz=20, comp=0, given_in_basis="physical")
     )
     simulation = Simulation(
         model=model,
-        env=EnvironmentOptions(
-            out_folders=str(tmp_path), sim_folder="two_modes", save_step=2
-        ),
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="two_modes", save_step=2),
         time_opts=Time(dt=0.1, Tend=100),
         domain=domains.Cuboid(r3=20),
         grid=grids.TensorProductGrid(num_elements=(1, 1, 32)),
@@ -301,28 +262,17 @@ def test_linear_mhd_two_alfven_modes(tmp_path):
         velocity = output.evaluate(product).isel(component=0, eta1=0, eta2=0)
         result = output.analysis.filter_time(velocity, pad_bins=2)
         spectrum = result.spectrum
-        assert (
-            abs(float(spectrum.dominant_frequency) - 2 * np.pi / 20)
-            < spectrum.attrs["frequency_resolution"]
-        )
+        assert abs(float(spectrum.dominant_frequency) - 2 * np.pi / 20) < spectrum.attrs["frequency_resolution"]
         assert float(spectrum.omega_hi) < 3 * 2 * np.pi / 20
 
         def mode_amplitude(field, n):
-            return (
-                abs((field * np.sin(2 * np.pi * n * field.eta3)).sum("eta3"))
-                .max()
-                .item()
-            )
+            return abs((field * np.sin(2 * np.pi * n * field.eta3)).sum("eta3")).max().item()
 
         raw_ratio = mode_amplitude(velocity, 3) / mode_amplitude(velocity, 1)
-        filtered_ratio = mode_amplitude(result.filtered, 3) / mode_amplitude(
-            result.filtered, 1
-        )
+        filtered_ratio = mode_amplitude(result.filtered, 3) / mode_amplitude(result.filtered, 1)
         assert raw_ratio > 0.2
         assert filtered_ratio < 0.05 * raw_ratio
-        assert output.analysis.time_fft(velocity).attrs[
-            "sample_spacing"
-        ] == pytest.approx(0.2)
+        assert output.analysis.time_fft(velocity).attrs["sample_spacing"] == pytest.approx(0.2)
 
 
 def test_the_command_line_on_real_runs(torus_run, orbit_run, tmp_path):
@@ -330,9 +280,7 @@ def test_the_command_line_on_real_runs(torus_run, orbit_run, tmp_path):
     assert command, "plasma-plots is not on the PATH: pip install -e ."
 
     def run(*args):
-        return subprocess.run(
-            [command, *map(str, args)], check=True, capture_output=True, text=True
-        )
+        return subprocess.run([command, *map(str, args)], check=True, capture_output=True, text=True)
 
     assert "mhd/velocity" in run("info", torus_run.path_out).stdout
     run("quicklook", torus_run.path_out, "-o", tmp_path / "torus")

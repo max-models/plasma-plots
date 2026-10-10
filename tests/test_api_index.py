@@ -12,9 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_api_md_is_up_to_date():
-    assert (
-        ROOT / "API.md"
-    ).read_text() == api_index(), "API.md is stale: run python scripts/api_index.py"
+    assert (ROOT / "API.md").read_text() == api_index(), "API.md is stale: run python scripts/api_index.py"
 
 
 def test_every_public_accessor_class_and_method_is_listed():
@@ -40,9 +38,7 @@ def test_every_public_accessor_class_and_method_is_listed():
 
 
 def test_the_command_line_prints_the_guide_and_the_index():
-    run = lambda *args: subprocess.run(
-        [sys.executable, "-m", "plasma_plots", *args], capture_output=True, text=True
-    )
+    run = lambda *args: subprocess.run([sys.executable, "-m", "plasma_plots", *args], capture_output=True, text=True)
     assert run().stdout.startswith("usage: plasma-plots")
     assert run("guide").stdout.startswith("Plots and diagnostics")
     assert run("api").stdout == api_index()

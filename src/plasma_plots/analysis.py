@@ -175,11 +175,7 @@ def growth_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult |
     if np.count_nonzero(valid) < 2:
         return None
     selected_time = time[valid]
-    signal = (
-        np.log(np.sqrt(values[valid]))
-        if fit.amplitude_from_quadratic
-        else np.log(values[valid])
-    )
+    signal = np.log(np.sqrt(values[valid])) if fit.amplitude_from_quadratic else np.log(values[valid])
     rate, intercept = np.polyfit(selected_time, signal, 1)
     scale = 2.0 if fit.amplitude_from_quadratic else 1.0
     fitted = np.exp(scale * (rate * selected_time + intercept))
@@ -332,9 +328,7 @@ def oscillation_frequency(
     if data.dims != ("t",):
         raise ValueError(f"oscillation_frequency needs dims ('t',), got {data.dims}")
     if method not in ("zero_crossings", "peaks"):
-        raise ValueError(
-            f"unknown method {method!r}; expected 'zero_crossings' or 'peaks'"
-        )
+        raise ValueError(f"unknown method {method!r}; expected 'zero_crossings' or 'peaks'")
     t0, t1 = window
     t = np.asarray(data.t, dtype=float)
     keep = (
@@ -352,10 +346,7 @@ def oscillation_frequency(
         times = t[i] - values[i] * (t[i + 1] - t[i]) / (values[i + 1] - values[i])
         spacing = 0.5  # crossings are half a period apart
     else:
-        i = (
-            np.flatnonzero((values[1:-1] > values[:-2]) & (values[1:-1] >= values[2:]))
-            + 1
-        )
+        i = np.flatnonzero((values[1:-1] > values[:-2]) & (values[1:-1] >= values[2:])) + 1
         left, mid, right = values[i - 1], values[i], values[i + 1]
         curvature = left - 2 * mid + right
         shift = np.where(
@@ -367,12 +358,8 @@ def oscillation_frequency(
         spacing = 1.0
     if times.size < 2:
         return None
-    period = (
-        float(np.polyfit(np.arange(times.size), times, 1)[0]) / spacing
-    )  # the slope: time per event
-    return OscillationFit(
-        omega=2 * np.pi / period, period=period, times=times, method=method
-    )
+    period = float(np.polyfit(np.arange(times.size), times, 1)[0]) / spacing  # the slope: time per event
+    return OscillationFit(omega=2 * np.pi / period, period=period, times=times, method=method)
 
 
 def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArray:
@@ -405,13 +392,9 @@ def norm(data: xr.DataArray, *, dims=None, squared: bool = False) -> xr.DataArra
     dims = [dim for dim in data.dims if dim != "t"] if dims is None else list(dims)
     total = (data**2).sum(dims)
     out = total if squared else np.sqrt(total)
-    out.attrs = {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
     label = _label(data)
-    out.attrs["label"] = (
-        f"squared norm of {label}".strip() if squared else f"norm of {label}".strip()
-    )
+    out.attrs["label"] = f"squared norm of {label}".strip() if squared else f"norm of {label}".strip()
     return out
 
 
@@ -450,25 +433,19 @@ VELOCITY_DIMS = ("v1", "v2", "v3")
 
 
 def _provenance(data: xr.DataArray) -> dict:
-    return {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    return {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
 
 
 def _select_dims(data: xr.DataArray, dims, default) -> list[str]:
     if dims is None:
         selected = [dim for dim in default if dim in data.dims]
         if not selected:
-            raise ValueError(
-                f"{data.name!r} has none of the dimensions {default}; its dimensions are {data.dims}"
-            )
+            raise ValueError(f"{data.name!r} has none of the dimensions {default}; its dimensions are {data.dims}")
         return selected
     selected = [dims] if isinstance(dims, str) else list(dims)
     missing = [dim for dim in selected if dim not in data.dims]
     if missing:
-        raise ValueError(
-            f"{data.name!r} has no dimensions {missing}; its dimensions are {data.dims}"
-        )
+        raise ValueError(f"{data.name!r} has no dimensions {missing}; its dimensions are {data.dims}")
     return selected
 
 
@@ -511,9 +488,7 @@ def _bin_widths(data: xr.DataArray, dim: str) -> xr.DataArray:
     coordinate = np.asarray(data.coords[dim]) if dim in data.coords else None
     if coordinate is None or len(coordinate) < 2:
         raise ValueError(f"dimension {dim!r} needs a coordinate with at least two bins")
-    return xr.DataArray(
-        np.gradient(coordinate), dims=(dim,), coords={dim: data.coords[dim]}
-    )
+    return xr.DataArray(np.gradient(coordinate), dims=(dim,), coords={dim: data.coords[dim]})
 
 
 def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
@@ -617,9 +592,7 @@ def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataA
     if np.any(np.asarray(reference) == 0):
         raise ValueError("cannot take a relative error against a reference of zero")
     out = abs(data - reference) / abs(reference)
-    out.attrs = {
-        key: value for key, value in data.attrs.items() if key in ("run", "run_name")
-    }
+    out.attrs = {key: value for key, value in data.attrs.items() if key in ("run", "run_name")}
     out.attrs.update(label=f"relative error of {_label(data)}".strip(), units="")
     return out.isel(t=slice(1, None)) if skip_first else out
 
@@ -667,9 +640,7 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
             f"orbit classification needs the parallel velocity {v_par!r}; this dataset has {tuple(orbits.data_vars)}"
         )
     if set(orbits[v_par].dims) != {"t", "marker"}:
-        raise ValueError(
-            f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}"
-        )
+        raise ValueError(f"{v_par!r} must have dims ('t', 'marker'); got {orbits[v_par].dims}")
     velocity = orbits[v_par].transpose("t", "marker")
     trapped = (velocity * velocity.isel(t=0) < 0).any("t")
     all_zero = velocity == 0
@@ -680,11 +651,7 @@ def classify_orbits(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray
     codes = xr.where(lost, -1, xr.where(trapped, 1, 0)).astype(int)
     codes.name = "classification"
     codes.attrs = {
-        **{
-            key: value
-            for key, value in orbits.attrs.items()
-            if key in ("run", "run_name")
-        },
+        **{key: value for key, value in orbits.attrs.items() if key in ("run", "run_name")},
         "label": "orbit classification",
         "flag_values": list(ORBIT_CLASSES),
         "flag_meanings": " ".join(ORBIT_CLASSES.values()),
@@ -788,9 +755,7 @@ def fit_dispersion_branches(
     >>> [fit.velocity for fit in fit_dispersion_branches(spectrum, n_branches=2)]
     """
     if not {"omega", "k"} <= set(spectrum.dims):
-        raise ValueError(
-            f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}"
-        )
+        raise ValueError(f"spectrum must have dims 'omega' and 'k'; got {spectrum.dims}")
     if n_branches < 1:
         raise ValueError("n_branches must be positive")
 
@@ -831,9 +796,7 @@ def fit_dispersion_branches(
     ]
 
 
-def power_spectrum(
-    data: xr.DataArray, *, dim: str | None = None, detrend: bool = True
-) -> xr.DataArray:
+def power_spectrum(data: xr.DataArray, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
     """The 2-D power spectrum of a ``(t, dim)`` signal, as a function of frequency and wavenumber.
 
     A plain space-time FFT, as a function of angular frequency and wavenumber -- the basis of a
@@ -875,25 +838,17 @@ def power_spectrum(
     others = [d for d in data.dims if d != "t"]
     if dim is None:
         if len(others) != 1:
-            raise ValueError(
-                f"dim is required unless data has exactly one dimension besides 't'; got {data.dims}"
-            )
+            raise ValueError(f"dim is required unless data has exactly one dimension besides 't'; got {data.dims}")
         dim = others[0]
     elif dim not in data.dims:
-        raise ValueError(
-            f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}"
-        )
+        raise ValueError(f"{dim!r} is not a dimension of this array; its dimensions are {data.dims}")
     if set(data.dims) != {"t", dim}:
-        raise ValueError(
-            f"select every dimension except 't' and {dim!r} first; got {data.dims}"
-        )
+        raise ValueError(f"select every dimension except 't' and {dim!r} first; got {data.dims}")
     from .spectral import fft
 
     signal = data.transpose("t", dim).reset_coords(drop=True)
     coefficients = fft(fft(signal, dim="t", detrend=detrend), dim=dim)
-    spectrum = (
-        (abs(coefficients) ** 2).rename({f"k_{dim}": "k"}).transpose("omega", "k")
-    )
+    spectrum = (abs(coefficients) ** 2).rename({f"k_{dim}": "k"}).transpose("omega", "k")
     spectrum.name = "power"
     spectrum.attrs = {"label": f"power spectrum of {_label(data)}".strip(), "units": ""}
     return spectrum
@@ -933,17 +888,9 @@ def quadrature_weights(coordinate, *, period: float | None = None) -> np.ndarray
     if x.size == 1:
         return np.ones(1)
     h = np.diff(x)
-    if (
-        np.allclose(h, h[0])
-        and np.isclose(x[0], h[0] / 2)
-        and np.isclose(x[-1], 1 - h[0] / 2)
-    ):
+    if np.allclose(h, h[0]) and np.isclose(x[0], h[0] / 2) and np.isclose(x[-1], 1 - h[0] / 2):
         return np.full(x.size, h[0])
-    if (
-        period is not None
-        and np.allclose(h, h[0])
-        and np.isclose(x.size * h[0], period)
-    ):
+    if period is not None and np.allclose(h, h[0]) and np.isclose(x.size * h[0], period):
         return np.full(x.size, h[0])
     weights = np.empty(x.size)
     weights[1:-1] = (x[2:] - x[:-2]) / 2
@@ -958,9 +905,7 @@ def _geometry(data: xr.DataArray, domain=None):
     spatial = logical_dims(data)
     missing = [d for d in spatial if d not in data.dims]
     if missing:
-        raise ValueError(
-            f"integrals need the logical dimensions {spatial}; {missing} are missing"
-        )
+        raise ValueError(f"integrals need the logical dimensions {spatial}; {missing} are missing")
     if domain is not None:
         etas = [np.asarray(data[d], dtype=float) for d in spatial]
         sqrt_g = np.abs(np.asarray(domain.jacobian_det(*etas), dtype=float))
@@ -978,16 +923,12 @@ def _weights(data: xr.DataArray, dim: str, given=None) -> np.ndarray:
     """The quadrature weights along ``dim``: ``given``, else a ``<dim>_weight`` coordinate (GVEC's
     Gauss weights, one per point or one for all), else :func:`quadrature_weights`."""
     if given is None and f"{dim}_weight" in data.coords:
-        given = np.broadcast_to(
-            np.asarray(data.coords[f"{dim}_weight"], dtype=float), (data.sizes[dim],)
-        )
+        given = np.broadcast_to(np.asarray(data.coords[f"{dim}_weight"], dtype=float), (data.sizes[dim],))
     if given is None:
         return quadrature_weights(data[dim], period=angle_period(data, dim))
     values = np.asarray(given, dtype=float)
     if values.size != data.sizes[dim]:
-        raise ValueError(
-            f"{values.size} quadrature weights for {data.sizes[dim]} points along {dim!r}"
-        )
+        raise ValueError(f"{values.size} quadrature weights for {data.sizes[dim]} points along {dim!r}")
     return values
 
 
@@ -995,13 +936,9 @@ def _integrate(integrand: xr.DataArray, quadrature=None, dims=None) -> xr.DataAr
     dims = logical_dims(integrand) if dims is None else dims
     weights = 1.0
     for dim in dims:
-        weights = weights * xr.DataArray(
-            _weights(integrand, dim, (quadrature or {}).get(dim)), dims=(dim,)
-        )
+        weights = weights * xr.DataArray(_weights(integrand, dim, (quadrature or {}).get(dim)), dims=(dim,))
     weight_coords = [f"{d}_weight" for d in dims if f"{d}_weight" in integrand.coords]
-    return (
-        (integrand * weights).sum(list(dims)).drop_vars(weight_coords, errors="ignore")
-    )
+    return (integrand * weights).sum(list(dims)).drop_vars(weight_coords, errors="ignore")
 
 
 def _spatial_array(values, data):
@@ -1075,9 +1012,7 @@ def volume_integral(
     >>> volume = volume_integral(xr.ones_like(ev.mod_B), jacobian=ev.Jac) * ev.nfp
     """
     if form not in (0, 3):
-        raise ValueError(
-            "volume_integral takes form=0 (a function) or form=3 (a density)"
-        )
+        raise ValueError("volume_integral takes form=0 (a function) or form=3 (a density)")
     validate_array(data)
     integrand = data
     if form == 0 and jacobian is not None:
@@ -1092,9 +1027,7 @@ def volume_integral(
     return out
 
 
-def surface_average(
-    data: xr.DataArray, *, jacobian=None, domain=None, quadrature=None
-) -> xr.DataArray:
+def surface_average(data: xr.DataArray, *, jacobian=None, domain=None, quadrature=None) -> xr.DataArray:
     """The flux-surface average ``⟨f⟩ = ∫ f √g dθ dζ / ∫ √g dθ dζ`` over the two angles.
 
     The angles are the second and third logical dimensions (``eta2``, ``eta3``, or GVEC's
@@ -1143,9 +1076,7 @@ def surface_average(
     _, poloidal, toroidal = logical_dims(data)
     missing = [d for d in (poloidal, toroidal) if d not in data.dims]
     if missing:
-        raise ValueError(
-            f"a surface average needs the angles {poloidal!r}, {toroidal!r}; {missing} are missing"
-        )
+        raise ValueError(f"a surface average needs the angles {poloidal!r}, {toroidal!r}; {missing} are missing")
     if jacobian is not None:
         sqrt_g = abs(jacobian)
     else:
@@ -1153,16 +1084,10 @@ def surface_average(
         sqrt_g = _spatial_array(values, data)
     weights = xr.ones_like(sqrt_g)
     for dim in (poloidal, toroidal):
-        weights = weights * xr.DataArray(
-            _weights(data, dim, (quadrature or {}).get(dim)), dims=(dim,)
-        )
+        weights = weights * xr.DataArray(_weights(data, dim, (quadrature or {}).get(dim)), dims=(dim,))
     measure = (sqrt_g * weights).sum((poloidal, toroidal))
-    plain = (data * weights).sum((poloidal, toroidal)) / weights.sum(
-        (poloidal, toroidal)
-    )
-    out = (
-        (data * sqrt_g * weights).sum((poloidal, toroidal)) / measure.where(measure > 0)
-    ).fillna(plain)
+    plain = (data * weights).sum((poloidal, toroidal)) / weights.sum((poloidal, toroidal))
+    out = ((data * sqrt_g * weights).sum((poloidal, toroidal)) / measure.where(measure > 0)).fillna(plain)
     drop = [f"{d}_weight" for d in (poloidal, toroidal) if f"{d}_weight" in out.coords]
     out = out.drop_vars(drop)
     out.attrs = {**_provenance(data), "label": f"⟨{_label(data)}⟩"}
@@ -1223,9 +1148,7 @@ def rational_surfaces(
 
     validate_array(profile)
     if profile.ndim != 1:
-        raise ValueError(
-            f"rational surfaces need a 1-D profile; {profile.name!r} has dims {profile.dims}"
-        )
+        raise ValueError(f"rational surfaces need a 1-D profile; {profile.name!r} has dims {profile.dims}")
     dim = profile.dims[0]
     nfp = int(profile.attrs.get("nfp", 1) if nfp is None else nfp)
     x = np.asarray(profile[dim], dtype=float)
@@ -1234,9 +1157,7 @@ def rational_surfaces(
     lo, hi = float(y[finite].min()), float(y[finite].max())
     candidates = []
     for m in range(1, max_denominator + 1):
-        for n in range(
-            int(np.ceil(lo * m / nfp)) * nfp, int(np.floor(hi * m / nfp)) * nfp + 1, nfp
-        ):
+        for n in range(int(np.ceil(lo * m / nfp)) * nfp, int(np.floor(hi * m / nfp)) * nfp + 1, nfp):
             if gcd(abs(n), m) == 1 or (n == 0 and m == 1):
                 candidates.append((m, abs(n), n))
     candidates = sorted(set(candidates))[:count]
@@ -1250,14 +1171,10 @@ def rational_surfaces(
             if d[i] == 0:
                 rows.append((n, m, value, x[i]))
             elif d[i] * d[i + 1] < 0:
-                rows.append(
-                    (n, m, value, x[i] - d[i] * (x[i + 1] - x[i]) / (d[i + 1] - d[i]))
-                )
+                rows.append((n, m, value, x[i] - d[i] * (x[i + 1] - x[i]) / (d[i + 1] - d[i])))
         if d[-1] == 0:
             rows.append((n, m, value, x[-1]))
-    n, m, value, where = (
-        (np.array(column) for column in zip(*rows)) if rows else ([], [], [], [])
-    )
+    n, m, value, where = (np.array(column) for column in zip(*rows)) if rows else ([], [], [], [])
     out = xr.DataArray(
         np.asarray(where, dtype=float),
         dims="surface",
@@ -1349,25 +1266,15 @@ def field_energy(
     if form not in (None, 0, 1, 2, 3, "v"):
         raise ValueError(f"form must be None, 0, 1, 2, 3 or 'v'; got {form!r}")
     sqrt_g, metric = _geometry(data, domain)
-    w = (
-        np.ones_like(sqrt_g)
-        if weight is None
-        else np.asarray(weight, dtype=float) * np.ones_like(sqrt_g)
-    )
+    w = np.ones_like(sqrt_g) if weight is None else np.asarray(weight, dtype=float) * np.ones_like(sqrt_g)
     w = np.where(np.isfinite(w), w, 0.0)
     vector = "component" in data.dims
     if vector and data.sizes["component"] != 3:
-        raise ValueError(
-            f"a vector field needs 3 components; got {data.sizes['component']}"
-        )
+        raise ValueError(f"a vector field needs 3 components; got {data.sizes['component']}")
     if not vector and form in (1, 2, "v"):
-        raise ValueError(
-            f"form={form!r} needs vector components (a 'component' dimension)"
-        )
+        raise ValueError(f"form={form!r} needs vector components (a 'component' dimension)")
     if vector and form in (0, 3):
-        raise ValueError(
-            f"form={form} is a scalar; a vector field needs form None, 1, 2 or 'v'"
-        )
+        raise ValueError(f"form={form} is a scalar; a vector field needs form None, 1, 2 or 'v'")
 
     if form in (None, 0):
         factor = _spatial_array(w * sqrt_g, data)
@@ -1389,12 +1296,8 @@ def field_energy(
             dims=("component", "component_2", *spatial),
             coords={d: data[d] for d in spatial},
         )
-        other = data.rename(component="component_2").drop_vars(
-            "component_2", errors="ignore"
-        )
-        squared = (data.drop_vars("component", errors="ignore") * A * other).sum(
-            ("component", "component_2")
-        )
+        other = data.rename(component="component_2").drop_vars("component_2", errors="ignore")
+        squared = (data.drop_vars("component", errors="ignore") * A * other).sum(("component", "component_2"))
         factor = 1.0
     out = normalization * 0.5 * _integrate(squared * factor, quadrature)
     out.attrs = {**_provenance(data), "label": f"energy of {_label(data)}".strip()}
@@ -1448,18 +1351,14 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
     spatial = logical_dims(data)
     missing = [d for d in spatial if d not in data.dims]
     if missing:
-        raise ValueError(
-            f"gradient needs the logical dimensions {spatial}; {missing} are missing"
-        )
+        raise ValueError(f"gradient needs the logical dimensions {spatial}; {missing} are missing")
     if "component" in data.dims:
         raise ValueError("gradient takes a scalar field; select a component first")
     field = data.transpose(..., *spatial)
     etas = [np.asarray(field[d], dtype=float) for d in spatial]
     varying = [i for i, eta in enumerate(etas) if eta.size > 1]
     if not varying:
-        raise ValueError(
-            "gradient needs at least one logical direction with more than one point"
-        )
+        raise ValueError("gradient needs at least one logical direction with more than one point")
     if domain is not None:
         points = np.stack(
             [np.asarray(c, dtype=float) for c in domain(*etas, squeeze_out=False)],
@@ -1468,14 +1367,9 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
         jacobian = np.asarray(domain.jacobian(*etas), dtype=float)
     else:
         if any(name not in field.coords for name in ("X", "Y", "Z")):
-            raise ValueError(
-                "gradient needs the X, Y, Z coordinates, or a struphy domain"
-            )
+            raise ValueError("gradient needs the X, Y, Z coordinates, or a struphy domain")
         points = np.stack(
-            [
-                np.asarray(field.coords[name].transpose(*spatial), dtype=float)
-                for name in ("X", "Y", "Z")
-            ],
+            [np.asarray(field.coords[name].transpose(*spatial), dtype=float) for name in ("X", "Y", "Z")],
             axis=-1,
         )
         if len(varying) == 3:
@@ -1485,19 +1379,12 @@ def gradient(data: xr.DataArray, *, domain=None) -> xr.DataArray:
             for i in varying:
                 kind = periodicity(points, i)
                 for a in range(3):
-                    jacobian[a, i] = logical_derivative(
-                        points[..., a], etas[i], i, kind
-                    )
+                    jacobian[a, i] = logical_derivative(points[..., a], etas[i], i, kind)
     values = np.asarray(field, dtype=float)
     offset = values.ndim - 3
-    derivatives = [
-        logical_derivative(values, etas[i], offset + i, periodicity(points, i))
-        for i in varying
-    ]
+    derivatives = [logical_derivative(values, etas[i], offset + i, periodicity(points, i)) for i in varying]
     columns = np.moveaxis(jacobian[:, varying], (0, 1), (-2, -1))  # (n1, n2, n3, 3, k)
-    transform = np.swapaxes(
-        np.linalg.pinv(columns), -1, -2
-    )  # pinv(J)^T: (n1, n2, n3, 3, k)
+    transform = np.swapaxes(np.linalg.pinv(columns), -1, -2)  # pinv(J)^T: (n1, n2, n3, 3, k)
     stacked = np.stack(derivatives, axis=-1)  # (..., n1, n2, n3, k)
     cartesian = np.einsum("...ak,...k->...a", transform, stacked)
     cartesian = np.moveaxis(cartesian, -1, 0)
@@ -1558,9 +1445,7 @@ def evaluate_on(data: xr.DataArray, function, args=None) -> xr.DataArray:
         args = [*space, *(["t"] if "t" in data.coords else [])]
     missing = [name for name in args if name not in data.coords]
     if missing:
-        raise ValueError(
-            f"{missing} are not coordinates of {data.name!r}; it has {tuple(data.coords)}"
-        )
+        raise ValueError(f"{missing} are not coordinates of {data.name!r}; it has {tuple(data.coords)}")
     values = function(*(data.coords[name] for name in args))
     values = xr.DataArray(values) if not isinstance(values, xr.DataArray) else values
     return values.broadcast_like(data).transpose(*data.dims, ...)
@@ -1643,9 +1528,7 @@ def error(
     else:  # a plain array (or number) on the grid of data
         exact = np.asarray(exact)
         reference = (
-            data.copy(data=np.broadcast_to(exact, data.shape))
-            if exact.ndim
-            else xr.full_like(data, float(exact))
+            data.copy(data=np.broadcast_to(exact, data.shape)) if exact.ndim else xr.full_like(data, float(exact))
         )
     difference = data - reference
     if norm == "pointwise":
@@ -1653,14 +1536,8 @@ def error(
         out.attrs = {**_provenance(data), "label": f"error of {_label(data)}".strip()}
         return out
     if norm not in ("max", "rms", "l1", "l2"):
-        raise ValueError(
-            f"norm must be 'pointwise', 'max', 'rms', 'l1' or 'l2'; got {norm!r}"
-        )
-    dims = (
-        [d for d in data.dims if d != "t"]
-        if dims is None
-        else ([dims] if isinstance(dims, str) else list(dims))
-    )
+        raise ValueError(f"norm must be 'pointwise', 'max', 'rms', 'l1' or 'l2'; got {norm!r}")
+    dims = [d for d in data.dims if d != "t"] if dims is None else ([dims] if isinstance(dims, str) else list(dims))
 
     def measure(values):
         # unweighted: averages over the grid points, i.e. integrals over the logical unit cube;
@@ -1671,16 +1548,10 @@ def error(
         if weighted:
             spatial = logical_dims(values)
             if not set(spatial) <= set(values.dims) or set(dims) != set(spatial):
-                raise ValueError(
-                    f"weighted norms integrate over {spatial} (the default dims)"
-                )
+                raise ValueError(f"weighted norms integrate over {spatial} (the default dims)")
             integral = volume_integral(abs(values) ** power, domain=domain)
             if norm == "rms":
-                ones = xr.ones_like(
-                    values.isel(
-                        {d: 0 for d in values.dims if d not in spatial}, drop=True
-                    )
-                )
+                ones = xr.ones_like(values.isel({d: 0 for d in values.dims if d not in spatial}, drop=True))
                 integral = integral / volume_integral(ones, domain=domain)
         else:
             integral = (abs(values) ** power).mean(dims)
@@ -1752,11 +1623,7 @@ def project_mode(
     trimmed = drop_periodic_endpoint(data, dim, period=period)
     x = np.asarray(trimmed[dim], dtype=float)
     h = x[1] - x[0] if x.size > 1 else period
-    if (
-        x.size < 2
-        or not np.allclose(np.diff(x), h)
-        or not np.isclose(x.size * h, period, rtol=1e-6)
-    ):
+    if x.size < 2 or not np.allclose(np.diff(x), h) or not np.isclose(x.size * h, period, rtol=1e-6):
         raise ValueError(f"{dim!r} must sample one full period ({period}) uniformly")
     phase = 2 * np.pi * number * trimmed[dim] / period
     basis = {
@@ -1777,31 +1644,23 @@ def project_mode(
 
 def _cartesian_vector(vector: xr.DataArray, components: str) -> xr.DataArray:
     if "component" not in vector.dims or vector.sizes["component"] != 3:
-        raise ValueError(
-            "expected a vector field with a 'component' dimension of size 3"
-        )
+        raise ValueError("expected a vector field with a 'component' dimension of size 3")
     if components == "contravariant":
         from .pyvista_plots import push_forward
 
         return push_forward(vector)
     if components != "cartesian":
-        raise ValueError(
-            f'components must be "cartesian" or "contravariant"; got {components!r}'
-        )
+        raise ValueError(f'components must be "cartesian" or "contravariant"; got {components!r}')
     return vector
 
 
 def _jacobian_of_components(vector, domain):
     """``d v_a / d x_b`` as an array over (a, b, ...)."""
-    rows = [
-        gradient(vector.isel(component=a, drop=True), domain=domain) for a in range(3)
-    ]
+    rows = [gradient(vector.isel(component=a, drop=True), domain=domain) for a in range(3)]
     return xr.concat(rows, dim="row")  # (row a, component b, ...)
 
 
-def divergence(
-    vector: xr.DataArray, *, components: str = "cartesian", domain=None
-) -> xr.DataArray:
+def divergence(vector: xr.DataArray, *, components: str = "cartesian", domain=None) -> xr.DataArray:
     """The divergence ``sum_a d v_a / d x_a`` of a vector field on a mapped domain.
 
     Derivatives as in :func:`gradient`: spectral around periodic angles; a flat direction (2-D
@@ -1851,9 +1710,7 @@ def divergence(
     return out
 
 
-def curl(
-    vector: xr.DataArray, *, components: str = "cartesian", domain=None
-) -> xr.DataArray:
+def curl(vector: xr.DataArray, *, components: str = "cartesian", domain=None) -> xr.DataArray:
     """The curl of a vector field on a mapped domain, in Cartesian components ``(x, y, z)``.
 
     Derivatives as for :func:`divergence`. E.g. the current ``J = ∇ × B``, or the vorticity of a
@@ -1897,9 +1754,7 @@ def curl(
     def d(a, b):
         return jac.isel(row=a, component=b, drop=True)
 
-    out = xr.concat(
-        [d(2, 1) - d(1, 2), d(0, 2) - d(2, 0), d(1, 0) - d(0, 1)], dim="component"
-    )
+    out = xr.concat([d(2, 1) - d(1, 2), d(0, 2) - d(2, 0), d(1, 0) - d(0, 1)], dim="component")
     out = out.assign_coords(component=[0, 1, 2]).transpose("component", ...)
     out.name = f"curl_{vector.name}" if vector.name else "curl"
     out.attrs = {**_provenance(vector), "label": f"curl of {_label(vector)}".strip()}
@@ -1947,9 +1802,7 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
     )
     grid = [d for d in spatial if d in field.dims and field.sizes[d] > 1]
     if len(grid) != 2 or not all(c in field.coords for c in ("X", "Y")):
-        raise ValueError(
-            "flux_function needs a 2-D field on two logical directions with X, Y coordinates"
-        )
+        raise ValueError("flux_function needs a 2-D field on two logical directions with X, Y coordinates")
     X = np.asarray(field.coords["X"].squeeze(drop=True).transpose(*grid), dtype=float)
     Y = np.asarray(field.coords["Y"].squeeze(drop=True).transpose(*grid), dtype=float)
     if np.allclose(X, X[:, :1]) and np.allclose(Y, Y[:1, :]):
@@ -1957,9 +1810,7 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
     elif np.allclose(X, X[:1, :]) and np.allclose(Y, Y[:, :1]):
         ydim, xdim = grid
     else:
-        raise ValueError(
-            "flux_function needs a Cartesian grid: X along one logical direction and Y along the other"
-        )
+        raise ValueError("flux_function needs a Cartesian grid: X along one logical direction and Y along the other")
     x = np.asarray(field.coords["X"].isel({ydim: 0}).squeeze(drop=True), dtype=float)
     y = np.asarray(field.coords["Y"].isel({xdim: 0}).squeeze(drop=True), dtype=float)
     bx = field.isel(component=0, drop=True).transpose(..., xdim, ydim)
@@ -1974,9 +1825,7 @@ def flux_function(vector: xr.DataArray) -> xr.DataArray:
             + np.take(values, range(values.shape[axis] - 1), axis=axis)
         )
         integral = np.cumsum(pairs * steps.reshape(shape), axis=axis)
-        return np.concatenate(
-            [np.zeros_like(np.take(values, [0], axis=axis)), integral], axis=axis
-        )
+        return np.concatenate([np.zeros_like(np.take(values, [0], axis=axis)), integral], axis=axis)
 
     bx_values, by_values = np.asarray(bx, dtype=float), np.asarray(by, dtype=float)
     # A(x, y) = int_0^y B_x(x0, y') dy' - int_0^x B_y(x', y) dx'
@@ -2057,9 +1906,7 @@ def cylindrical_components(vector: xr.DataArray) -> xr.DataArray:
     return out
 
 
-def toroidal_components(
-    vector: xr.DataArray, *, R0: float, Z0: float = 0.0
-) -> xr.DataArray:
+def toroidal_components(vector: xr.DataArray, *, R0: float, Z0: float = 0.0) -> xr.DataArray:
     """Cartesian components rotated to the local ``(radial, poloidal, toroidal)`` directions.
 
     The directions are those about a circular magnetic axis at major radius ``R0`` (height
@@ -2196,9 +2043,7 @@ def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
     """
     from .plotting import _alive
 
-    alive = xr.DataArray(
-        _alive(orbits.transpose("t", "marker", ...)), dims=("t", "marker")
-    )
+    alive = xr.DataArray(_alive(orbits.transpose("t", "marker", ...)), dims=("t", "marker"))
     out = {}
     if all(n in orbits for n in ("v1", "v2", "v3")):
         out["speed"] = np.sqrt(orbits.v1**2 + orbits.v2**2 + orbits.v3**2)
@@ -2215,9 +2060,7 @@ def orbit_invariants(orbits: xr.Dataset, *, absB=None) -> xr.Dataset:
         out["energy"] = energy
         out["pitch"] = orbits.v_par / np.sqrt(2 * energy)
     if not out:
-        raise ValueError(
-            "no invariant can be computed from these orbits (need v1..v3, or v_par, mu and absB)"
-        )
+        raise ValueError("no invariant can be computed from these orbits (need v1..v3, or v_par, mu and absB)")
     return xr.Dataset(
         {name: values.where(alive) for name, values in out.items()},
         attrs=_provenance(orbits),
@@ -2260,12 +2103,8 @@ def bounce_period(orbits: xr.Dataset, *, v_par: str = "v_par") -> xr.DataArray:
         sign = np.sign(v)
         flips = np.flatnonzero((sign[1:] * sign[:-1]) < 0)
         # linear interpolation of the crossing times
-        crossings = t[flips] - v[flips] * (t[flips + 1] - t[flips]) / (
-            v[flips + 1] - v[flips]
-        )
-        periods.append(
-            2 * np.mean(np.diff(crossings)) if crossings.size >= 2 else np.nan
-        )
+        crossings = t[flips] - v[flips] * (t[flips + 1] - t[flips]) / (v[flips + 1] - v[flips])
+        periods.append(2 * np.mean(np.diff(crossings)) if crossings.size >= 2 else np.nan)
     out = xr.DataArray(
         np.asarray(periods),
         dims="marker",
@@ -2294,9 +2133,7 @@ def _boozer_check(data: xr.DataArray, angles: str) -> None:
         )
 
 
-def boozer_spectrum(
-    data: xr.DataArray, *, top: int | None = None, angles: str = "boozer"
-) -> xr.DataArray:
+def boozer_spectrum(data: xr.DataArray, *, top: int | None = None, angles: str = "boozer") -> xr.DataArray:
     """The Boozer harmonics ``B_mn`` of a quantity on flux surfaces, real amplitudes over the radius.
 
     The Fourier amplitudes of :func:`plasma_plots.spectral.mode_spectrum` over the Boozer angles,
@@ -2363,18 +2200,14 @@ def boozer_spectrum(
 def _helicity(helicity, nfp: int) -> tuple[int, int | None]:
     if isinstance(helicity, str):
         if helicity.upper() not in HELICITIES:
-            raise ValueError(
-                f"helicity must be one of {tuple(HELICITIES)} or a pair (M, N); got {helicity!r}"
-            )
+            raise ValueError(f"helicity must be one of {tuple(HELICITIES)} or a pair (M, N); got {helicity!r}")
         M, N = HELICITIES[helicity.upper()]
         return (M, N if N is not None else nfp)
     M, N = helicity
     return int(M), int(N)
 
 
-def quasisymmetry_error(
-    data: xr.DataArray, *, helicity="QA", angles: str = "boozer"
-) -> xr.DataArray:
+def quasisymmetry_error(data: xr.DataArray, *, helicity="QA", angles: str = "boozer") -> xr.DataArray:
     """The quasi-symmetry error of ``|B|`` on each flux surface, from its Boozer spectrum.
 
     A field is quasi-symmetric with helicity ``(M, N)`` when ``|B|`` depends on the Boozer
@@ -2434,15 +2267,11 @@ def quasisymmetry_error(
     if not mean.any():
         raise ValueError("the spectrum has no (0, 0) harmonic to normalize with")
     B00 = amplitudes.isel(mode=int(np.flatnonzero(mean)[0]))
-    candidates = (
-        [N, -N] if isinstance(helicity, str) and helicity.upper() == "QH" else [N]
-    )
+    candidates = [N, -N] if isinstance(helicity, str) and helicity.upper() == "QH" else [N]
     best = None
     for sign_N in candidates:
         breaking = (m * sign_N + n * M != 0) & ~mean
-        error = np.sqrt(
-            (amplitudes.isel(mode=np.flatnonzero(breaking)) ** 2).sum("mode")
-        )
+        error = np.sqrt((amplitudes.isel(mode=np.flatnonzero(breaking)) ** 2).sum("mode"))
         error = error / B00.where(B00 != 0)
         if best is None or float(error.mean()) < float(best[0].mean()):
             best = (error, sign_N)
@@ -2456,9 +2285,7 @@ def quasisymmetry_error(
     }
     if "nfp" in data.attrs:
         error.attrs["nfp"] = data.attrs["nfp"]
-    return error.drop_vars(
-        [c for c in error.coords if c not in error.dims], errors="ignore"
-    )
+    return error.drop_vars([c for c in error.coords if c not in error.dims], errors="ignore")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -2492,9 +2319,7 @@ def _differences(frame, axis, coordinate, periodic):
     if periodic:
         h = coordinate[1] - coordinate[0]
         return (np.roll(frame, -1, axis=axis) - np.roll(frame, 1, axis=axis)) / (2 * h)
-    return np.gradient(
-        frame, coordinate, axis=axis, edge_order=2 if coordinate.size > 2 else 1
-    )
+    return np.gradient(frame, coordinate, axis=axis, edge_order=2 if coordinate.size > 2 else 1)
 
 
 def _bilinear(corners, u, v):
@@ -2554,11 +2379,7 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
     validate_array(data)
     plane, periodic = _plane(data)
     squeezed = data.squeeze(
-        [
-            d
-            for d in logical_dims(data)
-            if d in data.dims and d not in plane and data.sizes[d] == 1
-        ],
+        [d for d in logical_dims(data) if d in data.dims and d not in plane and data.sizes[d] == 1],
         drop=False,
     )
     others = [d for d in squeezed.dims if d not in plane]
@@ -2574,9 +2395,7 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
             for d in plane:
                 if d not in coordinate.dims:
                     coordinate = coordinate.expand_dims({d: field.sizes[d]})
-            coords2d[name] = np.asarray(
-                coordinate.squeeze(drop=True).transpose(*plane), dtype=float
-            )
+            coords2d[name] = np.asarray(coordinate.squeeze(drop=True).transpose(*plane), dtype=float)
 
     def corners(array, i, j, i1, j1):
         return array[i, j], array[i1, j], array[i, j1], array[i1, j1]
@@ -2584,9 +2403,7 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
     def physical_corners(array, i, j, i1, j1):
         """Corner values of a physical coordinate, continued past the seam of a wrap-around cell."""
         c00, c10, c01, c11 = corners(array, i, j, i1, j1)
-        if (
-            i1 < i
-        ):  # the cell wraps around the first direction: one step on from the last row
+        if i1 < i:  # the cell wraps around the first direction: one step on from the last row
             c10 = 2 * array[i, j] - array[i - 1, j]
             c11 = 2 * array[i, j1 if j1 > j else j] - array[i - 1, j1 if j1 > j else j]
         if j1 < j:
@@ -2643,10 +2460,8 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
                     u, v = float(np.clip(u, 0, 1)), float(np.clip(v, 0, 1))
                 position = np.array(
                     [
-                        axes[0][i]
-                        + u * (axes[0][i1] - axes[0][i] if i1 > i else steps[0]),
-                        axes[1][j]
-                        + v * (axes[1][j1] - axes[1][j] if j1 > j else steps[1]),
+                        axes[0][i] + u * (axes[0][i1] - axes[0][i] if i1 > i else steps[0]),
+                        axes[1][j] + v * (axes[1][j1] - axes[1][j] if j1 > j else steps[1]),
                     ]
                 )
                 value = _bilinear(corners(frame, i, j, i1, j1), u, v)
@@ -2677,8 +2492,7 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
         unique = []
         for item in found:
             if not any(
-                other[0] == item[0]
-                and np.all(np.abs(other[2] - item[2]) < 0.75 * np.asarray(steps))
+                other[0] == item[0] and np.all(np.abs(other[2] - item[2]) < 0.75 * np.asarray(steps))
                 for other in unique
             ):
                 unique.append(item)
@@ -2703,9 +2517,7 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
                 out[name][r, q] = phys
     dims = (*others, "point")
     other_shape = [field.sizes[d] for d in others]
-    variables = {
-        name: (dims, array.reshape(*other_shape, count)) for name, array in out.items()
-    }
+    variables = {name: (dims, array.reshape(*other_shape, count)) for name, array in out.items()}
     variables["kind"] = (dims, kinds.reshape(*other_shape, count))
     result = xr.Dataset(
         variables,
@@ -2724,17 +2536,12 @@ def critical_points(data: xr.DataArray, *, refine: bool = True) -> xr.Dataset:
         **_provenance(data),
         "label": f"critical points of {_label(data)}".strip(),
         "plane": list(plane),
-        "periods": [
-            float(a[-1] - a[0] + h) if wraps else np.nan
-            for a, h, wraps in zip(axes, steps, periodic)
-        ],
+        "periods": [float(a[-1] - a[0] + h) if wraps else np.nan for a, h, wraps in zip(axes, steps, periodic)],
     }
     return result
 
 
-def reconnected_flux(
-    data: xr.DataArray, *, relative: bool = True, o_point=None, x_point=None
-) -> xr.DataArray:
+def reconnected_flux(data: xr.DataArray, *, relative: bool = True, o_point=None, x_point=None) -> xr.DataArray:
     """The reconnected flux over time: the flux function between an O-point and an X-point.
 
     At each time the O- and X-points are found (:func:`critical_points`); the flux of each
@@ -2881,9 +2688,7 @@ def weight_statistics(markers: xr.Dataset, *, weight: str = "weight") -> xr.Data
     >>> stats.noise.plasma.plot.timeseries(logy=False)
     """
     if weight not in markers.data_vars:
-        raise ValueError(
-            f"weight statistics need the weights {weight!r}; this dataset has {tuple(markers.data_vars)}"
-        )
+        raise ValueError(f"weight statistics need the weights {weight!r}; this dataset has {tuple(markers.data_vars)}")
     alive = _marker_alive(markers)
     w = markers[weight].where(alive)
     total = w.sum("marker")
@@ -2963,13 +2768,9 @@ def marker_density(
     >>> (physical / sampling).isel(t=-1).plasma.plot.lineout()
     """
     dims = [dims] if isinstance(dims, str) else list(dims)
-    missing = [
-        d for d in (*dims, *([weight] if weight else [])) if d not in markers.data_vars
-    ]
+    missing = [d for d in (*dims, *([weight] if weight else [])) if d not in markers.data_vars]
     if missing:
-        raise ValueError(
-            f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}"
-        )
+        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
     counts = [bins] * len(dims) if isinstance(bins, (int, np.integer)) else list(bins)
     alive = _marker_alive(markers)
     edges = []
@@ -2991,9 +2792,7 @@ def marker_density(
     for k in frames:
         frame = markers.isel(t=k) if k is not None else markers
         keep = np.asarray(alive.isel(t=k) if k is not None else alive, dtype=bool)
-        sample = np.column_stack(
-            [np.asarray(frame[d], dtype=float)[keep] for d in dims]
-        )
+        sample = np.column_stack([np.asarray(frame[d], dtype=float)[keep] for d in dims])
         w = np.asarray(frame[weight], dtype=float)[keep] if weight else None
         hist, _ = np.histogramdd(sample, bins=edges, weights=w)
         out.append(hist / volume)
@@ -3008,11 +2807,7 @@ def marker_density(
         name="weighted_density" if weight else "marker_density",
         attrs={
             **_provenance(markers),
-            "label": (
-                f"density of {_label(markers[weight]) or weight}"
-                if weight
-                else "marker density"
-            ),
+            "label": (f"density of {_label(markers[weight]) or weight}" if weight else "marker density"),
             "edges": [e.tolist() for e in edges],
         },
     )
@@ -3134,15 +2929,9 @@ def loss_map(
         elif invariants is not None and name in invariants:
             source = invariants[name]
         else:
-            raise ValueError(
-                f"{name!r} is neither a variable of this dataset nor an invariant (energy, pitch, speed)"
-            )
-        selected = resolve_marker_selection(source.to_dataset(name=name), {"t": t})[
-            name
-        ]
-        columns[name] = selected.drop_vars(
-            [c for c in selected.coords if c not in selected.dims]
-        )
+            raise ValueError(f"{name!r} is neither a variable of this dataset nor an invariant (energy, pitch, speed)")
+        selected = resolve_marker_selection(source.to_dataset(name=name), {"t": t})[name]
+        columns[name] = selected.drop_vars([c for c in selected.coords if c not in selected.dims])
     alive = np.asarray(_marker_alive(markers).transpose("t", "marker"), dtype=bool)
     gone = ~alive
     lost = gone.any(axis=0)

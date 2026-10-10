@@ -48,11 +48,7 @@ def test_a_plotly_result_is_saved_as_page_image_and_json(tmp_path, images, energ
     html = (tmp_path / "energy.html").read_text()
     assert "cdn.plot.ly" in html and '"responsive": true' in html
     assert json.loads((tmp_path / "energy.plotly.json").read_text())["data"]
-    assert (
-        images[-1]["width"] == 1100
-        and images[-1]["height"] == 650
-        and images[-1]["scale"] == 2.0
-    )
+    assert images[-1]["width"] == 1100 and images[-1]["height"] == 650 and images[-1]["scale"] == 2.0
 
 
 def test_a_figure_of_your_own_and_a_choice_of_formats(tmp_path, images):
@@ -71,9 +67,7 @@ def test_show_first(tmp_path, images, monkeypatch):
 
 
 def test_the_image_of_an_animation_shows_frame_or_still(tmp_path, images):
-    frames = [
-        go.Frame(name=str(i), data=[go.Scatter(x=[0, 1], y=[i, i])]) for i in range(3)
-    ]
+    frames = [go.Frame(name=str(i), data=[go.Scatter(x=[0, 1], y=[i, i])]) for i in range(3)]
     movie = go.Figure(
         data=[go.Scatter(x=[0, 1], y=[0, 0])],
         frames=frames,
@@ -84,9 +78,7 @@ def test_the_image_of_an_animation_shows_frame_or_still(tmp_path, images):
     still = go.Figure(go.Scatter(x=[0, 1], y=[7, 7]))
     save_figure(movie, tmp_path / "movie", still=still)
     assert images[-1]["figure"] is still
-    assert (
-        len(json.loads((tmp_path / "movie.plotly.json").read_text())["frames"]) == 3
-    )  # the page keeps them
+    assert len(json.loads((tmp_path / "movie.plotly.json").read_text())["frames"]) == 3  # the page keeps them
 
 
 def test_a_matplotlib_figure_keeps_its_own_size(tmp_path, energy):
@@ -97,9 +89,7 @@ def test_a_matplotlib_figure_keeps_its_own_size(tmp_path, energy):
 
 
 def test_nothing_is_written_on_other_mpi_ranks(tmp_path, images, monkeypatch):
-    rank_1 = types.SimpleNamespace(
-        COMM_WORLD=types.SimpleNamespace(Get_rank=lambda: 1, Get_size=lambda: 2)
-    )
+    rank_1 = types.SimpleNamespace(COMM_WORLD=types.SimpleNamespace(Get_rank=lambda: 1, Get_size=lambda: 2))
     monkeypatch.setitem(sys.modules, "mpi4py.MPI", rank_1)
     monkeypatch.setattr(plasma_plots.mpi, "mpi_rank", lambda: 1, raising=False)
     figure = go.Figure(go.Scatter(x=[0, 1], y=[1, 2]))

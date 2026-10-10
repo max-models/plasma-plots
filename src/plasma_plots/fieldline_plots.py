@@ -12,21 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from .arrays import (
-    DIM_LABELS,
-    angle_period,
-    axis_label,
-    logical_dims,
-    validate_array,
-    value_label,
-)
-from .fieldlines import (
-    LINE_CLASSES,
-    classify_field_lines,
-    islands,
-    parallel_wavenumber,
-    poincare_section,
-)
+from .arrays import DIM_LABELS, angle_period, axis_label, logical_dims, validate_array, value_label
+from .fieldlines import LINE_CLASSES, classify_field_lines, islands, parallel_wavenumber, poincare_section
 from .mpi import rank_zero
 from .plotting import (
     PLOT_STYLE,
@@ -54,10 +41,7 @@ def _dims(dataset: xr.Dataset) -> tuple[str, str, str]:
 
 
 def _periods(dataset: xr.Dataset) -> list[float | None]:
-    return [
-        None if not np.isfinite(p) else float(p)
-        for p in dataset.attrs.get("periods", [np.nan] * 3)
-    ]
+    return [None if not np.isfinite(p) else float(p) for p in dataset.attrs.get("periods", [np.nan] * 3)]
 
 
 def _split_wraps(x, y, period_x, period_y):
@@ -245,9 +229,7 @@ def plot_poincare(
         period = _periods(section)[1] or 1.0
         for k in range(chains.sizes["chain"]):
             n, m = int(chains.n[k]), int(chains.m[k])
-            members = np.flatnonzero(
-                (values == 1) & (np.asarray(codes.n) == n) & (np.asarray(codes.m) == m)
-            )
+            members = np.flatnonzero((values == 1) & (np.asarray(codes.n) == n) & (np.asarray(codes.m) == m))
             if not members.size:
                 continue
             # the puncture of the chain nearest its O-point, in the drawn coordinates
@@ -276,9 +258,7 @@ def plot_poincare(
                 )
             )
     if boundary is not None and coords == "physical":
-        edge = boundary.isel(
-            {d: 0 for d in boundary.dims if d not in logical_dims(boundary)}
-        )
+        edge = boundary.isel({d: 0 for d in boundary.dims if d not in logical_dims(boundary)})
         edge = _boundary_edge(edge)
         artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2)
     angle = section.attrs.get("section", np.nan)
@@ -286,9 +266,7 @@ def plot_poincare(
     ax.set(
         xlabel=xlabel,
         ylabel=ylabel,
-        title=(
-            title if title is not None else f"Poincaré section at {tor} = {angle:.3g}"
-        ),
+        title=(title if title is not None else f"Poincaré section at {tor} = {angle:.3g}"),
         aspect="equal" if coords == "physical" else "auto",
     )
     _finish(fig, run_label=shared_run_label(section))
@@ -354,13 +332,9 @@ def plot_field_lines(
     >>> plot_field_lines(lines, plane="3d", max_lines=20)
     """
     if plane not in (*PLANES_2D, "3d"):
-        raise ValueError(
-            f'plane must be one of {tuple(PLANES_2D)} or "3d"; got {plane!r}'
-        )
+        raise ValueError(f'plane must be one of {tuple(PLANES_2D)} or "3d"; got {plane!r}')
     if color_by not in ("line", "iota", "absB", "s", None):
-        raise ValueError(
-            f'color_by must be "line", "iota", "absB", "s" or None; got {color_by!r}'
-        )
+        raise ValueError(f'color_by must be "line", "iota", "absB", "s" or None; got {color_by!r}')
     lines = lines.isel(line=slice(0, max_lines))
     x, y, z = (np.asarray(lines[n], dtype=float) for n in ("x", "y", "z"))
     components = {"x": x, "y": y, "z": z, "R": np.hypot(x, y)}
@@ -399,7 +373,9 @@ def plot_field_lines(
             color = (
                 colormap(norm(iota[i]))
                 if norm is not None and color_by == "iota"
-                else palette(i % 20) if color_by == "line" else "C0"
+                else palette(i % 20)
+                if color_by == "line"
+                else "C0"
             )
             artists += ax.plot(x[keep, i], y[keep, i], z[keep, i], lw=0.8, color=color)
             continue
@@ -411,7 +387,9 @@ def plot_field_lines(
         color = (
             colormap(norm(iota[i]))
             if norm is not None and color_by == "iota" and np.isfinite(iota[i])
-            else palette(i % 20) if color_by == "line" else "C0"
+            else palette(i % 20)
+            if color_by == "line"
+            else "C0"
         )
         artists += ax.plot(xs, ys, lw=0.8, color=color)
     if plane == "3d":
@@ -427,18 +405,14 @@ def plot_field_lines(
                 label=value_label(lines["absB"]) if color_by == "absB" else "$s$",
             )
         if boundary is not None and plane == "RZ":
-            edge = boundary.isel(
-                {d: 0 for d in boundary.dims if d not in logical_dims(boundary)}
-            )
+            edge = boundary.isel({d: 0 for d in boundary.dims if d not in logical_dims(boundary)})
             edge = _boundary_edge(edge)
             artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2)
     if norm is not None and color_by == "iota":
         from matplotlib.cm import ScalarMappable
 
         fig.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax, label="$\\iota$")
-    ax.set_title(
-        title if title is not None else lines.attrs.get("label", "field lines")
-    )
+    ax.set_title(title if title is not None else lines.attrs.get("label", "field lines"))
     if plane != "3d":
         _finish(fig, run_label=shared_run_label(lines))
     return PlotResult(fig, ax, artists)
@@ -515,11 +489,7 @@ def plot_footprint(
     ax.set(
         xlabel=_axis_label(hits, tor, tor),
         ylabel=_axis_label(hits, pol, pol),
-        title=(
-            title
-            if title is not None
-            else f"footprint: {int(exited.sum())} of {exited.size} lines left the grid"
-        ),
+        title=(title if title is not None else f"footprint: {int(exited.sum())} of {exited.size} lines left the grid"),
     )
     _finish(fig, run_label=shared_run_label(hits))
     return PlotResult(fig, ax, [scatter], data={"footprint": hits})
@@ -610,15 +580,11 @@ def plot_connection_length(
             return result
         forward = lines
         if "direction" in lines.coords and (np.asarray(lines["direction"]) == -1).any():
-            forward = lines.isel(
-                line=np.flatnonzero(np.asarray(lines["direction"]) == 1)
-            )
+            forward = lines.isel(line=np.flatnonzero(np.asarray(lines["direction"]) == 1))
         starts = {d: np.asarray(forward[f"{d}_start"], dtype=float) for d in dims}
         varying = [d for d in dims if np.unique(starts[d]).size > 1]
         if len(varying) < 2:
-            varying = [d for d in dims if d not in varying][
-                : 2 - len(varying)
-            ] + varying
+            varying = [d for d in dims if d not in varying][: 2 - len(varying)] + varying
             varying = [d for d in dims if d in varying]
         values = np.asarray(forward["connection_length"], dtype=float)
         colors = np.log10(values) if log else values
@@ -703,9 +669,7 @@ def plot_along_field_lines(
     if "line" not in samples.dims:
         samples = samples.expand_dims("line")
     if set(samples.dims) != {"s", "line"}:
-        raise ValueError(
-            f"select every dimension but s and line first; got {samples.dims}"
-        )
+        raise ValueError(f"select every dimension but s and line first; got {samples.dims}")
     samples = samples.transpose("s", "line").isel(line=slice(0, max_lines))
     s = np.asarray(samples["s"], dtype=float)
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
@@ -720,9 +684,7 @@ def plot_along_field_lines(
             label += f", $\\iota$ = {float(iota[i]):.3g}"
         if k_par is not None and np.isfinite(float(k_par[i])):
             label += f", $k_\\parallel$ = {float(k_par[i]):.3g}"
-        artists += ax.plot(
-            s, np.asarray(samples[:, i], dtype=float), lw=1.0, label=label
-        )
+        artists += ax.plot(s, np.asarray(samples[:, i], dtype=float), lw=1.0, label=label)
     ax.set(
         xlabel=axis_label(samples, "s"),
         ylabel=value_label(samples),
@@ -821,9 +783,7 @@ def plot_surface_map(
     x = tor if x is None else x
     y = pol if y is None else y
     if set(data.dims) != {x, y}:
-        raise ValueError(
-            f"a surface map needs exactly the angles {x!r} and {y!r}; got {data.dims}"
-        )
+        raise ValueError(f"a surface map needs exactly the angles {x!r} and {y!r}; got {data.dims}")
     result = plot_slice(data, view=View(x=x, y=y), ax=ax, **options)
     ax = result.ax
     xs = np.asarray(data[x], dtype=float)
@@ -838,9 +798,7 @@ def plot_surface_map(
                 raise ValueError("iota must be a number or a 1-D profile")
             dim = iota.dims[0]
             if dim not in data.coords or data[dim].ndim != 0:
-                raise ValueError(
-                    f"to interpolate the profile, data needs the scalar coordinate {dim!r} of the surface"
-                )
+                raise ValueError(f"to interpolate the profile, data needs the scalar coordinate {dim!r} of the surface")
             value = float(iota.interp({dim: float(data[dim])}))
         else:
             value = float(iota)
@@ -877,9 +835,7 @@ def plot_surface_map(
                     keep = keep & (np.arange(keep.size) <= stop)
             if keep.sum() < 2:
                 continue
-            lx, ly = _split_wraps(
-                lx_all[keep, i], ly_all[keep, i], periods[2], periods[1]
-            )
+            lx, ly = _split_wraps(lx_all[keep, i], ly_all[keep, i], periods[2], periods[1])
             result.artists += ax.plot(
                 lx,
                 ly,

@@ -57,9 +57,7 @@ def test_save_figure_writes_png_json_and_html_and_copies_the_thumbnail(workdir):
 
 def test_save_extra_figure_returns_the_metadata_entry(workdir):
     tmp, _ = workdir
-    entry = gallery.save_extra_figure(
-        go.Figure(), "demo", "extra", alt="an image", caption="a caption"
-    )
+    entry = gallery.save_extra_figure(go.Figure(), "demo", "extra", alt="an image", caption="a caption")
     assert entry == {
         "key": "extra",
         "interactive": "/examples/demo-extra.plotly.json",
@@ -71,18 +69,12 @@ def test_save_extra_figure_returns_the_metadata_entry(workdir):
 
 
 def test_heatmaps_take_eta_dimensions(f):
-    heat = gallery.heatmap_figure(
-        f.mean("eta1"), x="t", y="v1", title="f(v, t)", xaxis_title="t", yaxis_title="v"
-    )
+    heat = gallery.heatmap_figure(f.mean("eta1"), x="t", y="v1", title="f(v, t)", xaxis_title="t", yaxis_title="v")
     assert np.asarray(heat.data[0].z).shape == (f.sizes["v1"], f.sizes["t"])
 
     field = f.isel(v1=0) - 0.5
-    space_time = gallery.space_time_figure(
-        field, space="eta1", title="E(x, t)", colorbar_title="E"
-    )
-    assert (
-        space_time.data[0].zmin == -space_time.data[0].zmax == -float(abs(field).max())
-    )
+    space_time = gallery.space_time_figure(field, space="eta1", title="E(x, t)", colorbar_title="E")
+    assert space_time.data[0].zmin == -space_time.data[0].zmax == -float(abs(field).max())
 
 
 def test_heatmap_movie_keeps_at_most_max_frames_and_saves_its_still(workdir, f):
@@ -98,18 +90,12 @@ def test_heatmap_movie_keeps_at_most_max_frames_and_saves_its_still(workdir, f):
     )
     assert len(movie.frames) == 3
     assert len(movie.layout.sliders[0].steps) == 3
-    np.testing.assert_array_equal(
-        static_z, f.transpose("t", "v1", "eta1").values[f.sizes["t"] // 2]
-    )
+    np.testing.assert_array_equal(static_z, f.transpose("t", "v1", "eta1").values[f.sizes["t"] // 2])
 
     initial = np.asarray(movie.data[0].z).copy()
     gallery.save_figure(movie, "demo", suffix="-movie", static_z=static_z)
-    np.testing.assert_array_equal(
-        np.asarray(written[-1][1]), static_z
-    )  # the PNG shows the still
-    np.testing.assert_array_equal(
-        np.asarray(movie.data[0].z), initial
-    )  # the animation is unchanged
+    np.testing.assert_array_equal(np.asarray(written[-1][1]), static_z)  # the PNG shows the still
+    np.testing.assert_array_equal(np.asarray(movie.data[0].z), initial)  # the animation is unchanged
 
 
 def test_merge_metadata_keeps_existing_fields_and_refuses_nan(workdir):

@@ -41,9 +41,7 @@ def bounce_orbit(kappa2, epsilon, q, gyrofrequency, dt, t_end):
         drift = (vpar**2 + lam * b / 2) / gyrofrequency
         return np.array([vpar / q, -lam / 2 * db / q, drift * np.sin(theta)])
 
-    state = np.array(
-        [np.zeros_like(kappa2), np.sqrt(1 - lam / (1 + epsilon)), np.zeros_like(kappa2)]
-    )
+    state = np.array([np.zeros_like(kappa2), np.sqrt(1 - lam / (1 + epsilon)), np.zeros_like(kappa2)])
     steps = int(t_end / dt)
     history = np.empty((steps + 1,) + state.shape)
     history[0] = state
@@ -87,9 +85,7 @@ def test_exb_drift():
     b2 = np.sum(B**2, axis=-1)
     e_perp = np.sqrt(np.sum(E**2, axis=-1) - np.sum(E * B, axis=-1) ** 2 / b2)
     np.testing.assert_allclose(np.linalg.norm(v, axis=-1), e_perp / np.sqrt(b2))
-    np.testing.assert_allclose(
-        orbits.exb_drift([1.0, 0, 0], [0, 0, 1.0]), [0, -1.0, 0]
-    )  # E × B
+    np.testing.assert_allclose(orbits.exb_drift([1.0, 0, 0], [0, 0, 1.0]), [0, -1.0, 0])  # E × B
     assert orbits.exb_drift(E[:, None], B[None, :5]).shape == (20, 5, 3)
     with pytest.raises(ValueError, match="length 3"):
         orbits.exb_drift([1.0, 0.0], [0.0, 1.0])
@@ -101,9 +97,7 @@ def test_grad_b_drift_directions():
     electron = orbits.grad_b_drift(1.5, B, grad_B, charge=-1.0, mass=2.0)
     np.testing.assert_allclose(electron, -ion)
     mu = orbits.magnetic_moment(1.5, 2.0, mass=2.0)
-    np.testing.assert_allclose(
-        ion, [0, mu * 0.3 / (1.0 * 2.0), 0]
-    )  # μ ∇B / (qB) along B × ∇B for ions
+    np.testing.assert_allclose(ion, [0, mu * 0.3 / (1.0 * 2.0), 0])  # μ ∇B / (qB) along B × ∇B for ions
     # broadcasting of the scalars against the vectors
     assert orbits.grad_b_drift(np.ones(4), B, grad_B).shape == (4, 3)
 
@@ -114,14 +108,10 @@ def test_grad_b_drift_against_lorentz_orbit(charge):
     length = 100.0
     field = lambda x: np.array([0.0, 0.0, 1 + x[0] / length])
     v = np.array([0.0, 1.0, 0.0])
-    x0 = (
-        -np.cross(v, [0, 0, 1.0]) / charge
-    )  # guiding center at the origin (m = B = 1 there)
+    x0 = -np.cross(v, [0, 0, 1.0]) / charge  # guiding center at the origin (m = B = 1 there)
     period = 2 * np.pi
     steps_per_period = 400
-    positions = boris(
-        x0, v, field, charge, 1.0, period / steps_per_period, 40 * steps_per_period
-    )
+    positions = boris(x0, v, field, charge, 1.0, period / steps_per_period, 40 * steps_per_period)
     measured = (positions[-1] - positions[0]) / (40 * period)
     expected = orbits.grad_b_drift(1.0, [0, 0, 1.0], [1 / length, 0, 0], charge=charge)
     np.testing.assert_allclose(measured, expected, atol=2e-2 * np.linalg.norm(expected))
@@ -134,15 +124,11 @@ def test_trapped_fraction():
     assert orbits.trapped_fraction(0.0) == 0.0
     assert orbits.trapped_fraction(1.0) == 1.0
     small = np.array([1e-6, 1e-5, 1e-4])
-    np.testing.assert_allclose(
-        orbits.trapped_fraction(small) / (1.46 * np.sqrt(small)), 1, atol=2e-3
-    )
+    np.testing.assert_allclose(orbits.trapped_fraction(small) / (1.46 * np.sqrt(small)), 1, atol=2e-3)
     eps = np.linspace(0.01, 0.95, 30)
     exact = orbits.trapped_fraction(eps)
     assert np.all(np.diff(exact) > 0)
-    np.testing.assert_allclose(
-        orbits.trapped_fraction(eps, "lin-liu"), exact, rtol=2e-2
-    )
+    np.testing.assert_allclose(orbits.trapped_fraction(eps, "lin-liu"), exact, rtol=2e-2)
     assert orbits.trapped_fraction(0.04, "sqrt") == pytest.approx(0.292)
     assert orbits.trapped_fraction(eps.reshape(5, 6)).shape == (5, 6)
     with pytest.raises(ValueError, match="approximation"):
@@ -154,9 +140,7 @@ def test_trapped_fraction_against_scipy():
     for eps in [0.01, 0.2, 0.7]:
 
         def average(f):
-            return integrate.quad(
-                lambda t: f(t) * (1 + eps * np.cos(t)), 0, 2 * np.pi, limit=200
-            )[0] / (2 * np.pi)
+            return integrate.quad(lambda t: f(t) * (1 + eps * np.cos(t)), 0, 2 * np.pi, limit=200)[0] / (2 * np.pi)
 
         b = lambda t: 1 / (1 + eps * np.cos(t))
         inner = integrate.quad(
@@ -178,14 +162,12 @@ def test_trapping_boundary_and_parameters():
     for theta in [0.0, 1.0, 2.5]:
         pitch = orbits.trapping_boundary(eps, "pitch", theta=theta)
         np.testing.assert_allclose(orbits.pitch_parameter(pitch, eps, theta), lam_c)
-    np.testing.assert_allclose(
-        orbits.trapping_boundary(eps, "pitch"), np.sqrt(2 * eps / (1 + eps))
-    )
+    np.testing.assert_allclose(orbits.trapping_boundary(eps, "pitch"), np.sqrt(2 * eps / (1 + eps)))
     # a particle with v∥ = 0 at θ bounces there: sin²(θ/2) = κ²
     theta = 1.2
-    assert orbits.trapping_parameter(
-        orbits.pitch_parameter(0.0, 0.1, theta), 0.1
-    ) == pytest.approx(np.sin(theta / 2) ** 2)
+    assert orbits.trapping_parameter(orbits.pitch_parameter(0.0, 0.1, theta), 0.1) == pytest.approx(
+        np.sin(theta / 2) ** 2
+    )
     with pytest.raises(ValueError, match="quantity"):
         orbits.trapping_boundary(0.1, "angle")
 
@@ -196,24 +178,18 @@ def test_bounce_frequency_against_bounce_motion(epsilon, rtol):
     kappa2 = np.array([0.1, 0.5, 0.9])
     analytic = orbits.bounce_frequency(1.0, kappa2, epsilon, q, 1.0)
     periods = 2 * np.pi / analytic
-    t, states = bounce_orbit(
-        kappa2, epsilon, q, 1e3, dt=periods.min() / 2000, t_end=2.2 * periods.max()
-    )
+    t, states = bounce_orbit(kappa2, epsilon, q, 1e3, dt=periods.min() / 2000, t_end=2.2 * periods.max())
     for j in range(len(kappa2)):
         turns = downward_crossings(t, states[:, 1, j])
         measured = 2 * np.pi / (turns[1] - turns[0])
         assert measured == pytest.approx(analytic[j], rel=rtol), kappa2[j]
         # the bounce points: sin²(θ_b/2) = κ²
-        assert np.sin(states[:, 0, j].max() / 2) ** 2 == pytest.approx(
-            kappa2[j], rel=rtol
-        )
+        assert np.sin(states[:, 0, j].max() / 2) ** 2 == pytest.approx(kappa2[j], rel=rtol)
 
 
 def test_deeply_trapped_limit():
     eps, q, r0, v = 0.004, 2.0, 3.0, 5.0
-    assert orbits.bounce_frequency(v, 0.0, eps, q, r0) == pytest.approx(
-        v * np.sqrt(eps / 2) / (q * r0)
-    )
+    assert orbits.bounce_frequency(v, 0.0, eps, q, r0) == pytest.approx(v * np.sqrt(eps / 2) / (q * r0))
     # a small-amplitude bounce oscillates at that frequency
     t, states = bounce_orbit(
         np.array([1e-4]),
@@ -224,15 +200,11 @@ def test_deeply_trapped_limit():
         t_end=2.2 * 2 * np.pi * q / np.sqrt(eps / 2),
     )
     turns = downward_crossings(t, states[:, 1, 0])
-    assert 2 * np.pi / (turns[1] - turns[0]) == pytest.approx(
-        np.sqrt(eps / 2) / q, rel=2 * eps
-    )
+    assert 2 * np.pi / (turns[1] - turns[0]) == pytest.approx(np.sqrt(eps / 2) / q, rel=2 * eps)
     # ω_b → 0 at the boundary, nan for passing particles
     assert orbits.bounce_frequency(1.0, 1.0, 0.1, 1.0, 1.0) == 0.0
     assert np.isnan(orbits.bounce_frequency(1.0, 1.5, 0.1, 1.0, 1.0))
-    assert orbits.bounce_frequency(
-        np.ones((2, 1)), np.array([0.2, 0.4, 0.6]), 0.1, 1.0, 1.0
-    ).shape == (2, 3)
+    assert orbits.bounce_frequency(np.ones((2, 1)), np.array([0.2, 0.4, 0.6]), 0.1, 1.0, 1.0).shape == (2, 3)
 
 
 def test_transit_frequency_against_quadrature():
@@ -243,9 +215,7 @@ def test_transit_frequency_against_quadrature():
     # leading order in ε (what the formula states): v∥ = √(2ε(κ² − sin²(θ/2)))
     v_leading = np.sqrt(2 * eps * (kappa2[:, None] - np.sin(theta / 2) ** 2))
     period = q * r0 * np.mean(1 / v_leading, axis=-1) * 2 * np.pi
-    np.testing.assert_allclose(
-        orbits.transit_frequency(1.0, kappa2, eps, q, r0), 2 * np.pi / period, rtol=1e-6
-    )
+    np.testing.assert_allclose(orbits.transit_frequency(1.0, kappa2, eps, q, r0), 2 * np.pi / period, rtol=1e-6)
     # the exact v∥ in B = B₀/(1 + ε cos θ), to O(ε)
     v_exact = np.sqrt(1 - lam[:, None] / (1 + eps * np.cos(theta)))
     period = q * r0 * np.mean(1 / v_exact, axis=-1) * 2 * np.pi
@@ -255,9 +225,7 @@ def test_transit_frequency_against_quadrature():
         rtol=2 * eps,
     )
     # far from the boundary: |v∥|/(qR₀)
-    assert orbits.transit_frequency(1.0, 1e6, eps, q, r0) == pytest.approx(
-        np.sqrt(2 * eps * 1e6) / (q * r0), rel=1e-6
-    )
+    assert orbits.transit_frequency(1.0, 1e6, eps, q, r0) == pytest.approx(np.sqrt(2 * eps * 1e6) / (q * r0), rel=1e-6)
     assert np.isnan(orbits.transit_frequency(1.0, 0.5, eps, q, r0))
     # both frequencies use the same elliptic integral at κ² → 1
     assert elliptic_k(0.999) > 4
@@ -267,16 +235,12 @@ def test_banana_width_against_drift_orbit():
     eps, q, omega = 0.002, 2.0, 1e3
     kappa2 = np.array([0.2, 0.6, 0.95])
     periods = 2 * np.pi / orbits.bounce_frequency(1.0, kappa2, eps, q, 1.0)
-    t, states = bounce_orbit(
-        kappa2, eps, q, omega, dt=periods.min() / 2000, t_end=1.05 * periods.max()
-    )
+    t, states = bounce_orbit(kappa2, eps, q, omega, dt=periods.min() / 2000, t_end=1.05 * periods.max())
     for j in range(len(kappa2)):
         inside = t <= periods[j]
         r = states[inside, 2, j]
         width = orbits.banana_width(1 / omega, kappa2[j], eps, q)
         assert r.max() - r.min() == pytest.approx(width, rel=1e-2), kappa2[j]
     assert orbits.banana_width(0.01, 0.0, 0.1, 2.0) == 0.0
-    assert orbits.banana_width(0.01, 1.0, 0.1, 2.0) == pytest.approx(
-        2 * np.sqrt(2) * 2.0 * 0.01 / np.sqrt(0.1)
-    )
+    assert orbits.banana_width(0.01, 1.0, 0.1, 2.0) == pytest.approx(2 * np.sqrt(2) * 2.0 * 0.01 / np.sqrt(0.1))
     assert np.isnan(orbits.banana_width(0.01, 1.5, 0.1, 2.0))

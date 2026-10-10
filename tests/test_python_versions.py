@@ -10,10 +10,7 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MINIMUM = (3, 10)
 SOURCES = sorted(
-    p
-    for folder in ("src", "tests", "scripts")
-    for p in (ROOT / folder).rglob("*.py")
-    if "__pycache__" not in p.parts
+    p for folder in ("src", "tests", "scripts") for p in (ROOT / folder).rglob("*.py") if "__pycache__" not in p.parts
 )
 
 
@@ -21,9 +18,7 @@ SOURCES = sorted(
 def test_source_parses_with_the_oldest_supported_grammar(path):
     # feature_version rejects newer syntax (except*, PEP 695 generics, ...) even when the tests
     # run on a newer Python, so every CI job checks it, not only the 3.10 one
-    ast.parse(
-        path.read_text(encoding="utf-8"), filename=str(path), feature_version=MINIMUM
-    )
+    ast.parse(path.read_text(encoding="utf-8"), filename=str(path), feature_version=MINIMUM)
 
 
 def test_pyproject_declares_the_minimum_version():
