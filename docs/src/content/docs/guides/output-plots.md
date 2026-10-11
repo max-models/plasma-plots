@@ -98,7 +98,9 @@ u = out.evaluate(
 )
 mode = u.plasma.analysis.filter_time(pad_bins=1).filtered
 # energy in that mode
-out.analysis.linear_mhd_energies(velocity=mode, b_field=None, pressure=None).en_U
+out.analysis.linear_mhd_energies(
+    velocity=mode, b_field=None, pressure=None
+).en_U
 ```
 
 Fields must be in their FEEC space's own representation: 2-form components
