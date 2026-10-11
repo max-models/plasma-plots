@@ -173,6 +173,8 @@ class ArrayPlots(_ArrayAccessor):
         xlabel: str | None = None,
         rationals: int | None = None,
         nfp: int | None = None,
+        rank_boundaries=None,
+        rank_boundary_color="red",
         backend: Backend | None = None,
         **selection,
     ):
@@ -182,6 +184,15 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         x : str, optional
             The dimension to keep. Default: the only one left after ``selection``.
+        rank_boundaries : sequence of float or mpiarray Layout, optional
+            Coordinate values to mark with dashed vertical lines, e.g. the boundaries
+            between MPI ranks: an explicit sequence of values, already in the kept
+            dimension's own coordinate, or (duck-typed, so no mpiarray import is needed
+            here) a ``Layout`` whose axis for the kept dimension is found by name among
+            this array's own dimensions and passed to its ``boundary_values``. Default:
+            none drawn.
+        rank_boundary_color : optional
+            Their color. Default: red.
         **selection
             The other dimensions: an integer is a position (``t=-1`` the last), a float the
             nearest coordinate value.
@@ -213,13 +224,25 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select, plot_lineout
 
         view = self._view(None, None, "t", "logical", "XY", selection)
+        selected = _select(self._array, view)
+        if (
+            rank_boundaries is not None
+            and not isinstance(rank_boundaries, dict)
+            and hasattr(rank_boundaries, "boundary_values")
+            and selected.ndim == 1
+        ):
+            kept = selected.dims[0]
+            axis = self._array.dims.index(kept)
+            rank_boundaries = rank_boundaries.boundary_values(axis, self._array.coords[kept].to_numpy())
         return plot_lineout(
-            _select(self._array, view),
+            selected,
             x=x,
             ax=ax,
             title=title,
             reference=reference,
             x_of=x_of,
+            rank_boundaries=rank_boundaries,
+            rank_boundary_color=rank_boundary_color,
             xlabel=xlabel,
             rationals=rationals,
             nfp=nfp,

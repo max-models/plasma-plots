@@ -80,7 +80,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None, reference=None, backend=None)`: Plot this time series, and any others given, in one axes.
   - e.g. `energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)`
   - e.g. `energy.plasma.plot.timeseries(other_run_energy)`
-- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
+- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, rank_boundaries=None, rank_boundary_color='red', backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
   - e.g. `phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)`
   - e.g. `T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)`
 - `array.plasma.plot.line_animation(*, x=None, sweep='t', reference=None, x_of=None, xlabel=None, ylim=None, step=1, max_frames=None, interval=100, title=None, alongside=None, alongside_logy=False, backend=None, **selection)`: Animate a one-dimensional profile over sweep.

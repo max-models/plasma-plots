@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
-from plasma_plots.plotting import View, _SliceRenderer, plot_slice  # noqa: E402
+from plasma_plots.plotting import View, _SliceRenderer, plot_lineout, plot_slice  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -112,3 +112,41 @@ def test_rank_boundaries_layout_rejects_unmatched_dimensions():
 def test_rank_boundaries_rejects_a_value_without_boundary_values():
     with pytest.raises(TypeError, match="boundary_values"):
         plot_slice(field(), overlays={"rank_boundaries": object()})
+
+
+def profile():
+    eta1 = np.linspace(0.0, 1.0, 9)
+    return xr.DataArray(eta1**2, dims="eta1", coords={"eta1": eta1})
+
+
+def test_plot_lineout_draws_a_dashed_line_per_rank_boundary_value():
+    plain = plot_lineout(profile())
+    assert len(plain.ax.lines) == 1  # just the profile
+    marked = plot_lineout(profile(), rank_boundaries=[0.25, 0.75])
+    new_lines = marked.ax.lines[1:]
+    assert len(new_lines) == 2
+    assert all(line.get_linestyle() == "--" for line in new_lines)
+    assert all(line.get_color() == "red" for line in new_lines)
+
+
+def test_plot_lineout_rank_boundary_color_overrides_the_default():
+    marked = plot_lineout(profile(), rank_boundaries=[0.25], rank_boundary_color="blue")
+    assert marked.ax.lines[-1].get_color() == "blue"
+
+
+def test_accessor_lineout_resolves_a_layout_by_dimension_name():
+    layout = FakeLayout({0: [0.25, 0.75]})
+    marked = profile().plasma.plot.lineout(rank_boundaries=layout)
+    assert len(marked.ax.lines) == 3  # the profile, plus 2 boundary lines
+
+
+def test_accessor_lineout_rank_boundaries_axis_follows_dimension_order():
+    data = field().isel(eta2=0)  # eta1 is axis 0 of the original 2-D field
+    layout = FakeLayout({0: [0.3]})
+    marked = data.plasma.plot.lineout(rank_boundaries=layout)
+    assert len(marked.ax.lines) == 2  # the profile, plus one boundary line
+
+
+def test_accessor_lineout_rank_boundaries_accepts_a_plain_sequence():
+    result = profile().plasma.plot.lineout(rank_boundaries=[0.5])
+    assert len(result.ax.lines) == 2

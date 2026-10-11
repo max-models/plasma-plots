@@ -913,6 +913,8 @@ def plot_lineout(
     xlabel=None,
     rationals: int | None = None,
     nfp: int | None = None,
+    rank_boundaries=None,
+    rank_boundary_color="red",
 ):
     """Plot a one-dimensional profile along its one remaining coordinate.
 
@@ -941,6 +943,12 @@ def plot_lineout(
     nfp : int, optional
         With ``rationals``: the numerators ``n`` are multiples of it. Default: the profile's
         ``nfp`` attribute, else 1.
+    rank_boundaries : sequence of float, optional
+        Coordinate values to mark with dashed vertical lines, e.g. the boundaries between
+        MPI ranks (see mpiarray's ``Layout.boundary_values``). Already in the plotted ``x``
+        units (``x_of`` is not applied to them). Default: none drawn.
+    rank_boundary_color : optional
+        Their color. Default: red.
 
     Returns
     -------
@@ -1007,6 +1015,9 @@ def plot_lineout(
                     color="0.3",
                 )
             )
+    if rank_boundaries:
+        for value in rank_boundaries:
+            artists.append(ax.axvline(value, color=rank_boundary_color, lw=0.8, ls="--", alpha=0.9))
     ax.set(
         xlabel=xlabel or (axis_label(data, x) if x_of is None else "x"),
         ylabel=value_label(data),
