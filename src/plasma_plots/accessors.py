@@ -173,6 +173,8 @@ class ArrayPlots(_ArrayAccessor):
         xlabel: str | None = None,
         rationals: int | None = None,
         nfp: int | None = None,
+        rank_boundaries=None,
+        rank_boundary_color="red",
         backend: Backend | None = None,
         **selection,
     ):
@@ -182,6 +184,15 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         x : str, optional
             The dimension to keep. Default: the only one left after ``selection``.
+        rank_boundaries : sequence of float or mpiarray Layout, optional
+            Coordinate values to mark with dashed vertical lines, e.g. the boundaries
+            between MPI ranks: an explicit sequence of values, already in the kept
+            dimension's own coordinate, or (duck-typed, so no mpiarray import is needed
+            here) a ``Layout`` whose axis for the kept dimension is found by name among
+            this array's own dimensions and passed to its ``boundary_values``. Default:
+            none drawn.
+        rank_boundary_color : optional
+            Their color. Default: red.
         **selection
             The other dimensions: an integer is a position (``t=-1`` the last), a float the
             nearest coordinate value.
@@ -213,13 +224,25 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select, plot_lineout
 
         view = self._view(None, None, "t", "logical", "XY", selection)
+        selected = _select(self._array, view)
+        if (
+            rank_boundaries is not None
+            and not isinstance(rank_boundaries, dict)
+            and hasattr(rank_boundaries, "boundary_values")
+            and selected.ndim == 1
+        ):
+            kept = selected.dims[0]
+            axis = self._array.dims.index(kept)
+            rank_boundaries = rank_boundaries.boundary_values(axis, self._array.coords[kept].to_numpy())
         return plot_lineout(
-            _select(self._array, view),
+            selected,
             x=x,
             ax=ax,
             title=title,
             reference=reference,
             x_of=x_of,
+            rank_boundaries=rank_boundaries,
+            rank_boundary_color=rank_boundary_color,
             xlabel=xlabel,
             rationals=rationals,
             nfp=nfp,
@@ -411,9 +434,7 @@ class ArrayPlots(_ArrayAccessor):
         result = None
         for series in (self._array, *others):
             if series.ndim != 1:
-                raise ValueError(
-                    f"convergence needs one-dimensional errors; got {series.dims}"
-                )
+                raise ValueError(f"convergence needs one-dimensional errors; got {series.dims}")
             (dim,) = series.dims
             drawn = plot_convergence(
                 np.asarray(series[dim], dtype=float),
@@ -522,13 +543,9 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select, plot_volume_slices
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return plot_volume_slices(
-            _select(self._array, view), indices=indices, cmap=cmap
-        )
+        return plot_volume_slices(_select(self._array, view), indices=indices, cmap=cmap)
 
-    def volume(
-        self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection
-    ):
+    def volume(self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection):
         """Create a PyVista volume plotter for a selected scalar field.
 
         Parameters
@@ -554,16 +571,12 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select, pyvista_volume
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return pyvista_volume(
-            _select(self._array, view), name=name, cmap=cmap, opacity=opacity
-        )
+        return pyvista_volume(_select(self._array, view), name=name, cmap=cmap, opacity=opacity)
 
     def _spatial_selection(self, selection):
         from .plotting import _select
 
-        return _select(
-            self._array, self._view(None, None, "t", "logical", "XY", selection)
-        )
+        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
 
     def isosurface(
         self,
@@ -918,9 +931,7 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import plot_field_with_orbits
 
         view = self._view(x, y, "t", "logical", "XY", selection)
-        return plot_field_with_orbits(
-            self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap
-        )
+        return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
 
     @with_backend
     def dispersion(
@@ -1009,9 +1020,7 @@ class ArrayPlots(_ArrayAccessor):
     def _time_selection(self, selection):
         from .plotting import _select
 
-        return _select(
-            self._array, self._view(None, None, "t", "logical", "XY", selection)
-        )
+        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
 
     @with_backend
     def power_spectrum(
@@ -1256,9 +1265,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_mode_amplitudes
 
         amplitudes = mode_amplitudes(
-            mode_spectrum(
-                self._time_selection(selection), dims=dims, names=names, scale=scale
-            ),
+            mode_spectrum(self._time_selection(selection), dims=dims, names=names, scale=scale),
             relative=relative,
         )
         others = [d for d in amplitudes.dims if d not in ("t", "mode")]
@@ -1322,9 +1329,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral import mode_spectrum
         from .spectral_plots import plot_mode_map
 
-        modes = abs(
-            mode_spectrum(self._time_selection(selection), dims=dims, scale=scale)
-        )
+        modes = abs(mode_spectrum(self._time_selection(selection), dims=dims, scale=scale))
         others = [d for d in modes.dims if d not in ("m", "n")]
         if others:
             modes = getattr(modes, reduce)(others, keep_attrs=True)
@@ -1386,9 +1391,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_radial_power
 
         x = logical_dims(self._array)[0] if x is None else x
-        power = time_fft(
-            self._time_selection(selection), detrend=detrend, window=window
-        ).power
+        power = time_fft(self._time_selection(selection), detrend=detrend, window=window).power
         others = [d for d in power.dims if d not in ("omega", x)]
         power = power.mean(others, keep_attrs=True) if others else power
         return plot_radial_power(
@@ -1472,21 +1475,13 @@ class ArrayPlots(_ArrayAccessor):
         name = self._array.name or "the field"
         if omega is None:
             if "t" in field.dims:
-                raise ValueError(
-                    "select a time (e.g. t=-1), or pass omega for an eigenfunction"
-                )
+                raise ValueError("select a time (e.g. t=-1), or pass omega for an eigenfunction")
             structure = mode_amplitudes(mode_spectrum(field, dims=dims, scale=scale))
-            title = f"Harmonics of {name}" + (
-                f" at t = {float(field.t):.4g}" if "t" in field.coords else ""
-            )
+            title = f"Harmonics of {name}" + (f" at t = {float(field.t):.4g}" if "t" in field.coords else "")
         else:
-            structure = mode_spectrum(
-                mode_structure(field, omega), dims=dims, scale=scale
-            )
+            structure = mode_spectrum(mode_structure(field, omega), dims=dims, scale=scale)
             title = f"Harmonics of {name} at omega = {omega:.4g}"
-        return plot_mode_profiles(
-            structure, x=x, x_of=x_of, xlabel=xlabel, top=top, phase=phase, title=title
-        )
+        return plot_mode_profiles(structure, x=x, x_of=x_of, xlabel=xlabel, top=top, phase=phase, title=title)
 
     @with_backend
     def profiles(
@@ -1601,9 +1596,7 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_cross_spectrum
 
         return plot_cross_spectrum(
-            cross_spectrum(
-                self._array, other, dims=dims, detrend=detrend, window=window
-            ),
+            cross_spectrum(self._array, other, dims=dims, detrend=detrend, window=window),
             omega_max=omega_max,
         )
 
@@ -2116,9 +2109,7 @@ class ArrayPlots(_ArrayAccessor):
             ylabel=ylabel,
             colorbar_label=colorbar_label,
             **selection,
-        ).animation(
-            interval=interval, step=step, max_frames=max_frames, alongside=alongside
-        )
+        ).animation(interval=interval, step=step, max_frames=max_frames, alongside=alongside)
 
     def frames(
         self,
@@ -2234,8 +2225,331 @@ class ArrayPlots(_ArrayAccessor):
         """
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(
-            self._array, ax=ax, max_markers=max_markers, show_paths=show_paths
+        return plot_marker_trajectories(self._array, ax=ax, max_markers=max_markers, show_paths=show_paths)
+
+    @with_backend
+    def poincare(
+        self,
+        *,
+        seeds=8,
+        turns: float | None = None,
+        section: float | None = None,
+        coords: str = "physical",
+        color_by: str | None = "line",
+        islands: bool = False,
+        boundary: xr.DataArray | None = None,
+        ax=None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Trace field lines of this vector field and plot their Poincaré section.
+
+        A convenience for :meth:`ArrayAnalysis.field_lines` followed by
+        :meth:`DatasetPlots.poincare`; keep the traced lines (``result.data["lines"]``) to
+        plot them again, cut another plane or sample a field along them.
+
+        Parameters
+        ----------
+        seeds : int, dict, array_like or xarray.Dataset, optional
+            Where the lines start; see
+            :func:`plasma_plots.fieldlines.trace_field_lines`. Default: 8 along the radius.
+        turns : float, optional
+            How many toroidal transits to trace. Default: 20.
+        section : float, optional
+            The toroidal logical coordinate of the plane. Default: the first grid value.
+        islands : bool, optional
+            Label the island chains with their ``n/m`` and widths. Default: False.
+        **selection
+            The other dimensions, e.g. ``t=-1``: an integer is a position, a float the nearest
+            coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the scatters; ``data["lines"]`` holds the traced lines,
+            ``data["section"]`` the punctures.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_poincare : The function behind this method.
+        ArrayAnalysis.field_lines : The traced lines, to keep.
+        ArrayData.poincare : The punctures, without plotting them.
+
+        Examples
+        --------
+        >>> B.plasma.plot.poincare(seeds=12, turns=100, t=-1)
+        >>> B.plasma.plot.poincare(color_by="classification", islands=True, t=-1)
+        """
+        from .fieldline_plots import plot_poincare
+        from .fieldlines import trace_field_lines
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        lines = trace_field_lines(_select(self._array, view), seeds=seeds, turns=turns, section=section)
+        result = plot_poincare(
+            lines,
+            coords=coords,
+            color_by=color_by,
+            islands_=islands,
+            boundary=boundary,
+            ax=ax,
+        )
+        result.data["lines"] = lines
+        return result
+
+    @with_backend
+    def surface_map(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        iota=None,
+        lines: xr.Dataset | None = None,
+        count: int = 6,
+        start: float = 0.0,
+        turns: float | None = 2.0,
+        line_color: str = "w",
+        ax=None,
+        backend: Backend | None = None,
+        **options,
+    ):
+        """Plot this quantity on one flux surface, unfolded over the angles, with field lines.
+
+        Select the surface and the time by keyword, e.g. ``rho=0.5`` or ``eta1=0.5, t=-1``.
+        Field lines are straight lines of slope ι in straight-field-line angles (Boozer, PEST),
+        or traced lines (:meth:`ArrayAnalysis.field_lines`) on any grid.
+
+        Parameters
+        ----------
+        **options
+            The remaining dimensions to select (an integer is a position, a float the nearest
+            value), and the options of :func:`plasma_plots.plotting.plot_slice` (``cmap``,
+            ``levels``, ``overlays``, ...).
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the mesh and the lines; ``data["iota"]`` holds the ι drawn.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_surface_map : The function behind this method.
+        ArrayPlots.slice : The surface without field lines.
+
+        Examples
+        --------
+        >>> boozer.mod_B.plasma.plot.surface_map(rho=0.5, iota=boozer.iota, count=8)
+        >>> phi.plasma.plot.surface_map(eta1=0.5, t=-1, lines=lines)
+        """
+        from .fieldline_plots import plot_surface_map
+        from .plotting import _select
+
+        selection = {k: options.pop(k) for k in list(options) if k in self._array.dims}
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return plot_surface_map(
+            _select(self._array, view),
+            x=x,
+            y=y,
+            iota=iota,
+            lines=lines,
+            count=count,
+            start=start,
+            turns=turns,
+            line_color=line_color,
+            ax=ax,
+            **options,
+        )
+
+    @with_backend
+    def along_field_lines(
+        self,
+        lines: xr.Dataset,
+        *,
+        k_parallel: bool = False,
+        method: str = "fft",
+        max_lines: int = 12,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot this scalar field along traced field lines, one curve per line.
+
+        Parameters
+        ----------
+        lines : xarray.Dataset
+            The lines of :meth:`ArrayAnalysis.field_lines`.
+        **selection
+            The other dimensions, e.g. ``t=-1``: an integer is a position, a float the nearest
+            coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the lines; with ``k_parallel``, ``data["k_parallel"]``.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_along_field_lines : The function behind this method.
+        ArrayAnalysis.sample_along : The samples, without plotting them.
+        ArrayAnalysis.parallel_wavenumber : The parallel wavenumber alone.
+
+        Examples
+        --------
+        >>> phi.plasma.plot.along_field_lines(lines, k_parallel=True, t=-1)
+        """
+        from .fieldline_plots import plot_along_field_lines
+        from .fieldlines import sample_along
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        samples = sample_along(_select(self._array, view), lines)
+        return plot_along_field_lines(
+            samples,
+            k_parallel=k_parallel,
+            method=method,
+            max_lines=max_lines,
+            ax=ax,
+            title=title,
+        )
+
+    @with_backend
+    def critical_points(
+        self,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        coords: Coordinates = "logical",
+        plane: Plane = "XY",
+        levels=14,
+        cmap=None,
+        label_values: bool = False,
+        ax=None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot the contours of this flux function with its O-points and X-points.
+
+        Parameters
+        ----------
+        x : str, optional
+            The dimension along the horizontal axis. Default: the first of the plane.
+        y : str, optional
+            The dimension along the vertical axis. Default: the second of the plane.
+        coords : {"logical", "physical"}, optional
+            Logical coordinates, or the physical ``plane``. Default: ``"logical"``.
+        plane : {"XY", "XZ", "YZ", "RZ"}, optional
+            The physical plane. Default: ``"XY"``.
+        **selection
+            The other dimensions, e.g. ``t=-1``: an integer is a position, a float the nearest
+            coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the mesh, the contours and the scatters; ``data["points"]``
+            holds the points.
+
+        See Also
+        --------
+        plasma_plots.plotting.plot_critical_points : The function behind this method.
+        ArrayAnalysis.critical_points : The points alone.
+        ArrayAnalysis.reconnected_flux : The flux between them over time.
+
+        Examples
+        --------
+        >>> A = B.plasma.analysis.flux_function()
+        >>> A.plasma.plot.critical_points(t=-1, eta3=0)
+        >>> A.plasma.plot.critical_points(coords="physical", t=-1, eta3=0)
+        """
+        from .plotting import plot_critical_points
+
+        view = self._view(x, y, "t", coords, plane, selection)
+        return plot_critical_points(
+            self._array,
+            view=view,
+            ax=ax,
+            levels=levels,
+            cmap=cmap,
+            label_values=label_values,
+        )
+
+    @with_backend
+    def boozer_spectrum(
+        self,
+        *,
+        top: int = 8,
+        helicity=None,
+        log: bool = True,
+        angles: str = "boozer",
+        x_of=None,
+        xlabel: str | None = None,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot the strongest Boozer harmonics of this ``|B|`` over the radius, and the quasi-symmetry error.
+
+        Parameters
+        ----------
+        **selection
+            Other dimensions to select first: an integer is a position, a float the nearest
+            coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the lines; ``data`` holds the ``amplitudes`` and the
+            ``error``.
+
+        See Also
+        --------
+        plasma_plots.spectral_plots.plot_boozer_spectrum : The function behind this method.
+        ArrayAnalysis.boozer_spectrum : The harmonics alone.
+        ArrayAnalysis.quasisymmetry_error : The error alone.
+
+        Examples
+        --------
+        >>> boozer.mod_B.plasma.plot.boozer_spectrum(top=8, helicity="QA")
+        """
+        from .plotting import _select
+        from .spectral_plots import plot_boozer_spectrum
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return plot_boozer_spectrum(
+            _select(self._array, view),
+            top=top,
+            helicity=helicity,
+            log=log,
+            angles=angles,
+            x_of=x_of,
+            xlabel=xlabel,
+            title=title,
         )
 
 
@@ -2313,13 +2627,9 @@ class ArrayData(_ArrayAccessor):
         from .plotting import _select, prepare_vector
 
         view = self._view(None, None, "t", coordinates, "XY", selection)
-        return prepare_vector(
-            _select(self._array, view), x=x, y=y, components=components, stride=stride
-        )
+        return prepare_vector(_select(self._array, view), x=x, y=y, components=components, stride=stride)
 
-    def volume_slices(
-        self, *, indices: dict[str, int] | None = None, **selection
-    ) -> dict[str, xr.DataArray]:
+    def volume_slices(self, *, indices: dict[str, int] | None = None, **selection) -> dict[str, xr.DataArray]:
         """Return the three orthogonal planes :meth:`ArrayPlots.volume_slices` would plot.
 
         Returns
@@ -2520,9 +2830,7 @@ class ArrayData(_ArrayAccessor):
         selected, _grids = _slice_data(self._array, view)
         return selected
 
-    def dispersion(
-        self, *, dim: str | None = None, detrend: bool = True
-    ) -> xr.DataArray:
+    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
         """Return the space-time power spectrum :meth:`ArrayPlots.dispersion` would plot.
 
         The same as :meth:`ArrayAnalysis.dispersion`; included here too for parity with every
@@ -2596,9 +2904,7 @@ class ArrayData(_ArrayAccessor):
         """
         from .plotting import prepare_orbits
 
-        return prepare_orbits(
-            self._array, max_markers=max_markers, required=("x", "y", "z")
-        )
+        return prepare_orbits(self._array, max_markers=max_markers, required=("x", "y", "z"))
 
     def timeseries(self, *others) -> list[xr.DataArray]:
         """Return this time series and any ``others``, validated, as :meth:`ArrayPlots.timeseries` plots them.
@@ -2627,6 +2933,74 @@ class ArrayData(_ArrayAccessor):
         for item in series:
             validate_array(item, required_dims=("t",))
         return series
+
+    def poincare(
+        self,
+        *,
+        seeds=8,
+        turns: float | None = None,
+        section: float | None = None,
+        **selection,
+    ) -> xr.Dataset:
+        """Return the Poincaré section :meth:`ArrayPlots.poincare` would plot.
+
+        Parameters
+        ----------
+        **selection
+            The other dimensions, e.g. ``t=-1``: an integer is a position, a float the nearest
+            coordinate value.
+
+        Returns
+        -------
+        xarray.Dataset
+            The punctures over ``(puncture, line)``; see
+            :func:`plasma_plots.fieldlines.poincare_section`.
+
+        See Also
+        --------
+        ArrayPlots.poincare : The plot of these punctures.
+        ArrayAnalysis.field_lines : The traced lines themselves.
+
+        Examples
+        --------
+        >>> B.plasma.data.poincare(seeds=12, turns=100, t=-1)
+        """
+        from .fieldlines import poincare_section, trace_field_lines
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return poincare_section(
+            trace_field_lines(_select(self._array, view), seeds=seeds, turns=turns, section=section)
+        )
+
+    def critical_points(self, *, refine: bool = True, **selection) -> xr.Dataset:
+        """Return the O- and X-points :meth:`ArrayPlots.critical_points` would mark.
+
+        Parameters
+        ----------
+        **selection
+            The other dimensions, e.g. ``t=-1``: an integer is a position, a float the nearest
+            coordinate value.
+
+        Returns
+        -------
+        xarray.Dataset
+            The points over ``point`` (and the dimensions left, e.g. ``t``).
+
+        See Also
+        --------
+        plasma_plots.analysis.critical_points : The function behind this method.
+        ArrayPlots.critical_points : The plot of these points.
+
+        Examples
+        --------
+        >>> A.plasma.data.critical_points(t=-1)
+        """
+        from .analysis import critical_points
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return critical_points(_select(self._array, view), refine=refine)
 
 
 class ArrayAnalysis(_ArrayAccessor):
@@ -2747,9 +3121,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import oscillation_frequency
 
-        return oscillation_frequency(
-            self._array, window=window, method=method, detrend=detrend
-        )
+        return oscillation_frequency(self._array, window=window, method=method, detrend=detrend)
 
     def map_coordinate(
         self,
@@ -2780,9 +3152,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .arrays import map_coordinate
 
-        return map_coordinate(
-            self._array, dim, mapping, name=name, units=units, label=label
-        )
+        return map_coordinate(self._array, dim, mapping, name=name, units=units, label=label)
 
     def envelope(self) -> xr.DataArray:
         """Return the local maxima of this time series.
@@ -2906,9 +3276,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return velocity_moments(self._array, dims=dims)
 
-    def dispersion(
-        self, *, dim: str | None = None, detrend: bool = True
-    ) -> xr.DataArray:
+    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
         """Return the space-time power spectrum of this ``(t, dim)`` field.
 
         A plain FFT, as a function of angular frequency and wavenumber: the data behind a
@@ -2975,9 +3343,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
     # Spectral diagnostics: see plasma_plots.spectral for the definitions and conventions.
 
-    def fft(
-        self, *, dim: str, detrend: bool = False, window: str | None = None
-    ) -> xr.DataArray:
+    def fft(self, *, dim: str, detrend: bool = False, window: str | None = None) -> xr.DataArray:
         """Return the two-sided Fourier coefficients along ``dim``.
 
         Returns
@@ -2998,9 +3364,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return fft(self._array, dim=dim, detrend=detrend, window=window)
 
-    def time_fft(
-        self, *, detrend: bool = False, window: str | None = None
-    ) -> xr.Dataset:
+    def time_fft(self, *, detrend: bool = False, window: str | None = None) -> xr.Dataset:
         """Return the one-sided temporal coefficients and the power per bin.
 
         Returns
@@ -3040,13 +3404,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import filter_time
 
-        return filter_time(
-            self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins
-        )
+        return filter_time(self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins)
 
-    def band_filter(
-        self, omega_lo: float, omega_hi: float, *, detrend: bool = False
-    ) -> xr.DataArray:
+    def band_filter(self, omega_lo: float, omega_hi: float, *, detrend: bool = False) -> xr.DataArray:
         """Return only the frequencies in ``[omega_lo, omega_hi]``.
 
         Returns
@@ -3103,9 +3463,7 @@ class ArrayAnalysis(_ArrayAccessor):
             window=window,
         )
 
-    def spectrogram(
-        self, *, length, step=None, detrend: bool = True, window: str | None = "hann"
-    ) -> xr.DataArray:
+    def spectrogram(self, *, length, step=None, detrend: bool = True, window: str | None = "hann") -> xr.DataArray:
         """Return power spectra in sliding time windows.
 
         Returns
@@ -3124,13 +3482,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import spectrogram
 
-        return spectrogram(
-            self._array, length=length, step=step, detrend=detrend, window=window
-        )
+        return spectrogram(self._array, length=length, step=step, detrend=detrend, window=window)
 
-    def mode_spectrum(
-        self, *, dims=None, names=("m", "n"), periods=None, scale=None
-    ) -> xr.DataArray:
+    def mode_spectrum(self, *, dims=None, names=("m", "n"), periods=None, scale=None) -> xr.DataArray:
         """Return the complex amplitudes over poloidal/toroidal mode numbers.
 
         Returns
@@ -3149,13 +3503,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import mode_spectrum
 
-        return mode_spectrum(
-            self._array, dims=dims, names=names, periods=periods, scale=scale
-        )
+        return mode_spectrum(self._array, dims=dims, names=names, periods=periods, scale=scale)
 
-    def mode_amplitudes(
-        self, *, top: int | None = None, real: bool = True, relative: bool = False
-    ) -> xr.DataArray:
+    def mode_amplitudes(self, *, top: int | None = None, real: bool = True, relative: bool = False) -> xr.DataArray:
         """Return the real amplitudes of this mode spectrum along one ``mode`` dimension.
 
         Returns
@@ -3176,9 +3526,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return mode_amplitudes(self._array, top=top, real=real, relative=relative)
 
-    def mode_structure(
-        self, omega: float, *, window: str | None = "hann", detrend: bool = True
-    ) -> xr.DataArray:
+    def mode_structure(self, omega: float, *, window: str | None = "hann", detrend: bool = True) -> xr.DataArray:
         """Return the complex amplitude at the exact frequency ``omega`` at every point.
 
         Returns
@@ -3199,9 +3547,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return mode_structure(self._array, omega, window=window, detrend=detrend)
 
-    def cross_spectrum(
-        self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None
-    ) -> xr.Dataset:
+    def cross_spectrum(self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None) -> xr.Dataset:
         """Return the cross-spectrum, phase (of ``other`` relative to this) and coherence.
 
         Parameters
@@ -3225,13 +3571,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import cross_spectrum
 
-        return cross_spectrum(
-            self._array, other, dims=dims, detrend=detrend, window=window
-        )
+        return cross_spectrum(self._array, other, dims=dims, detrend=detrend, window=window)
 
-    def matrix_pencil(
-        self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False
-    ) -> xr.Dataset:
+    def matrix_pencil(self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False) -> xr.Dataset:
         """Return frequencies and growth rates beyond the FFT resolution.
 
         Returns
@@ -3250,9 +3592,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import matrix_pencil
 
-        return matrix_pencil(
-            self._array, n_modes=n_modes, pencil=pencil, detrend=detrend
-        )
+        return matrix_pencil(self._array, n_modes=n_modes, pencil=pencil, detrend=detrend)
 
     def gradient(self, *, domain=None) -> xr.DataArray:
         """Return the Cartesian gradient of this scalar field on a mapped domain.
@@ -3274,9 +3614,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return gradient(self._array, domain=domain)
 
-    def surface_average(
-        self, *, jacobian=None, domain=None, quadrature=None
-    ) -> xr.DataArray:
+    def surface_average(self, *, jacobian=None, domain=None, quadrature=None) -> xr.DataArray:
         """Return the flux-surface average of this field over its two angles.
 
         Returns
@@ -3295,13 +3633,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import surface_average
 
-        return surface_average(
-            self._array, jacobian=jacobian, domain=domain, quadrature=quadrature
-        )
+        return surface_average(self._array, jacobian=jacobian, domain=domain, quadrature=quadrature)
 
-    def rational_surfaces(
-        self, *, count: int = 4, nfp: int | None = None, max_denominator: int = 12
-    ) -> xr.DataArray:
+    def rational_surfaces(self, *, count: int = 4, nfp: int | None = None, max_denominator: int = 12) -> xr.DataArray:
         """Return where this rotational transform (or safety factor) profile is a low-order rational.
 
         Returns
@@ -3320,9 +3654,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import rational_surfaces
 
-        return rational_surfaces(
-            self._array, count=count, nfp=nfp, max_denominator=max_denominator
-        )
+        return rational_surfaces(self._array, count=count, nfp=nfp, max_denominator=max_denominator)
 
     def error(
         self,
@@ -3521,9 +3853,7 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return polar_coordinates(self._array, center=center)
 
-    def trace_branch(
-        self, theory, *, window: float = 0.2, k_range=None, threshold: float = 1e-3
-    ) -> xr.Dataset:
+    def trace_branch(self, theory, *, window: float = 0.2, k_range=None, threshold: float = 1e-3) -> xr.Dataset:
         """Return the measured frequency of a dispersion branch near ``theory(k)`` in this ``(omega, k)`` spectrum.
 
         Returns
@@ -3544,9 +3874,7 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import trace_branch
 
-        return trace_branch(
-            self._array, theory, window=window, k_range=k_range, threshold=threshold
-        )
+        return trace_branch(self._array, theory, window=window, k_range=k_range, threshold=threshold)
 
     def drop_periodic_endpoint(self, dim: str, *, period: float = 1.0) -> xr.DataArray:
         """Return this array without a duplicated periodic endpoint along ``dim``.
@@ -3563,6 +3891,212 @@ class ArrayAnalysis(_ArrayAccessor):
         from .spectral import drop_periodic_endpoint
 
         return drop_periodic_endpoint(self._array, dim, period=period)
+
+    def field_lines(
+        self,
+        *,
+        seeds=8,
+        turns: float | None = None,
+        length: float | None = None,
+        step: float | None = None,
+        direction: str = "forward",
+        section: float | None = None,
+        stride: int | None = None,
+        components: str = "cartesian",
+        **selection,
+    ) -> xr.Dataset:
+        """Trace field lines of this vector field through its mapped grid.
+
+        Parameters
+        ----------
+        **selection
+            The other dimensions, e.g. ``t=-1``: an integer is a position, a float the nearest
+            coordinate value.
+
+        Returns
+        -------
+        xarray.Dataset
+            The lines over ``(s, line)`` with their punctures, rotational transforms and
+            connection lengths; it has ``.plasma.plot.poincare()``, ``.footprint()`` and the
+            other field-line plots.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.trace_field_lines : The function behind this method.
+        DatasetPlots.poincare : The Poincaré plot of the lines.
+        ArrayAnalysis.sample_along : A field along them.
+
+        Examples
+        --------
+        >>> lines = B.plasma.analysis.field_lines(seeds=12, turns=100, t=-1)
+        >>> lines.plasma.plot.poincare(color_by="iota")
+        >>> edge = B.plasma.analysis.field_lines(
+        ...     seeds={"eta1": 0.98, "eta2": np.linspace(0, 1, 32)},
+        ...     direction="both",
+        ...     t=-1,
+        ... )
+        """
+        from .fieldlines import trace_field_lines
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return trace_field_lines(
+            _select(self._array, view),
+            seeds=seeds,
+            turns=turns,
+            length=length,
+            step=step,
+            direction=direction,
+            section=section,
+            stride=stride,
+            components=components,
+        )
+
+    def sample_along(self, lines: xr.Dataset) -> xr.DataArray:
+        """Return this scalar field interpolated along traced field lines.
+
+        Returns
+        -------
+        xarray.DataArray
+            The field over ``(s, line)`` after its other dimensions.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.sample_along : The function behind this method.
+        ArrayAnalysis.parallel_wavenumber : The dominant wavenumber along each line.
+        ArrayPlots.along_field_lines : The plot.
+
+        Examples
+        --------
+        >>> along = phi.plasma.analysis.sample_along(lines)
+        >>> along.isel(line=0).plasma.plot.slice(x="s", y="t")
+        """
+        from .fieldlines import sample_along
+
+        return sample_along(self._array, lines)
+
+    def parallel_wavenumber(
+        self,
+        *,
+        lines: xr.Dataset | None = None,
+        method: str = "fft",
+        detrend: bool = True,
+    ) -> xr.DataArray:
+        """Return the dominant parallel wavenumber of this field along field lines.
+
+        Parameters
+        ----------
+        lines : xarray.Dataset, optional
+            Traced lines to sample this field along first. Default: this array already is the
+            samples of :meth:`sample_along`, over ``(s, line)``.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``k_parallel`` over ``line`` and the other dimensions.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.parallel_wavenumber : The function behind this method.
+        plasma_plots.theory.waves.parallel_wavenumber : The expected ``(n + m/q)/R₀``.
+
+        Examples
+        --------
+        >>> phi.plasma.analysis.parallel_wavenumber(lines=lines)
+        """
+        from .fieldlines import parallel_wavenumber, sample_along
+
+        samples = self._array if lines is None else sample_along(self._array, lines)
+        return parallel_wavenumber(samples, method=method, detrend=detrend)
+
+    def boozer_spectrum(self, *, top: int | None = None, angles: str = "boozer") -> xr.DataArray:
+        """Return the Boozer harmonics ``B_mn`` of this quantity over the radius.
+
+        Returns
+        -------
+        xarray.DataArray
+            The real amplitudes over ``mode`` (with ``m``, ``n``) and the radius.
+
+        See Also
+        --------
+        plasma_plots.analysis.boozer_spectrum : The function behind this method.
+        ArrayAnalysis.quasisymmetry_error : The symmetry-breaking part.
+        ArrayPlots.boozer_spectrum : The plot.
+
+        Examples
+        --------
+        >>> boozer.mod_B.plasma.analysis.boozer_spectrum(top=8)
+        """
+        from .analysis import boozer_spectrum
+
+        return boozer_spectrum(self._array, top=top, angles=angles)
+
+    def quasisymmetry_error(self, *, helicity="QA", angles: str = "boozer") -> xr.DataArray:
+        """Return the quasi-symmetry error of this ``|B|`` on each flux surface.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``f_QS`` over the radius.
+
+        See Also
+        --------
+        plasma_plots.analysis.quasisymmetry_error : The function behind this method.
+        ArrayAnalysis.boozer_spectrum : The harmonics it is computed from.
+
+        Examples
+        --------
+        >>> boozer.mod_B.plasma.analysis.quasisymmetry_error(helicity="QH")
+        """
+        from .analysis import quasisymmetry_error
+
+        return quasisymmetry_error(self._array, helicity=helicity, angles=angles)
+
+    def critical_points(self, *, refine: bool = True) -> xr.Dataset:
+        """Return the O-points and X-points of this flux function (at every time).
+
+        Returns
+        -------
+        xarray.Dataset
+            The points over ``point`` (and ``t``): positions, values and kinds.
+
+        See Also
+        --------
+        plasma_plots.analysis.critical_points : The function behind this method.
+        ArrayAnalysis.reconnected_flux : The flux between them over time.
+        ArrayPlots.critical_points : The plot.
+
+        Examples
+        --------
+        >>> B.plasma.analysis.flux_function().plasma.analysis.critical_points()
+        """
+        from .analysis import critical_points
+
+        return critical_points(self._array, refine=refine)
+
+    def reconnected_flux(self, *, relative: bool = True, o_point=None, x_point=None) -> xr.DataArray:
+        """Return the reconnected flux over time: this flux function between an O- and an X-point.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``ΔΨ(t)``.
+
+        See Also
+        --------
+        plasma_plots.analysis.reconnected_flux : The function behind this method.
+        ArrayAnalysis.growth_rate : Its growth rate.
+
+        Examples
+        --------
+        >>> A = B.plasma.analysis.flux_function()
+        >>> A.plasma.analysis.reconnected_flux().plasma.plot.timeseries(
+        ...     fit=(10.0, 30.0)
+        ... )
+        """
+        from .analysis import reconnected_flux
+
+        return reconnected_flux(self._array, relative=relative, o_point=o_point, x_point=x_point)
 
 
 @xr.register_dataarray_accessor("plasma")
@@ -3677,9 +4211,7 @@ class DatasetAnalysis:
 
         return bounce_period(self._dataset, v_par=v_par)
 
-    def surface_average(
-        self, name: str, *, jacobian: str | None = "Jac", domain=None, quadrature=None
-    ) -> xr.DataArray:
+    def surface_average(self, name: str, *, jacobian: str | None = "Jac", domain=None, quadrature=None) -> xr.DataArray:
         """Return the flux-surface average of one variable, with this Dataset's Jacobian.
 
         Parameters
@@ -3706,14 +4238,243 @@ class DatasetAnalysis:
         """
         from .analysis import surface_average
 
-        sqrt_g = (
-            self._dataset[jacobian]
-            if jacobian is not None and jacobian in self._dataset
-            else None
+        sqrt_g = self._dataset[jacobian] if jacobian is not None and jacobian in self._dataset else None
+        return surface_average(self._dataset[name], jacobian=sqrt_g, domain=domain, quadrature=quadrature)
+
+    def poincare_section(self, *, angle: float | None = None) -> xr.Dataset:
+        """Return the punctures of a poloidal plane by these traced field lines.
+
+        Returns
+        -------
+        xarray.Dataset
+            The punctures over ``(puncture, line)``.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.poincare_section : The function behind this method.
+        DatasetPlots.poincare : The plot.
+
+        Examples
+        --------
+        >>> lines.plasma.analysis.poincare_section(angle=np.pi / 5)
+        """
+        from .fieldlines import poincare_section
+
+        return poincare_section(self._dataset, angle=angle)
+
+    def rotational_transform(self) -> xr.DataArray:
+        """Return the rotational transform of each traced field line.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``iota`` over ``line``.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.rotational_transform : The function behind this method.
+
+        Examples
+        --------
+        >>> lines.plasma.analysis.rotational_transform()
+        """
+        from .fieldlines import rotational_transform
+
+        return rotational_transform(self._dataset)
+
+    def classify_field_lines(
+        self,
+        *,
+        max_denominator: int = 12,
+        tolerance: float | None = None,
+        threshold: float = 0.1,
+        min_spread: float | None = None,
+    ) -> xr.DataArray:
+        """Classify each traced field line: on a flux surface (0), in an island (1) or chaotic (2).
+
+        Returns
+        -------
+        xarray.DataArray
+            The class of each line over ``line``.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.classify_field_lines : The function behind this method.
+        DatasetAnalysis.islands : The island chains and their widths.
+
+        Examples
+        --------
+        >>> lines.plasma.analysis.classify_field_lines()
+        """
+        from .fieldlines import classify_field_lines
+
+        return classify_field_lines(
+            self._dataset,
+            max_denominator=max_denominator,
+            tolerance=tolerance,
+            threshold=threshold,
+            min_spread=min_spread,
         )
-        return surface_average(
-            self._dataset[name], jacobian=sqrt_g, domain=domain, quadrature=quadrature
+
+    def islands(
+        self,
+        *,
+        max_denominator: int = 12,
+        tolerance: float | None = None,
+        threshold: float = 0.1,
+        min_spread: float | None = None,
+    ) -> xr.Dataset:
+        """Return the island chains these traced field lines show, with their widths.
+
+        Returns
+        -------
+        xarray.Dataset
+            Over ``chain``: ``n``, ``m``, ``width``, ``center``, ...
+
+        See Also
+        --------
+        plasma_plots.fieldlines.islands : The function behind this method.
+        DatasetPlots.poincare : ``islands=True`` labels them.
+
+        Examples
+        --------
+        >>> lines.plasma.analysis.islands().to_dataframe()
+        """
+        from .fieldlines import islands
+
+        return islands(
+            self._dataset,
+            max_denominator=max_denominator,
+            tolerance=tolerance,
+            threshold=threshold,
+            min_spread=min_spread,
         )
+
+    def footprint(self) -> xr.Dataset:
+        """Return where these traced field lines left the grid, with their connection lengths.
+
+        Returns
+        -------
+        xarray.Dataset
+            The exit points over ``line``.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.footprint : The function behind this method.
+        DatasetPlots.footprint : The plot.
+
+        Examples
+        --------
+        >>> edge.plasma.analysis.footprint()
+        """
+        from .fieldlines import footprint
+
+        return footprint(self._dataset)
+
+    def seed_grid(self, name: str = "connection_length") -> xr.DataArray:
+        """Return a per-line quantity of these field lines over their grid of seeds.
+
+        Returns
+        -------
+        xarray.DataArray
+            ``name`` over the two varying seed coordinates.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.seed_grid : The function behind this method.
+        DatasetPlots.connection_length : The plot of the connection lengths.
+
+        Examples
+        --------
+        >>> edge.plasma.analysis.seed_grid("connection_length").plasma.plot.slice()
+        """
+        from .fieldlines import seed_grid
+
+        return seed_grid(self._dataset, name)
+
+    def weight_statistics(self, *, weight: str = "weight") -> xr.Dataset:
+        """Return the statistics of the marker weights over time, with the noise estimate.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``mean``, ``std``, ``total``, ``noise``, ``effective_markers``, ... over ``t``.
+
+        See Also
+        --------
+        plasma_plots.analysis.weight_statistics : The function behind this method.
+        DatasetPlots.weight_histogram : The distribution of the weights.
+
+        Examples
+        --------
+        >>> orbits.plasma.analysis.weight_statistics().noise.plasma.plot.timeseries()
+        """
+        from .analysis import weight_statistics
+
+        return weight_statistics(self._dataset, weight=weight)
+
+    def marker_density(self, *, dims=("eta1",), bins=32, weight: str | None = None, ranges=None) -> xr.DataArray:
+        """Return the markers binned over position variables, per unit volume.
+
+        Returns
+        -------
+        xarray.DataArray
+            The density over ``t`` and the binned variables.
+
+        See Also
+        --------
+        plasma_plots.analysis.marker_density : The function behind this method.
+        DatasetPlots.marker_density : Sampling against physical density.
+
+        Examples
+        --------
+        >>> orbits.plasma.analysis.marker_density(dims="eta1", weight="weight")
+        """
+        from .analysis import marker_density
+
+        return marker_density(self._dataset, dims=dims, bins=bins, weight=weight, ranges=ranges)
+
+    def lost_fraction(self, *, weight: str | None = None) -> xr.DataArray:
+        """Return the fraction of markers lost from the domain, over time.
+
+        Returns
+        -------
+        xarray.DataArray
+            The fraction over ``t``.
+
+        See Also
+        --------
+        plasma_plots.analysis.lost_fraction : The function behind this method.
+        DatasetPlots.lost_fraction : The plot.
+
+        Examples
+        --------
+        >>> orbits.plasma.analysis.lost_fraction(weight="weight")
+        """
+        from .analysis import lost_fraction
+
+        return lost_fraction(self._dataset, weight=weight)
+
+    def loss_map(self, *, x: str = "v_par", y: str | None = None, t=0, absB=None) -> xr.Dataset:
+        """Return each marker's initial phase-space position, whether it is lost, and when.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``x``, ``y``, ``lost`` and ``loss_time`` over ``marker``.
+
+        See Also
+        --------
+        plasma_plots.analysis.loss_map : The function behind this method.
+        DatasetPlots.loss_map : The plot.
+
+        Examples
+        --------
+        >>> orbits.plasma.analysis.loss_map(x="energy", y="pitch", absB=absB)
+        """
+        from .analysis import loss_map
+
+        return loss_map(self._dataset, x=x, y=y, t=t, absB=absB)
 
 
 class DatasetPlots:
@@ -3768,9 +4529,7 @@ class DatasetPlots:
         return plot_power_spectrum(self._dataset, **options)
 
     @with_backend
-    def cross_spectrum(
-        self, *, omega_max: float | None = None, backend: Backend | None = None
-    ):
+    def cross_spectrum(self, *, omega_max: float | None = None, backend: Backend | None = None):
         """Plot the magnitude, coherence and phase of a ``cross_spectrum`` Dataset.
 
         Parameters
@@ -3838,9 +4597,7 @@ class DatasetPlots:
         """
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(
-            self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths
-        )
+        return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
 
     @with_backend
     def scatter(
@@ -3855,10 +4612,11 @@ class DatasetPlots:
         color_at=None,
         background: xr.DataArray | None = None,
         background_options: dict | None = None,
+        equal_aspect: bool | None = None,
         backend: Backend | None = None,
         **selection,
     ):
-        """Scatter two position variables, optionally colored by a third (e.g. density or a tracer).
+        """Scatter two marker variables, optionally colored by a third (e.g. density or a tracer).
 
         Remaining dimensions such as ``t`` are selected by keyword, exactly like
         :meth:`ArrayPlots.lineout`: an integer is a position (``-1`` the last), and a float is the
@@ -3902,6 +4660,7 @@ class DatasetPlots:
             color_at=color_at,
             background=background,
             background_options=background_options,
+            equal_aspect=equal_aspect,
             **selection,
         )
 
@@ -3948,9 +4707,7 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_classification
 
-        return plot_orbit_classification(
-            self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s
-        )
+        return plot_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s)
 
     @with_backend
     def animation(
@@ -4163,9 +4920,7 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_grid
 
-        return plot_orbit_grid(
-            self._dataset, markers=markers, ncols=ncols, boundary=boundary
-        )
+        return plot_orbit_grid(self._dataset, markers=markers, ncols=ncols, boundary=boundary)
 
     @with_backend
     def quantities(
@@ -4203,9 +4958,7 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_quantities
 
-        return plot_orbit_quantities(
-            self._dataset, quantities=quantities, markers=markers, drift_of=drift_of
-        )
+        return plot_orbit_quantities(self._dataset, quantities=quantities, markers=markers, drift_of=drift_of)
 
     def orbits_3d(
         self,
@@ -4251,6 +5004,382 @@ class DatasetPlots:
             plotter=plotter,
         )
 
+    @with_backend
+    def poincare(
+        self,
+        *,
+        coords: str = "physical",
+        color_by: str | None = "line",
+        s: float = 3.0,
+        cmap=None,
+        islands: bool = False,
+        boundary: xr.DataArray | None = None,
+        max_lines: int | None = None,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **classification,
+    ):
+        """Plot the Poincaré section of these traced field lines.
+
+        Parameters
+        ----------
+        islands : bool, optional
+            Label the island chains with their ``n/m`` and widths. Default: False.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the scatters; ``data`` holds the section and, with
+            ``islands``, the chains and the classification.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_poincare : The function behind this method.
+        DatasetData.poincare : The punctures, without plotting them.
+        DatasetAnalysis.islands : The island chains alone.
+
+        Examples
+        --------
+        >>> lines.plasma.plot.poincare(color_by="iota")
+        >>> lines.plasma.plot.poincare(color_by="classification", islands=True)
+        """
+        from .fieldline_plots import plot_poincare
+
+        return plot_poincare(
+            self._dataset,
+            coords=coords,
+            color_by=color_by,
+            s=s,
+            cmap=cmap,
+            islands_=islands,
+            boundary=boundary,
+            max_lines=max_lines,
+            ax=ax,
+            title=title,
+            **classification,
+        )
+
+    @with_backend
+    def field_lines(
+        self,
+        *,
+        plane: str = "RZ",
+        color_by: str | None = "line",
+        max_lines: int = 200,
+        cmap=None,
+        boundary: xr.DataArray | None = None,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot these traced field lines projected onto a plane, or in 3-D.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the lines.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_field_lines : The function behind this method.
+        DatasetPlots.poincare : Their punctures of a poloidal plane.
+
+        Examples
+        --------
+        >>> lines.plasma.plot.field_lines(plane="RZ", color_by="iota")
+        >>> lines.plasma.plot.field_lines(plane="3d", max_lines=20)
+        """
+        from .fieldline_plots import plot_field_lines
+
+        return plot_field_lines(
+            self._dataset,
+            plane=plane,
+            color_by=color_by,
+            max_lines=max_lines,
+            cmap=cmap,
+            boundary=boundary,
+            ax=ax,
+            title=title,
+        )
+
+    @with_backend
+    def footprint(
+        self,
+        *,
+        log: bool = True,
+        s: float = 14.0,
+        cmap=None,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot where these open field lines leave the grid, colored by connection length.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the scatter; ``data["footprint"]`` holds the exit points.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_footprint : The function behind this method.
+        DatasetData.footprint : The exit points, without plotting them.
+        DatasetPlots.connection_length : The connection lengths over the seeds.
+
+        Examples
+        --------
+        >>> edge.plasma.plot.footprint()
+        """
+        from .fieldline_plots import plot_footprint
+
+        return plot_footprint(self._dataset, log=log, s=s, cmap=cmap, ax=ax, title=title)
+
+    @with_backend
+    def connection_length(
+        self,
+        *,
+        log: bool = True,
+        cmap=None,
+        s: float = 14.0,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot the connection length of each field line over its seed.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the mesh or scatter; ``data["connection_length"]``.
+
+        See Also
+        --------
+        plasma_plots.fieldline_plots.plot_connection_length : The function behind this method.
+        DatasetAnalysis.seed_grid : The values over the seed grid.
+
+        Examples
+        --------
+        >>> edge.plasma.plot.connection_length()
+        """
+        from .fieldline_plots import plot_connection_length
+
+        return plot_connection_length(self._dataset, log=log, cmap=cmap, s=s, ax=ax, title=title)
+
+    @with_backend
+    def weight_histogram(
+        self,
+        *,
+        weight: str = "weight",
+        t=-1,
+        bins: int = 50,
+        log: bool = True,
+        density: bool = True,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot the distribution of the marker weights at one or several times.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and one outline per time; ``data["statistics"]``.
+
+        See Also
+        --------
+        plasma_plots.plotting.plot_weight_histogram : The function behind this method.
+        DatasetAnalysis.weight_statistics : The numbers.
+
+        Examples
+        --------
+        >>> orbits.plasma.plot.weight_histogram(t=[0, 0.5, -1])
+        """
+        from .plotting import plot_weight_histogram
+
+        return plot_weight_histogram(
+            self._dataset,
+            weight=weight,
+            t=t,
+            bins=bins,
+            log=log,
+            density=density,
+            ax=ax,
+            title=title,
+        )
+
+    @with_backend
+    def marker_density(
+        self,
+        *,
+        x: str = "eta1",
+        weight: str | None = "weight",
+        against: xr.DataArray | None = None,
+        bins: int = 32,
+        normalize: bool = True,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot where the markers are against what they represent, along one coordinate.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the lines; ``data`` holds the densities.
+
+        See Also
+        --------
+        plasma_plots.plotting.plot_marker_density : The function behind this method.
+        DatasetAnalysis.marker_density : The binned densities.
+
+        Examples
+        --------
+        >>> orbits.plasma.plot.marker_density(
+        ...     x="eta1", against=n.isel(eta2=0, eta3=0), t=-1
+        ... )
+        """
+        from .plotting import plot_marker_density
+
+        return plot_marker_density(
+            self._dataset,
+            x=x,
+            weight=weight,
+            against=against,
+            bins=bins,
+            normalize=normalize,
+            ax=ax,
+            title=title,
+            **selection,
+        )
+
+    @with_backend
+    def lost_fraction(
+        self,
+        *,
+        weight: str | None = None,
+        percent: bool = True,
+        ax=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot the fraction of markers lost from the domain, against time.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the line; ``data["lost_fraction"]``.
+
+        See Also
+        --------
+        plasma_plots.plotting.plot_lost_fraction : The function behind this method.
+        DatasetAnalysis.lost_fraction : The fraction alone.
+
+        Examples
+        --------
+        >>> orbits.plasma.plot.lost_fraction(weight="weight")
+        """
+        from .plotting import plot_lost_fraction
+
+        return plot_lost_fraction(self._dataset, weight=weight, percent=percent, ax=ax, title=title)
+
+    @with_backend
+    def loss_map(
+        self,
+        *,
+        x: str = "v_par",
+        y: str | None = None,
+        t=0,
+        absB=None,
+        ax=None,
+        s: int = 10,
+        cmap=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot which markers are lost, over their initial phase-space position, colored by when.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the scatters; ``data["losses"]``.
+
+        See Also
+        --------
+        plasma_plots.plotting.plot_loss_map : The function behind this method.
+        DatasetData.loss_map : The values, without plotting them.
+        DatasetPlots.orbit_classification : Passing, trapped and lost markers.
+
+        Examples
+        --------
+        >>> orbits.plasma.plot.loss_map(x="energy", y="pitch", absB=absB)
+        """
+        from .plotting import plot_loss_map
+
+        return plot_loss_map(self._dataset, x=x, y=y, t=t, absB=absB, ax=ax, s=s, cmap=cmap, title=title)
+
 
 class DatasetData:
     """The data behind each plot in :class:`DatasetPlots`, without rendering it.
@@ -4286,13 +5415,9 @@ class DatasetData:
         """
         from .plotting import prepare_orbits
 
-        return prepare_orbits(
-            self._dataset, max_markers=max_markers, required=("x", "y", "z")
-        )
+        return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
 
-    def scatter(
-        self, *, x: str, y: str, color: str | None = None, color_at=None, **selection
-    ) -> xr.Dataset:
+    def scatter(self, *, x: str, y: str, color: str | None = None, color_at=None, **selection) -> xr.Dataset:
         """Return the per-marker positions and colors :meth:`DatasetPlots.scatter` would plot.
 
         ``.to_dataframe()`` hands them straight to e.g. Plotly Express.
@@ -4317,13 +5442,9 @@ class DatasetData:
         """
         from .plotting import prepare_marker_scatter
 
-        return prepare_marker_scatter(
-            self._dataset, x=x, y=y, color=color, color_at=color_at, **selection
-        )
+        return prepare_marker_scatter(self._dataset, x=x, y=y, color=color, color_at=color_at, **selection)
 
-    def orbit_classification(
-        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0
-    ) -> xr.Dataset:
+    def orbit_classification(self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0) -> xr.Dataset:
         """Return the per-marker ``x``, ``y`` and ``classification`` that orbit_classification plots.
 
         The values :meth:`DatasetPlots.orbit_classification` would plot.
@@ -4345,6 +5466,69 @@ class DatasetData:
         from .plotting import prepare_orbit_classification
 
         return prepare_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t)
+
+    def poincare(self, *, angle: float | None = None) -> xr.Dataset:
+        """Return the punctures :meth:`DatasetPlots.poincare` would plot.
+
+        Returns
+        -------
+        xarray.Dataset
+            The punctures over ``(puncture, line)``.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.poincare_section : The function behind this method.
+        DatasetPlots.poincare : The plot of these punctures.
+
+        Examples
+        --------
+        >>> lines.plasma.data.poincare().to_dataframe()
+        """
+        from .fieldlines import poincare_section
+
+        return poincare_section(self._dataset, angle=angle)
+
+    def footprint(self) -> xr.Dataset:
+        """Return the exit points :meth:`DatasetPlots.footprint` would plot.
+
+        Returns
+        -------
+        xarray.Dataset
+            The exit points over ``line``, with the connection lengths.
+
+        See Also
+        --------
+        plasma_plots.fieldlines.footprint : The function behind this method.
+        DatasetPlots.footprint : The plot of these points.
+
+        Examples
+        --------
+        >>> edge.plasma.data.footprint()
+        """
+        from .fieldlines import footprint
+
+        return footprint(self._dataset)
+
+    def loss_map(self, *, x: str = "v_par", y: str | None = None, t=0, absB=None) -> xr.Dataset:
+        """Return the per-marker values :meth:`DatasetPlots.loss_map` would plot.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``x``, ``y``, ``lost`` and ``loss_time`` over ``marker``.
+
+        See Also
+        --------
+        plasma_plots.analysis.loss_map : The function behind this method.
+        DatasetPlots.loss_map : The plot of these values.
+
+        Examples
+        --------
+        >>> orbits.plasma.data.loss_map(x="energy", y="pitch", absB=absB)
+        """
+        from .analysis import loss_map
+
+        return loss_map(self._dataset, x=x, y=y, t=t, absB=absB)
 
 
 @xr.register_dataset_accessor("plasma")
@@ -4405,9 +5589,7 @@ class SliceView:
         self._options = dict(options)
 
     def _view(self, **selection):
-        return ArrayPlots(self._array)._view(
-            **self._coordinates, selection={**self._selection, **selection}
-        )
+        return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
 
     @with_backend
     def slice(self, *, ax=None, backend: Backend | None = None, **selection):
@@ -4482,9 +5664,7 @@ class SliceView:
         """
         from .plotting import plot_panels
 
-        return plot_panels(
-            self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options
-        )
+        return plot_panels(self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options)
 
     @with_backend
     def viewer(self, *, backend: Backend | None = None):

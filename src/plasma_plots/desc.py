@@ -175,18 +175,10 @@ def from_desc(
         raise ValueError(f"DESC has no quantities {unknown}")
     unsupported = [name for name in names if index[name]["dim"] not in (0, 1, 3)]
     if unsupported:
-        raise ValueError(
-            f"quantities of shapes other than scalar or 3-vector are not supported: {unsupported}"
-        )
-    triplets = [
-        name
-        for name in names
-        if index[name]["description"].startswith("Coordinate triplet")
-    ]
+        raise ValueError(f"quantities of shapes other than scalar or 3-vector are not supported: {unsupported}")
+    triplets = [name for name in names if index[name]["description"].startswith("Coordinate triplet")]
     if triplets:
-        raise ValueError(
-            f"{triplets} are coordinates, not vectors: the position is the coordinates X, Y, Z"
-        )
+        raise ValueError(f"{triplets} are coordinates, not vectors: the position is the coordinates X, Y, Z")
 
     nfp = int(eq.NFP)
     rho = _points(rho, 1.0, endpoint=True)
@@ -198,23 +190,15 @@ def from_desc(
         theta.size,
     )  # DESC's node order: zeta slowest, theta fastest
     grid = _grid(eq, rho, theta, zeta, sfl)
-    wanted = list(
-        dict.fromkeys(
-            [*names, *GEOMETRY, *(["theta", "theta_PEST"] if sfl == "pest" else [])]
-        )
-    )
-    with (
-        warnings.catch_warnings()
-    ):  # a full-torus grid has NFP=1, the equilibrium's basis not
+    wanted = list(dict.fromkeys([*names, *GEOMETRY, *(["theta", "theta_PEST"] if sfl == "pest" else [])]))
+    with warnings.catch_warnings():  # a full-torus grid has NFP=1, the equilibrium's basis not
         warnings.filterwarnings("ignore", message="Unequal number of field periods")
         values = eq.compute(wanted, grid=grid)
 
     def field(value) -> np.ndarray:
         """Node values as (rho, theta, zeta), and a vector's components first."""
         value = np.asarray(value, dtype=float)
-        return np.moveaxis(
-            value.reshape(*shape, *value.shape[1:]), (0, 1, 2), (-1, -3, -2)
-        )
+        return np.moveaxis(value.reshape(*shape, *value.shape[1:]), (0, 1, 2), (-1, -3, -2))
 
     if not (
         np.allclose(field(values["rho"]), rho[:, None, None])
@@ -222,13 +206,9 @@ def from_desc(
     ):  # pragma: no cover - a DESC change
         raise RuntimeError("DESC's grid nodes are not in the expected order")
     if sfl == "pest":
-        missed = np.angle(
-            np.exp(1j * (field(values["theta_PEST"]) - theta[None, :, None]))
-        )
+        missed = np.angle(np.exp(1j * (field(values["theta_PEST"]) - theta[None, :, None])))
         if not np.all(np.abs(missed) < 1e-4):
-            raise RuntimeError(
-                f"DESC did not find the PEST angles (off by up to {np.nanmax(np.abs(missed)):.2g})"
-            )
+            raise RuntimeError(f"DESC did not find the PEST angles (off by up to {np.nanmax(np.abs(missed)):.2g})")
 
     dims = ("rho", POLOIDAL[sfl], "zeta")
     coords = {
@@ -255,10 +235,7 @@ def from_desc(
                 "period": 2 * np.pi / nfp,
             },
         ),
-        **{
-            axis: (dims, field(values[axis]), {"label": f"${axis}$", "units": "m"})
-            for axis in "XYZ"
-        },
+        **{axis: (dims, field(values[axis]), {"label": f"${axis}$", "units": "m"}) for axis in "XYZ"},
     }
     if sfl == "pest":
         coords["theta"] = (
@@ -284,9 +261,7 @@ def from_desc(
             attrs["units"] = units
         value = values[name]
         if name in GRID_QUANTITIES:
-            if (
-                GRID_QUANTITIES[name] not in dims
-            ):  # on a PEST grid, theta_P is the dimension itself
+            if GRID_QUANTITIES[name] not in dims:  # on a PEST grid, theta_P is the dimension itself
                 coords[GRID_QUANTITIES[name]] = (
                     dims,
                     field(value),

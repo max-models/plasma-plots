@@ -1,0 +1,13 @@
+# The image only needs the package and its metadata.
+**
+!Dockerfile
+!.dockerignore
+!pyproject.toml
+!README.md
+!LICENSE
+!API.md
+!src/
+!src/**
+**/__pycache__
+**/*.pyc
+**/*.egg-info

@@ -70,6 +70,10 @@ those (`selected.transpose("eta2", "eta1")`, or `.T`).
 | every 3-D view | `data.grid(...)`, `data.to_vtk(...)` | a PyVista grid, or VTK files for ParaView |
 | `dataset.plot.scatter(...)` | `dataset.data.scatter(...)` | the positions and colors per marker |
 | `plot.trajectories(...)` | `data.trajectories(...)` | the marker subset |
+| `plot.poincare(...)` | `data.poincare(...)` | the punctures of the traced field lines |
+| `plot.critical_points(...)` | `data.critical_points(...)` | the O- and X-points of a flux function |
+| `dataset.plot.poincare()`, `footprint()` | `dataset.data.poincare()`, `footprint()` | the punctures, the exit points of traced lines |
+| `dataset.plot.loss_map(...)` | `dataset.data.loss_map(...)` | each marker's initial position, loss flag and loss time |
 
 The full signatures are in the [`struphy.data` reference](/plasma-plots/reference/data/).
 

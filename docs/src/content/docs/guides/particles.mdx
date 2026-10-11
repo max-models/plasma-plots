@@ -180,6 +180,69 @@ codes = orbits.plasma.analysis.classify_orbits()
 periods.where(codes == 1).plot.hist()
 ```
 
+## δf weights and noise
+
+```python
+orbits.plasma.plot.weight_histogram(t=[0, 10.0, -1])
+stats = orbits.plasma.analysis.weight_statistics()
+stats.noise.plasma.plot.timeseries(logy=False)
+```
+
+A δf scheme starts with weights near zero that spread as the perturbation grows; the tail of
+large weights is where the noise of the estimate comes from. `weight_histogram` draws the
+distribution of the weights (Struphy's `weight` quantity) at one or several times, with the mean
+and spread of each in the legend. `weight_statistics` returns, over `t`, the `mean`, `std`,
+`min`, `max` and `total` of the weights, the relative statistical error of the total that random
+marker positions give, `noise = √(Σw²)/|Σw|` (large by construction for δf weights that sum to
+nearly nothing; watch the `std` then), Kish's `effective_markers = (Σw)²/Σw²` and the `count` of
+markers still in the domain. Lost markers (every quantity zero) are left out.
+
+![The distribution of the marker weights at three times, spreading with the perturbation](../../../assets/figures/weight_histogram.png)
+
+## Marker density against the physical density
+
+```python
+orbits.plasma.plot.marker_density(
+    x="eta1", against=n.isel(eta2=0, eta3=0), t=-1
+)
+sampling = orbits.plasma.analysis.marker_density(dims="eta1", bins=32)
+physical = orbits.plasma.analysis.marker_density(
+    dims="eta1", bins=32, weight="weight"
+)
+```
+
+Where the markers are is not what they represent: `marker_density` bins the markers over
+position variables (`eta1`, or `("x", "y")`, ...) per unit volume, either counting them (the
+sampling density, where the markers were loaded) or weighing them (the density they represent:
+the physical density of a full-f run, the perturbation of a δf run). The plot shows both along
+one coordinate, normalized to unit mean magnitude so that their shapes compare, together with a
+reference profile `against=` such as the density the code computed or the equilibrium's. With
+importance sampling the two differ by design.
+
+![The sampling density of the markers, the density they represent and the reference profile along eta1](../../../assets/figures/marker_density.png)
+
+## Losses
+
+```python
+orbits.plasma.plot.lost_fraction()  # markers lost, in %, against time
+# particles, by initial weight
+orbits.plasma.plot.lost_fraction(weight="weight")
+orbits.plasma.plot.loss_map()  # initial v_par against mu, colored by loss time
+orbits.plasma.plot.loss_map(x="energy", y="pitch", absB=absB_xyz)
+```
+
+A marker is lost from the first time every saved quantity is zero, which is how Struphy stores
+a marker that has left the domain. `lost_fraction` counts them (or, with `weight=`, the
+particles they represent) over time; `loss_map` scatters each marker's initial phase-space
+position, confined markers grey, lost ones colored by their loss time, so prompt losses (the
+loss cone, unconfined orbits) stand out from slow ones. `x` and `y` are variables of the
+Dataset, or `"energy"`, `"pitch"` and `"speed"` from the
+[invariants](#invariants-and-bounce-periods) (`absB` needed). The numbers are in
+`orbits.plasma.analysis.lost_fraction()` and `.loss_map()` (over `marker`: the positions,
+`lost` and `loss_time`).
+
+![The lost fraction against time, and the initial phase space colored by loss time](../../../assets/figures/losses.png)
+
 ## Marker scatter and particle clouds
 
 ```python

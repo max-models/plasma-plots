@@ -224,6 +224,10 @@ save(
     "gvec_mode_map.png",
 )
 save(boozer.mod_B.plasma.plot.mode_profiles(top=5), "gvec_mode_profiles.png")
+save(
+    boozer.mod_B.plasma.plot.boozer_spectrum(top=8, helicity="QA"),
+    "gvec_boozer_spectrum.png",
+)
 
 # =============================================================================
 # Profiles: the rotational transform with its rational surfaces, the pressure,

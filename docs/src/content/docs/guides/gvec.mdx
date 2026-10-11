@@ -227,6 +227,27 @@ boozer.mod_B.plasma.plot.mode_profiles(top=5)
 
 ![The amplitudes of the five strongest (m, n) harmonics of |B| in Boozer angles, over rho](../../../assets/figures/gvec_mode_profiles.png)
 
+## Boozer spectrum and quasi-symmetry
+
+```python
+B_mn = boozer.mod_B.plasma.analysis.boozer_spectrum(top=8)
+f_qs = boozer.mod_B.plasma.analysis.quasisymmetry_error(helicity="QA")
+boozer.mod_B.plasma.plot.boozer_spectrum(top=8, helicity="QA")
+```
+
+In Boozer angles the spectrum of `|B|` is what the guiding-center drifts see. `boozer_spectrum`
+gives the real harmonics `B_mn(ρ)` (`Σ B_mn cos(m θ_B + n ζ_B)`, with `n` the full-torus mode
+number; the usual stellarator convention `cos(m θ_B − n ζ_B)` has the opposite sign of `n`), the
+strongest first. A field is quasi-symmetric with helicity `(M, N)` when `|B|` depends on the
+angles only through `M θ_B − N ζ_B`; `quasisymmetry_error` is the symmetry-breaking content
+relative to the mean field, `f_QS(ρ) = √(Σ_breaking B_mn²) / B_00`, for `"QA"`
+(quasi-axisymmetry, `N = 0`), `"QP"` (`M = 0`), `"QH"` (`(1, nfp)`, either handedness) or a
+pair `(M, N)`. The plot draws the harmonics over the radius, symmetry-breaking ones dashed, and
+the error below. Both need a Boozer grid (`evaluate_sfl(..., sfl="boozer")`); `angles="any"`
+takes the harmonics in whatever angles the field has.
+
+![The strongest Boozer harmonics of |B| over rho, the axisymmetry-breaking ones dashed, and the quasi-axisymmetry error](../../../assets/figures/gvec_boozer_spectrum.png)
+
 ## Profiles
 
 ```python

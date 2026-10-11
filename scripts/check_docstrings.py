@@ -49,9 +49,7 @@ PUBLIC_DUNDERS = {"__call__"}
 # Loading and walking the package
 # ---------------------------------------------------------------------------------------------
 def load_package():
-    return griffe.load(
-        PACKAGE, search_paths=[str(ROOT / "src")], docstring_parser="numpy"
-    )
+    return griffe.load(PACKAGE, search_paths=[str(ROOT / "src")], docstring_parser="numpy")
 
 
 def is_public(name: str) -> bool:
@@ -80,9 +78,7 @@ def own_members(obj):
     members = [
         m
         for name, m in obj.members.items()
-        if is_public(name)
-        and not m.is_alias
-        and (m.is_function or m.is_class or "property" in m.labels)
+        if is_public(name) and not m.is_alias and (m.is_function or m.is_class or "property" in m.labels)
     ]
     return sorted(members, key=lambda m: m.lineno or 0)
 
@@ -150,11 +146,7 @@ def signature_parameters(obj):
     for p in obj.parameters:
         if p.name in ("self", "cls"):
             continue
-        stars = (
-            "**"
-            if p.kind.value == "variadic keyword"
-            else "*" if p.kind.value == "variadic positional" else ""
-        )
+        stars = "**" if p.kind.value == "variadic keyword" else "*" if p.kind.value == "variadic positional" else ""
         out.append((stars + p.name, p))
     return out
 
@@ -238,9 +230,7 @@ def documented_parameters(package, obj, sections=None, _seen=None):
     if targets:
         target = resolve(package, targets[0], obj)
         if target is not None and target.path not in _seen and target.is_function:
-            inherited = documented_parameters(
-                package, target, _seen=_seen | {target.path}
-            )
+            inherited = documented_parameters(package, target, _seen=_seen | {target.path})
             for name, item in inherited.items():
                 params.setdefault(name, item)
     return params
@@ -251,9 +241,7 @@ def doc_owner(package, obj, name, _seen=None):
     inherits the parameter from."""
     sections = parse(obj)[0]
     own = section(sections, "parameters")
-    if own and any(
-        name in [bare(n.strip()) for n in item.name.split(",")] for item in own.value
-    ):
+    if own and any(name in [bare(n.strip()) for n in item.name.split(",")] for item in own.value):
         return obj
     targets = see_also_targets(sections)
     _seen = (_seen or set()) | {obj.path}
@@ -274,14 +262,10 @@ def returns_value(obj) -> bool:
 
     def visit(node):
         for child in ast.iter_child_nodes(node):
-            if isinstance(
-                child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
-            ):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
                 continue
             if isinstance(child, ast.Return) and child.value is not None:
-                if not (
-                    isinstance(child.value, ast.Constant) and child.value.value is None
-                ):
+                if not (isinstance(child.value, ast.Constant) and child.value.value is None):
                     return True
             if isinstance(child, (ast.Yield, ast.YieldFrom)):
                 return True
@@ -303,9 +287,7 @@ def check_object(package, obj):
     problems += [f"griffe: {w}" for w in warnings if "documented parameter" not in w]
     summary = obj.docstring.value.strip().splitlines()[0].strip()
     if not summary.endswith((".", ":")):
-        problems.append(
-            f"summary line should be one sentence ending with a period: {summary[:70]!r}"
-        )
+        problems.append(f"summary line should be one sentence ending with a period: {summary[:70]!r}")
     if obj.is_function:
         documented = documented_parameters(package, obj, sections)
         signature = signature_parameters(obj)
@@ -317,23 +299,14 @@ def check_object(package, obj):
         extra = [
             item.name
             for item in (own.value if own else [])
-            if bare(item.name) not in names
-            and not all(bare(n.strip()) in names for n in item.name.split(","))
+            if bare(item.name) not in names and not all(bare(n.strip()) in names for n in item.name.split(","))
         ]
         if extra:
-            problems.append(
-                f"documented parameters not in the signature: {', '.join(extra)}"
-            )
+            problems.append(f"documented parameters not in the signature: {', '.join(extra)}")
         if own:
-            untyped = [
-                item.name
-                for item in own.value
-                if not item.annotation and not item.name.startswith("*")
-            ]
+            untyped = [item.name for item in own.value if not item.annotation and not item.name.startswith("*")]
             if untyped:
-                problems.append(
-                    f"parameters without a type (name : type): {', '.join(untyped)}"
-                )
+                problems.append(f"parameters without a type (name : type): {', '.join(untyped)}")
         if (
             "property" not in obj.labels
             and returns_value(obj)
@@ -343,26 +316,18 @@ def check_object(package, obj):
             problems.append("returns a value but has no Returns section")
     elif obj.is_class:
         if "dataclass" in obj.labels:
-            fields = [
-                n for n, m in obj.members.items() if m.is_attribute and is_public(n)
-            ]
+            fields = [n for n, m in obj.members.items() if m.is_attribute and is_public(n)]
             attributes = section(sections, "attributes")
             listed = {a.name for a in (attributes.value if attributes else [])}
             missing = [f for f in fields if f not in listed]
             if missing:
-                problems.append(
-                    f"dataclass fields not under Attributes: {', '.join(missing)}"
-                )
+                problems.append(f"dataclass fields not under Attributes: {', '.join(missing)}")
         elif obj.name not in ACCESSOR_CLASSES and "__init__" in obj.members:
             init = obj.members["__init__"]
             listed = set(documented_parameters(package, obj, sections))
-            missing = [
-                n for n, _ in signature_parameters(init) if bare(n) not in listed
-            ]
+            missing = [n for n, _ in signature_parameters(init) if bare(n) not in listed]
             if missing:
-                problems.append(
-                    f"constructor parameters not under Parameters: {', '.join(missing)}"
-                )
+                problems.append(f"constructor parameters not under Parameters: {', '.join(missing)}")
     return problems
 
 
@@ -371,12 +336,8 @@ def check(only=None) -> int:
     count = 0
     for obj in walk(package, only):
         for problem in check_object(package, obj):
-            relative = (
-                obj.relative_filepath if hasattr(obj, "relative_filepath") else ""
-            )
-            print(
-                f"{relative}:{obj.lineno or 1}: {obj.path.removeprefix(PACKAGE + '.')}: {problem}"
-            )
+            relative = obj.relative_filepath if hasattr(obj, "relative_filepath") else ""
+            print(f"{relative}:{obj.lineno or 1}: {obj.path.removeprefix(PACKAGE + '.')}: {problem}")
             count += 1
     print(
         f"{count} problem(s)" if count else "all docstrings follow the rules",

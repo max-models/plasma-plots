@@ -17,9 +17,13 @@ import plasma_plots  # noqa: E402, F401
 from plasma_plots import analysis as an  # noqa: E402
 from plasma_plots.analysis import power_spectrum  # noqa: E402
 from plasma_plots.plotting import plot_lineout  # noqa: E402
-from plasma_plots.plotting import (animate_lines, plot_measured_vs_theory,
-                                   plot_orbit_grid, plot_profiles,
-                                   plot_timeseries)
+from plasma_plots.plotting import (
+    animate_lines,
+    plot_measured_vs_theory,
+    plot_orbit_grid,
+    plot_profiles,
+    plot_timeseries,
+)
 from plasma_plots.spectral import trace_branch  # noqa: E402
 
 R0 = 3.0
@@ -75,29 +79,21 @@ def box(n=48):
 
 def test_error_norms_against_an_exact_function():
     coords, (X, _, _), _ = torus()
-    field = xr.DataArray(
-        np.sin(X) + 0.01, dims=("eta1", "eta2", "eta3"), coords=coords, name="f"
-    )
+    field = xr.DataArray(np.sin(X) + 0.01, dims=("eta1", "eta2", "eta3"), coords=coords, name="f")
     exact = lambda x, y, z: np.sin(x)  # noqa: E731
     assert float(an.error(field, exact)) == pytest.approx(0.01)
     assert float(an.error(field, exact, norm="max")) == pytest.approx(0.01)
     assert float(an.error(field, exact, norm="l1")) == pytest.approx(0.01)
     volume = 2 * np.pi**2 * R0 * (1 - 0.04)
-    assert float(an.error(field, exact, norm="l2", weighted=True)) == pytest.approx(
-        0.01 * np.sqrt(volume), rel=1e-6
-    )
-    assert float(an.error(field, exact, norm="rms", weighted=True)) == pytest.approx(
-        0.01, rel=1e-6
-    )
+    assert float(an.error(field, exact, norm="l2", weighted=True)) == pytest.approx(0.01 * np.sqrt(volume), rel=1e-6)
+    assert float(an.error(field, exact, norm="rms", weighted=True)) == pytest.approx(0.01, rel=1e-6)
     pointwise = field.plasma.analysis.error(exact, norm="pointwise")
     np.testing.assert_allclose(pointwise, 0.01)
     series = field.expand_dims(t=[0.0, 1.0]).copy()
     per_time = an.error(series, lambda x, y, z, t: np.sin(x) + 0 * t)
     assert per_time.dims == ("t",)
     relative = an.error(field, np.sin(X) * 0 + 2.0, relative=True)
-    assert float(relative) == pytest.approx(
-        float(an.error(field, np.sin(X) * 0 + 2.0)) / 2.0
-    )
+    assert float(relative) == pytest.approx(float(an.error(field, np.sin(X) * 0 + 2.0)) / 2.0)
     with pytest.raises(ValueError, match="norm"):
         an.error(field, exact, norm="l3")
 
@@ -110,26 +106,18 @@ def test_project_mode_with_bin_correction_and_phases():
         coords={"eta1": x},
     )
     assert float(an.project_mode(signal, dim="eta1", number=3)) == pytest.approx(0.5)
-    assert float(
-        an.project_mode(signal, dim="eta1", number=5, kind="cos")
-    ) == pytest.approx(0.2)
-    complex_amplitude = complex(
-        signal.plasma.analysis.project_mode(dim="eta1", number=3, kind="complex")
-    )
+    assert float(an.project_mode(signal, dim="eta1", number=5, kind="cos")) == pytest.approx(0.2)
+    complex_amplitude = complex(signal.plasma.analysis.project_mode(dim="eta1", number=3, kind="complex"))
     assert abs(complex_amplitude) == pytest.approx(0.5)
     assert np.angle(complex_amplitude) == pytest.approx(-np.pi / 2)
     edges = np.arange(65) / 64
     binned = xr.DataArray(
-        0.5
-        * (np.cos(2 * np.pi * 3 * edges[:-1]) - np.cos(2 * np.pi * 3 * edges[1:]))
-        / (2 * np.pi * 3 / 64),
+        0.5 * (np.cos(2 * np.pi * 3 * edges[:-1]) - np.cos(2 * np.pi * 3 * edges[1:])) / (2 * np.pi * 3 / 64),
         dims="eta1",
         coords={"eta1": x},
     )
     assert float(an.project_mode(binned, dim="eta1", number=3)) < 0.499
-    assert float(
-        an.project_mode(binned, dim="eta1", number=3, bin_correction=True)
-    ) == pytest.approx(0.5)
+    assert float(an.project_mode(binned, dim="eta1", number=3, bin_correction=True)) == pytest.approx(0.5)
     with pytest.raises(ValueError, match="full period"):
         an.project_mode(signal.isel(eta1=slice(0, 32)), dim="eta1", number=3)
 
@@ -147,13 +135,9 @@ def test_divergence_curl_and_local_components_on_a_torus():
     local = e_theta.plasma.analysis.toroidal_components(R0=R0)
     assert list(local.component.values) == ["radial", "poloidal", "toroidal"]
     np.testing.assert_allclose(local.sel(component="poloidal"), 1.0, atol=1e-12)
-    np.testing.assert_allclose(
-        local.sel(component=["radial", "toroidal"]), 0.0, atol=1e-12
-    )
+    np.testing.assert_allclose(local.sel(component=["radial", "toroidal"]), 0.0, atol=1e-12)
     cylinder = an.cylindrical_components(rotation)
-    np.testing.assert_allclose(
-        cylinder.sel(component="phi"), np.hypot(X, Y), atol=1e-12
-    )
+    np.testing.assert_allclose(cylinder.sel(component="phi"), np.hypot(X, Y), atol=1e-12)
     np.testing.assert_allclose(cylinder.sel(component="R"), 0.0, atol=1e-12)
     polar = an.polar_coordinates(rotation.isel(component=0))
     np.testing.assert_allclose(polar.r, np.hypot(X, Y))
@@ -187,18 +171,13 @@ def test_orbit_invariants_and_bounce_period():
         },
         coords={"t": t, "marker": [0, 1]},
     )
-    invariants = orbits.plasma.analysis.orbit_invariants(
-        absB=lambda x, y, z: 2.0 + 0 * x
-    )
+    invariants = orbits.plasma.analysis.orbit_invariants(absB=lambda x, y, z: 2.0 + 0 * x)
     np.testing.assert_allclose(invariants.energy, 0.5, atol=1e-12)
     periods = orbits.plasma.analysis.bounce_period()
     assert float(periods[0]) == pytest.approx(2 * np.pi / 0.5, rel=1e-4)
     assert np.isnan(periods[1])  # passing
     full = xr.Dataset(
-        {
-            n: (("t", "marker"), np.full((5, 1), v))
-            for n, v in (("v1", 3.0), ("v2", 4.0), ("v3", 0.0))
-        },
+        {n: (("t", "marker"), np.full((5, 1), v)) for n, v in (("v1", 3.0), ("v2", 4.0), ("v3", 0.0))},
         coords={"t": np.arange(5.0), "marker": [0]},
     )
     np.testing.assert_allclose(an.orbit_invariants(full).speed, 5.0)
@@ -214,11 +193,7 @@ def test_trace_branch_follows_a_curved_branch_in_both_directions():
     right = sum(np.cos(k * X - omega(k) * T) for k in (1, 2, 3, 4, 5))
     for signal in (right, sum(np.cos(k * X + omega(k) * T) for k in (1, 2, 3, 4, 5))):
         field = xr.DataArray(signal, dims=("t", "eta1"), coords={"t": t, "eta1": x})
-        traced = (
-            power_spectrum(field)
-            .plasma.analysis.trace_branch(omega, window=0.2, k_range=(0.5, 5.5))
-            .dropna("k")
-        )
+        traced = power_spectrum(field).plasma.analysis.trace_branch(omega, window=0.2, k_range=(0.5, 5.5)).dropna("k")
         assert traced.k.values.tolist() == [1.0, 2.0, 3.0, 4.0, 5.0]
         assert float(abs(traced.relative_error).max()) < 0.01
         # without a k range, wavenumbers that carry no wave are left out
@@ -246,15 +221,10 @@ def test_reference_overlays_on_timeseries_lineouts_and_profiles():
     )
     labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
     assert "+envelope" in labels and "-envelope" in labels
-    assert (
-        decay.plasma.plot.timeseries(reference=decay * 2, logy=False).ax.get_legend()
-        is not None
-    )
+    assert decay.plasma.plot.timeseries(reference=decay * 2, logy=False).ax.get_legend() is not None
 
     x = np.linspace(0, 1, 21)
-    profile = xr.DataArray(
-        np.sin(np.pi * x), dims="eta1", coords={"eta1": x, "t": 0.5}, name="p"
-    )
+    profile = xr.DataArray(np.sin(np.pi * x), dims="eta1", coords={"eta1": x, "t": 0.5}, name="p")
     line = plot_lineout(
         profile,
         x_of=lambda e: 2 * e,
@@ -262,9 +232,7 @@ def test_reference_overlays_on_timeseries_lineouts_and_profiles():
     )
     np.testing.assert_allclose(line.artists[0].get_xdata()[[0, -1]], [0, 2])
     exact = line.artists[1]
-    np.testing.assert_allclose(
-        exact.get_ydata(), np.sin(np.pi * exact.get_xdata() / 2), atol=1e-12
-    )
+    np.testing.assert_allclose(exact.get_ydata(), np.sin(np.pi * exact.get_xdata() / 2), atol=1e-12)
 
     times = np.linspace(0, 1, 5)
     moving = xr.DataArray(
@@ -272,14 +240,10 @@ def test_reference_overlays_on_timeseries_lineouts_and_profiles():
         dims=("t", "eta1"),
         coords={"t": times, "eta1": x},
     )
-    profiles = plot_profiles(
-        moving, x="eta1", reference=lambda x, t: np.sin(np.pi * (x - 0.1 * t))
-    )
+    profiles = plot_profiles(moving, x="eta1", reference=lambda x, t: np.sin(np.pi * (x - 0.1 * t)))
     assert len(profiles.artists) == 8  # 4 profiles, 4 exact curves
     assert (
-        moving.plasma.plot.profiles(
-            x="eta1", at=[0, 1], reference={"exact": lambda x, t: np.sin(np.pi * x)}
-        ).ax
+        moving.plasma.plot.profiles(x="eta1", at=[0, 1], reference={"exact": lambda x, t: np.sin(np.pi * x)}).ax
         is not None
     )
 
@@ -293,9 +257,7 @@ def test_line_animation_with_the_exact_profile():
         coords={"t": t, "eta1": x},
         name="phi",
     )
-    animation = wave.plasma.plot.line_animation(
-        reference=lambda x, t: np.sin(2 * np.pi * (x - 0.3 * t))
-    )
+    animation = wave.plasma.plot.line_animation(reference=lambda x, t: np.sin(2 * np.pi * (x - 0.3 * t)))
     assert isinstance(animation, FuncAnimation)
     animation._func(5)
     ax = animation._fig.axes[0]
@@ -327,10 +289,7 @@ def test_measured_against_theory_with_relative_errors():
     )
     labels = [text.get_text() for text in several.ax[0].get_legend().get_texts()]
     assert {"run A", "run B", "kinetic", "fluid"} <= set(labels)
-    assert (
-        plot_measured_vs_theory(measured, show_error=False).ax.get_title()
-        == "Measured against theory"
-    )
+    assert plot_measured_vs_theory(measured, show_error=False).ax.get_title() == "Measured against theory"
 
 
 def test_orbit_grid_one_panel_per_marker():
@@ -349,13 +308,8 @@ def test_orbit_grid_one_panel_per_marker():
     result = orbits.plasma.plot.orbit_grid(markers=4, ncols=2)
     assert result.ax.shape == (2, 2)
     titles = [ax.get_title() for ax in result.ax.ravel()]
-    assert any("trapped" in title for title in titles) and any(
-        "passing" in title for title in titles
-    )
-    assert (
-        plot_orbit_grid(orbits, markers=[0, 1, 2], ncols=2).ax.ravel()[-1].get_visible()
-        is False
-    )
+    assert any("trapped" in title for title in titles) and any("passing" in title for title in titles)
+    assert plot_orbit_grid(orbits, markers=[0, 1, 2], ncols=2).ax.ravel()[-1].get_visible() is False
 
 
 def test_slice_overlays_second_field_boundary_grid_lines_and_points():
@@ -396,9 +350,7 @@ def test_slice_overlays_second_field_boundary_grid_lines_and_points():
     ax = animation._fig.axes[0]
     assert sum(type(c).__name__ == "QuadContourSet" for c in ax.collections) == 1
     with pytest.raises(ValueError, match="unknown overlays"):
-        J.plasma.plot.slice(
-            coords="physical", plane="XY", eta3=0, overlays={"contour": A}
-        )
+        J.plasma.plot.slice(coords="physical", plane="XY", eta3=0, overlays={"contour": A})
 
 
 def test_positions_values_and_the_undocumented_end_names():

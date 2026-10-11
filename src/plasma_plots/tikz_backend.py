@@ -45,8 +45,7 @@ def _maxplotlib():
         from maxplotlib.backends.tikzfigure import figure_to_tikz
     except ImportError as error:  # pragma: no cover - depends on the environment
         raise ImportError(
-            'backend="tikz" needs maxplotlib: pip install "plasma-plots[tikz]" '
-            "(or pip install maxplotlibx)"
+            'backend="tikz" needs maxplotlib: pip install "plasma-plots[tikz]" (or pip install maxplotlibx)'
         ) from error
     return figure_to_tikz
 

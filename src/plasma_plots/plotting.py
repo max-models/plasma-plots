@@ -14,21 +14,39 @@ two to draw and whether in logical or physical coordinates. The slice functions
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.widgets import Slider
 
-from .analysis import (ORBIT_CLASSES, FitResult, GrowthFit, classify_orbits,
-                       convergence_order, drift, growth_rate, power_spectrum,
-                       relative_error)
-from .arrays import (LOGICAL_DIMS, SCALARS_EXCLUDE, axis_label, close_periodic,
-                     logical_dims, save_scalars, scalar_names, validate_array,
-                     value_label)
+from .analysis import (
+    ORBIT_CLASSES,
+    FitResult,
+    GrowthFit,
+    classify_orbits,
+    convergence_order,
+    drift,
+    growth_rate,
+    power_spectrum,
+    relative_error,
+)
+from .arrays import (
+    LOGICAL_DIMS,
+    SCALARS_EXCLUDE,
+    axis_label,
+    close_periodic,
+    logical_dims,
+    save_scalars,
+    scalar_names,
+    validate_array,
+    value_label,
+)
 from .mpi import rank_zero
 
 logger = logging.getLogger("plasma_plots")
@@ -42,6 +60,28 @@ PLOT_STYLE = {
     "legend.frameon": False,
     "image.cmap": "viridis",
 }
+
+
+@contextmanager
+def _plot_style():
+    """Draw with :data:`PLOT_STYLE`, like ``plt.rc_context(PLOT_STYLE)``.
+
+    Unlike a bare ``rc_context``, the interactive state set while drawing is kept on exit:
+    IPython switches interactive mode on when a kernel's first figure is created. When that
+    happens inside ``rc_context``, restoring the old (off) state on exit would stop every
+    later figure of the notebook, including plain Matplotlib ones, from being shown inline.
+    """
+    interactive = None
+    try:
+        with plt.rc_context(PLOT_STYLE):
+            try:
+                yield
+            finally:
+                interactive = matplotlib.is_interactive()
+    finally:
+        if interactive is not None:
+            matplotlib.interactive(interactive)
+
 
 PLANES = {
     "XY": ("X", "Y", "X", "Y"),
@@ -203,9 +243,7 @@ class PlotResult:
         if self._tikz:
             suffix = Path(path).suffix.lower()
             if suffix not in (".tikz", ".tex", ".pdf", ".png", ".jpg", ".jpeg"):
-                raise ValueError(
-                    f"a TikZ figure is saved as .tikz, .tex, .pdf or .png, not {suffix!r}"
-                )
+                raise ValueError(f"a TikZ figure is saved as .tikz, .tex, .pdf or .png, not {suffix!r}")
             kwargs.pop("bbox_inches", None)
             self.fig.savefig(path, **kwargs)
             return str(path)
@@ -225,9 +263,7 @@ class PlotResult:
                 if "dpi" in kwargs:
                     kwargs["scale"] = kwargs.pop("dpi") / 100.0
                 kwargs.pop("bbox_inches", None)
-                (self.fig if frame is None else self._still(frame)).write_image(
-                    path, **kwargs
-                )
+                (self.fig if frame is None else self._still(frame)).write_image(path, **kwargs)
             return str(path)
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
@@ -240,17 +276,13 @@ class PlotResult:
         import plotly.graph_objects as go
 
         if not self.fig.frames:
-            raise ValueError(
-                "frame= needs a Plotly animation; this figure has no frames"
-            )
+            raise ValueError("frame= needs a Plotly animation; this figure has no frames")
         index = range(len(self.fig.frames))[frame]  # also -1 for the last
         update = self.fig.frames[index]
         # a frame names only what changes: complete it with the figure's traces, the ones in
         # frame.traces if it names them (e.g. frames over a fixed background), else from the first
         data = [trace.to_plotly_json() for trace in self.fig.data]
-        targets = (
-            update.traces if update.traces is not None else range(len(update.data))
-        )
+        targets = update.traces if update.traces is not None else range(len(update.data))
         for target, new in zip(targets, update.data):
             data[target] = {**data[target], **new.to_plotly_json()}
         still = go.Figure(data=data, layout=self.fig.layout)
@@ -316,9 +348,7 @@ class PlotResult:
         if self._plotly:
             return self
         if self._tikz:
-            raise TypeError(
-                "a TikZ figure cannot be converted to Plotly; draw it again"
-            )
+            raise TypeError("a TikZ figure cannot be converted to Plotly; draw it again")
         result = _plotly_result(to_plotly(self.fig), self)
         if close:
             plt.close(self.fig)
@@ -358,9 +388,7 @@ class PlotResult:
         if self._tikz:
             return self
         if self._plotly:
-            raise TypeError(
-                "a Plotly figure cannot be converted to TikZ; draw it again"
-            )
+            raise TypeError("a Plotly figure cannot be converted to TikZ; draw it again")
         result = _tikz_result(to_tikz(self.fig, **options), self)
         if close:
             plt.close(self.fig)
@@ -462,13 +490,9 @@ def save_figure(
         if extension in ("html", "htm", "json"):
             written.append(result.save(path))
         elif still is not None:
-            written.append(
-                as_result(still).save(path, **_image_options(as_result(still), image))
-            )
+            written.append(as_result(still).save(path, **_image_options(as_result(still), image)))
         else:
-            written.append(
-                result.save(path, frame=frame, **_image_options(result, image))
-            )
+            written.append(result.save(path, frame=frame, **_image_options(result, image)))
     return [str(path) for path in written]
 
 
@@ -521,15 +545,11 @@ def shared_run_label(data, default="") -> str:
 
 
 def _finish(fig, *, run_label="", tight=True):
-    if getattr(
-        fig, "_plasma_composed", False
-    ):  # a panel of plasma_plots.figure: it has its own title
+    if getattr(fig, "_plasma_composed", False):  # a panel of plasma_plots.figure: it has its own title
         return
     if run_label:
         fig.suptitle(run_label, fontsize="small")
-    if (
-        tight and fig.get_layout_engine() is None
-    ):  # a constrained layout lays out itself
+    if tight and fig.get_layout_engine() is None:  # a constrained layout lays out itself
         fig.tight_layout()
 
 
@@ -537,9 +557,7 @@ def _select(data: xr.DataArray, view: View, *, keep_sweep=True):
     validate_array(data)
     overlap = set(view.select) & set(view.isel)
     if overlap:
-        raise ValueError(
-            f"dimensions cannot appear in both select and isel: {sorted(overlap)}"
-        )
+        raise ValueError(f"dimensions cannot appear in both select and isel: {sorted(overlap)}")
     selected = data
     if view.select:
         selected = selected.sel(view.select, method="nearest")
@@ -574,17 +592,11 @@ def logical_grids(data: xr.DataArray, *, x=None, y=None):
     """
     if x is None or y is None:
         if data.ndim != 2:
-            raise ValueError(
-                f"x and y are required unless data is two-dimensional; got {data.dims}"
-            )
+            raise ValueError(f"x and y are required unless data is two-dimensional; got {data.dims}")
         x, y = data.dims
     if set(data.dims) != {x, y}:
-        raise ValueError(
-            f"selected data must contain exactly {x!r} and {y!r}; got {data.dims}"
-        )
-    xgrid, ygrid = np.meshgrid(
-        np.asarray(data.coords[x]), np.asarray(data.coords[y]), indexing="ij"
-    )
+        raise ValueError(f"selected data must contain exactly {x!r} and {y!r}; got {data.dims}")
+    xgrid, ygrid = np.meshgrid(np.asarray(data.coords[x]), np.asarray(data.coords[y]), indexing="ij")
     return xgrid, ygrid, axis_label(data, x), axis_label(data, y)
 
 
@@ -615,15 +627,11 @@ def physical_grids(data: xr.DataArray, *, plane="XY"):
     needed = ("X1", "X2") if plane == "X1X2" else ("X", "Y", "Z")
     missing = [name for name in needed if name not in data.coords]
     if missing:
-        raise ValueError(
-            f"physical coordinates are not attached to {data.name!r}: missing {missing}"
-        )
+        raise ValueError(f"physical coordinates are not attached to {data.name!r}: missing {missing}")
     xcoord = np.sqrt(data.X**2 + data.Y**2) if xname == "R" else data.coords[xname]
     ycoord = data.coords[yname]
     if xcoord.ndim != 2 or ycoord.ndim != 2:
-        raise ValueError(
-            "select all but two spatial dimensions before requesting a physical grid"
-        )
+        raise ValueError("select all but two spatial dimensions before requesting a physical grid")
     return np.asarray(xcoord), np.asarray(ycoord), xlabel, ylabel
 
 
@@ -659,21 +667,15 @@ def prepare_view(data: xr.DataArray, view: View) -> xr.DataArray:
     else:
         x, y = view.x, view.y
     if set(others) != {x, y}:
-        raise ValueError(
-            f"selection leaves dimensions {selected.dims}; expected {view.sweep!r}, {x!r} and {y!r}"
-        )
+        raise ValueError(f"selection leaves dimensions {selected.dims}; expected {view.sweep!r}, {x!r} and {y!r}")
     order = ([view.sweep] if view.sweep in selected.dims else []) + [x, y]
     selected = selected.transpose(*order)
     if view.coordinates == "physical":
         if view.plane not in PLANES:
-            raise ValueError(
-                f"unknown plane {view.plane!r}; expected one of {tuple(PLANES)}"
-            )
+            raise ValueError(f"unknown plane {view.plane!r}; expected one of {tuple(PLANES)}")
         missing = [name for name in ("X", "Y", "Z") if name not in selected.coords]
         if missing:
-            raise ValueError(
-                f"physical coordinates are not attached to {data.name!r}: missing {missing}"
-            )
+            raise ValueError(f"physical coordinates are not attached to {data.name!r}: missing {missing}")
         selected = close_periodic(selected, (x, y)).transpose(*order)
     return selected
 
@@ -681,9 +683,7 @@ def prepare_view(data: xr.DataArray, view: View) -> xr.DataArray:
 def _slice_data(data, view):
     selected = _select(data, view)
     if view.sweep in selected.dims and view.sweep not in (view.x, view.y):
-        raise ValueError(
-            f"select one {view.sweep!r} value before drawing a static slice, or display it as x or y"
-        )
+        raise ValueError(f"select one {view.sweep!r} value before drawing a static slice, or display it as x or y")
     if view.x is None or view.y is None:
         if selected.ndim > 2:
             raise ValueError(
@@ -691,16 +691,12 @@ def _slice_data(data, view):
                 f"by keyword (e.g. {selected.dims[0]}=0), or name the two to draw with x= and y="
             )
         if selected.ndim < 2:
-            raise ValueError(
-                f"a slice draws two dimensions, but only {selected.dims} remain after the selection"
-            )
+            raise ValueError(f"a slice draws two dimensions, but only {selected.dims} remain after the selection")
         x, y = selected.dims
     else:
         x, y = view.x, view.y
     if set(selected.dims) != {x, y}:
-        raise ValueError(
-            f"selection leaves dimensions {selected.dims}; expected only {x!r}, {y!r}"
-        )
+        raise ValueError(f"selection leaves dimensions {selected.dims}; expected only {x!r}, {y!r}")
     selected = selected.transpose(x, y)
     if view.coordinates == "physical":
         # cell-centred grids leave out a periodic seam (e.g. theta = 0): close it
@@ -745,10 +741,7 @@ def _takes_time(function) -> bool:
     except (TypeError, ValueError):
         return False
     positional = [
-        p
-        for p in parameters
-        if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
-        and p.default is p.empty
+        p for p in parameters if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) and p.default is p.empty
     ]
     return len(positional) >= 2 or any(p.kind == p.VAR_POSITIONAL for p in parameters)
 
@@ -758,15 +751,11 @@ def _reference_curve(spec, x_fine, t=None):
     arguments and a time is known), a 1-D array over its own coordinate, or an ``(x, y)`` pair.
     """
     if callable(spec):
-        values = (
-            spec(x_fine, t) if t is not None and _takes_time(spec) else spec(x_fine)
-        )
+        values = spec(x_fine, t) if t is not None and _takes_time(spec) else spec(x_fine)
         return x_fine, np.real(np.asarray(values)).astype(float) * np.ones_like(x_fine)
     if isinstance(spec, xr.DataArray):
         if spec.ndim != 1:
-            raise ValueError(
-                f"a reference array must be one-dimensional; got {spec.dims}"
-            )
+            raise ValueError(f"a reference array must be one-dimensional; got {spec.dims}")
         return np.asarray(spec[spec.dims[0]]), np.asarray(spec)
     x, y = spec
     return np.asarray(x), np.asarray(y)
@@ -841,18 +830,14 @@ def plot_timeseries(
                     None,
                     (
                         _label(item),
-                        (
-                            f"({item.attrs['run_name']})"
-                            if item.attrs.get("run_name")
-                            else ""
-                        ),
+                        (f"({item.attrs['run_name']})" if item.attrs.get("run_name") else ""),
                     ),
                 )
             )
 
     run_label = shared_run_label(series) if run_label is None else run_label
     own_figure = ax is None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         artists, fits = [], []
         for item in series:
@@ -876,9 +861,7 @@ def plot_timeseries(
             t_fine = np.linspace(span.min(), span.max(), 500)
             for i, (label, spec) in enumerate(references):
                 xs, ys = _reference_curve(spec, t_fine)
-                artists += ax.plot(
-                    xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label
-                )
+                artists += ax.plot(xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label)
         if logy:
             ax.set_yscale("log")
         ax.set_xlabel(axis_label(series[0], "t"))
@@ -912,13 +895,9 @@ def prepare_lineout(data: xr.DataArray, *, x: str | None = None) -> xr.DataArray
     """
     validate_array(data)
     if data.ndim != 1:
-        raise ValueError(
-            f"lineout needs exactly one remaining dimension, got {data.dims}"
-        )
+        raise ValueError(f"lineout needs exactly one remaining dimension, got {data.dims}")
     if x is not None and x != data.dims[0]:
-        raise ValueError(
-            f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}"
-        )
+        raise ValueError(f"lineout coordinate {x!r} is not the remaining dimension {data.dims[0]!r}")
     return data
 
 
@@ -934,6 +913,8 @@ def plot_lineout(
     xlabel=None,
     rationals: int | None = None,
     nfp: int | None = None,
+    rank_boundaries=None,
+    rank_boundary_color="red",
 ):
     """Plot a one-dimensional profile along its one remaining coordinate.
 
@@ -962,6 +943,12 @@ def plot_lineout(
     nfp : int, optional
         With ``rationals``: the numerators ``n`` are multiples of it. Default: the profile's
         ``nfp`` attribute, else 1.
+    rank_boundaries : sequence of float, optional
+        Coordinate values to mark with dashed vertical lines, e.g. the boundaries between
+        MPI ranks (see mpiarray's ``Layout.boundary_values``). Already in the plotted ``x``
+        units (``x_of`` is not applied to them). Default: none drawn.
+    rank_boundary_color : optional
+        Their color. Default: red.
 
     Returns
     -------
@@ -988,13 +975,9 @@ def plot_lineout(
     data = prepare_lineout(data, x=x)
     x = data.dims[0]
     coordinate = np.asarray(data[x], dtype=float)
-    plotted = (
-        np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
-    )
+    plotted = np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-    (line,) = ax.plot(
-        plotted, data, label=_label(data) if reference is not None else None
-    )
+    (line,) = ax.plot(plotted, data, label=_label(data) if reference is not None else None)
     artists = [line]
     references = _references(reference)
     if references:
@@ -1003,9 +986,7 @@ def plot_lineout(
         when = float(data.t) if "t" in data.coords and data.t.ndim == 0 else None
         for i, (label, spec) in enumerate(references):
             xs, ys = _reference_curve(spec, fine, when)
-            artists += ax.plot(
-                xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label
-            )
+            artists += ax.plot(xs, ys, color="k", lw=1.2, ls=REFERENCE_STYLES[i % 4], label=label)
         ax.legend(fontsize="small")
     if rationals:
         from .analysis import rational_surfaces
@@ -1034,6 +1015,9 @@ def plot_lineout(
                     color="0.3",
                 )
             )
+    if rank_boundaries:
+        for value in rank_boundaries:
+            artists.append(ax.axvline(value, color=rank_boundary_color, lw=0.8, ls="--", alpha=0.9))
     ax.set(
         xlabel=xlabel or (axis_label(data, x) if x_of is None else "x"),
         ylabel=value_label(data),
@@ -1084,9 +1068,7 @@ def prepare_vector(
     """
     validate_array(data, required_dims=(component_dim, x, y))
     if set(data.dims) != {component_dim, x, y}:
-        raise ValueError(
-            f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}"
-        )
+        raise ValueError(f"select every dimension except {component_dim!r}, {x!r}, and {y!r}; got {data.dims}")
     if stride < 1:
         raise ValueError("stride must be positive")
     return data.transpose(component_dim, x, y).isel(
@@ -1169,20 +1151,12 @@ def plot_vector(
         }
         plane = planes.get(frozenset((x, y)))
         if plane is None:
-            raise ValueError(
-                "physical vector plots require two logical spatial dimensions"
-            )
-        xg, yg, xlabel, ylabel = physical_grids(
-            vector.isel({component_dim: 0}), plane=plane
-        )
+            raise ValueError("physical vector plots require two logical spatial dimensions")
+        xg, yg, xlabel, ylabel = physical_grids(vector.isel({component_dim: 0}), plane=plane)
     else:
-        xg, yg, xlabel, ylabel = logical_grids(
-            vector.isel({component_dim: 0}), x=x, y=y
-        )
+        xg, yg, xlabel, ylabel = logical_grids(vector.isel({component_dim: 0}), x=x, y=y)
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
-    quiver = ax.quiver(
-        xg, yg, vector.isel({component_dim: 0}), vector.isel({component_dim: 1})
-    )
+    quiver = ax.quiver(xg, yg, vector.isel({component_dim: 0}), vector.isel({component_dim: 1}))
     ax.set(
         xlabel=xlabel,
         ylabel=ylabel,
@@ -1193,9 +1167,7 @@ def plot_vector(
     return PlotResult(fig, ax, [quiver])
 
 
-def prepare_volume_slices(
-    data: xr.DataArray, *, indices: dict[str, int] | None = None
-) -> dict[str, xr.DataArray]:
+def prepare_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None) -> dict[str, xr.DataArray]:
     """Three orthogonal midpoint (or chosen-index) planes through a scalar volume.
 
     Used by :func:`plot_volume_slices`.
@@ -1222,14 +1194,10 @@ def prepare_volume_slices(
     first, second, third = spatial = logical_dims(data)
     validate_array(data, required_dims=spatial)
     if set(data.dims) != set(spatial):
-        raise ValueError(
-            f"select every non-spatial dimension before volume_slices(); got {data.dims}"
-        )
+        raise ValueError(f"select every non-spatial dimension before volume_slices(); got {data.dims}")
     indices = {dim: data.sizes[dim] // 2 for dim in data.dims} | (indices or {})
     planes = {}
-    for normal, x, y in zip(
-        (third, second, first), (first, first, second), (second, third, third)
-    ):
+    for normal, x, y in zip((third, second, first), (first, first, second), (second, third, third)):
         plane = data.isel({normal: indices[normal]}).transpose(x, y)
         plane.attrs["fixed_index"] = indices[normal]
         planes[normal] = plane
@@ -1237,9 +1205,7 @@ def prepare_volume_slices(
 
 
 @rank_zero
-def plot_volume_slices(
-    data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None
-):
+def plot_volume_slices(data: xr.DataArray, *, indices: dict[str, int] | None = None, cmap=None):
     """Show three orthogonal midpoint slices of a selected scalar volume.
 
     Parameters
@@ -1270,9 +1236,7 @@ def plot_volume_slices(
     artists = []
     for ax, (normal, plane) in zip(axes, planes.items()):
         x, y = plane.dims
-        mesh = ax.pcolormesh(
-            plane[x], plane[y], np.asarray(plane).T, shading="auto", cmap=cmap
-        )
+        mesh = ax.pcolormesh(plane[x], plane[y], np.asarray(plane).T, shading="auto", cmap=cmap)
         index = plane.attrs.get("fixed_index")
         ax.set(
             xlabel=axis_label(plane, x),
@@ -1311,11 +1275,7 @@ def prepare_compare(
         The difference or ratio, named after the first array's label and ``mode``.
     """
     first, second = xr.align(first, second, join="inner")
-    result = (
-        first - second
-        if mode == "difference"
-        else xr.where(second != 0, first / second, np.nan)
-    )
+    result = first - second if mode == "difference" else xr.where(second != 0, first / second, np.nan)
     result.name = f"{_label(first)} {mode}"
     return result
 
@@ -1360,9 +1320,7 @@ def plot_compare(
 
 
 @rank_zero
-def pyvista_volume(
-    data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"
-):
+def pyvista_volume(data: xr.DataArray, *, name: str | None = None, cmap="viridis", opacity="linear"):
     """Create a PyVista volume view from a selected scalar field with ``X/Y/Z`` coordinates.
 
     The returned plotter is not shown automatically; call ``plotter.show()`` in an
@@ -1400,9 +1358,7 @@ def pyvista_volume(
     spatial = logical_dims(data)
     validate_array(data, required_dims=spatial)
     if set(data.dims) != set(spatial):
-        raise ValueError(
-            f"select every non-spatial dimension before pyvista_volume(); got {data.dims}"
-        )
+        raise ValueError(f"select every non-spatial dimension before pyvista_volume(); got {data.dims}")
     if any(coord not in data.coords for coord in ("X", "Y", "Z")):
         raise ValueError("pyvista_volume() requires mapped X, Y, and Z coordinates")
     grid = pv.StructuredGrid(
@@ -1497,9 +1453,7 @@ def show_equilibrium(
     return plotter
 
 
-def color_limits(
-    data, *, symmetric: bool = False, robust: bool = False
-) -> tuple[float, float]:
+def color_limits(data, *, symmetric: bool = False, robust: bool = False) -> tuple[float, float]:
     """Color limits of the finite values of ``data``.
 
     Parameters
@@ -1527,16 +1481,10 @@ def color_limits(
     values = np.asarray(data, dtype=float)
     finite = values[np.isfinite(values)]
     if not finite.size:
-        raise ValueError(
-            "cannot determine color limits from data without finite values; provide vmin and vmax"
-        )
+        raise ValueError("cannot determine color limits from data without finite values; provide vmin and vmax")
     lo, hi = np.percentile(finite, [1, 99]) if robust else (finite.min(), finite.max())
     if symmetric:
-        bound = (
-            float(np.percentile(np.abs(finite), 99))
-            if robust
-            else float(max(abs(lo), abs(hi)))
-        )
+        bound = float(np.percentile(np.abs(finite), 99)) if robust else float(max(abs(lo), abs(hi)))
         return -bound, bound
     return float(lo), float(hi)
 
@@ -1550,6 +1498,8 @@ OVERLAY_KEYS = {
     "grid_lines",
     "coordinate_lines",
     "coordinate_line_color",
+    "rank_boundaries",
+    "rank_boundary_color",
     "lines",
     "line_color",
     "points",
@@ -1573,9 +1523,7 @@ def _grid_edges(xg, yg):
     )
 
     def same(a, b):
-        return np.allclose(a[0], b[0], atol=1e-9 * scale) and np.allclose(
-            a[1], b[1], atol=1e-9 * scale
-        )
+        return np.allclose(a[0], b[0], atol=1e-9 * scale) and np.allclose(a[1], b[1], atol=1e-9 * scale)
 
     keep = []
     for first, last in (("first_row", "last_row"), ("first_col", "last_col")):
@@ -1600,31 +1548,39 @@ def _line_values(coordinate: np.ndarray, spec, period: float | None) -> np.ndarr
     lo, hi = float(finite.min()), float(finite.max())
     if period is not None:
         return lo + period * np.arange(spec) / spec
-    return np.linspace(lo, hi, int(spec) + 1)[
-        1:
-    ]  # the lowest value is often a point (the axis)
+    return np.linspace(lo, hi, int(spec) + 1)[1:]  # the lowest value is often a point (the axis)
 
 
-def _coordinate_lines(ax, selected: xr.DataArray, xg, yg, spec: dict, color) -> list:
+def _coordinate_lines(
+    ax,
+    selected: xr.DataArray,
+    xg,
+    yg,
+    spec: dict,
+    color,
+    *,
+    linestyle="-",
+    key="coordinate_lines",
+) -> list:
     """Draw lines of constant coordinate on a slice whose grid ``xg``, ``yg`` follows the dims
-    of ``selected``; see the ``coordinate_lines`` overlay."""
+    of ``selected``; see the ``coordinate_lines`` and ``rank_boundaries`` overlays.
+
+    ``key`` names the overlay in error messages, so ``rank_boundaries`` (which reuses this
+    function) reports its own name rather than ``coordinate_lines``.
+    """
     from .arrays import angle_period
 
     artists = []
     for name, lines in spec.items():
         if name not in selected.coords:
-            raise ValueError(
-                f"coordinate_lines: {name!r} is not a coordinate of the slice; it has {tuple(selected.coords)}"
-            )
+            raise ValueError(f"{key}: {name!r} is not a coordinate of the slice; it has {tuple(selected.coords)}")
         coordinate = selected.coords[name]
         period = angle_period(selected, name)
         if name in selected.dims:
             axis = selected.dims.index(name)
             values = np.asarray(coordinate, dtype=float)
             for value in _line_values(values, lines, period):
-                if (
-                    period is not None
-                ):  # the value inside the sampled range, e.g. 2π -> 0
+                if period is not None:  # the value inside the sampled range, e.g. 2π -> 0
                     value = values[0] + np.mod(value - values[0], period)
                 if not values.min() <= value <= values.max():
                     continue
@@ -1634,29 +1590,37 @@ def _coordinate_lines(ax, selected: xr.DataArray, xg, yg, spec: dict, color) -> 
                 take = (lambda g, k: g[k]) if axis == 0 else (lambda g, k: g[:, k])
                 x = (1 - frac) * take(xg, i) + frac * take(xg, j)
                 y = (1 - frac) * take(yg, i) + frac * take(yg, j)
-                artists += ax.plot(x, y, color=color, lw=0.8, alpha=0.9)
+                artists += ax.plot(x, y, color=color, lw=0.8, alpha=0.9, ls=linestyle)
             continue
         if set(coordinate.dims) != set(selected.dims):
-            raise ValueError(
-                f"coordinate_lines: {name!r} must vary over the drawn dimensions {selected.dims}"
-            )
+            raise ValueError(f"{key}: {name!r} must vary over the drawn dimensions {selected.dims}")
         field = np.asarray(coordinate.transpose(*selected.dims), dtype=float)
         for value in _line_values(field.ravel(), lines, period):
             if period is None:
                 artists.append(
                     ax.contour(
-                        xg, yg, field, levels=[value], colors=color, linewidths=0.8
+                        xg,
+                        yg,
+                        field,
+                        levels=[value],
+                        colors=color,
+                        linewidths=0.8,
+                        linestyles=linestyle,
                     )
                 )
                 continue
-            phase = (
-                2 * np.pi * (field - value) / period
-            )  # the line is where the angle equals value
-            where = np.where(
-                np.cos(phase) > 0, np.sin(phase), np.nan
-            )  # not the branch half a period away
+            phase = 2 * np.pi * (field - value) / period  # the line is where the angle equals value
+            where = np.where(np.cos(phase) > 0, np.sin(phase), np.nan)  # not the branch half a period away
             artists.append(
-                ax.contour(xg, yg, where, levels=[0.0], colors=color, linewidths=0.8)
+                ax.contour(
+                    xg,
+                    yg,
+                    where,
+                    levels=[0.0],
+                    colors=color,
+                    linewidths=0.8,
+                    linestyles=linestyle,
+                )
             )
     return artists
 
@@ -1695,20 +1659,14 @@ class _SliceRenderer:
     ):
         self.data = _select(data, view)
         self.xlabel, self.ylabel = xlabel, ylabel
-        self.colorbar_label = (
-            value_label(data) if colorbar_label is None else colorbar_label
-        )
+        self.colorbar_label = value_label(data) if colorbar_label is None else colorbar_label
         self.symmetric, self.robust = symmetric, robust
         self.levels, self.fill = levels, fill
         unknown = set(overlays or {}) - OVERLAY_KEYS
         if unknown:
-            raise ValueError(
-                f"unknown overlays {sorted(unknown)}; expected some of {sorted(OVERLAY_KEYS)}"
-            )
+            raise ValueError(f"unknown overlays {sorted(unknown)}; expected some of {sorted(OVERLAY_KEYS)}")
         self.overlays = dict(overlays or {})
-        self._lines = (
-            {}
-        )  # artists drawn on top per axes, removed on the next draw there
+        self._lines = {}  # artists drawn on top per axes, removed on the next draw there
         self.view = View(
             x=view.x,
             y=view.y,
@@ -1716,14 +1674,44 @@ class _SliceRenderer:
             coordinates=view.coordinates,
             plane=view.plane,
         )
+        # the axis of each of data's own dimensions (sweep excluded), for the
+        # rank_boundaries overlay when given a Layout instead of an explicit dict
+        self._dim_axis = {name: axis for axis, name in enumerate(d for d in data.dims if d != self.view.sweep)}
         self.vmin, self.vmax = vmin, vmax
         self.shared_clim = shared_clim
         self.cmap = cmap or PLOT_STYLE["image.cmap"]
-        self.equal_aspect = (
-            view.coordinates == "physical" if equal_aspect is None else equal_aspect
-        )
+        self.equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
         self.title = _label(data) if title is None else title
         self.limits = self._limits(self.data) if shared_clim else None
+
+    def _rank_boundary_spec(self, value, selected) -> dict:
+        """Return a ``coordinate_lines``-style spec for the ``rank_boundaries`` overlay.
+
+        ``value`` is either an explicit ``{name: values}`` dict, or an mpiarray ``Layout``
+        (duck-typed via ``boundary_values``, so plasma-plots needs no mpiarray import): its
+        axis for each drawn dimension is found by name among the plotted array's own
+        dimensions (excluding the sweep dimension), so the layout needs no dimension names of
+        its own.
+        """
+        if isinstance(value, dict):
+            return value
+        boundary_values = getattr(value, "boundary_values", None)
+        if boundary_values is None:
+            raise TypeError(
+                "rank_boundaries must be a dict of {name: values} or an object with a "
+                "boundary_values(axis, coordinate) method (e.g. an mpiarray Layout)"
+            )
+        spec = {
+            name: boundary_values(self._dim_axis[name], selected.coords[name].to_numpy())
+            for name in selected.dims
+            if name in self._dim_axis
+        }
+        if not spec:
+            raise ValueError(
+                f"rank_boundaries: none of the drawn dimensions {selected.dims} are axes of "
+                f"the plotted array (excluding the sweep dimension); it has {tuple(self._dim_axis)}"
+            )
+        return spec
 
     def _draw_overlays(self, ax, data, xg, yg, selected=None):
         """Contour lines of a second field, the grid's boundary and lines, fixed lines and points."""
@@ -1737,6 +1725,18 @@ class _SliceRenderer:
                 overlays["coordinate_lines"],
                 overlays.get("coordinate_line_color", "w"),
             )
+        if overlays.get("rank_boundaries") and selected is not None:
+            spec = self._rank_boundary_spec(overlays["rank_boundaries"], selected)
+            artists += _coordinate_lines(
+                ax,
+                selected,
+                xg,
+                yg,
+                spec,
+                overlays.get("rank_boundary_color", "red"),
+                linestyle="--",
+                key="rank_boundaries",
+            )
         other = overlays.get("contours_of")
         if other is not None:
             sweep = self.view.sweep
@@ -1746,9 +1746,7 @@ class _SliceRenderer:
                 other,
                 View(
                     select={
-                        k: float(v)
-                        for k, v in data.coords.items()
-                        if v.ndim == 0 and k in other.dims and k != sweep
+                        k: float(v) for k, v in data.coords.items() if v.ndim == 0 and k in other.dims and k != sweep
                     }
                 ),
             )
@@ -1767,9 +1765,7 @@ class _SliceRenderer:
             )
         if overlays.get("boundary"):
             for edge in _grid_edges(xg, yg):
-                artists += ax.plot(
-                    *edge, color=overlays.get("boundary_color", "k"), lw=1.3
-                )
+                artists += ax.plot(*edge, color=overlays.get("boundary_color", "k"), lw=1.3)
         stride = overlays.get("grid_lines")
         if stride:
             for i in range(0, xg.shape[0], stride):
@@ -1837,19 +1833,13 @@ class _SliceRenderer:
                 else np.atleast_1d(self.levels)
             )
             finite = np.asarray(values, dtype=float)
-            if (
-                np.isfinite(finite).any()
-                and np.nanmin(finite) < max(levels)
-                and np.nanmax(finite) > min(levels)
-            ):
+            if np.isfinite(finite).any() and np.nanmin(finite) < max(levels) and np.nanmax(finite) > min(levels):
                 style = (
                     dict(colors="k", linewidths=0.8)
                     if self.fill
                     else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
                 )
-                extras.append(
-                    ax.contour(xg, yg, np.asarray(values), levels=levels, **style)
-                )
+                extras.append(ax.contour(xg, yg, np.asarray(values), levels=levels, **style))
         extras += self._draw_overlays(ax, data, xg, yg, values)
         ax.set(
             xlabel=xlabel if self.xlabel is None else self.xlabel,
@@ -1963,6 +1953,12 @@ def plot_slice(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2022,7 +2018,7 @@ def plot_slice(
     )
     run_label = shared_run_label(data) if run_label is None else run_label
     own_figure = ax is None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
         mesh = renderer.draw(ax, renderer.data)
         fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
@@ -2119,6 +2115,12 @@ def plot_panels(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2177,7 +2179,7 @@ def plot_panels(
     sweep = renderer.view.sweep
     indices = np.linspace(0, renderer.data.sizes[sweep] - 1, nrows * ncols).astype(int)
     run_label = shared_run_label(data) if run_label is None else run_label
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             nrows,
             ncols,
@@ -2265,6 +2267,12 @@ class InteractiveSliceViewer:
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2372,18 +2380,14 @@ class InteractiveSliceViewer:
             if len(candidates) < 2:
                 raise ValueError("viewer needs two display dimensions")
             x, y = candidates[:2]
-        renderer.view = View(
-            x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane
-        )
+        renderer.view = View(x=x, y=y, coordinates=self.view.coordinates, plane=self.view.plane)
         controls = [dim for dim in base.dims if dim not in {x, y}]
         indices = {dim: 0 for dim in controls}
-        with plt.rc_context(PLOT_STYLE):
+        with _plot_style():
             fig, ax = plt.subplots()
             fig.subplots_adjust(bottom=0.13 + 0.05 * len(controls))
             mesh = renderer.draw(ax, base.isel(indices))
-            colorbar = fig.colorbar(
-                renderer.shown(mesh), ax=ax, label=renderer.colorbar_label
-            )
+            colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
             self.result = PlotResult(fig, ax, [mesh])
 
             def update(_=None):
@@ -2393,10 +2397,7 @@ class InteractiveSliceViewer:
                 mesh = renderer.draw(ax, base.isel(indices))
                 self.result.artists[:] = [mesh]
                 colorbar.update_normal(renderer.shown(mesh))
-                values = ", ".join(
-                    f"{dim}={float(base[dim][index]):.3e}"
-                    for dim, index in indices.items()
-                )
+                values = ", ".join(f"{dim}={float(base[dim][index]):.3e}" for dim, index in indices.items())
                 ax.set_title(" at ".join(filter(None, (renderer.title, values))))
                 fig.canvas.draw_idle()
 
@@ -2501,6 +2502,12 @@ def animate_slices(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2559,12 +2566,10 @@ def animate_slices(
     )
     frames = renderer.indices(step, max_frames)
     sweep = renderer.view.sweep
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots()
         mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
-        colorbar = fig.colorbar(
-            renderer.shown(mesh), ax=ax, label=renderer.colorbar_label
-        )
+        colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         _finish(fig, run_label=shared_run_label(data))
 
     def update(index):
@@ -2652,20 +2657,16 @@ def animate_fields(
 
     fields = list(fields)
     if len(fields) < 2:
-        raise ValueError(
-            "animate_fields needs at least two fields; use animate_slices for one"
-        )
+        raise ValueError("animate_fields needs at least two fields; use animate_slices for one")
     view = view or View()
     renderers = [_SliceRenderer(field, view, **options) for field in fields]
     sweep = renderers[0].view.sweep
     frames = renderers[0].indices(step, max_frames)
     lengths = {renderer.data.sizes[sweep] for renderer in renderers}
     if len(lengths) != 1:
-        raise ValueError(
-            f"every field needs the same number of {sweep!r} values; got {sorted(lengths)}"
-        )
+        raise ValueError(f"every field needs the same number of {sweep!r} values; got {sorted(lengths)}")
     titles = titles or [renderer.title for renderer in renderers]
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             1,
             len(fields),
@@ -2678,9 +2679,7 @@ def animate_fields(
         for ax, renderer, field in zip(axes, renderers, fields):
             mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
             meshes.append(mesh)
-            colorbars.append(
-                fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
-            )
+            colorbars.append(fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label))
         run_label = shared_run_label(fields)
         heading = fig.suptitle("")
 
@@ -2691,9 +2690,7 @@ def animate_fields(
             colorbars[i].update_normal(renderer.shown(meshes[i]))
             ax.set_title(titles[i])
         value = float(renderers[0].data[sweep][index])
-        heading.set_text(
-            " — ".join(filter(None, (f"{sweep} = {value:.3e}", run_label)))
-        )
+        heading.set_text(" — ".join(filter(None, (f"{sweep} = {value:.3e}", run_label))))
         return tuple(meshes)
 
     update(frames[0])
@@ -2793,6 +2790,12 @@ def save_frames(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
+        - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
@@ -2848,14 +2851,12 @@ def save_frames(
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots()
         try:
             sweep = renderer.view.sweep
             mesh = renderer.draw(ax, renderer.data.isel({sweep: 0}))
-            colorbar = fig.colorbar(
-                renderer.shown(mesh), ax=ax, label=renderer.colorbar_label
-            )
+            colorbar = fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
             _finish(fig, run_label=shared_run_label(data))
             for frame, index in enumerate(frames):
                 mesh.remove()
@@ -2922,11 +2923,7 @@ def plot_scalars(
     selected = scalar_names(scalars, names=names, exclude=exclude)
     if not selected:
         raise ValueError("no scalars to plot")
-    run_label = (
-        shared_run_label([scalars[name] for name in selected])
-        if run_label is None
-        else run_label
-    )
+    run_label = shared_run_label([scalars[name] for name in selected]) if run_label is None else run_label
     fig, ax = plt.subplots(layout="constrained")
     for name in selected:
         values = scalars[name] / scalars[relative_to] if relative_to else scalars[name]
@@ -2934,11 +2931,7 @@ def plot_scalars(
     if logy:
         ax.set_yscale("log")
     units = {scalars[name].attrs.get("units", "") for name in selected}
-    ylabel = (
-        f"quantity / {relative_to}"
-        if relative_to
-        else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
-    )
+    ylabel = f"quantity / {relative_to}" if relative_to else (f"[{units.pop()}]" if len(units) == 1 else "[a.u.]")
     ax.set(xlabel=axis_label(scalars[selected[0]], "t"), ylabel=ylabel, title="Scalars")
     ax.legend(fontsize="small")
     if run_label:
@@ -3003,19 +2996,12 @@ def plot_convergence(
             )
             artists.append(fitted)
     else:
-        sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(
-            errors, dtype=float
-        )
+        sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(errors, dtype=float)
         reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
-        (ref_line,) = ax.loglog(
-            sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference"
-        )
+        (ref_line,) = ax.loglog(sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference")
         artists.append(ref_line)
     ax.set(xlabel=xlabel, ylabel="error", title=title)
-    if any(
-        artist.get_label() and not artist.get_label().startswith("_")
-        for artist in artists
-    ):
+    if any(artist.get_label() and not artist.get_label().startswith("_") for artist in artists):
         ax.legend(fontsize="small")
     return PlotResult(fig, ax, artists)
 
@@ -3159,11 +3145,7 @@ def plot_dispersion(
     ... )
     """
     given = {"omega", "k"} <= set(data.dims)
-    spectrum = (
-        data.transpose("omega", "k")
-        if given
-        else power_spectrum(data, dim=dim, detrend=detrend)
-    )
+    spectrum = data.transpose("omega", "k") if given else power_spectrum(data, dim=dim, detrend=detrend)
     values = np.asarray(spectrum)
     if log:
         values = np.log10(values + np.finfo(float).tiny)
@@ -3196,9 +3178,7 @@ def plot_dispersion(
         for label, k_branch, omega_branch in _branch_curves(branches, k[k_mask]):
             (line,) = ax.plot(k_branch, omega_branch, "--", label=label)
             artists.append(line)
-        ax.set_xlim(
-            *limits[0]
-        )  # theory curves beyond the spectrum do not widen the axes
+        ax.set_xlim(*limits[0])  # theory curves beyond the spectrum do not widen the axes
         ax.set_ylim(*limits[1])
     if len(fits):
         limits = ax.get_xlim(), ax.get_ylim()
@@ -3215,25 +3195,13 @@ def plot_dispersion(
         ax.set_xlim(*limits[0])
         ax.set_ylim(*limits[1])
     for i, (label, omega_value) in enumerate((frequencies or {}).items()):
-        artists.append(
-            ax.axhline(omega_value, color="w", lw=1, ls=(0, (1, 2 + i)), label=label)
-        )
+        artists.append(ax.axhline(omega_value, color="w", lw=1, ls=(0, (1, 2 + i)), label=label))
     for label, point in (points or {}).items():
-        k_points, omega_points = (
-            (point.k, point.omega) if isinstance(point, xr.Dataset) else point
-        )
-        artists.append(
-            ax.plot(
-                k_points, omega_points, "o", ms=4, mfc="none", mew=1.2, label=label
-            )[0]
-        )
+        k_points, omega_points = (point.k, point.omega) if isinstance(point, xr.Dataset) else point
+        artists.append(ax.plot(k_points, omega_points, "o", ms=4, mfc="none", mew=1.2, label=label)[0])
     if branches is not None or frequencies or points or len(fits):
         ax.legend(fontsize="small")
-    default_title = (
-        (_label(data) or "Dispersion relation")
-        if given
-        else f"Dispersion relation of {_label(data)}"
-    )
+    default_title = (_label(data) or "Dispersion relation") if given else f"Dispersion relation of {_label(data)}"
     ax.set(
         xlabel="k",
         ylabel=r"$\omega$",
@@ -3300,19 +3268,13 @@ def save_all_scalars(
     directory.mkdir(parents=True, exist_ok=True)
     paths = []
     if table:
-        paths.append(
-            save_scalars(
-                scalars, str(directory / f"scalars.{table}"), names=selected, fmt=table
-            )
-        )
+        paths.append(save_scalars(scalars, str(directory / f"scalars.{table}"), names=selected, fmt=table))
     overview = plot_scalars(scalars, names=selected, logy=logy, run_label=run_label)
     path = directory / f"scalars.{file_format}"
     overview.save(path, dpi=dpi, close=True)
     paths.append(str(path))
     for name in selected:
-        result = plot_timeseries(
-            scalars[name], logy=logy, title=name, run_label=run_label
-        )
+        result = plot_timeseries(scalars[name], logy=logy, title=name, run_label=run_label)
         path = directory / f"{name}.{file_format}"
         result.save(path, dpi=dpi, close=True)
         paths.append(str(path))
@@ -3349,9 +3311,7 @@ def prepare_orbits(orbits, *, max_markers: int = 200, required=()) -> xr.Dataset
         orbits = orbits.to_dataset(dim="quantity")
     missing = [name for name in required if name not in orbits.data_vars]
     if missing:
-        raise ValueError(
-            f"orbits is missing required quantities: {missing}; it has {tuple(orbits.data_vars)}"
-        )
+        raise ValueError(f"orbits is missing required quantities: {missing}; it has {tuple(orbits.data_vars)}")
     if "marker" not in orbits.sizes:
         raise ValueError("orbits must have a 'marker' dimension")
     count = min(orbits.sizes["marker"], max_markers)
@@ -3389,9 +3349,7 @@ def plot_marker_trajectories(orbits, *, ax=None, max_markers=200, show_paths=Non
     """
     subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z"))
     count = subset.sizes["marker"]
-    positions = np.stack(
-        [np.asarray(subset[name]) for name in ("x", "y", "z")], axis=-1
-    )
+    positions = np.stack([np.asarray(subset[name]) for name in ("x", "y", "z")], axis=-1)
     fig = plt.figure() if ax is None else ax.figure
     ax = fig.add_subplot(111, projection="3d") if ax is None else ax
     show_paths = count <= 200 if show_paths is None else show_paths
@@ -3427,18 +3385,14 @@ def resolve_marker_selection(dataset: xr.Dataset, selection: dict) -> xr.Dataset
     selected = dataset
     for dim, value in selection.items():
         if dim not in selected.sizes:
-            raise TypeError(
-                f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}"
-            )
+            raise TypeError(f"{dim!r} is not a dimension of this dataset; its dimensions are {tuple(selected.sizes)}")
         if value in (
             "first",
             "last",
         ):  # accepted, but integer positions are the documented form
             selected = selected.isel({dim: 0 if value == "first" else -1})
         elif isinstance(value, (bool, str)):
-            raise TypeError(
-                f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value"
-            )
+            raise TypeError(f"cannot select {dim}={value!r}; use an integer position (e.g. {dim}=-1) or a float value")
         elif isinstance(value, (int, np.integer)):
             selected = selected.isel({dim: int(value)})
         else:
@@ -3457,16 +3411,16 @@ def _boundary_edge(field: xr.DataArray) -> xr.DataArray:
     return field.isel({radial: -1})
 
 
-def _background_view(x: str, y: str) -> View:
+def _background_view(x: str, y: str, background: xr.DataArray | None = None) -> View:
     """How a field is drawn behind markers whose positions are the variables ``x`` and ``y``:
-    in logical coordinates for ``eta1``/``eta2``/``eta3``, in the physical plane for
-    ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates)."""
-    if x in LOGICAL and y in LOGICAL:
+    on its own ``x`` and ``y`` dimensions when it has them (e.g. a Cartesian field with dims
+    ``("x", "y")``), in logical coordinates for ``eta1``/``eta2``/``eta3``, else in the physical
+    plane for ``x``/``y``/``z`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
+    """
+    if (x in LOGICAL and y in LOGICAL) or (background is not None and x in background.dims and y in background.dims):
         return View(x=x, y=y)
     plane = f"{x}{y}".upper()
-    if plane in PLANES and (
-        plane != "RZ" or x == "R"
-    ):  # R from x and y, as the markers' R
+    if plane in PLANES and (plane != "RZ" or x == "R"):  # R from x and y, as the markers' R
         return View(coordinates="physical", plane=plane)
     raise ValueError(
         f"a background needs marker positions named after logical (eta1, ...) or physical (x, y, z) "
@@ -3518,31 +3472,17 @@ def prepare_marker_scatter(
     ValueError
         If ``x``, ``y`` or ``color`` is not a variable, or dimensions other than ``marker`` remain.
     """
-    missing = [
-        name
-        for name in (x, y, color)
-        if name is not None and name not in markers.data_vars
-    ]
+    missing = [name for name in (x, y, color) if name is not None and name not in markers.data_vars]
     if missing:
-        raise ValueError(
-            f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}"
-        )
+        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
     selected = resolve_marker_selection(markers, selection)
     if selected[x].ndim != 1:
-        raise ValueError(
-            f"select every dimension except 'marker' before scatter(); got dims {selected[x].dims}"
-        )
+        raise ValueError(f"select every dimension except 'marker' before scatter(); got dims {selected[x].dims}")
     out = selected[[x, y]]
     if color is not None:
         values = _marker_colors(markers, color, color_at, selection)
         name = "color" if color in (x, y) else color
-        out = out.assign(
-            {
-                name: values.drop_vars(
-                    [c for c in values.coords if c not in values.dims], errors="ignore"
-                )
-            }
-        )
+        out = out.assign({name: values.drop_vars([c for c in values.coords if c not in values.dims], errors="ignore")})
     return out
 
 
@@ -3570,6 +3510,7 @@ def plot_marker_scatter(
     color_at=None,
     background: xr.DataArray | None = None,
     background_options: dict | None = None,
+    equal_aspect: bool | None = None,
     **selection,
 ):
     """Scatter marker positions from a Dataset (an orbits product, or any per-marker data).
@@ -3599,13 +3540,17 @@ def plot_marker_scatter(
         e.g. each marker's initial position, to follow where fluid parcels go. Default: the
         selected time.
     background : xarray.DataArray, optional
-        A field drawn behind the markers at the same time (select its other dimensions first),
-        in logical coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the
-        physical plane of ``x``/``y`` (``x``, ``y``, ``z``; the field then needs its ``X``,
-        ``Y``, ``Z`` coordinates).
+        A field drawn behind the markers at the same time (select its other dimensions first):
+        on its own ``x``/``y`` dimensions if it has them (a Cartesian field), in logical
+        coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical plane of
+        ``x``/``y`` (``x``, ``y``, ``z``; the field then needs its ``X``, ``Y``, ``Z``
+        coordinates).
     background_options : dict, optional
         Passed to :func:`plot_slice` for the background (e.g. ``cmap``, ``levels``,
         ``fill=False``).
+    equal_aspect : bool, optional
+        Draw both axes to the same scale. Default: when ``x`` and ``y`` have the same ``units``
+        attribute (e.g. two positions), not for a phase space such as ``x`` against ``vx``.
     **selection
         The remaining dimensions, such as ``t``, exactly like :meth:`ArrayPlots.lineout`: an
         integer is a position (``t=-1`` the last), a float the nearest coordinate value.
@@ -3634,26 +3579,18 @@ def plot_marker_scatter(
     """
     missing = [name for name in (x, y) if name not in markers.data_vars]
     if missing:
-        raise ValueError(
-            f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}"
-        )
+        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(markers.data_vars)}")
     selected = resolve_marker_selection(markers, selection)
     xv, yv = np.asarray(selected[x]), np.asarray(selected[y])
     if xv.ndim != 1:
-        raise ValueError(
-            f"select every dimension except 'marker' before scatter(); got shape {xv.shape}"
-        )
+        raise ValueError(f"select every dimension except 'marker' before scatter(); got shape {xv.shape}")
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     artists = []
     if background is not None:
-        when = (
-            float(selected.t)
-            if "t" in selected.coords and selected.t.ndim == 0
-            else None
-        )
+        when = float(selected.t) if "t" in selected.coords and selected.t.ndim == 0 else None
         shown = plot_slice(
             _at_time(background, when),
-            view=_background_view(x, y),
+            view=_background_view(x, y, background),
             ax=ax,
             **(background_options or {}),
         )
@@ -3671,18 +3608,25 @@ def plot_marker_scatter(
     artists.append(scatter)
     if color:
         label = value_label(colors) + (
-            f" at t = {float(colors.t):.3g}"
-            if color_at is not None and "t" in colors.coords
-            else ""
+            f" at t = {float(colors.t):.3g}" if color_at is not None and "t" in colors.coords else ""
         )
         fig.colorbar(scatter, ax=ax, label=label)
+    if equal_aspect is None:
+        equal_aspect = markers[x].attrs.get("units") == markers[y].attrs.get("units")
     ax.set(
         xlabel=x,
         ylabel=y,
         title=markers.attrs.get("label", "") or "Markers",
-        aspect="equal",
+        aspect="equal" if equal_aspect else "auto",
     )
     return PlotResult(fig, ax, artists)
+
+
+def _marker_label(data: xr.Dataset, marker: int) -> str:
+    """Name the marker at position ``marker``: by its ``marker`` coordinate (its id) if present."""
+    if "marker" in data.coords and data["marker"].ndim == 1:
+        return f"marker {data['marker'].values[marker]}"
+    return f"marker {marker}"
 
 
 def _alive(orbits: xr.Dataset) -> np.ndarray:
@@ -3696,11 +3640,7 @@ def _alive(orbits: xr.Dataset) -> np.ndarray:
 
 def _with_major_radius(markers: xr.Dataset, names) -> xr.Dataset:
     """``markers`` with ``R = √(x² + y²)`` added, if ``R`` is asked for and not a variable yet."""
-    if (
-        "R" in names
-        and "R" not in markers.data_vars
-        and {"x", "y"} <= set(markers.data_vars)
-    ):
+    if "R" in names and "R" not in markers.data_vars and {"x", "y"} <= set(markers.data_vars):
         radius = np.hypot(markers.x, markers.y)
         radius.attrs = {"label": "R", "long_name": "major radius"}
         return markers.assign(R=radius)
@@ -3757,9 +3697,10 @@ def animate_markers(
         to follow fluid parcels, or a float value). Default: the colors of each frame.
     background : xarray.DataArray, optional
         A field drawn behind the markers: with a ``t`` dimension (other dimensions selected) at the
-        nearest time of each frame, with shared color limits; without one, fixed (drawn once). In
-        logical coordinates if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical
-        plane of ``x``/``y`` (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
+        nearest time of each frame, with shared color limits; without one, fixed (drawn once). On
+        its own ``x``/``y`` dimensions if it has them (a Cartesian field), in logical coordinates
+        if ``x``/``y`` are ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y``
+        (the field then needs its ``X``, ``Y``, ``Z`` coordinates).
     background_options : dict, optional
         Rendering options for the background, as for :func:`plot_slice` (``cmap``,
         ``symmetric``, ``levels``, ...).
@@ -3823,11 +3764,11 @@ def animate_markers(
     frames = _thin(range(0, subset.sizes["t"], step), max_frames)
     times = np.asarray(subset.t)
     renderer = None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, ax = plt.subplots()
         if background is not None:
             options = dict(background_options or {})
-            renderer = _SliceRenderer(background, _background_view(x, y), **options)
+            renderer = _SliceRenderer(background, _background_view(x, y, background), **options)
             mesh = renderer.draw(ax, _at_time(renderer.data, times[0]))
             fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         first = positions[0]
@@ -3864,20 +3805,13 @@ def animate_markers(
             )
         groups = [(None, np.ones(positions.shape[1], dtype=bool), "0.35")]
         if classes is not None:
-            groups = [
-                (name, classes == name, ORBIT_CLASS_COLORS[name])
-                for name in ORBIT_CLASSES.values()
-            ]
+            groups = [(name, classes == name, ORBIT_CLASS_COLORS[name]) for name in ORBIT_CLASSES.values()]
         trails = []
         if trail is not None:
             for _, members, trail_color in groups:
-                (line,) = ax.plot(
-                    [np.nan], [np.nan], color=trail_color, lw=1.0, alpha=0.7, zorder=2.5
-                )
+                (line,) = ax.plot([np.nan], [np.nan], color=trail_color, lw=1.0, alpha=0.7, zorder=2.5)
                 trails.append((members, line))
-        scatter = ax.scatter(
-            first[:, 0], first[:, 1], s=s, edgecolors="none", zorder=3, **shading
-        )
+        scatter = ax.scatter(first[:, 0], first[:, 1], s=s, edgecolors="none", zorder=3, **shading)
         if classes is not None:
             ax.legend(fontsize="small", loc="upper right")
         if colors is not None:
@@ -3900,26 +3834,18 @@ def animate_markers(
         ax.grid(False)
         _finish(fig, run_label=shared_run_label([markers[x]]))
     state = {"mesh": mesh if renderer is not None else None}
-    moving_background = (
-        renderer is not None and "t" in renderer.data.dims
-    )  # a fixed one is drawn once
+    moving_background = renderer is not None and "t" in renderer.data.dims  # a fixed one is drawn once
 
     def update(index):
         if moving_background:
             state["mesh"].remove()
             state["mesh"] = renderer.draw(ax, _at_time(renderer.data, times[index]))
         for members, line in trails:
-            line.set_data(
-                *_joined_paths(
-                    positions[:, members], slice(max(0, index - trail + 1), index + 1)
-                )
-            )
+            line.set_data(*_joined_paths(positions[:, members], slice(max(0, index - trail + 1), index + 1)))
         scatter.set_offsets(positions[index])
         if colors is not None and colors.ndim == 2:
             scatter.set_array(colors[index])
-        ax.set_title(
-            f"{markers.attrs.get('label', '') or 'Markers'} at t = {times[index]:.3e}"
-        )
+        ax.set_title(f"{markers.attrs.get('label', '') or 'Markers'} at t = {times[index]:.3e}")
         return (scatter,)
 
     update(0)
@@ -3962,9 +3888,10 @@ def plot_marker_paths(
         Picks instead the marker starting closest to each of a list of ``(x, y)`` points, e.g. a
         row across the domain.
     background : xarray.DataArray, optional
-        A field drawn behind the paths at the time ``t``, in logical coordinates if ``x``/``y``
-        are ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field
-        then needs its ``X``, ``Y``, ``Z`` coordinates).
+        A field drawn behind the paths at the time ``t``: on its own ``x``/``y`` dimensions if
+        it has them (a Cartesian field), in logical coordinates if ``x``/``y`` are
+        ``eta1``/``eta2``/``eta3``, else in the physical plane of ``x``/``y`` (the field then
+        needs its ``X``, ``Y``, ``Z`` coordinates).
     background_options : dict, optional
         Passed to :func:`plot_slice` for the background, e.g. ``dict(levels=12, fill=False)``
         for the contour lines of a stream function.
@@ -3990,22 +3917,15 @@ def plot_marker_paths(
     ...     background=psi,
     ... )
     """
-    subset = prepare_orbits(
-        orbits, max_markers=orbits.sizes["marker"], required=(x, y)
-    ).transpose("t", "marker", ...)
+    subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=(x, y)).transpose("t", "marker", ...)
     xs, ys = np.asarray(subset[x]), np.asarray(subset[y])
     alive = _alive(subset)
     if near is not None:
         points = np.atleast_2d(np.asarray(near, dtype=float))
-        chosen = [
-            int(np.nanargmin((xs[0] - px) ** 2 + (ys[0] - py) ** 2))
-            for px, py in points
-        ]
+        chosen = [int(np.nanargmin((xs[0] - px) ** 2 + (ys[0] - py) ** 2)) for px, py in points]
     elif isinstance(markers, (int, np.integer)):
         chosen = np.unique(
-            np.linspace(
-                0, subset.sizes["marker"] - 1, min(markers, subset.sizes["marker"])
-            ).astype(int)
+            np.linspace(0, subset.sizes["marker"] - 1, min(markers, subset.sizes["marker"])).astype(int)
         ).tolist()
     else:
         chosen = [int(m) for m in markers]
@@ -4017,7 +3937,7 @@ def plot_marker_paths(
             when = float(resolve_marker_selection(subset[[x]], {"t": t}).t)
         shown = plot_slice(
             _at_time(background, when),
-            view=_background_view(x, y),
+            view=_background_view(x, y, background),
             ax=ax,
             **(background_options or {}),
         )
@@ -4033,7 +3953,7 @@ def plot_marker_paths(
             ys[keep, marker],
             color=color,
             lw=2,
-            label=f"marker {marker}",
+            label=_marker_label(subset, marker),
         )
         starts.append((xs[keep[0], marker], ys[keep[0], marker]))
         ends.append((xs[keep[-1], marker], ys[keep[-1], marker]))
@@ -4162,9 +4082,7 @@ def prepare_orbit_classification(
         y = next((name for name in ("mu", "v_perp") if name in orbits.data_vars), "mu")
     missing = [name for name in (x, y) if name not in orbits.data_vars]
     if missing:
-        raise ValueError(
-            f"{missing} are not data variables of this dataset; it has {tuple(orbits.data_vars)}"
-        )
+        raise ValueError(f"{missing} are not data variables of this dataset; it has {tuple(orbits.data_vars)}")
     classification = classify_orbits(orbits, v_par=v_par)
     selected = resolve_marker_selection(orbits[[x, y]], {"t": t})
     return selected.assign(classification=classification)
@@ -4289,12 +4207,7 @@ def prepare_continuous_spectrum(spectrum, x, modes) -> xr.DataArray:
         raise ValueError("at least one mode is required")
     evaluated = [spectrum(x, *mode) for mode in modes]
     branches = list(evaluated[0])
-    values = np.array(
-        [
-            [np.broadcast_to(np.asarray(e[b], dtype=float), x.shape) for b in branches]
-            for e in evaluated
-        ]
-    )
+    values = np.array([[np.broadcast_to(np.asarray(e[b], dtype=float), x.shape) for b in branches] for e in evaluated])
     labels = [", ".join(str(number) for number in mode) for mode in modes]
     return xr.DataArray(
         values,
@@ -4381,9 +4294,7 @@ def plot_continuous_spectrum(
             )
             artists.append(line)
     for label, omega in (frequencies or {}).items():
-        artists.append(
-            ax.axhline(omega, color="k", lw=0.9, ls=(0, (1, 2)), label=label)
-        )
+        artists.append(ax.axhline(omega, color="k", lw=0.9, ls=(0, (1, 2)), label=label))
     ax.set(xlabel=xlabel, ylabel=r"$\omega$", title=title)
     ax.legend(fontsize="small")
     return PlotResult(fig, ax, artists, data={"spectrum": data})
@@ -4419,9 +4330,7 @@ def plot_equilibrium_profile(equil, domain, *, n_points=100, ax=None):
     _attach_domain(equil, domain)
     eta1 = np.linspace(0.0, 1.0, n_points)
     eta2 = eta3 = np.zeros(1)
-    x, y, _z = (
-        np.asarray(c).ravel() for c in domain(eta1, eta2, eta3, squeeze_out=False)
-    )
+    x, y, _z = (np.asarray(c).ravel() for c in domain(eta1, eta2, eta3, squeeze_out=False))
     radius = np.sqrt(x**2 + y**2)
     pressure = np.asarray(equil.p0(eta1, eta2, eta3), dtype=float).ravel()
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
@@ -4541,19 +4450,11 @@ def plot_energy_budget(
     if parts is None:
         parts = [name for name in energy_names(names) if name != total]
     if not parts and total is None:
-        raise ValueError(
-            f"no energy scalars among {names}: name them with parts= (and total=)"
-        )
+        raise ValueError(f"no energy scalars among {names}: name them with parts= (and total=)")
     panels = 1 + (total is not None) + bool(groups)
-    run_label = (
-        shared_run_label([_series(scalars, n) for n in parts])
-        if run_label is None
-        else run_label
-    )
-    with plt.rc_context(PLOT_STYLE):
-        fig, axes = plt.subplots(
-            1, panels, figsize=(5.2 * panels, 4.0), layout="constrained", squeeze=False
-        )
+    run_label = shared_run_label([_series(scalars, n) for n in parts]) if run_label is None else run_label
+    with _plot_style():
+        fig, axes = plt.subplots(1, panels, figsize=(5.2 * panels, 4.0), layout="constrained", squeeze=False)
     axes = list(axes[0])
     artists = []
     ax = axes[0]
@@ -4589,14 +4490,10 @@ def plot_energy_budget(
         for i, (label, members) in enumerate(groups.items()):
             summed = sum(_series(scalars, m) for m in members)
             changes[label] = summed - summed.isel(t=0)
-            artists += ax.plot(
-                summed.t, changes[label], color=f"C{i}", label=rf"$\Delta$ {label}"
-            )
+            artists += ax.plot(summed.t, changes[label], color=f"C{i}", label=rf"$\Delta$ {label}")
         if len(changes) == 2:
             second_label, second = list(changes.items())[1]
-            artists += ax.plot(
-                second.t, -second, "--", color="C1", label=rf"$-\Delta$ {second_label}"
-            )
+            artists += ax.plot(second.t, -second, "--", color="C1", label=rf"$-\Delta$ {second_label}")
         ax.axhline(0, color="0.6", lw=0.8)
         ax.set(xlabel="t", ylabel="change since t = 0", title="Energy exchange")
         ax.legend(fontsize="small")
@@ -4668,9 +4565,7 @@ def plot_profiles(
     """
     validate_array(data, required_dims=(x, over))
     if set(data.dims) != {x, over}:
-        raise ValueError(
-            f"select every dimension except {x!r} and {over!r}; {data.dims} remain"
-        )
+        raise ValueError(f"select every dimension except {x!r} and {over!r}; {data.dims} remain")
     if at is None:
         at = np.unique(np.linspace(0, data.sizes[over] - 1, 4).astype(int)).tolist()
     xs = np.asarray(data[x], dtype=float)
@@ -4732,9 +4627,7 @@ def _orbit_values(subset, color_by):
             np.asarray(subset[color_by].transpose("t", "marker"), dtype=float),
             _label(subset[color_by]) or color_by,
         )
-    variables = [
-        n for n, v in subset.data_vars.items() if set(v.dims) == {"t", "marker"}
-    ]
+    variables = [n for n, v in subset.data_vars.items() if set(v.dims) == {"t", "marker"}]
     raise ValueError(
         f'color_by must be "classification", None, "t" or a (t, marker) variable {variables}; got {color_by!r}'
     )
@@ -4797,17 +4690,13 @@ def plot_orbit_poloidal(
     --------
     >>> plot_orbit_poloidal(out.orbits["ions"], boundary=phi)
     """
-    subset = prepare_orbits(
-        orbits, max_markers=max_markers, required=("x", "y", "z")
-    ).transpose("t", "marker", ...)
+    subset = prepare_orbits(orbits, max_markers=max_markers, required=("x", "y", "z")).transpose("t", "marker", ...)
     alive = _alive(subset)
     R = np.hypot(np.asarray(subset.x), np.asarray(subset.y))
     Z = np.asarray(subset.z)
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     artists = []
-    codes = (
-        np.asarray(classify_orbits(subset)) if color_by == "classification" else None
-    )
+    codes = np.asarray(classify_orbits(subset)) if color_by == "classification" else None
     values, value_label_ = _orbit_values(subset, color_by)
     norm = None
     if values is not None:
@@ -4847,13 +4736,9 @@ def plot_orbit_poloidal(
             label=label,
         )
     if boundary is not None:
-        edge = boundary.isel(
-            {d: 0 for d in boundary.dims if d not in logical_dims(boundary)}
-        )
+        edge = boundary.isel({d: 0 for d in boundary.dims if d not in logical_dims(boundary)})
         edge = _boundary_edge(edge)
-        artists += ax.plot(
-            np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2, label="boundary"
-        )
+        artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=1.2, label="boundary")
     ax.set(xlabel="R", ylabel="z", title="Orbits in the poloidal plane", aspect="equal")
     if values is not None:
         ax.autoscale_view()
@@ -4902,16 +4787,12 @@ def plot_orbit_quantities(
     ...     markers=[0, 5, 9],
     ... )
     """
-    subset = prepare_orbits(
-        orbits, max_markers=orbits.sizes["marker"], required=tuple(quantities)
-    )
+    subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=tuple(quantities))
     subset = subset.transpose("t", "marker", ...)
     if isinstance(markers, (int, np.integer)):
         if "v_par" in subset:
             codes = np.asarray(classify_orbits(subset))
-            by_class = [
-                np.flatnonzero(codes == code).tolist() for code in ORBIT_CLASSES
-            ]
+            by_class = [np.flatnonzero(codes == code).tolist() for code in ORBIT_CLASSES]
             chosen = []
             while len(chosen) < min(markers, subset.sizes["marker"]):
                 for group in by_class:
@@ -4923,7 +4804,7 @@ def plot_orbit_quantities(
     drifted = set(quantities) if drift_of is True else set(drift_of or ())
     alive = _alive(subset)
     codes = np.asarray(classify_orbits(subset)) if "v_par" in subset else None
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             len(quantities),
             1,
@@ -4940,7 +4821,7 @@ def plot_orbit_quantities(
             values = np.asarray(subset[name].isel(marker=marker))
             if name in drifted:
                 values = values - values[0]
-            label = f"marker {marker}" + (
+            label = _marker_label(subset, marker) + (
                 f" ({ORBIT_CLASSES[int(codes[marker])]})" if codes is not None else ""
             )
             artists += ax.plot(
@@ -5051,17 +4932,13 @@ def animate_lines(
     validate_array(data, required_dims=(sweep,))
     others = [d for d in data.dims if d != sweep]
     if len(others) != 1:
-        raise ValueError(
-            f"select every dimension except {sweep!r} and one more; {data.dims} remain"
-        )
+        raise ValueError(f"select every dimension except {sweep!r} and one more; {data.dims} remain")
     x = others[0] if x is None else x
     if not isinstance(step, (int, np.integer)) or step < 1:
         raise ValueError("step must be a positive integer")
     data = data.transpose(sweep, x)
     coordinate = np.asarray(data[x], dtype=float)
-    plotted = (
-        np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
-    )
+    plotted = np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
     fine = np.linspace(coordinate.min(), coordinate.max(), 400)
     fine = np.asarray(x_of(fine), dtype=float) if x_of is not None else fine
     sweeps = np.asarray(data[sweep], dtype=float)
@@ -5071,14 +4948,12 @@ def animate_lines(
     if ylim is None:
         values = [np.asarray(data, dtype=float)]
         for index in frames:
-            values += [
-                _reference_curve(spec, fine, sweeps[index])[1] for _, spec in references
-            ]
+            values += [_reference_curve(spec, fine, sweeps[index])[1] for _, spec in references]
         stacked = np.concatenate([np.ravel(v) for v in values])
         lo, hi = np.nanmin(stacked), np.nanmax(stacked)
         pad = 0.05 * (hi - lo if hi > lo else 1.0)
         ylim = (lo - pad, hi + pad)
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         if panels:
             width, height = PLOT_STYLE["figure.figsize"]
             fig, axes = plt.subplots(
@@ -5117,10 +4992,7 @@ def animate_lines(
         )
         if references:
             ax.legend(fontsize="small", loc="upper right")
-        movers = [
-            panel.draw(companion, sweep, logy=alongside_logy)
-            for panel, companion in zip(panels, companion_axes)
-        ]
+        movers = [panel.draw(companion, sweep, logy=alongside_logy) for panel, companion in zip(panels, companion_axes)]
         _finish(fig, run_label=shared_run_label(data), tight=not panels)
     name = _label(data) if title is None else title
 
@@ -5189,9 +5061,7 @@ class _Companion:
             markers.append((series, marker))
         if logy:
             ax.set_yscale("log")
-        ax.set(
-            xlabel=axis_label(self.arrays[0], sweep), ylabel=value_label(self.arrays[0])
-        )
+        ax.set(xlabel=axis_label(self.arrays[0], sweep), ylabel=value_label(self.arrays[0]))
         if len(self.arrays) > 1:
             ax.legend(fontsize="small")
 
@@ -5212,9 +5082,7 @@ def _theory_at(spec, xs):
     """A theory at the measured parameters: evaluated if it is a function, else interpolated
     linearly between its points (NaN outside them)."""
     if callable(spec):
-        return np.real(np.asarray(spec(xs))).astype(float) * np.ones_like(
-            xs, dtype=float
-        )
+        return np.real(np.asarray(spec(xs))).astype(float) * np.ones_like(xs, dtype=float)
     tx, ty = (np.asarray(v, dtype=float) for v in _reference_curve(spec, xs))
     order = np.argsort(tx)
     return np.interp(xs, tx[order], ty[order], left=np.nan, right=np.nan)
@@ -5281,9 +5149,7 @@ def plot_measured_vs_theory(
     for label, item in _references(measured, default=None):
         if isinstance(item, xr.DataArray):
             if item.ndim != 1:
-                raise ValueError(
-                    f"measured values must be one-dimensional; got {item.dims}"
-                )
+                raise ValueError(f"measured values must be one-dimensional; got {item.dims}")
             series.append(
                 (
                     label or _label(item) or "measured",
@@ -5306,7 +5172,7 @@ def plot_measured_vs_theory(
         raise ValueError("no measured values")
     theories = _references(theory, default="theory")
     panels = 2 if show_error and theories else 1
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             panels,
             1,
@@ -5356,9 +5222,7 @@ def plot_measured_vs_theory(
         ylabel=ylabel or (value_label(first) if first is not None else ""),
         title=title or "Measured against theory",
     )
-    axes[-1].set(
-        xlabel=xlabel or (axis_label(first, first.dims[0]) if first is not None else "")
-    )
+    axes[-1].set(xlabel=xlabel or (axis_label(first, first.dims[0]) if first is not None else ""))
     if logx:
         axes[-1].set_xscale("log")
     if logy:
@@ -5414,16 +5278,14 @@ def plot_orbit_grid(
     --------
     >>> plot_orbit_grid(out.orbits["ions"], markers=12, boundary=phi)
     """
-    subset = prepare_orbits(
-        orbits, max_markers=orbits.sizes["marker"], required=("x", "y", "z")
-    ).transpose("t", "marker", ...)
+    subset = prepare_orbits(orbits, max_markers=orbits.sizes["marker"], required=("x", "y", "z")).transpose(
+        "t", "marker", ...
+    )
     codes = np.asarray(classify_orbits(subset)) if "v_par" in subset else None
     values, value_label_ = _orbit_values(subset, color_by)
     if isinstance(markers, (int, np.integer)):
         if codes is not None:
-            by_class = [
-                np.flatnonzero(codes == code).tolist() for code in ORBIT_CLASSES
-            ]
+            by_class = [np.flatnonzero(codes == code).tolist() for code in ORBIT_CLASSES]
             chosen = []
             while len(chosen) < min(markers, subset.sizes["marker"]):
                 for group in by_class:
@@ -5436,7 +5298,7 @@ def plot_orbit_grid(
     R = np.hypot(np.asarray(subset.x), np.asarray(subset.y))
     Z = np.asarray(subset.z)
     rows = int(np.ceil(len(markers) / ncols))
-    with plt.rc_context(PLOT_STYLE):
+    with _plot_style():
         fig, axes = plt.subplots(
             rows,
             ncols,
@@ -5449,9 +5311,7 @@ def plot_orbit_grid(
     artists = []
     edge = None
     if boundary is not None:
-        field = boundary.isel(
-            {d: 0 for d in boundary.dims if d not in logical_dims(boundary)}
-        )
+        field = boundary.isel({d: 0 for d in boundary.dims if d not in logical_dims(boundary)})
         edge = _boundary_edge(field)
     norm = None
     if values is not None:
@@ -5475,16 +5335,13 @@ def plot_orbit_grid(
             )
             ax.autoscale_view()
         else:
-            color = (
-                ORBIT_CLASS_COLORS[name]
-                if (name and color_by == "classification")
-                else "C0"
-            )
+            color = ORBIT_CLASS_COLORS[name] if (name and color_by == "classification") else "C0"
             artists += ax.plot(R[keep, marker], Z[keep, marker], color=color, lw=1)
         if edge is not None:
             artists += ax.plot(np.hypot(edge.X, edge.Y), edge.Z, color="k", lw=0.8)
         ax.set_title(
-            f"marker {marker}" + (f" ({name})" if name else ""), fontsize="small"
+            _marker_label(subset, marker) + (f" ({name})" if name else ""),
+            fontsize="small",
         )
         ax.set_aspect("equal")
     for ax in axes.ravel()[len(markers) :]:
@@ -5496,3 +5353,518 @@ def plot_orbit_grid(
     if values is not None:
         fig.colorbar(artists[0], ax=axes, label=value_label_, shrink=0.8)
     return PlotResult(fig, axes, artists, data={"markers": list(markers)})
+
+
+# ---------------------------------------------------------------------------------------------
+# Magnetic topology: O- and X-points over the flux contours
+# ---------------------------------------------------------------------------------------------
+@rank_zero
+def plot_critical_points(
+    data: xr.DataArray,
+    *,
+    view=None,
+    ax=None,
+    levels=14,
+    cmap=None,
+    label_values: bool = False,
+    **options,
+):
+    """The flux function's contours with its O-points (dots) and X-points (crosses).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The flux function, e.g. :func:`~plasma_plots.analysis.flux_function` of ``B``, with
+        every dimension but the plane's two selected (``view`` may do the selecting).
+    view : View, optional
+        The slice to draw (see :class:`View`): which dimensions, logical or physical
+        coordinates. Default: the two logical directions left, in logical coordinates.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    levels : int or sequence of float, optional
+        Contour lines of the flux, as for :func:`plot_slice`. Default: 14.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap. Default: ``"RdBu_r"``.
+    label_values : bool, optional
+        Write the flux value next to each point. Default: False.
+    **options
+        Further options of :func:`plot_slice` (``symmetric``, ``overlays``, ...).
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, the mesh, the contours and the two scatters;
+        ``data["points"]`` holds the :func:`~plasma_plots.analysis.critical_points`.
+
+    See Also
+    --------
+    plasma_plots.analysis.critical_points : The points.
+    plasma_plots.analysis.reconnected_flux : The flux between them over time.
+
+    Examples
+    --------
+    >>> plot_critical_points(flux_function(B).isel(t=-1))
+    >>> plot_critical_points(
+    ...     flux_function(B), view=View(isel={"t": -1}, coordinates="physical")
+    ... )
+    """
+    from .analysis import critical_points
+
+    view = View() if view is None else view
+    selected = _select(data, view)
+    if view.sweep in selected.dims and view.sweep not in (view.x, view.y):
+        raise ValueError(f"select one {view.sweep!r} value before drawing the critical points")
+    points = critical_points(selected)
+    plane = points.attrs["plane"]
+    result = plot_slice(
+        selected,
+        view=View(
+            x=view.x or plane[0],
+            y=view.y or plane[1],
+            coordinates=view.coordinates,
+            plane=view.plane,
+        ),
+        ax=ax,
+        levels=levels,
+        cmap=cmap or "RdBu_r",
+        **options,
+    )
+    ax = result.ax
+    kinds = np.asarray(points["kind"]).ravel()
+    physical = view.coordinates == "physical"
+    names = PLANES[view.plane][:2] if physical else plane
+    xs = np.asarray(points[names[0]], dtype=float).ravel() if names[0] in points else None
+    ys = np.asarray(points[names[1]], dtype=float).ravel() if names[1] in points else None
+    if xs is None or ys is None:
+        raise ValueError("the critical points have no physical coordinates; draw them in logical coordinates")
+    values = np.asarray(points["value"], dtype=float).ravel()
+    for kind, marker, label in (("O", "o", "O-points"), ("X", "x", "X-points")):
+        mask = kinds == kind
+        if not mask.any():
+            continue
+        style = (
+            dict(color="k")
+            if kind == "X"  # an unfilled marker takes one color
+            else dict(color="w", edgecolors="k")
+        )
+        result.artists.append(
+            ax.scatter(
+                xs[mask],
+                ys[mask],
+                marker=marker,
+                s=60 if kind == "X" else 40,
+                linewidths=1.5,
+                zorder=5,
+                label=f"{label} ({int(mask.sum())})",
+                **style,
+            )
+        )
+        if label_values:
+            for x_, y_, v in zip(xs[mask], ys[mask], values[mask]):
+                result.artists.append(
+                    ax.annotate(
+                        f"{v:.3g}",
+                        (x_, y_),
+                        xytext=(5, 5),
+                        textcoords="offset points",
+                        fontsize="small",
+                    )
+                )
+    if kinds.size and (kinds != "").any():
+        ax.legend(fontsize="small", loc="upper right")
+    result.data["points"] = points
+    return result
+
+
+# ---------------------------------------------------------------------------------------------
+# Markers: delta-f weights, sampling against physical density, losses
+# ---------------------------------------------------------------------------------------------
+def _steps(edges, counts):
+    """The outline of a histogram as a line: ``(x, y)`` with each bin a flat step."""
+    x = np.repeat(edges, 2)
+    y = np.concatenate([[0.0], np.repeat(counts, 2), [0.0]])
+    return x, y
+
+
+@rank_zero
+def plot_weight_histogram(
+    markers: xr.Dataset,
+    *,
+    weight: str = "weight",
+    t=-1,
+    bins: int = 50,
+    log: bool = True,
+    density: bool = True,
+    ax=None,
+    title: str | None = None,
+):
+    """The distribution of the marker weights at one or several times, with their statistics.
+
+    A δf scheme starts with weights near zero that spread as the perturbation grows; a growing
+    tail of large weights is where the noise of the estimate comes from. The legend gives the
+    mean and the standard deviation at each time, the title the relative noise of the total
+    (see :func:`~plasma_plots.analysis.weight_statistics`).
+
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        A marker Dataset with the weights over ``(t, marker)``, e.g. an orbits product.
+    weight : str, optional
+        The weight variable. Default: ``"weight"``.
+    t : int, float or sequence, optional
+        The time(s): integer positions (``-1`` the last) or float nearest values, one or
+        several. Default: ``-1``.
+    bins : int, optional
+        The number of bins, shared by all times. Default: 50.
+    log : bool, optional
+        A logarithmic count axis. Default: True.
+    density : bool, optional
+        Normalize each histogram to unit area. Default: True.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The title. Default: the noise estimate at the last time shown.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and one outline per time; ``data["statistics"]`` holds the
+        weight statistics at the times shown.
+
+    Raises
+    ------
+    ValueError
+        If ``markers`` has no variable ``weight``.
+
+    See Also
+    --------
+    plasma_plots.analysis.weight_statistics : The numbers.
+
+    Examples
+    --------
+    >>> plot_weight_histogram(orbits, t=[0, 0.5, -1])
+    """
+    from .analysis import _marker_alive, weight_statistics
+
+    if weight not in markers.data_vars:
+        raise ValueError(
+            f"a weight histogram needs the weights {weight!r}; this dataset has {tuple(markers.data_vars)}"
+        )
+    times = list(t) if isinstance(t, (list, tuple, np.ndarray)) else [t]
+    alive = _marker_alive(markers)
+    frames = []
+    for when in times:
+        selected = resolve_marker_selection(markers[[weight]], {"t": when} if "t" in markers.dims else {})
+        keep = (
+            np.asarray(resolve_marker_selection(alive.to_dataset(name="alive"), {"t": when})["alive"])
+            if "t" in markers.dims
+            else np.asarray(alive)
+        )
+        frames.append((selected, np.asarray(selected[weight], dtype=float)[keep.astype(bool)]))
+    lo = min(float(values.min()) for _, values in frames if values.size)
+    hi = max(float(values.max()) for _, values in frames if values.size)
+    if lo == hi:
+        lo, hi = lo - 0.5, hi + 0.5
+    edges = np.linspace(lo, hi, bins + 1)
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    artists = []
+    for selected, values in frames:
+        counts, _ = np.histogram(values, bins=edges, density=density)
+        label = f"t = {float(selected['t']):.3g}" if "t" in selected.coords and selected["t"].ndim == 0 else None
+        if values.size:
+            label = (label + ": " if label else "") + f"mean {values.mean():.3g}, std {values.std():.3g}"
+        artists += ax.plot(*_steps(edges, counts), lw=1.2, label=label)
+    if log:
+        ax.set_yscale("log")
+    statistics = weight_statistics(markers, weight=weight)
+    if "t" in statistics.dims:
+        statistics = xr.concat(
+            [resolve_marker_selection(statistics, {"t": when}) for when in times],
+            dim="t",
+        )
+    noise = float(np.asarray(statistics["noise"]).ravel()[-1])
+    ax.set(
+        xlabel=value_label(markers[weight]),
+        ylabel="probability density" if density else "markers",
+        title=(title if title is not None else f"marker weights; relative noise of the total: {noise:.3g}"),
+    )
+    ax.legend(fontsize="small")
+    _finish(fig, run_label=shared_run_label(markers))
+    return PlotResult(fig, ax, artists, data={"statistics": statistics})
+
+
+@rank_zero
+def plot_marker_density(
+    markers: xr.Dataset,
+    *,
+    x: str = "eta1",
+    weight: str | None = "weight",
+    against: xr.DataArray | None = None,
+    bins: int = 32,
+    normalize: bool = True,
+    ax=None,
+    title: str | None = None,
+    **selection,
+):
+    """Where the markers are against what they represent: the marker density along one coordinate.
+
+    Three profiles, each normalized to unit mean magnitude by default so that their shapes
+    compare: the
+    number of markers per unit length (the sampling density, where the markers were loaded),
+    the weighted density (what they represent: the physical density of a full-f run, the
+    perturbation of a δf run) and, given ``against``, a reference field such as the density
+    the code computed or the equilibrium profile. Importance sampling shows as a sampling
+    density that differs from the physical one.
+
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        A marker Dataset with the position variable ``x`` over ``(t, marker)``.
+    x : str, optional
+        The position variable to bin over, e.g. ``"eta1"`` or ``"x"``. Default: ``"eta1"``.
+    weight : str, optional
+        The weight variable, for the weighted density; ``None`` leaves it out. Default:
+        ``"weight"`` (skipped when the Dataset has no such variable).
+    against : xarray.DataArray, optional
+        A reference profile over the same coordinate (every other dimension selected, or with
+        ``t`` matching ``markers``), drawn dashed. Default: none.
+    bins : int, optional
+        The number of bins. Default: 32.
+    normalize : bool, optional
+        Divide each profile by the mean of its magnitude, so that the shapes compare (a δf
+        perturbation sums to nearly nothing, so its plain mean would not do). Default: True.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The title. Default: ``"marker density"``.
+    **selection
+        The time: ``t=-1`` (default, the last) or a float nearest value.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the lines; ``data`` holds the ``sampling`` and ``weighted``
+        densities.
+
+    See Also
+    --------
+    plasma_plots.analysis.marker_density : The binned densities.
+
+    Examples
+    --------
+    >>> plot_marker_density(orbits, x="eta1", against=n.isel(eta2=0, eta3=0), t=-1)
+    """
+    from .analysis import marker_density
+
+    selection = {"t": -1, **selection} if "t" in markers.dims else dict(selection)
+    frame = resolve_marker_selection(markers, selection) if selection else markers
+    sampling = marker_density(frame, dims=x, bins=bins)
+    weighted = (
+        marker_density(frame, dims=x, bins=bins, weight=weight) if weight and weight in markers.data_vars else None
+    )
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    artists = []
+
+    def shown(profile):
+        values = np.asarray(profile, dtype=float)
+        if normalize:  # the mean magnitude: δf weights sum to nearly nothing
+            scale = np.nanmean(np.abs(values))
+            values = values / scale if scale else values
+        return values
+
+    centres = np.asarray(sampling[x], dtype=float)
+    artists += ax.plot(
+        centres,
+        shown(sampling),
+        drawstyle="steps-mid",
+        label="markers (sampling density)",
+    )
+    if weighted is not None:
+        artists += ax.plot(
+            centres,
+            shown(weighted),
+            drawstyle="steps-mid",
+            label=f"weighted by {_label(markers[weight]) or weight}",
+        )
+    if against is not None:
+        reference = against
+        if "t" in reference.dims:
+            when = float(frame["t"]) if "t" in frame.coords and frame["t"].ndim == 0 else None
+            reference = reference.sel(t=when, method="nearest") if when is not None else reference.isel(t=-1)
+        if reference.ndim != 1:
+            raise ValueError(f"against must be a 1-D profile over {x!r} after selection; it has dims {reference.dims}")
+        artists += ax.plot(
+            np.asarray(reference[reference.dims[0]], dtype=float),
+            shown(reference),
+            "k--",
+            lw=1.2,
+            label=_label(reference) or "reference",
+        )
+    ax.set(
+        xlabel=_label(markers[x]) or x,
+        ylabel="density" + (" / mean magnitude" if normalize else ""),
+        title=title if title is not None else "marker density",
+    )
+    ax.legend(fontsize="small")
+    _finish(fig, run_label=shared_run_label(markers))
+    return PlotResult(fig, ax, artists, data={"sampling": sampling, "weighted": weighted})
+
+
+@rank_zero
+def plot_lost_fraction(
+    markers: xr.Dataset,
+    *,
+    weight: str | None = None,
+    percent: bool = True,
+    ax=None,
+    title: str | None = None,
+):
+    """The fraction of markers lost from the domain, against time.
+
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        A marker Dataset over ``(t, marker)``, e.g. an orbits product.
+    weight : str, optional
+        Weigh each marker by its initial value of this variable, i.e. count particles rather
+        than markers. Default: count markers.
+    percent : bool, optional
+        Show percentages. Default: True.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    title : str, optional
+        The title. Default: the final fraction.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the line; ``data["lost_fraction"]`` holds the fraction.
+
+    See Also
+    --------
+    plasma_plots.analysis.lost_fraction : The fraction.
+    plot_loss_map : Which markers are lost, and when.
+
+    Examples
+    --------
+    >>> plot_lost_fraction(orbits)
+    """
+    from .analysis import lost_fraction
+
+    fraction = lost_fraction(markers, weight=weight)
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    values = np.asarray(fraction, dtype=float) * (100 if percent else 1)
+    (line,) = ax.plot(np.asarray(fraction["t"], dtype=float), values, lw=1.5)
+    final = values[-1] if values.size else np.nan
+    ax.set(
+        xlabel=axis_label(fraction, "t"),
+        ylabel=_label(fraction) + (" [%]" if percent else ""),
+        title=(
+            title
+            if title is not None
+            else f"lost {'particles' if weight else 'markers'}: {final:.3g}{'%' if percent else ''} at the end"
+        ),
+    )
+    ax.set_ylim(bottom=0)
+    _finish(fig, run_label=shared_run_label(markers))
+    return PlotResult(fig, ax, [line], data={"lost_fraction": fraction})
+
+
+@rank_zero
+def plot_loss_map(
+    markers: xr.Dataset,
+    *,
+    x: str = "v_par",
+    y: str | None = None,
+    t=0,
+    absB=None,
+    ax=None,
+    s: int = 10,
+    cmap=None,
+    title: str | None = None,
+):
+    """Which markers are lost, over their initial phase-space position, colored by when.
+
+    Confined markers are grey; lost ones are colored by their loss time, so prompt losses
+    (the loss cone, unconfined orbits) stand out from slow ones (transport, collisions).
+
+    Parameters
+    ----------
+    markers : xarray.Dataset
+        An orbits product over ``(t, marker)``.
+    x : str, optional
+        The quantity along the horizontal axis: a variable, or ``"energy"``, ``"pitch"`` or
+        ``"speed"`` (see :func:`~plasma_plots.analysis.loss_map`). Default: ``"v_par"``.
+    y : str, optional
+        The vertical one. Default: ``"mu"``, or ``"v_perp"`` without ``mu``.
+    t : int or float, optional
+        The time of the plotted positions: an integer position (default ``0``) or a float
+        nearest value.
+    absB : callable, optional
+        ``|B|(x, y, z)``, for ``"energy"`` and ``"pitch"``.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    s : int, optional
+        The marker size, in points². Default: 10.
+    cmap : str or matplotlib.colors.Colormap, optional
+        The colormap of the loss time. Default: ``"plasma"``.
+    title : str, optional
+        The title. Default: how many markers are lost.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes and the two scatters; ``data["losses"]`` holds the
+        :func:`~plasma_plots.analysis.loss_map`.
+
+    See Also
+    --------
+    plasma_plots.analysis.loss_map : The values.
+    plot_orbit_classification : Passing, trapped and lost markers.
+
+    Examples
+    --------
+    >>> plot_loss_map(orbits, x="energy", y="pitch", absB=absB)
+    """
+    from .analysis import loss_map
+
+    losses = loss_map(markers, x=x, y=y, t=t, absB=absB)
+    names = [n for n in losses.data_vars if n not in ("lost", "loss_time")]
+    xs, ys = (np.asarray(losses[n], dtype=float) for n in names)
+    lost = np.asarray(losses["lost"], dtype=bool)
+    when = np.asarray(losses["loss_time"], dtype=float)
+    fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
+    artists = []
+    total = lost.size
+    if (~lost).any():
+        artists.append(
+            ax.scatter(
+                xs[~lost],
+                ys[~lost],
+                s=s,
+                color="0.7",
+                linewidths=0,
+                label=f"confined ({int((~lost).sum())}, {(~lost).sum() / total:.0%})",
+            )
+        )
+    if lost.any():
+        scatter = ax.scatter(
+            xs[lost],
+            ys[lost],
+            c=when[lost],
+            s=s,
+            cmap=cmap or "plasma",
+            linewidths=0,
+            label=f"lost ({int(lost.sum())}, {lost.sum() / total:.0%})",
+        )
+        artists.append(scatter)
+        fig.colorbar(scatter, ax=ax, label="loss time")
+    ax.set(
+        xlabel=value_label(losses[names[0]]),
+        ylabel=value_label(losses[names[1]]),
+        title=title if title is not None else "losses in phase space",
+    )
+    if artists:
+        ax.legend(fontsize="small")
+    _finish(fig, run_label=shared_run_label(markers))
+    return PlotResult(fig, ax, artists, data={"losses": losses})

@@ -87,6 +87,7 @@ export default defineConfig({
 						{ label: 'Diagnostics', slug: 'guides/analysis' },
 						{ label: 'Spectral analysis', slug: 'guides/spectral' },
 						{ label: 'Particles & distributions', slug: 'guides/particles' },
+						{ label: 'Field lines', slug: 'guides/field-lines' },
 						{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 						{ label: 'Profiling', slug: 'guides/profiling' },
 						{ label: 'Command line', slug: 'guides/command-line' },
