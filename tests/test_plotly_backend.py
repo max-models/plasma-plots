@@ -44,9 +44,7 @@ def test_every_plot_converts_completely(name):
     assert result.ax is None
     assert list(result.artists) == list(result.fig.data)
     assert result.fig.data, "the figure has traces"
-    assert (
-        set(plt.get_fignums()) == before
-    ), "the Matplotlib figures drawn for the conversion are closed"
+    assert set(plt.get_fignums()) == before, "the Matplotlib figures drawn for the conversion are closed"
 
 
 def test_every_matplotlib_plot_method_has_the_backend_option():
@@ -74,25 +72,17 @@ def test_every_matplotlib_plot_method_has_the_backend_option():
     ]
     for cls in classes:
         for name, member in vars(cls).items():
-            if (
-                name.startswith("_")
-                and name != "__call__"
-                or not inspect.isfunction(member)
-            ):
+            if name.startswith("_") and name != "__call__" or not inspect.isfunction(member):
                 continue
             has = "backend" in inspect.signature(member).parameters
             assert has != (name in without[cls.__name__]), f"{cls.__name__}.{name}"
             if has:
-                assert hasattr(
-                    member, "__wrapped__"
-                ), f"{cls.__name__}.{name} needs @with_backend"
+                assert hasattr(member, "__wrapped__"), f"{cls.__name__}.{name} needs @with_backend"
 
 
 def test_a_logical_slice_is_a_heatmap_of_exactly_the_selected_data_and_limits():
     phi = torus_field()
-    result = phi.plasma.plot.slice(
-        x="eta1", y="eta2", t=-1, eta3=0, symmetric=True, backend="plotly"
-    )
+    result = phi.plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, symmetric=True, backend="plotly")
     selected = phi.plasma.data.slice(x="eta1", y="eta2", t=-1, eta3=0)
     heatmap = result.fig.data[0]
     assert heatmap.type == "heatmap"
@@ -103,24 +93,17 @@ def test_a_logical_slice_is_a_heatmap_of_exactly_the_selected_data_and_limits():
     axis = result.fig.layout[heatmap.coloraxis]
     assert (axis.cmin, axis.cmax) == pytest.approx((-bound, bound))
     assert axis.colorbar.title.text == "φ [a.u.]"
-    assert (
-        result.fig.layout.title.text == "φ"
-        and result.fig.layout.title.subtitle.text == "synthetic run"
-    )
+    assert result.fig.layout.title.text == "φ" and result.fig.layout.title.subtitle.text == "synthetic run"
 
 
 def test_a_physical_slice_is_an_image_under_the_values_at_the_cell_centers():
     phi = torus_field()
-    result = phi.plasma.plot.slice(
-        coords="physical", plane="RZ", t=-1, eta3=0, backend="plotly"
-    )
+    result = phi.plasma.plot.slice(coords="physical", plane="RZ", t=-1, eta3=0, backend="plotly")
     (image,) = result.fig.layout.images
     assert image.source.startswith("data:image/png;base64,") and image.xref == "x"
     hover = result.fig.data[0]
     selected = phi.plasma.data.slice(coords="physical", plane="RZ", t=-1, eta3=0)
-    assert sorted(np.asarray(hover.marker.color)) == pytest.approx(
-        sorted(selected.values.ravel())
-    )
+    assert sorted(np.asarray(hover.marker.color)) == pytest.approx(sorted(selected.values.ravel()))
     assert hover.marker.opacity == 0
     assert result.fig.layout.yaxis.scaleanchor == "x"  # equal aspect, as in Matplotlib
 
@@ -133,9 +116,7 @@ def test_fits_and_their_data_are_kept():
     line, fit = result.fig.data[:2]
     np.testing.assert_allclose(np.asarray(line.y), series.values)
     np.testing.assert_allclose(np.asarray(fit.y), mpl.fit_results[0].fitted)
-    assert (
-        fit.line.dash not in (None, "solid") and fit.line.color == line.line.color
-    )  # Matplotlib's dashes, in px
+    assert fit.line.dash not in (None, "solid") and fit.line.color == line.line.color  # Matplotlib's dashes, in px
     assert fit.name.startswith("fit: γ = ")
     assert result.fig.layout.yaxis.type == "log"
     (window,) = result.fig.layout.shapes  # the shaded fit window spans the axes' height
@@ -144,16 +125,12 @@ def test_fits_and_their_data_are_kept():
 
 def test_animation_frames_are_the_sweep_with_labeled_slider():
     phi = torus_field()
-    result = phi.plasma.plot.animation(
-        x="eta1", y="eta2", eta3=0, step=2, backend="plotly"
-    )
+    result = phi.plasma.plot.animation(x="eta1", y="eta2", eta3=0, step=2, backend="plotly")
     frames = result.fig.frames
     assert len(frames) == 3  # t positions 0, 2, 4
     slider = result.fig.layout.sliders[0]
     assert slider.currentvalue.prefix == "t = "
-    assert [step.label for step in slider.steps] == [
-        f"{v:.4g}" for v in phi.t.values[::2]
-    ]
+    assert [step.label for step in slider.steps] == [f"{v:.4g}" for v in phi.t.values[::2]]
     for frame, index in zip(frames, (0, 2, 4)):
         expected = phi.isel(t=index, eta3=0).transpose("eta1", "eta2").values.T
         np.testing.assert_allclose(np.asarray(frame.data[0].z), expected)
@@ -165,9 +142,7 @@ def test_the_viewer_slides_over_the_one_remaining_dimension():
     result = phi.plasma.plot.viewer(x="eta1", y="eta2", t=-1, backend="plotly")
     assert len(result.fig.frames) == phi.sizes["eta3"]
     assert result.fig.layout.sliders[0].currentvalue.prefix == "eta3 = "
-    assert (
-        not result.fig.layout.updatemenus
-    )  # a viewer, not an animation: no Play button
+    assert not result.fig.layout.updatemenus  # a viewer, not an animation: no Play button
     with pytest.raises(ValueError, match="one slider"):
         phi.plasma.plot.viewer(x="eta1", y="eta2", backend="plotly")
 
@@ -183,13 +158,9 @@ def test_an_axes_cannot_be_combined_with_plotly():
 def test_the_default_backend_applies_to_every_plot_and_nested_calls_draw_once():
     previous = plasma_plots.set_backend("plotly")
     try:
-        result = torus_field().plasma.plot.slice(
-            x="eta1", y="eta2", t=-1, eta3=0
-        )  # calls SliceView.slice
+        result = torus_field().plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0)  # calls SliceView.slice
         assert isinstance(result.fig, go.Figure)
-        mpl = torus_field().plasma.plot.slice(
-            x="eta1", y="eta2", t=-1, eta3=0, backend="matplotlib"
-        )
+        mpl = torus_field().plasma.plot.slice(x="eta1", y="eta2", t=-1, eta3=0, backend="matplotlib")
         assert isinstance(mpl.fig, matplotlib.figure.Figure)
     finally:
         assert plasma_plots.set_backend(previous) == "plotly"
@@ -198,9 +169,7 @@ def test_the_default_backend_applies_to_every_plot_and_nested_calls_draw_once():
 def test_other_mpi_ranks_skip_the_conversion(monkeypatch):
     import sys
 
-    monkeypatch.delitem(
-        sys.modules, "mpi4py.MPI", raising=False
-    )  # the rank from the launcher variable
+    monkeypatch.delitem(sys.modules, "mpi4py.MPI", raising=False)  # the rank from the launcher variable
     monkeypatch.delenv("STRUPHY_MPI", raising=False)
     monkeypatch.setenv("OMPI_COMM_WORLD_RANK", "1")
     assert isinstance(energy().plasma.plot.timeseries(backend="plotly"), SkippedPlot)
@@ -209,9 +178,7 @@ def test_other_mpi_ranks_skip_the_conversion(monkeypatch):
 def test_saving_writes_html_and_json(tmp_path):
     result = energy().plasma.plot.timeseries(backend="plotly")
     html = result.save(tmp_path / "energy.html")
-    assert "plotly" in (tmp_path / "energy.html").read_text()[
-        :5000
-    ].lower() and html.endswith(".html")
+    assert "plotly" in (tmp_path / "energy.html").read_text()[:5000].lower() and html.endswith(".html")
     result.save(tmp_path / "energy.json")
     loaded = go.Figure(__import__("json").loads((tmp_path / "energy.json").read_text()))
     assert len(loaded.data) == len(result.fig.data)
@@ -243,21 +210,10 @@ def test_mathtext_becomes_plotly_text(text, expected):
 
 
 def test_frames_store_what_changes_and_the_figure_what_they_share():
-    heatmaps = (
-        torus_field()
-        .plasma.plot.animation(x="eta1", y="eta2", eta3=0, backend="plotly")
-        .fig
-    )
-    assert all(
-        frame.data[0].x is None and frame.data[0].z is not None
-        for frame in heatmaps.frames
-    )
+    heatmaps = torus_field().plasma.plot.animation(x="eta1", y="eta2", eta3=0, backend="plotly").fig
+    assert all(frame.data[0].x is None and frame.data[0].z is not None for frame in heatmaps.frames)
     assert heatmaps.data[0].x is not None  # the grid, once
-    markers = (
-        orbits()
-        .plasma.plot.animation(x="eta1", y="eta2", step=10, backend="plotly")
-        .fig
-    )
+    markers = orbits().plasma.plot.animation(x="eta1", y="eta2", step=10, backend="plotly").fig
     positions = [np.asarray(frame.data[0].x) for frame in markers.frames]
     assert len(positions) == 3 and not np.allclose(positions[0], positions[1])
 
@@ -272,9 +228,7 @@ def light_waves():
     for n in range(1, 40):
         k = 2 * np.pi * n / 20
         for sign in (1, -1):
-            values += rng.normal() * np.cos(
-                k * Z + sign * k * T + rng.uniform(0, 2 * np.pi)
-            )
+            values += rng.normal() * np.cos(k * Z + sign * k * T + rng.uniform(0, 2 * np.pi))
     return xr.DataArray(values, dims=("t", "z"), coords={"t": t, "z": z}, name="E_x")
 
 
@@ -290,26 +244,17 @@ def test_a_spectrum_plots_its_positive_quadrant_with_branches_and_fits(backend):
         dynamic_range=12,
         backend=backend,
     )
-    direct = light_waves().plasma.plot.dispersion(
-        dim="z", kmin=0, dynamic_range=12, backend=backend
-    )
+    direct = light_waves().plasma.plot.dispersion(dim="z", kmin=0, dynamic_range=12, backend=backend)
     if backend == "matplotlib":
         mesh, light, fit = result.artists
-        assert (
-            np.min(mesh.get_coordinates()[..., 0]) >= -np.diff(spectrum.k.values)[0]
-        )  # k >= 0 cells only
-        np.testing.assert_allclose(
-            mesh.get_array(), direct.artists[0].get_array()
-        )  # a spectrum, or its field
+        assert np.min(mesh.get_coordinates()[..., 0]) >= -np.diff(spectrum.k.values)[0]  # k >= 0 cells only
+        np.testing.assert_allclose(mesh.get_array(), direct.artists[0].get_array())  # a spectrum, or its field
         assert fit.get_label().startswith("fit, v = ") and fit.get_linestyle() == ":"
         return
     heatmap, light, fit = result.fig.data
     np.testing.assert_allclose(np.asarray(heatmap.z), np.asarray(direct.fig.data[0].z))
     centers = 0.5 * (np.asarray(heatmap.x)[1:] + np.asarray(heatmap.x)[:-1])
-    assert (
-        centers.min() >= 0
-        and np.asarray(heatmap.y).min() >= -np.diff(spectrum.omega.values)[0]
-    )
+    assert centers.min() >= 0 and np.asarray(heatmap.y).min() >= -np.diff(spectrum.omega.values)[0]
     axis = result.fig.layout[heatmap.coloraxis]
     assert axis.cmax - axis.cmin == pytest.approx(12)
     np.testing.assert_allclose(light.y, light.x)
@@ -350,10 +295,7 @@ def test_slices_take_their_own_axis_and_colorbar_labels(backend):
         return
     layout = result.fig.layout
     assert (layout.xaxis.title.text, layout.yaxis.title.text) == ("time [ms]", "v")
-    assert (
-        layout.coloraxis.colorbar.title.text == "f(v, t)"
-        and layout.coloraxis.cmin == 0.0
-    )
+    assert layout.coloraxis.colorbar.title.text == "f(v, t)" and layout.coloraxis.cmin == 0.0
     assert np.asarray(result.fig.data[0].z).shape == (
         f.sizes["v1"],
         f.sizes["t"],
@@ -362,15 +304,11 @@ def test_slices_take_their_own_axis_and_colorbar_labels(backend):
 
 def test_an_animation_keeps_at_most_max_frames_first_and_last_included():
     f = phase_space_f()
-    result = f.plasma.plot.animation(
-        x="eta1", y="v1", max_frames=3, xlabel="x", backend="plotly"
-    )
+    result = f.plasma.plot.animation(x="eta1", y="v1", max_frames=3, xlabel="x", backend="plotly")
     frames, steps = result.fig.frames, result.fig.layout.sliders[0].steps
     assert len(frames) == len(steps) == 3
     assert [step.label for step in steps] == [f"{v:.4g}" for v in f.t.values[[0, 3, 6]]]
-    np.testing.assert_allclose(
-        np.asarray(frames[-1].data[0].z), f.isel(t=-1).transpose("v1", "eta1").values
-    )
+    np.testing.assert_allclose(np.asarray(frames[-1].data[0].z), f.isel(t=-1).transpose("v1", "eta1").values)
     assert result.fig.layout.xaxis.title.text == "x"
     with pytest.raises(ValueError, match="max_frames"):
         f.plasma.plot.animation(x="eta1", y="v1", max_frames=0, backend="plotly")
@@ -380,9 +318,7 @@ def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch)
     shown = []
 
     def write_image(self, path, **kwargs):  # kaleido needs a Chrome install
-        shown.append(
-            (np.asarray(self.data[0].z), self.layout.sliders[0].active, kwargs)
-        )
+        shown.append((np.asarray(self.data[0].z), self.layout.sliders[0].active, kwargs))
         open(path, "wb").close()
 
     monkeypatch.setattr(go.Figure, "write_image", write_image)
@@ -393,45 +329,32 @@ def test_the_image_of_an_animation_can_show_a_later_frame(tmp_path, monkeypatch)
     z, active, kwargs = shown[-1]
     np.testing.assert_allclose(z, np.asarray(movie.fig.frames[1].data[0].z))
     assert active == 1 and kwargs == {"width": 800, "height": 650, "scale": 2}
-    np.testing.assert_allclose(
-        np.asarray(movie.fig.data[0].z), first
-    )  # the animation itself is unchanged
+    np.testing.assert_allclose(np.asarray(movie.fig.data[0].z), first)  # the animation itself is unchanged
     movie.save(tmp_path / "movie.png", frame=-1)
     assert shown[-1][1] == 2
     page = movie.save(tmp_path / "movie.html")
     text = (tmp_path / "movie.html").read_text()
     assert "cdn.plot.ly" in text and page.endswith("movie.html")
     with pytest.raises(ValueError, match="no frames"):
-        energy().plasma.plot.timeseries(backend="plotly").save(
-            tmp_path / "e.png", frame=0
-        )
+        energy().plasma.plot.timeseries(backend="plotly").save(tmp_path / "e.png", frame=0)
 
 
 def test_the_image_of_a_frame_updates_the_traces_the_frame_names(tmp_path, monkeypatch):
     """Frames over a fixed background name the traces they change (go.Frame(traces=[...]))."""
     shown = []
-    monkeypatch.setattr(
-        go.Figure, "write_image", lambda self, path, **kw: shown.append(self)
-    )
+    monkeypatch.setattr(go.Figure, "write_image", lambda self, path, **kw: shown.append(self))
     background = go.Scatter(x=[0, 1], y=[0, 0], name="background")
     figure = go.Figure(
         data=[background, go.Scatter(x=[0], y=[0], name="marker")],
-        frames=[
-            go.Frame(data=[go.Scatter(x=[i], y=[i])], traces=[1], name=str(i))
-            for i in range(3)
-        ],
+        frames=[go.Frame(data=[go.Scatter(x=[i], y=[i])], traces=[1], name=str(i)) for i in range(3)],
     )
     PlotResult(figure).save(tmp_path / "still.png", frame=2)
     still = shown[-1]
-    assert (
-        list(still.data[0].x) == [0, 1] and still.data[0].name == "background"
-    )  # untouched
+    assert list(still.data[0].x) == [0, 1] and still.data[0].name == "background"  # untouched
     assert (list(still.data[1].x), still.data[1].name) == ([2], "marker")
 
 
-def test_a_figure_of_your_own_saves_with_the_same_defaults_on_rank_zero_only(
-    tmp_path, monkeypatch
-):
+def test_a_figure_of_your_own_saves_with_the_same_defaults_on_rank_zero_only(tmp_path, monkeypatch):
     import sys
 
     figure = go.Figure(go.Scatter(x=[0, 1], y=[1, 2]))
@@ -447,9 +370,7 @@ def test_a_figure_of_your_own_saves_with_the_same_defaults_on_rank_zero_only(
 def growing_blob(nt=5):
     t, x = np.linspace(0, 1, nt), np.linspace(0, 1, 20)
     E1, E2 = np.meshgrid(x, x, indexing="ij")
-    values = np.stack(
-        [(0.2 + ti) * np.exp(-((E1 - 0.5) ** 2 + (E2 - 0.5) ** 2) / 0.05) for ti in t]
-    )
+    values = np.stack([(0.2 + ti) * np.exp(-((E1 - 0.5) ** 2 + (E2 - 0.5) ** 2) / 0.05) for ti in t])
     return xr.DataArray(
         values,
         dims=("t", "eta1", "eta2"),
@@ -460,22 +381,14 @@ def growing_blob(nt=5):
 
 def test_a_contour_level_the_field_reaches_only_later_is_hidden_until_then():
     blob = growing_blob()
-    result = blob.plasma.plot.animation(
-        x="eta1", y="eta2", levels=[0.9], shared_clim=False, backend="plotly"
-    )
-    level = next(
-        j for j, trace in enumerate(result.fig.data) if trace.name == "level 0.9"
-    )
+    result = blob.plasma.plot.animation(x="eta1", y="eta2", levels=[0.9], shared_clim=False, backend="plotly")
+    level = next(j for j, trace in enumerate(result.fig.data) if trace.name == "level 0.9")
     shown = []
     for frame in result.fig.frames:
         trace = frame.data[list(frame.traces).index(level)]
         shown.append(trace.visible)
-    assert (
-        shown[0] is False and shown[-1] is True
-    )  # the peak reaches 0.9 only after t = 0.7
-    assert (
-        result.fig.data[level].visible is False
-    )  # the figure starts at the first frame
+    assert shown[0] is False and shown[-1] is True  # the peak reaches 0.9 only after t = 0.7
+    assert result.fig.data[level].visible is False  # the figure starts at the first frame
 
 
 def test_traces_that_never_change_are_stored_once_in_the_figure():
@@ -488,16 +401,12 @@ def test_traces_that_never_change_are_stored_once_in_the_figure():
     )
     figure = result.fig
     heatmap = next(j for j, trace in enumerate(figure.data) if trace.type == "heatmap")
-    static = [
-        j for j, trace in enumerate(figure.data) if trace.type == "scatter"
-    ]  # boundary edges and the point
+    static = [j for j, trace in enumerate(figure.data) if trace.type == "scatter"]  # boundary edges and the point
     assert static and all(set(frame.traces) == {heatmap} for frame in figure.frames)
     # the image of a later frame still shows the static traces with the changed heatmap
     still = result._still(-1)
     assert len(still.data) == len(figure.data)
-    np.testing.assert_allclose(
-        np.asarray(still.data[heatmap].z), np.asarray(figure.frames[-1].data[0].z)
-    )
+    np.testing.assert_allclose(np.asarray(still.data[heatmap].z), np.asarray(figure.frames[-1].data[0].z))
 
 
 def travelling_profile():
@@ -538,26 +447,14 @@ def test_a_line_animation_runs_companion_panels_in_sync(backend):
         result._func(frames[-1])
         marker = fig.axes[2].lines[1]  # the whole series, then its marker
         assert marker.get_xdata()[0] == pytest.approx(10.0)
-        np.testing.assert_allclose(
-            fig.axes[1].lines[0].get_ydata(), n.isel(t=-1).values
-        )
+        np.testing.assert_allclose(fig.axes[1].lines[0].get_ydata(), n.isel(t=-1).values)
         return
     figure = result.fig
     assert len(figure.frames) == 6 and figure.layout.yaxis3.type == "log"
-    wholes = [
-        j
-        for j, trace in enumerate(figure.data)
-        if trace.yaxis == "y3" and trace.mode == "lines"
-    ]
-    assert len(wholes) == 2 and not set(wholes) & set(
-        figure.frames[1].traces
-    )  # the whole series: stored once
+    wholes = [j for j, trace in enumerate(figure.data) if trace.yaxis == "y3" and trace.mode == "lines"]
+    assert len(wholes) == 2 and not set(wholes) & set(figure.frames[1].traces)  # the whole series: stored once
     last = figure.frames[-1]
-    moved = [
-        trace
-        for j, trace in zip(last.traces, last.data)
-        if figure.data[j].yaxis == "y3"
-    ]
+    moved = [trace for j, trace in zip(last.traces, last.data) if figure.data[j].yaxis == "y3"]
     assert [list(trace.x) for trace in moved] == [[10.0], [10.0]]
     assert list(moved[0].y) == pytest.approx([energy.values[-1]])
 
@@ -610,9 +507,7 @@ def test_marker_animations_take_classes_trails_paths_and_major_radius(backend):
         result._func(frames[-1])
         trails = [line for line in ax.lines if line.get_alpha() == 0.7]
         assert len(trails) == 3  # one per class
-        xs = trails[
-            0
-        ].get_xdata()  # the passing markers' last 10 samples, NaN between markers
+        xs = trails[0].get_xdata()  # the passing markers' last 10 samples, NaN between markers
         assert np.isfinite(xs).sum() == 2 * 10
         return
     figure = result.fig
@@ -630,9 +525,7 @@ def test_marker_animations_take_classes_trails_paths_and_major_radius(backend):
         and t.line.color
         and t.line.color.endswith("0.5)")
     ]
-    assert faint and not set(faint) & set(
-        figure.frames[1].traces
-    )  # the whole paths: stored once
+    assert faint and not set(faint) & set(figure.frames[1].traces)  # the whole paths: stored once
 
 
 def test_a_background_without_time_is_drawn_once():
@@ -653,14 +546,8 @@ def test_a_background_without_time_is_drawn_once():
     )
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", "The input coordinates to pcolormesh")
-        animation = orbits.plasma.plot.animation(
-            x="R", y="z", background=psi, max_frames=4
-        )
-        mesh = next(
-            c
-            for c in animation._fig.axes[0].collections
-            if type(c).__name__ == "QuadMesh"
-        )
+        animation = orbits.plasma.plot.animation(x="R", y="z", background=psi, max_frames=4)
+        mesh = next(c for c in animation._fig.axes[0].collections if type(c).__name__ == "QuadMesh")
         animation._func(list(animation.new_frame_seq())[-1])
     assert mesh in animation._fig.axes[0].collections  # not redrawn
 
@@ -678,15 +565,8 @@ def test_a_slice_of_contour_lines_only_has_a_colorbar_of_its_colormap(backend):
     if backend == "matplotlib":
         colorbar = result.fig.axes[-1]._colorbar
         assert colorbar.mappable is not result.artists[0]  # not the transparent mesh
-        assert (
-            colorbar.mappable.get_cmap().name == "magma"
-            and colorbar.mappable.norm.vmax > 0
-        )
+        assert colorbar.mappable.get_cmap().name == "magma" and colorbar.mappable.norm.vmax > 0
         return
     axis = result.fig.layout.coloraxis
     assert axis.showscale and axis.cmax > 0
-    assert any(
-        trace.marker.coloraxis == "coloraxis"
-        for trace in result.fig.data
-        if trace.type == "scatter"
-    )
+    assert any(trace.marker.coloraxis == "coloraxis" for trace in result.fig.data if trace.type == "scatter")

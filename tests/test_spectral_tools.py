@@ -24,9 +24,7 @@ def close_figures():
 
 
 def series(values, t, name="u"):
-    return xr.DataArray(
-        values, dims="t", coords={"t": t}, name=name, attrs={"label": name}
-    )
+    return xr.DataArray(values, dims="t", coords={"t": t}, name=name, attrs={"label": name})
 
 
 def torus_field(n_t=24, omega=0.4, growth=0.05):
@@ -42,11 +40,8 @@ def torus_field(n_t=24, omega=0.4, growth=0.05):
         [
             np.exp(growth * ti)
             * (
-                np.exp(-(((R - 0.4) / 0.15) ** 2))
-                * np.cos(2 * np.pi * (10 * E2 - E3) - omega * ti)
-                + 0.5
-                * np.exp(-(((R - 0.6) / 0.15) ** 2))
-                * np.cos(2 * np.pi * (11 * E2 - E3) - omega * ti)
+                np.exp(-(((R - 0.4) / 0.15) ** 2)) * np.cos(2 * np.pi * (10 * E2 - E3) - omega * ti)
+                + 0.5 * np.exp(-(((R - 0.6) / 0.15) ** 2)) * np.cos(2 * np.pi * (11 * E2 - E3) - omega * ti)
             )
             for ti in t
         ]
@@ -61,9 +56,7 @@ def torus_field(n_t=24, omega=0.4, growth=0.05):
 
 
 def test_drop_periodic_endpoint_only_drops_a_true_duplicate():
-    closed = xr.DataArray(
-        np.arange(5.0), dims="eta2", coords={"eta2": np.linspace(0, 1, 5)}
-    )
+    closed = xr.DataArray(np.arange(5.0), dims="eta2", coords={"eta2": np.linspace(0, 1, 5)})
     assert sp.drop_periodic_endpoint(closed, "eta2").sizes["eta2"] == 4
     open_grid = closed.assign_coords(eta2=np.arange(5) / 5)
     assert sp.drop_periodic_endpoint(open_grid, "eta2").sizes["eta2"] == 5
@@ -73,17 +66,11 @@ def test_drop_periodic_endpoint_only_drops_a_true_duplicate():
 
 def test_band_filter_separates_two_on_bin_modes():
     t = np.arange(400) * 0.5
-    slow, fast = np.sin(2 * np.pi * 5 * np.arange(400) / 400), 0.4 * np.cos(
-        2 * np.pi * 12 * np.arange(400) / 400
-    )
+    slow, fast = np.sin(2 * np.pi * 5 * np.arange(400) / 400), 0.4 * np.cos(2 * np.pi * 12 * np.arange(400) / 400)
     data = series(slow + fast, t)
     omega_fast = 2 * np.pi * 12 / 200
-    np.testing.assert_allclose(
-        sp.band_filter(data, omega_fast * 0.9, omega_fast * 1.1), fast, atol=1e-12
-    )
-    np.testing.assert_allclose(
-        data.plasma.analysis.band_filter(0.1, 0.2), slow, atol=1e-12
-    )
+    np.testing.assert_allclose(sp.band_filter(data, omega_fast * 0.9, omega_fast * 1.1), fast, atol=1e-12)
+    np.testing.assert_allclose(data.plasma.analysis.band_filter(0.1, 0.2), slow, atol=1e-12)
     with pytest.raises(ValueError, match="exceed"):
         sp.band_filter(data, 1.0, 0.5)
 
@@ -95,9 +82,7 @@ def test_spectral_peaks_are_sorted_and_refined_below_the_bin_spacing():
     resolution = peaks.attrs["frequency_resolution"]
     assert peaks.power.values[0] > peaks.power.values[1]
     np.testing.assert_allclose(peaks.omega_refined, [0.7, 1.9], atol=0.1 * resolution)
-    assert (peaks.omega_lo <= peaks.omega).all() and (
-        peaks.omega <= peaks.omega_hi
-    ).all()
+    assert (peaks.omega_lo <= peaks.omega).all() and (peaks.omega <= peaks.omega_hi).all()
     assert data.plasma.analysis.spectral_peaks(n_peaks=1).sizes["peak"] == 1
 
 
@@ -106,16 +91,10 @@ def test_spectrogram_follows_a_chirp_on_one_frequency_grid():
     chirp = series(np.sin((0.5 + 0.005 * t) * t), t)
     power = sp.spectrogram(chirp, length=40.0)
     assert power.dims == ("t", "omega") and power.sizes["omega"] == 201
-    first, last = (
-        float(power.omega[int(power.isel(t=i).argmax("omega"))]) for i in (0, -1)
-    )
+    first, last = (float(power.omega[int(power.isel(t=i).argmax("omega"))]) for i in (0, -1))
     instantaneous = lambda time: 0.5 + 0.01 * time  # noqa: E731
-    assert first == pytest.approx(
-        instantaneous(float(power.t[0])), abs=2 * power.attrs["frequency_resolution"]
-    )
-    assert last == pytest.approx(
-        instantaneous(float(power.t[-1])), abs=2 * power.attrs["frequency_resolution"]
-    )
+    assert first == pytest.approx(instantaneous(float(power.t[0])), abs=2 * power.attrs["frequency_resolution"])
+    assert last == pytest.approx(instantaneous(float(power.t[-1])), abs=2 * power.attrs["frequency_resolution"])
     with pytest.raises(ValueError, match="length"):
         sp.spectrogram(chirp, length=3)
 
@@ -145,9 +124,7 @@ def test_mode_structure_recovers_amplitude_and_phase_at_an_off_bin_frequency():
     assert structure.dims == ("eta1",)
     np.testing.assert_allclose(abs(structure), np.sin(np.pi * x), atol=1e-3)
     inner = slice(1, -1)
-    np.testing.assert_allclose(
-        np.angle(structure.values[inner]), 0.5 + x[inner], atol=1e-3
-    )
+    np.testing.assert_allclose(np.angle(structure.values[inner]), 0.5 + x[inner], atol=1e-3)
 
 
 def test_cross_spectrum_phase_and_coherence():
@@ -181,8 +158,7 @@ def test_cross_spectrum_phase_and_coherence():
 def test_matrix_pencil_resolves_frequencies_and_growth_from_a_short_record():
     t = np.linspace(0, 20, 41)  # a third of the slow mode's period
     signal = series(
-        np.exp(0.02 * t) * np.cos(0.096 * t + 0.3)
-        + 0.4 * np.exp(-0.1 * t) * np.cos(1.3 * t),
+        np.exp(0.02 * t) * np.cos(0.096 * t + 0.3) + 0.4 * np.exp(-0.1 * t) * np.cos(1.3 * t),
         t,
     )
     fit = sp.matrix_pencil(signal, n_modes=2)
@@ -192,15 +168,11 @@ def test_matrix_pencil_resolves_frequencies_and_growth_from_a_short_record():
     assert float(fit.phase[0]) == pytest.approx(0.3)
     assert fit.attrs["residual"] < 1e-10
     np.testing.assert_allclose(sp.pencil_reconstruction(fit, t), signal, atol=1e-10)
-    assert signal.plasma.analysis.matrix_pencil(
-        n_modes=2
-    ).omega.values == pytest.approx(fit.omega.values)
+    assert signal.plasma.analysis.matrix_pencil(n_modes=2).omega.values == pytest.approx(fit.omega.values)
 
     complex_signal = series(np.exp((0.1 + 1j) * t), t)
     one = sp.matrix_pencil(complex_signal, n_modes=1)
-    assert one.omega.item() == pytest.approx(1.0) and one.gamma.item() == pytest.approx(
-        0.1
-    )
+    assert one.omega.item() == pytest.approx(1.0) and one.gamma.item() == pytest.approx(0.1)
     with pytest.raises(ValueError, match="cannot fit"):
         sp.matrix_pencil(signal.isel(t=slice(0, 6)), n_modes=2)
     with pytest.raises(ValueError, match="series"):
@@ -211,9 +183,7 @@ def test_power_spectrum_plot_with_peaks_band_and_reference_lines():
     t = np.arange(400) * 0.5
     data = series(np.sin(0.7 * t) + 0.3 * np.sin(1.9 * t) + 0.2, t)
     band = sp.filter_time(data)
-    result = data.plasma.plot.power_spectrum(
-        peaks=2, band=band, frequencies={"theory": 0.7}
-    )
+    result = data.plasma.plot.power_spectrum(peaks=2, band=band, frequencies={"theory": 0.7})
     assert result.data["peaks"].sizes["peak"] == 2
     labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
     assert {"peaks", "filter band", "theory"} <= set(labels)
@@ -229,12 +199,8 @@ def test_power_spectrum_plot_with_peaks_band_and_reference_lines():
 def test_mode_plots_on_a_torus_field():
     field = torus_field()
     amplitudes = field.plasma.plot.mode_amplitudes(top=2, fit=True)
-    assert [fit.rate for fit in amplitudes.fit_results] == pytest.approx(
-        [0.05, 0.05], rel=1e-6
-    )
-    assert field.plasma.plot.mode_map(t=-1, m_range=(0, 15), n_range=(-4, 4)).data[
-        "amplitude"
-    ].dims == ("n", "m")
+    assert [fit.rate for fit in amplitudes.fit_results] == pytest.approx([0.05, 0.05], rel=1e-6)
+    assert field.plasma.plot.mode_map(t=-1, m_range=(0, 15), n_range=(-4, 4)).data["amplitude"].dims == ("n", "m")
     profiles = field.plasma.plot.mode_profiles(0.4, top=2)
     peaks = profiles.data["profiles"]
     assert abs(peaks).idxmax("eta1").values.tolist() == pytest.approx([0.4, 0.6])
@@ -250,9 +216,7 @@ def test_mode_plots_on_a_torus_field():
 def test_spectrogram_filtered_cross_and_pencil_plots():
     t = np.arange(800) * 0.1
     data = series(np.sin((0.5 + 0.01 * t) * t), t)
-    assert data.plasma.plot.spectrogram(length=20.0, frequencies={"start": 0.5}).data[
-        "spectrogram"
-    ].dims == (
+    assert data.plasma.plot.spectrogram(length=20.0, frequencies={"start": 0.5}).data["spectrogram"].dims == (
         "omega",
         "t",
     )
@@ -261,9 +225,7 @@ def test_spectrogram_filtered_cross_and_pencil_plots():
     probe = field.plasma.plot.filtered(result, eta1=0.4, eta2=0.0, eta3=0.0)
     assert len(probe.artists) == 2
     u, b = series(np.cos(0.5 * t), t, "u"), series(-np.sin(0.5 * t), t, "b")
-    assert u.plasma.plot.cross_spectrum(b).data["peak_phase_deg"] == pytest.approx(
-        90, abs=5
-    )
+    assert u.plasma.plot.cross_spectrum(b).data["peak_phase_deg"] == pytest.approx(90, abs=5)
     short = series(np.exp(0.05 * t[:60]) * np.cos(0.3 * t[:60]), t[:60])
     fit = short.plasma.plot.pencil_fit(n_modes=1)
     assert fit.data["fit"].gamma.item() == pytest.approx(0.05, rel=1e-6)
@@ -282,12 +244,8 @@ def test_output_analysis_matches_the_array_accessor(tmp_path):
     write_manifest(path)
     out = Output(path)
     field = out.fields.em_fields.E.isel(component=0, eta2=0, eta3=0)
-    xr.testing.assert_identical(
-        out.analysis.time_fft(field), field.plasma.analysis.time_fft()
-    )
-    xr.testing.assert_identical(
-        out.analysis.fft(field, dim="eta1"), field.plasma.analysis.fft(dim="eta1")
-    )
+    xr.testing.assert_identical(out.analysis.time_fft(field), field.plasma.analysis.time_fft())
+    xr.testing.assert_identical(out.analysis.fft(field, dim="eta1"), field.plasma.analysis.fft(dim="eta1"))
     xr.testing.assert_identical(
         out.analysis.filter_time(field).filtered,
         field.plasma.analysis.filter_time().filtered,
@@ -298,22 +256,15 @@ def test_output_analysis_matches_the_array_accessor(tmp_path):
 
 def test_mode_spectrum_rejects_a_field_that_does_not_cover_a_full_period():
     eta2 = np.linspace(0, 0.5, 33)
-    half = xr.DataArray(
-        np.cos(2 * np.pi * 10 * eta2), dims="eta2", coords={"eta2": eta2}
-    )
+    half = xr.DataArray(np.cos(2 * np.pi * 10 * eta2), dims="eta2", coords={"eta2": eta2})
     with pytest.raises(ValueError, match="full period"):
         sp.mode_spectrum(half, dims="eta2", names="m")
-    assert (
-        sp.mode_spectrum(half, dims="eta2", names="m", periods=0.5 * 33 / 32).sizes["m"]
-        == 33
-    )
+    assert sp.mode_spectrum(half, dims="eta2", names="m", periods=0.5 * 33 / 32).sizes["m"] == 33
 
 
 def test_mode_amplitudes_keep_the_nyquist_mode_of_an_even_grid():
     eta2 = np.arange(8) / 8
-    field = xr.DataArray(
-        np.cos(2 * np.pi * 4 * eta2) + 0.5, dims="eta2", coords={"eta2": eta2}
-    )
+    field = xr.DataArray(np.cos(2 * np.pi * 4 * eta2) + 0.5, dims="eta2", coords={"eta2": eta2})
     amplitudes = sp.mode_amplitudes(sp.mode_spectrum(field, dims="eta2", names="m"))
     by_mode = dict(zip(amplitudes.m.values.tolist(), amplitudes.values.tolist()))
     assert by_mode[-4] == pytest.approx(1.0)

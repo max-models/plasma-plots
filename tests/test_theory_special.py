@@ -4,12 +4,7 @@ agreement with scipy where it is installed."""
 import numpy as np
 import pytest
 
-from plasma_plots.theory.special import (
-    elliptic_e,
-    elliptic_k,
-    faddeeva,
-    plasma_dispersion,
-)
+from plasma_plots.theory.special import elliptic_e, elliptic_k, faddeeva, plasma_dispersion
 
 
 def test_exact_values_and_identities():
@@ -40,9 +35,7 @@ def test_exact_values_and_identities():
 def test_agrees_with_scipy():
     special = pytest.importorskip("scipy.special")
     x = np.linspace(-30, 30, 241)
-    y = np.concatenate(
-        [-np.logspace(-3, np.log10(5), 30)[::-1], [0.0], np.logspace(-3, 1.5, 40)]
-    )
+    y = np.concatenate([-np.logspace(-3, np.log10(5), 30)[::-1], [0.0], np.logspace(-3, 1.5, 40)])
     z = x[:, None] + 1j * y[None]
     reference = special.wofz(z)
     finite = np.abs(reference) < 1e150

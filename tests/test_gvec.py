@@ -26,9 +26,7 @@ from plasma_plots.gvec import from_gvec, is_gvec  # noqa: E402
 R0, A, B, NFP = 3.0, 1.0, 0.6, 3
 
 
-def gvec_dataset(
-    nrho=9, ntheta=24, nzeta=18, *, sfl=None, integration=False, index=True
-):
+def gvec_dataset(nrho=9, ntheta=24, nzeta=18, *, sfl=None, integration=False, index=True):
     """A Dataset laid out as GVEC's: logical angles, or Boozer (``sfl="boozer"``) or PEST ones."""
     if integration:
         nodes, gauss = np.polynomial.legendre.leggauss(nrho)
@@ -116,9 +114,7 @@ def gvec_dataset(
             t,
             {"long_name": "Logical poloidal angle", "symbol": r"\theta"},
         )
-    for name, symbol in zip(
-        ("rho", *names), (r"\rho", rf"\{names[0]}", rf"\{names[1]}")
-    ):
+    for name, symbol in zip(("rho", *names), (r"\rho", rf"\{names[0]}", rf"\{names[1]}")):
         ds[name].attrs.update(long_name=name, symbol=symbol)
         if index:
             ds = ds.set_xindex(name)
@@ -133,9 +129,7 @@ def test_from_gvec_uses_the_flux_coordinates_as_dimensions(index):
     raw = gvec_dataset(index=index)
     before = {name: dict(var.attrs) for name, var in raw.variables.items()}
     ev = from_gvec(raw)
-    assert {
-        name: dict(var.attrs) for name, var in raw.variables.items()
-    } == before  # input untouched
+    assert {name: dict(var.attrs) for name, var in raw.variables.items()} == before  # input untouched
     assert dict(ev.sizes) == {"rho": 9, "theta": 24, "zeta": 18, "component": 3}
     assert is_gvec(raw) and not is_gvec(ev)
     assert from_gvec(ev).identical(ev)  # idempotent
@@ -148,31 +142,21 @@ def test_from_gvec_uses_the_flux_coordinates_as_dimensions(index):
     assert ev.rho.attrs["label"] == r"$\rho$"
     assert angle_period(ev, "theta") == pytest.approx(2 * np.pi)
     assert angle_period(ev, "zeta") == pytest.approx(2 * np.pi / NFP)
-    assert (
-        angle_period(ev, "theta_P") == pytest.approx(2 * np.pi)
-        and angle_period(ev, "rho") is None
-    )
+    assert angle_period(ev, "theta_P") == pytest.approx(2 * np.pi) and angle_period(ev, "rho") is None
     assert ev.attrs["nfp"] == NFP and ev.iota.attrs["nfp"] == NFP
 
 
 def test_from_gvec_on_boozer_and_pest_grids_and_single_variables():
     boozer = from_gvec(gvec_dataset(sfl="boozer"))
     assert boozer.mod_B.dims == ("rho", "theta_B", "zeta_B")
-    assert (
-        boozer.theta.dims == ("rho", "theta_B", "zeta_B")
-        and "theta" in boozer.mod_B.coords
-    )
+    assert boozer.theta.dims == ("rho", "theta_B", "zeta_B") and "theta" in boozer.mod_B.coords
     assert logical_dims(boozer.mod_B) == ("rho", "theta_B", "zeta_B")
     pest = from_gvec(gvec_dataset(sfl="pest"))
     assert pest.mod_B.dims == ("rho", "theta_P", "zeta")
     assert logical_dims(pest.mod_B.isel(rho=0)) == ("rho", "theta_P", "zeta")
-    single = from_gvec(
-        gvec_dataset().mod_B
-    )  # no N_FP: nfp from the grid over one field period
+    single = from_gvec(gvec_dataset().mod_B)  # no N_FP: nfp from the grid over one field period
     assert single.dims == ("rho", "theta", "zeta") and single.name == "mod_B"
-    assert single.attrs["nfp"] == NFP and angle_period(single, "zeta") == pytest.approx(
-        2 * np.pi / NFP
-    )
+    assert single.attrs["nfp"] == NFP and angle_period(single, "zeta") == pytest.approx(2 * np.pi / NFP)
     assert from_gvec(gvec_dataset(nzeta=1).mod_B, nfp=5).attrs["nfp"] == 5
 
 
@@ -180,9 +164,7 @@ def test_from_gvec_keeps_gauss_weights_over_the_sampled_grid():
     ev = from_gvec(gvec_dataset(integration=True))
     assert ev.rho_weight.dims == ("rho",)
     assert float(ev.theta_weight) == pytest.approx(2 * np.pi / 24)
-    assert float(ev.zeta_weight) == pytest.approx(
-        2 * np.pi / 18 / NFP
-    )  # one field period, not all
+    assert float(ev.zeta_weight) == pytest.approx(2 * np.pi / 18 / NFP)  # one field period, not all
 
 
 def test_the_accessors_read_gvec_data_by_themselves():
@@ -212,9 +194,7 @@ def test_logical_dims_picks_the_triple_of_the_data():
 
 def test_mode_spectrum_on_gvec_angles_gives_full_torus_mode_numbers():
     ev = from_gvec(gvec_dataset(ntheta=16, nzeta=12))
-    field = (
-        np.cos(2 * ev.theta - 2 * NFP * ev.zeta) * xr.ones_like(ev.rho) + 0 * ev.mod_B
-    )
+    field = np.cos(2 * ev.theta - 2 * NFP * ev.zeta) * xr.ones_like(ev.rho) + 0 * ev.mod_B
     field.attrs = ev.mod_B.attrs
     modes = field.plasma.analysis.mode_spectrum()
     assert set(np.asarray(modes.n) % NFP) == {0}
@@ -236,9 +216,7 @@ def test_mode_spectrum_on_gvec_angles_gives_full_torus_mode_numbers():
 def test_volume_integral_over_one_field_period():
     exact = 2 * np.pi**2 * R0 * A * B / NFP  # Pappus: the ellipse's area times its path
     gauss = from_gvec(gvec_dataset(integration=True))
-    assert float(
-        volume_integral(xr.ones_like(gauss.mod_B), jacobian=gauss.Jac)
-    ) == pytest.approx(exact, rel=1e-12)
+    assert float(volume_integral(xr.ones_like(gauss.mod_B), jacobian=gauss.Jac)) == pytest.approx(exact, rel=1e-12)
     uniform = from_gvec(gvec_dataset(nrho=21))
     numerical = float(volume_integral(xr.ones_like(uniform.mod_B)))  # √g from X, Y, Z
     assert numerical == pytest.approx(exact, rel=1e-2)
@@ -247,9 +225,7 @@ def test_volume_integral_over_one_field_period():
 def test_surface_average_with_gvec_jacobian_and_numerical_one():
     ev = from_gvec(gvec_dataset(nrho=11))
     ones = surface_average(xr.ones_like(ev.mod_B), jacobian=ev.Jac)
-    np.testing.assert_allclose(
-        ones, 1.0
-    )  # the axis too, where √g = 0: the plain mean there
+    np.testing.assert_allclose(ones, 1.0)  # the axis too, where √g = 0: the plain mean there
     # <R0/R> with √g ∝ R: ∫ R0 dθ dζ / ∫ R dθ dζ = R0 / R0 = 1 on every surface
     exact = ev.plasma.analysis.surface_average("mod_B")
     assert exact.dims == ("rho",) and exact.attrs["label"].startswith("⟨")
@@ -257,16 +233,12 @@ def test_surface_average_with_gvec_jacobian_and_numerical_one():
     numerical = ev.mod_B.plasma.analysis.surface_average()
     np.testing.assert_allclose(numerical.isel(rho=slice(1, None)), 1.0, rtol=1e-2)
     with pytest.raises(ValueError, match="angles"):
-        surface_average(
-            ev.mod_B.isel(zeta=0, drop=True), jacobian=ev.Jac.isel(zeta=0, drop=True)
-        )
+        surface_average(ev.mod_B.isel(zeta=0, drop=True), jacobian=ev.Jac.isel(zeta=0, drop=True))
 
 
 def test_rational_surfaces_of_iota_and_q_profiles():
     rho = np.linspace(0, 1, 101)
-    iota = xr.DataArray(
-        0.625 + 0.35 * rho**2, dims="rho", coords={"rho": rho}, attrs={"nfp": 3}
-    )
+    iota = xr.DataArray(0.625 + 0.35 * rho**2, dims="rho", coords={"rho": rho}, attrs={"nfp": 3})
     surfaces = rational_surfaces(iota, count=4)
     assert [(int(n), int(m)) for n, m in zip(surfaces.n, surfaces.m)] == [
         (3, 4),
@@ -276,28 +248,16 @@ def test_rational_surfaces_of_iota_and_q_profiles():
     ]
     assert float(surfaces[0]) == pytest.approx(np.sqrt((0.75 - 0.625) / 0.35), abs=1e-3)
     q = xr.DataArray(1 + 2 * rho**2, dims="rho", coords={"rho": rho})
-    assert [
-        (int(n), int(m))
-        for n, m in zip(*(rational_surfaces(q).n, rational_surfaces(q).m))
-    ] == [
+    assert [(int(n), int(m)) for n, m in zip(*(rational_surfaces(q).n, rational_surfaces(q).m))] == [
         (1, 1),
         (2, 1),
         (3, 1),
         (3, 2),
     ]
-    hollow = xr.DataArray(
-        0.45 - (rho - 0.5) ** 2, dims="rho", coords={"rho": rho}
-    )  # in [0.2, 0.45]
+    hollow = xr.DataArray(0.45 - (rho - 0.5) ** 2, dims="rho", coords={"rho": rho})  # in [0.2, 0.45]
     twice = rational_surfaces(hollow, count=1, max_denominator=3)
-    assert (
-        float(twice.value[0]) == pytest.approx(1 / 3) and twice.sizes["surface"] == 2
-    )  # both sides
-    assert (
-        rational_surfaces(
-            xr.DataArray(np.full(5, 0.55), dims="rho"), max_denominator=1
-        ).sizes["surface"]
-        == 0
-    )
+    assert float(twice.value[0]) == pytest.approx(1 / 3) and twice.sizes["surface"] == 2  # both sides
+    assert rational_surfaces(xr.DataArray(np.full(5, 0.55), dims="rho"), max_denominator=1).sizes["surface"] == 0
     with pytest.raises(ValueError, match="1-D"):
         rational_surfaces(xr.DataArray(np.zeros((2, 2)), dims=("a", "b")))
 
@@ -324,9 +284,7 @@ def test_coordinate_lines_of_drawn_dims_and_of_an_angle_coordinate():
         overlays={"coordinate_lines": {"rho": 4, "theta": 8}},
     )
     assert len(lines.ax.lines) - len(plain.ax.lines) == 4 + 8
-    ring = lines.ax.lines[
-        len(plain.ax.lines)
-    ]  # rho = 0.25: an ellipse of semi-axes a/4, b/4
+    ring = lines.ax.lines[len(plain.ax.lines)]  # rho = 0.25: an ellipse of semi-axes a/4, b/4
     np.testing.assert_allclose(np.ptp(ring.get_xdata()), 2 * A / 4, rtol=1e-6)
     pest = ev.mod_B.plasma.plot.slice(
         coords="physical",
@@ -336,9 +294,7 @@ def test_coordinate_lines_of_drawn_dims_and_of_an_angle_coordinate():
     )
     contours = [c for c in pest.ax.collections if type(c).__name__ == "QuadContourSet"]
     assert len(contours) == 6
-    assert all(
-        len(c.allsegs[0]) >= 1 for c in contours
-    )  # one line each, none at the seam twice
+    assert all(len(c.allsegs[0]) >= 1 for c in contours)  # one line each, none at the seam twice
     with pytest.raises(ValueError, match="not a coordinate"):
         ev.mod_B.plasma.plot.slice(
             coords="physical",
@@ -354,9 +310,7 @@ def test_x1x2_plane_and_panels_over_zeta_with_their_own_limits():
     result = ev.mod_B.plasma.plot.slice(coords="physical", plane="X1X2", zeta=0.0)
     assert result.ax.get_xlabel() == "$X^1$"
     with pytest.raises(ValueError, match="X1"):
-        ev.mod_B.drop_vars("X1").plasma.plot.slice(
-            coords="physical", plane="X1X2", zeta=0.0
-        )
+        ev.mod_B.drop_vars("X1").plasma.plot.slice(coords="physical", plane="X1X2", zeta=0.0)
     panels = ev.mod_B.plasma.plot.panels(
         sweep="zeta",
         coords="physical",
@@ -365,13 +319,9 @@ def test_x1x2_plane_and_panels_over_zeta_with_their_own_limits():
         ncols=3,
         overlays={"coordinate_lines": {"rho": 2}},
     )
-    tallest = float(
-        ev.Z.isel(zeta=8).max()
-    )  # the middle panel: the ellipse turned by 160 degrees
+    tallest = float(ev.Z.isel(zeta=8).max())  # the middle panel: the ellipse turned by 160 degrees
     assert tallest > float(ev.Z.isel(zeta=0).max()) + 0.05
-    assert (
-        panels.ax[0, 1].get_ylim()[1] >= tallest
-    )  # not clipped to the first panel's limits
+    assert panels.ax[0, 1].get_ylim()[1] >= tallest  # not clipped to the first panel's limits
     plt.close("all")
 
 

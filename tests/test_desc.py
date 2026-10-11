@@ -19,10 +19,8 @@ import desc.examples  # noqa: E402
 from desc.grid import LinearGrid  # noqa: E402
 
 import plasma_plots  # noqa: E402
-from plasma_plots.analysis import (
-    surface_average,  # noqa: E402
-    volume_integral,
-)
+from plasma_plots.analysis import surface_average  # noqa: E402
+from plasma_plots.analysis import volume_integral
 from plasma_plots.arrays import angle_period, logical_dims  # noqa: E402
 
 pytestmark = pytest.mark.filterwarnings("ignore")
@@ -48,9 +46,7 @@ def ev(w7x):
 
 def point(eq, names, rho, theta, zeta):
     """DESC's own values at one point."""
-    grid = LinearGrid(
-        rho=np.array([rho]), theta=np.array([theta]), zeta=np.array([zeta]), NFP=eq.NFP
-    )
+    grid = LinearGrid(rho=np.array([rho]), theta=np.array([theta]), zeta=np.array([zeta]), NFP=eq.NFP)
     return eq.compute(names, grid=grid)
 
 
@@ -61,17 +57,12 @@ def test_the_layout(ev):
     assert ev.iota.dims == ("rho",) and ev.V.dims == ()
     assert {"X", "Y", "Z", "theta_P"} <= set(ev.coords)
     np.testing.assert_allclose(ev.rho, np.linspace(0, 1, 5))
-    np.testing.assert_allclose(
-        ev.zeta, np.linspace(0, 2 * np.pi / 5, 4, endpoint=False)
-    )
+    np.testing.assert_allclose(ev.zeta, np.linspace(0, 2 * np.pi / 5, 4, endpoint=False))
     assert ev.attrs["nfp"] == 5 and ev["|B|"].attrs["nfp"] == 5
     assert angle_period(ev["|B|"], "theta") == pytest.approx(2 * np.pi)
     assert angle_period(ev["|B|"], "zeta") == pytest.approx(2 * np.pi / 5)
     assert logical_dims(ev["|B|"]) == ("rho", "theta", "zeta")
-    assert (
-        ev["|B|"].attrs["label"] == r"$|\mathbf{B}|$"
-        and ev["|B|"].attrs["units"] == r"$\mathrm{T}$"
-    )
+    assert ev["|B|"].attrs["label"] == r"$|\mathbf{B}|$" and ev["|B|"].attrs["units"] == r"$\mathrm{T}$"
     assert "units" not in ev.iota.attrs  # dimensionless
 
 
@@ -84,12 +75,8 @@ def test_the_angle_coordinates_have_a_period(w7x, ev):
 
 @pytest.mark.parametrize("i, j, k", [(1, 2, 3), (4, 6, 0), (2, 0, 1)])
 def test_values_match_desc_point_by_point(w7x, ev, i, j, k):
-    rho, theta, zeta = (
-        float(ev[d][n]) for d, n in zip(("rho", "theta", "zeta"), (i, j, k))
-    )
-    d = point(
-        w7x, ["|B|", "B", "X", "Y", "Z", "phi", "theta_PEST", "iota"], rho, theta, zeta
-    )
+    rho, theta, zeta = (float(ev[d][n]) for d, n in zip(("rho", "theta", "zeta"), (i, j, k)))
+    d = point(w7x, ["|B|", "B", "X", "Y", "Z", "phi", "theta_PEST", "iota"], rho, theta, zeta)
     assert ev["|B|"].values[i, j, k] == pytest.approx(d["|B|"][0])
     for axis in "XYZ":
         assert ev[axis].values[i, j, k] == pytest.approx(d[axis][0])
@@ -111,25 +98,14 @@ def test_cartesian_vectors_have_the_right_magnitude(ev):
 
 
 def test_volume_and_surface_average_match_desc(w7x):
-    fine = plasma_plots.from_desc(
-        w7x, ["|B|", "sqrt(g)", "V"], rho=33, theta=32, zeta=24
-    )
-    volume = (
-        float(volume_integral(fine["|B|"] * 0 + 1, jacobian=fine["sqrt(g)"])) * w7x.NFP
-    )
+    fine = plasma_plots.from_desc(w7x, ["|B|", "sqrt(g)", "V"], rho=33, theta=32, zeta=24)
+    volume = float(volume_integral(fine["|B|"] * 0 + 1, jacobian=fine["sqrt(g)"])) * w7x.NFP
     assert volume == pytest.approx(float(fine.V), rel=1e-3)
     surface = fine.sel(rho=[0.5])
-    average = float(
-        surface_average(surface["|B|"], jacobian=surface["sqrt(g)"]).squeeze()
-    )
+    average = float(surface_average(surface["|B|"], jacobian=surface["sqrt(g)"]).squeeze())
     grid = LinearGrid(rho=np.array([0.5]), M=16, N=12, NFP=w7x.NFP)
-    assert average == pytest.approx(
-        w7x.compute("<|B|>", grid=grid)["<|B|>"][0], rel=1e-6
-    )
-    assert (
-        surface_average(surface["|B|"], jacobian=surface["sqrt(g)"]).attrs["units"]
-        == r"$\mathrm{T}$"
-    )
+    assert average == pytest.approx(w7x.compute("<|B|>", grid=grid)["<|B|>"][0], rel=1e-6)
+    assert surface_average(surface["|B|"], jacobian=surface["sqrt(g)"]).attrs["units"] == r"$\mathrm{T}$"
 
 
 def test_a_pest_grid(w7x, ev):
@@ -142,9 +118,7 @@ def test_a_pest_grid(w7x, ev):
         sfl="pest",
     )
     assert pest["|B|"].dims == ("rho", "theta_P", "zeta")
-    assert pest.theta_P.dims == (
-        "theta_P",
-    )  # "theta_PEST" among the names doesn't replace it
+    assert pest.theta_P.dims == ("theta_P",)  # "theta_PEST" among the names doesn't replace it
     assert pest.theta.dims == (
         "rho",
         "theta_P",
@@ -153,13 +127,9 @@ def test_a_pest_grid(w7x, ev):
     assert logical_dims(pest["|B|"]) == ("rho", "theta_P", "zeta")
     np.testing.assert_allclose(pest.iota, ev.iota.interp(rho=[0.0, 0.5, 1.0]))
     i, j, k = 1, 3, 2
-    d = point(
-        w7x, ["|B|", "theta_PEST"], 0.5, float(pest.theta[i, j, k]), float(pest.zeta[k])
-    )
+    d = point(w7x, ["|B|", "theta_PEST"], 0.5, float(pest.theta[i, j, k]), float(pest.zeta[k]))
     assert pest["|B|"].values[i, j, k] == pytest.approx(d["|B|"][0])
-    assert np.angle(
-        np.exp(1j * (d["theta_PEST"][0] - float(pest.theta_P[j])))
-    ) == pytest.approx(0, abs=1e-5)
+    assert np.angle(np.exp(1j * (d["theta_PEST"][0] - float(pest.theta_P[j])))) == pytest.approx(0, abs=1e-5)
 
 
 def test_the_full_torus(w7x):
@@ -170,9 +140,7 @@ def test_the_full_torus(w7x):
         theta=6,
         zeta=np.linspace(0, 2 * np.pi, 10, endpoint=False),
     )
-    np.testing.assert_allclose(
-        torus["|B|"].values[..., :2], torus["|B|"].values[..., 2:4]
-    )  # nfp = 5
+    np.testing.assert_allclose(torus["|B|"].values[..., :2], torus["|B|"].values[..., 2:4])  # nfp = 5
 
 
 def test_an_axisymmetric_equilibrium():

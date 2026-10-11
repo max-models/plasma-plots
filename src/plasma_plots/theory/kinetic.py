@@ -129,9 +129,7 @@ class Maxwellian:
     @property
     def plasma_frequency(self):
         """The plasma frequency ω_ps = √(n_s q_s²/m_s), in units of ω_pe."""
-        return _real(
-            np.sqrt(np.asarray(self.density * self.charge**2 / self.mass, dtype=float))
-        )
+        return _real(np.sqrt(np.asarray(self.density * self.charge**2 / self.mass, dtype=float)))
 
     @classmethod
     def ions(
@@ -170,9 +168,7 @@ class Maxwellian:
             density=1.0 / charge,
             charge=charge,
             mass=mass_ratio,
-            thermal_speed=_real(
-                1.0 / np.sqrt(np.asarray(mass_ratio * temperature_ratio, dtype=float))
-            ),
+            thermal_speed=_real(1.0 / np.sqrt(np.asarray(mass_ratio * temperature_ratio, dtype=float))),
             drift=drift,
         )
 
@@ -335,13 +331,9 @@ def _track(function, derivative, guess, steps):
     previous = omega
     for i, s in enumerate(s_values[1:], start=1):
         predicted = omega if i == 1 else 2 * omega - previous
-        new, converged = _newton(
-            lambda w: function(w, s), lambda w: derivative(w, s), predicted
-        )
+        new, converged = _newton(lambda w: function(w, s), lambda w: derivative(w, s), predicted)
         if not converged.all():
-            retry, retried = _newton(
-                lambda w: function(w, s), lambda w: derivative(w, s), omega
-            )
+            retry, retried = _newton(lambda w: function(w, s), lambda w: derivative(w, s), omega)
             new = np.where(converged, new, retry)
             converged |= retried
         ok &= converged
@@ -351,16 +343,11 @@ def _track(function, derivative, guess, steps):
 
 def _path_steps(*ratios):
     """The number of continuation steps for log-spaced paths spanning these ratios."""
-    span = max(
-        float(np.max(np.abs(np.log(np.asarray(r, dtype=float))), initial=0.0))
-        for r in ratios
-    )
+    span = max(float(np.max(np.abs(np.log(np.asarray(r, dtype=float))), initial=0.0)) for r in ratios)
     return int(max(12, np.ceil(20 * span)))
 
 
-def solve_dispersion(
-    function, k, guess, derivative=None, continuation=True, tol=1e-11, maxiter=60
-):
+def solve_dispersion(function, k, guess, derivative=None, continuation=True, tol=1e-11, maxiter=60):
     """Find a complex root ω(k) of a dispersion relation for every wavenumber.
 
     Damped Newton iteration in ω, with the analytic derivative when one is given and a
@@ -431,14 +418,8 @@ def solve_dispersion(
     out = np.full(np.atleast_1d(k).shape, np.nan + 1j * np.nan)
     good = []  # the last two converged roots
     for i, kk in enumerate(np.atleast_1d(k)):
-        seed = (
-            complex(guess)
-            if not good
-            else (good[-1] if len(good) == 1 else 2 * good[-1] - good[-2])
-        )
-        omega, converged = _newton(
-            lambda w: function(w, kk), lambda w: slope(w, kk), seed, tol, maxiter
-        )
+        seed = complex(guess) if not good else (good[-1] if len(good) == 1 else 2 * good[-1] - good[-2])
+        omega, converged = _newton(lambda w: function(w, kk), lambda w: slope(w, kk), seed, tol, maxiter)
         if not converged and good:
             omega, converged = _newton(
                 lambda w: function(w, kk),
@@ -643,13 +624,7 @@ def ion_acoustic_fluid(
     0.01136
     """
     k = np.asarray(k, dtype=float)
-    return _out(
-        k
-        * np.sqrt(
-            (1 / (1 + k**2) + adiabatic_index / np.asarray(temperature_ratio))
-            / mass_ratio
-        )
-    )
+    return _out(k * np.sqrt((1 / (1 + k**2) + adiabatic_index / np.asarray(temperature_ratio)) / mass_ratio))
 
 
 def ion_acoustic(k, temperature_ratio=10.0, mass_ratio=PROTON_ELECTRON_MASS_RATIO):
@@ -704,9 +679,7 @@ def ion_acoustic(k, temperature_ratio=10.0, mass_ratio=PROTON_ELECTRON_MASS_RATI
         return electrostatic_dielectric(omega, kk, species, derivative=derivative)
 
     real = np.asarray(ion_acoustic_fluid(k_start, tau_start, mu)).real
-    ratio = np.sqrt(np.pi / 8) * (
-        1 / np.sqrt(mu) + tau_start**1.5 * np.exp(-tau_start / 2 - 1.5)
-    )
+    ratio = np.sqrt(np.pi / 8) * (1 / np.sqrt(mu) + tau_start**1.5 * np.exp(-tau_start / 2 - 1.5))
     omega = _track(
         lambda w, s: dielectric(w, s, 0),
         lambda w, s: dielectric(w, s, 1),
@@ -767,9 +740,7 @@ def two_stream_cold(k, beam_speed, beam_density=0.5, all_roots=False):
     return _out(slow)
 
 
-def beam_plasma_cold(
-    k, beam_speed, beam_density=0.1, plasma_density=1.0, all_roots=False
-):
+def beam_plasma_cold(k, beam_speed, beam_density=0.1, plasma_density=1.0, all_roots=False):
     """Compute the cold beam-plasma frequencies: the roots of a quartic.
 
     A cold electron beam of density n_b at speed v_b through a cold plasma of density n_p
@@ -823,9 +794,7 @@ def beam_plasma_cold(
     unstable = growth > 1e-10 * (np.abs(a) + np.sqrt(npl))
     by_growth = np.argmax(roots.imag, axis=-1)
     by_mode = np.argmin(np.abs(roots - (a - np.sqrt(nb))[..., None]), axis=-1)
-    chosen = np.take_along_axis(
-        roots, np.where(unstable, by_growth, by_mode)[..., None], axis=-1
-    )[..., 0]
+    chosen = np.take_along_axis(roots, np.where(unstable, by_growth, by_mode)[..., None], axis=-1)[..., 0]
     return _out(np.where(unstable, chosen, chosen.real))
 
 
@@ -912,19 +881,13 @@ def two_stream(k, beam_speed, thermal_speed, beam_density=0.5):
     index = change.shape[-1] - 1 - np.argmax(change[..., ::-1], axis=-1)
     a = np.take_along_axis(grid, index[..., None], axis=-1)[..., 0]
     b = np.take_along_axis(grid, index[..., None] + 1, axis=-1)[..., 0]
-    growing = (
-        1j * _bisect(dispersion, np.where(unstable, a, 0.0), np.where(unstable, b, 0.0))
-        + 0.0
-    )
+    growing = 1j * _bisect(dispersion, np.where(unstable, a, 0.0), np.where(unstable, b, 0.0)) + 0.0
     if unstable.all():
         return _out(growing)
     # stable: the least damped of the roots reached from phase speeds below the beam speed
     kk = k[..., None]
     beams = tuple(
-        Maxwellian(
-            density=n[..., None], thermal_speed=vt[..., None], drift=d * v[..., None]
-        )
-        for d in (1, -1)
+        Maxwellian(density=n[..., None], thermal_speed=vt[..., None], drift=d * v[..., None]) for d in (1, -1)
     )
     slow = np.asarray(two_stream_cold(k, v, n), dtype=complex).real
     speeds = (k * np.abs(v))[..., None] * np.linspace(0.1, 0.9, 5)
@@ -939,9 +902,7 @@ def two_stream(k, beam_speed, thermal_speed, beam_density=0.5):
     return _out(np.where(unstable, growing, damped))
 
 
-def bump_on_tail(
-    k, beam_density=0.1, beam_speed=4.5, beam_thermal_speed=0.5, bulk_density=None
-):
+def bump_on_tail(k, beam_density=0.1, beam_speed=4.5, beam_thermal_speed=0.5, bulk_density=None):
     """Compute the most unstable kinetic root of a bump-on-tail distribution.
 
     A Maxwellian bulk (density n_0, thermal speed 1, at rest) plus a Maxwellian beam (n_b, v_b,
@@ -980,17 +941,11 @@ def bump_on_tail(
     >>> round(omega.real, 4), round(omega.imag, 4)
     (1.0012, 0.1981)
     """
-    bulk = (
-        1 - np.asarray(beam_density, dtype=float)
-        if bulk_density is None
-        else bulk_density
-    )
+    bulk = 1 - np.asarray(beam_density, dtype=float) if bulk_density is None else bulk_density
     k, nb, vb, vtb, n0 = _floats(k, beam_density, beam_speed, beam_thermal_speed, bulk)
     species = (
         Maxwellian(density=n0[..., None]),
-        Maxwellian(
-            density=nb[..., None], thermal_speed=vtb[..., None], drift=vb[..., None]
-        ),
+        Maxwellian(density=nb[..., None], thermal_speed=vtb[..., None], drift=vb[..., None]),
     )
     fractions = np.linspace(-3.0, 1.0, 9)
     phase_speeds = vb[..., None] + fractions * vtb[..., None]

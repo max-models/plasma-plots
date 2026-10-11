@@ -137,9 +137,7 @@ def cyclotron_frequency(field, mass=electron_mass, charge=elementary_charge):
     >>> print(f"{cyclotron_frequency(1.0, charge=-elementary_charge):.4g} rad/s")
     -1.759e+11 rad/s
     """
-    return _out(
-        np.asarray(charge, dtype=float) * np.abs(np.asarray(field, dtype=float)) / mass
-    )
+    return _out(np.asarray(charge, dtype=float) * np.abs(np.asarray(field, dtype=float)) / mass)
 
 
 def thermal_speed(temperature, mass=electron_mass, convention="sqrt(T/m)"):
@@ -179,13 +177,9 @@ def thermal_speed(temperature, mass=electron_mass, convention="sqrt(T/m)"):
     5.931e+05 m/s
     """
     if convention not in _THERMAL_CONVENTIONS:
-        raise ValueError(
-            f"convention must be one of {list(_THERMAL_CONVENTIONS)}; got {convention!r}"
-        )
+        raise ValueError(f"convention must be one of {list(_THERMAL_CONVENTIONS)}; got {convention!r}")
     temperature = np.asarray(temperature, dtype=float)
-    return _out(
-        np.sqrt(_THERMAL_CONVENTIONS[convention] * temperature * ev_to_joule / mass)
-    )
+    return _out(np.sqrt(_THERMAL_CONVENTIONS[convention] * temperature * ev_to_joule / mass))
 
 
 def debye_length(density, temperature):
@@ -214,9 +208,7 @@ def debye_length(density, temperature):
     """
     density = np.asarray(density, dtype=float)
     temperature = np.asarray(temperature, dtype=float)
-    return _out(
-        np.sqrt(vacuum_permittivity * temperature * ev_to_joule / (density * _e**2))
-    )
+    return _out(np.sqrt(vacuum_permittivity * temperature * ev_to_joule / (density * _e**2)))
 
 
 def larmor_radius(
@@ -272,9 +264,7 @@ def larmor_radius(
     if perpendicular_speed is None:
         perpendicular_speed = thermal_speed(temperature, mass)
     speed = np.asarray(perpendicular_speed, dtype=float)
-    return _out(
-        mass * np.abs(speed) / (np.abs(charge) * np.abs(np.asarray(field, dtype=float)))
-    )
+    return _out(mass * np.abs(speed) / (np.abs(charge) * np.abs(np.asarray(field, dtype=float))))
 
 
 def inertial_length(density, mass=electron_mass, charge=elementary_charge):
@@ -423,9 +413,7 @@ def plasma_beta(density, temperature, field):
     density = np.asarray(density, dtype=float)
     temperature = np.asarray(temperature, dtype=float)
     field = np.asarray(field, dtype=float)
-    return _out(
-        2 * vacuum_permeability * density * temperature * ev_to_joule / field**2
-    )
+    return _out(2 * vacuum_permeability * density * temperature * ev_to_joule / field**2)
 
 
 def plasma_parameter(density, temperature):
@@ -524,9 +512,7 @@ def upper_hybrid_frequency(density, field):
     >>> print(f"{upper_hybrid_frequency(1e19, 1.0):.4g} rad/s")
     2.505e+11 rad/s
     """
-    return _out(
-        np.sqrt(plasma_frequency(density) ** 2 + cyclotron_frequency(field) ** 2)
-    )
+    return _out(np.sqrt(plasma_frequency(density) ** 2 + cyclotron_frequency(field) ** 2))
 
 
 def struphy_units(
@@ -601,13 +587,9 @@ def struphy_units(
     if scale not in ("light", "alfvén", "cyclotron", "thermal", None):
         raise ValueError(f"unknown velocity_scale {velocity_scale!r}")
     if scale in ("alfvén", "cyclotron", "thermal") and mass_number is None:
-        raise ValueError(
-            f'velocity_scale "{scale}" needs the mass_number of the bulk species'
-        )
+        raise ValueError(f'velocity_scale "{scale}" needs the mass_number of the bulk species')
     if scale == "cyclotron" and charge_number is None:
-        raise ValueError(
-            'velocity_scale "cyclotron" needs the charge_number of the bulk species'
-        )
+        raise ValueError('velocity_scale "cyclotron" needs the charge_number of the bulk species')
     if scale == "thermal" and kBT is None:
         raise ValueError('velocity_scale "thermal" needs kBT')
     if scale is None:

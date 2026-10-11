@@ -111,9 +111,7 @@ def test_a_selected_away_spatial_dimension_comes_back_flat():
 def test_push_forward_recovers_cartesian_components():
     coords = torus_coords(n1=20, n2=40, n3=48)
     X, Y, Z = (coords[n][1] for n in "XYZ")
-    E1, E2, E3 = np.meshgrid(
-        coords["eta1"], coords["eta2"], coords["eta3"], indexing="ij"
-    )
+    E1, E2, E3 = np.meshgrid(coords["eta1"], coords["eta2"], coords["eta3"], indexing="ij")
     r, theta, phi = 0.2 + 0.8 * E1, 2 * np.pi * E2, 2 * np.pi * E3
     R = 3.0 + r * np.cos(theta)
     # the analytic Jacobian dX_a/de_i of torus_coords' mapping
@@ -163,9 +161,7 @@ def test_isosurface_is_a_surface_in_3d_and_contour_lines_in_2d():
     flat = scalar(plane_coords()).copy(data=np.asarray(plane_coords()["X"][1]))
     plotter = p3.pyvista_isosurface(flat, values=3)
     assert {"plane", "isosurface"} <= actor_names(plotter)
-    assert np.allclose(
-        np.abs(plotter.camera.direction), (0, 0, 1)
-    )  # looking at the plane
+    assert np.allclose(np.abs(plotter.camera.direction), (0, 0, 1))  # looking at the plane
     plotter.close()
 
 
@@ -179,9 +175,7 @@ def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
     cuts = p3.prepare_slices_3d(field, cuts={"eta3": [0.0, -1], "eta1": 2})
     assert [piece.shape for piece in cuts] == [(6, 12, 1), (6, 12, 1), (1, 12, 16)]
     assert cuts[1].eta3.item() == 1.0
-    assert (
-        p3.prepare_slices_3d(field, cuts={"eta3": "last"})[0].eta3.item() == 1.0
-    )  # still accepted
+    assert p3.prepare_slices_3d(field, cuts={"eta3": "last"})[0].eta3.item() == 1.0  # still accepted
     with pytest.raises(ValueError, match="eta1, eta2 or eta3"):
         p3.prepare_slices_3d(field, cuts={"t": 0})
 
@@ -201,9 +195,7 @@ def test_glyphs_and_streamlines_for_a_2d_vector_field():
     plotter = flow.plasma.plot.streamlines(n_points=10)
     assert "streamlines" in actor_names(plotter)
     lines = plotter.renderer.actors["streamlines"].mapper.dataset
-    np.testing.assert_allclose(
-        lines.points[:, 2], 0.0, atol=1e-12
-    )  # stays on the plane
+    np.testing.assert_allclose(lines.points[:, 2], 0.0, atol=1e-12)  # stays on the plane
     plotter.close()
     with pytest.raises(ValueError, match="cartesian"):
         flow.plasma.plot.glyphs(components="covariant")
@@ -241,9 +233,7 @@ def test_domain_wireframe_draws_only_boundary_lines():
     wires = plotter.renderer.actors["wireframe"].mapper.dataset
     assert wires.n_lines > 0
     plotter.close()
-    flat = p3.pyvista_domain(
-        cylinder, n1=4, n2=8, n3=1, resolution=2
-    )  # a 2-D cross-section
+    flat = p3.pyvista_domain(cylinder, n1=4, n2=8, n3=1, resolution=2)  # a 2-D cross-section
     assert "wireframe" in actor_names(flat)
     flat.close()
 
@@ -253,9 +243,7 @@ def test_save_movie_writes_one_frame_per_step(tmp_path):
     from PIL import Image
 
     field = scalar(plane_coords(), t=[0.0, 0.5, 1.0, 1.5])
-    path = field.plasma.plot.movie(
-        tmp_path / "movie.gif", kind="isosurface", step=2, values=3
-    )
+    path = field.plasma.plot.movie(tmp_path / "movie.gif", kind="isosurface", step=2, values=3)
     assert Image.open(path).n_frames == 2
     with pytest.raises(ValueError, match="kind"):
         p3.save_movie(field, tmp_path / "x.gif", kind="volume")

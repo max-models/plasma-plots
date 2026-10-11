@@ -8,9 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 def test_the_current_version_has_release_notes():
     # tomllib is 3.11+: read the version by pattern
-    version = re.search(
-        r'^version = "(.+)"$', (ROOT / "pyproject.toml").read_text(), re.M
-    ).group(1)
+    version = re.search(r'^version = "(.+)"$', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
     notes = ROOT / "releases" / f"{version}.md"
     # .github/workflows/publish.yml stops the release without this file
     assert notes.is_file(), f"missing {notes.relative_to(ROOT)} for version {version}"

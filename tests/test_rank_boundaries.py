@@ -1,0 +1,152 @@
+"""Tests for the ``rank_boundaries`` overlay (marking MPI rank boundaries on a slice)."""
+
+import matplotlib
+import numpy as np
+import xarray as xr
+
+matplotlib.use("Agg")
+import pytest  # noqa: E402
+from matplotlib import pyplot as plt  # noqa: E402
+
+from plasma_plots.plotting import View, _SliceRenderer, plot_lineout, plot_slice  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def close_figures():
+    yield
+    plt.close("all")
+
+
+def field():
+    eta1 = np.linspace(0.0, 1.0, 9)
+    eta2 = np.linspace(0.0, 2.0, 7)
+    data = np.outer(eta1, eta2)
+    return xr.DataArray(data, dims=("eta1", "eta2"), coords={"eta1": eta1, "eta2": eta2})
+
+
+def test_rank_boundaries_draws_a_dashed_line_per_value():
+    plain = plot_slice(field())
+    marked = plot_slice(field(), overlays={"rank_boundaries": {"eta1": [0.25, 0.75], "eta2": [1.0]}})
+    assert len(marked.ax.lines) - len(plain.ax.lines) == 3
+    new_lines = marked.ax.lines[len(plain.ax.lines) :]
+    assert all(line.get_linestyle() == "--" for line in new_lines)
+    assert all(line.get_color() == "red" for line in new_lines)
+
+
+def test_rank_boundaries_and_coordinate_lines_do_not_collide():
+    result = plot_slice(
+        field(),
+        overlays={
+            "coordinate_lines": {"eta1": [0.5]},
+            "rank_boundaries": {"eta1": [0.25]},
+        },
+    )
+    styles = sorted(line.get_linestyle() for line in result.ax.lines)
+    assert styles == ["-", "--"]
+
+
+def test_rank_boundary_color_overrides_the_default():
+    result = plot_slice(
+        field(),
+        overlays={
+            "rank_boundaries": {"eta1": [0.25]},
+            "rank_boundary_color": "blue",
+        },
+    )
+    assert result.ax.lines[-1].get_color() == "blue"
+
+
+def test_rank_boundaries_rejects_an_unknown_dimension():
+    with pytest.raises(ValueError, match="rank_boundaries.*not a coordinate"):
+        plot_slice(field(), overlays={"rank_boundaries": {"eta3": [0.5]}})
+
+
+def test_rank_boundaries_is_a_recognized_overlay_key():
+    with pytest.raises(ValueError, match="unknown overlays"):
+        plot_slice(field(), overlays={"rank_boundarie": {"eta1": [0.5]}})
+
+
+class FakeLayout:
+    """A minimal stand-in for mpiarray's Layout: duck-typed, no mpiarray needed."""
+
+    def __init__(self, cuts):
+        self.cuts = cuts  # {axis: [coordinate values]}
+
+    def boundary_values(self, axis, coordinate):
+        return self.cuts[axis]
+
+
+def test_rank_boundaries_accepts_a_layout_by_dimension_name():
+    layout = FakeLayout({0: [0.25, 0.75], 1: [1.0]})
+    plain = plot_slice(field())
+    marked = plot_slice(field(), overlays={"rank_boundaries": layout})
+    assert len(marked.ax.lines) - len(plain.ax.lines) == 3
+
+
+def test_rank_boundaries_layout_axis_follows_dimension_order_not_drawn_order():
+    # eta2 is axis 1 and eta1 is axis 0, regardless of which is drawn as x or y
+    layout = FakeLayout({0: [0.3], 1: [1.5]})
+    result = plot_slice(field(), view=View(x="eta2", y="eta1"), overlays={"rank_boundaries": layout})
+    assert len(result.ax.lines) == 2
+
+
+def test_rank_boundaries_layout_ignores_the_sweep_dimension():
+    t = np.linspace(0.0, 1.0, 3)
+    data = field().expand_dims(t=t).assign_coords(t=t)
+    layout = FakeLayout({0: [0.25], 1: [1.0]})
+    result = plot_slice(data, view=View(isel={"t": 0}), overlays={"rank_boundaries": layout})
+    assert len(result.ax.lines) == 2
+
+
+def test_rank_boundaries_layout_rejects_unmatched_dimensions():
+    class OtherField:
+        dims = ("not_eta1", "not_eta2")
+        coords: dict = {}
+
+    layout = FakeLayout({0: [0.5]})
+    renderer = _SliceRenderer(field(), View())
+    with pytest.raises(ValueError, match="none of the drawn dimensions"):
+        renderer._rank_boundary_spec(layout, OtherField())
+
+
+def test_rank_boundaries_rejects_a_value_without_boundary_values():
+    with pytest.raises(TypeError, match="boundary_values"):
+        plot_slice(field(), overlays={"rank_boundaries": object()})
+
+
+def profile():
+    eta1 = np.linspace(0.0, 1.0, 9)
+    return xr.DataArray(eta1**2, dims="eta1", coords={"eta1": eta1})
+
+
+def test_plot_lineout_draws_a_dashed_line_per_rank_boundary_value():
+    plain = plot_lineout(profile())
+    assert len(plain.ax.lines) == 1  # just the profile
+    marked = plot_lineout(profile(), rank_boundaries=[0.25, 0.75])
+    new_lines = marked.ax.lines[1:]
+    assert len(new_lines) == 2
+    assert all(line.get_linestyle() == "--" for line in new_lines)
+    assert all(line.get_color() == "red" for line in new_lines)
+
+
+def test_plot_lineout_rank_boundary_color_overrides_the_default():
+    marked = plot_lineout(profile(), rank_boundaries=[0.25], rank_boundary_color="blue")
+    assert marked.ax.lines[-1].get_color() == "blue"
+
+
+def test_accessor_lineout_resolves_a_layout_by_dimension_name():
+    layout = FakeLayout({0: [0.25, 0.75]})
+    marked = profile().plasma.plot.lineout(rank_boundaries=layout)
+    assert len(marked.ax.lines) == 3  # the profile, plus 2 boundary lines
+
+
+def test_accessor_lineout_rank_boundaries_axis_follows_dimension_order():
+    data = field().isel(eta2=0)  # eta1 is axis 0 of the original 2-D field
+    layout = FakeLayout({0: [0.3]})
+    marked = data.plasma.plot.lineout(rank_boundaries=layout)
+    assert len(marked.ax.lines) == 2  # the profile, plus one boundary line
+
+
+def test_accessor_lineout_rank_boundaries_accepts_a_plain_sequence():
+    result = profile().plasma.plot.lineout(rank_boundaries=[0.5])
+    assert len(result.ax.lines) == 2

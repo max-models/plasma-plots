@@ -38,24 +38,16 @@ def test_amplification_closed_forms():
     theta = np.linspace(-3.5, 3.5, 141)
     z = 1j * theta
     np.testing.assert_allclose(nm.amplification_factor(theta, "explicit_euler"), 1 + z)
-    np.testing.assert_allclose(
-        np.abs(nm.amplification_factor(theta, "forward_euler")) ** 2, 1 + theta**2
-    )
-    np.testing.assert_allclose(
-        nm.amplification_factor(theta, "implicit_euler"), 1 / (1 - z)
-    )
+    np.testing.assert_allclose(np.abs(nm.amplification_factor(theta, "forward_euler")) ** 2, 1 + theta**2)
+    np.testing.assert_allclose(nm.amplification_factor(theta, "implicit_euler"), 1 / (1 - z))
     for name in (
         "implicit_midpoint",
         "crank_nicolson",
         "trapezoidal",
         "discrete_gradient",
     ):
-        np.testing.assert_allclose(
-            np.abs(nm.amplification_factor(theta, name)), 1.0, atol=1e-15
-        )
-    np.testing.assert_allclose(
-        nm.amplification_factor(theta, "crank_nicolson"), (1 + z / 2) / (1 - z / 2)
-    )
+        np.testing.assert_allclose(np.abs(nm.amplification_factor(theta, name)), 1.0, atol=1e-15)
+    np.testing.assert_allclose(nm.amplification_factor(theta, "crank_nicolson"), (1 + z / 2) / (1 - z / 2))
     for name, s in (("rk2", 2), ("heun", 2), ("rk3", 3), ("ssprk3", 3), ("rk4", 4)):
         taylor = sum(z**n / factorial(n) for n in range(s + 1))
         np.testing.assert_allclose(nm.amplification_factor(theta, name), taylor)
@@ -69,9 +61,7 @@ def test_amplification_closed_forms():
     # principal roots: close to exp(iθ) for small θ
     small = np.linspace(-0.2, 0.2, 9)
     for name in ALL:
-        np.testing.assert_allclose(
-            nm.amplification_factor(small, name), np.exp(1j * small), atol=0.03
-        )
+        np.testing.assert_allclose(nm.amplification_factor(small, name), np.exp(1j * small), atol=0.03)
     assert np.ndim(nm.amplification_factor(0.3, "rk4")) == 0
     with pytest.raises(ValueError, match="unknown method"):
         nm.amplification_factor(0.1, "rk5")
@@ -88,9 +78,7 @@ def test_stability_limits():
     assert np.all(nm.amplitude_error(theta, "explicit_euler") > 0)  # never stable
     assert np.all(nm.amplitude_error(theta, "rk2") > 0)
     assert np.all(nm.amplitude_error(theta, "implicit_euler") < 0)
-    np.testing.assert_allclose(
-        nm.amplitude_error(theta, "implicit_midpoint"), 0, atol=1e-14
-    )
+    np.testing.assert_allclose(nm.amplitude_error(theta, "implicit_midpoint"), 0, atol=1e-14)
     for name in ("rk3", "rk4", "leapfrog", "two_step_leapfrog"):
         limit = nm.stability_limit(name)
         inside = np.linspace(1e-3, limit * (1 - 1e-9), 1000)
@@ -113,20 +101,12 @@ def test_phase_and_amplitude_error_orders():
     for name, (coefficient, power) in leading.items():
         theta = np.logspace(-3, -2, 6) if power == 2 else np.logspace(-1.5, -1, 6)
         err = nm.phase_error(theta, name)
-        np.testing.assert_allclose(
-            err / theta**power, coefficient, rtol=1e-2, err_msg=name
-        )
+        np.testing.assert_allclose(err / theta**power, coefficient, rtol=1e-2, err_msg=name)
         assert _order(theta, err) == pytest.approx(power, abs=0.02), name
     theta = np.logspace(-3, -2, 6)
-    np.testing.assert_allclose(
-        nm.amplitude_error(theta, "rk4") / theta**6, -1 / 144, rtol=1e-2
-    )
-    np.testing.assert_allclose(
-        nm.amplitude_error(theta, "rk3") / theta**4, -1 / 24, rtol=1e-2
-    )
-    np.testing.assert_allclose(
-        nm.amplitude_error(theta, "rk2") / theta**4, 1 / 8, rtol=1e-2
-    )
+    np.testing.assert_allclose(nm.amplitude_error(theta, "rk4") / theta**6, -1 / 144, rtol=1e-2)
+    np.testing.assert_allclose(nm.amplitude_error(theta, "rk3") / theta**4, -1 / 24, rtol=1e-2)
+    np.testing.assert_allclose(nm.amplitude_error(theta, "rk2") / theta**4, 1 / 8, rtol=1e-2)
     assert nm.phase_error(0.0, "rk4") == 0.0
     # even in θ (G(−θ) = conj G(θ)); arg G/θ − 1 cancels to ~1e-12 here, so compare to a few ulps of 1
     np.testing.assert_allclose(
@@ -144,9 +124,7 @@ def _integrate(name, theta, steps):
     y[0] = 1.0
     f = lambda v: lam * v  # noqa: E731
     if name == "two_step_leapfrog":
-        y[1] = nm.amplification_factor(
-            theta, name
-        ).conjugate()  # start on the principal mode
+        y[1] = nm.amplification_factor(theta, name).conjugate()  # start on the principal mode
         for n in range(1, steps):
             y[n + 1] = y[n - 1] + 2 * f(y[n])
         return y
@@ -190,11 +168,7 @@ def _measured_frequency(y, dt=1.0):
 
 def test_numerical_frequency_against_direct_integration():
     for name in ONE_STEP + ["two_step_leapfrog"]:
-        thetas = (
-            [0.1, 0.4, 0.8, 1.5, 2.0]
-            if name != "implicit_midpoint"
-            else [0.1, 0.4, 0.8, 1.2]
-        )
+        thetas = [0.1, 0.4, 0.8, 1.5, 2.0] if name != "implicit_midpoint" else [0.1, 0.4, 0.8, 1.2]
         if name == "two_step_leapfrog":
             thetas = [0.1, 0.4, 0.8, 0.95]
         for theta in thetas:
@@ -204,9 +178,7 @@ def test_numerical_frequency_against_direct_integration():
             predicted = nm.numerical_frequency(theta, 1.0, name)
             assert measured == pytest.approx(predicted, abs=1e-9), (name, theta)
     # dt scaling: ω_num(ω, dt) = ω_num(ω dt, 1)/dt
-    assert nm.numerical_frequency(2.0, 0.25, "rk4") == pytest.approx(
-        nm.numerical_frequency(0.5, 1.0, "rk4") / 0.25
-    )
+    assert nm.numerical_frequency(2.0, 0.25, "rk4") == pytest.approx(nm.numerical_frequency(0.5, 1.0, "rk4") / 0.25)
 
 
 def test_verlet_frequency_against_direct_integration():
@@ -270,9 +242,7 @@ def _assemble(p, n, h):
             for lj in range(p + 1):
                 j = (cell - lj) % n
                 mass[i, j] += h * np.sum(w * _bspline(p, li + t) * _bspline(p, lj + t))
-                stiff[i, j] += (
-                    np.sum(w * _dbspline(p, li + t) * _dbspline(p, lj + t)) / h
-                )
+                stiff[i, j] += np.sum(w * _dbspline(p, li + t) * _dbspline(p, lj + t)) / h
     return mass, stiff
 
 
@@ -304,9 +274,7 @@ def test_spline_galerkin_convergence_order():
         err = nm.spline_galerkin_dispersion(theta, 1.0, p) / theta - 1
         assert np.all(err > 0)
         assert _order(theta, err) == pytest.approx(2 * p, abs=0.05 * p), p
-        np.testing.assert_allclose(
-            err[0] / theta[0] ** (2 * p), coefficients[p], rtol=2e-2 if p < 4 else 5e-2
-        )
+        np.testing.assert_allclose(err[0] / theta[0] ** (2 * p), coefficients[p], rtol=2e-2 if p < 4 else 5e-2)
     with pytest.raises(ValueError, match="degree"):
         nm.spline_galerkin_dispersion(1.0, 0.1, 0)
     with pytest.raises(ValueError, match="degree"):
@@ -321,9 +289,7 @@ def test_spline_galerkin_convergence_order():
 def test_scipy_eigenvalues_agree():
     linalg = pytest.importorskip("scipy.linalg")
     mass, stiff = _assemble(2, 16, 1 / 16)
-    eig = np.sort(
-        np.sqrt(np.clip(linalg.eigh(stiff, mass, eigvals_only=True), 0, None))
-    )
+    eig = np.sort(np.sqrt(np.clip(linalg.eigh(stiff, mass, eigvals_only=True), 0, None)))
     # the zero eigenvalue carries round-off of ~1e-13 in omega², i.e. ~1e-6 in omega
     np.testing.assert_allclose(
         eig,
