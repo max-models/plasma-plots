@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import pytest  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
-from plasma_plots.plotting import plot_slice  # noqa: E402
+from plasma_plots.plotting import View, _SliceRenderer, plot_slice  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -64,3 +64,51 @@ def test_rank_boundaries_rejects_an_unknown_dimension():
 def test_rank_boundaries_is_a_recognized_overlay_key():
     with pytest.raises(ValueError, match="unknown overlays"):
         plot_slice(field(), overlays={"rank_boundarie": {"eta1": [0.5]}})
+
+
+class FakeLayout:
+    """A minimal stand-in for mpiarray's Layout: duck-typed, no mpiarray needed."""
+
+    def __init__(self, cuts):
+        self.cuts = cuts  # {axis: [coordinate values]}
+
+    def boundary_values(self, axis, coordinate):
+        return self.cuts[axis]
+
+
+def test_rank_boundaries_accepts_a_layout_by_dimension_name():
+    layout = FakeLayout({0: [0.25, 0.75], 1: [1.0]})
+    plain = plot_slice(field())
+    marked = plot_slice(field(), overlays={"rank_boundaries": layout})
+    assert len(marked.ax.lines) - len(plain.ax.lines) == 3
+
+
+def test_rank_boundaries_layout_axis_follows_dimension_order_not_drawn_order():
+    # eta2 is axis 1 and eta1 is axis 0, regardless of which is drawn as x or y
+    layout = FakeLayout({0: [0.3], 1: [1.5]})
+    result = plot_slice(field(), view=View(x="eta2", y="eta1"), overlays={"rank_boundaries": layout})
+    assert len(result.ax.lines) == 2
+
+
+def test_rank_boundaries_layout_ignores_the_sweep_dimension():
+    t = np.linspace(0.0, 1.0, 3)
+    data = field().expand_dims(t=t).assign_coords(t=t)
+    layout = FakeLayout({0: [0.25], 1: [1.0]})
+    result = plot_slice(data, view=View(isel={"t": 0}), overlays={"rank_boundaries": layout})
+    assert len(result.ax.lines) == 2
+
+
+def test_rank_boundaries_layout_rejects_unmatched_dimensions():
+    class OtherField:
+        dims = ("not_eta1", "not_eta2")
+        coords: dict = {}
+
+    layout = FakeLayout({0: [0.5]})
+    renderer = _SliceRenderer(field(), View())
+    with pytest.raises(ValueError, match="none of the drawn dimensions"):
+        renderer._rank_boundary_spec(layout, OtherField())
+
+
+def test_rank_boundaries_rejects_a_value_without_boundary_values():
+    with pytest.raises(TypeError, match="boundary_values"):
+        plot_slice(field(), overlays={"rank_boundaries": object()})

@@ -1663,12 +1663,44 @@ class _SliceRenderer:
             coordinates=view.coordinates,
             plane=view.plane,
         )
+        # the axis of each of data's own dimensions (sweep excluded), for the
+        # rank_boundaries overlay when given a Layout instead of an explicit dict
+        self._dim_axis = {name: axis for axis, name in enumerate(d for d in data.dims if d != self.view.sweep)}
         self.vmin, self.vmax = vmin, vmax
         self.shared_clim = shared_clim
         self.cmap = cmap or PLOT_STYLE["image.cmap"]
         self.equal_aspect = view.coordinates == "physical" if equal_aspect is None else equal_aspect
         self.title = _label(data) if title is None else title
         self.limits = self._limits(self.data) if shared_clim else None
+
+    def _rank_boundary_spec(self, value, selected) -> dict:
+        """Return a ``coordinate_lines``-style spec for the ``rank_boundaries`` overlay.
+
+        ``value`` is either an explicit ``{name: values}`` dict, or an mpiarray ``Layout``
+        (duck-typed via ``boundary_values``, so plasma-plots needs no mpiarray import): its
+        axis for each drawn dimension is found by name among the plotted array's own
+        dimensions (excluding the sweep dimension), so the layout needs no dimension names of
+        its own.
+        """
+        if isinstance(value, dict):
+            return value
+        boundary_values = getattr(value, "boundary_values", None)
+        if boundary_values is None:
+            raise TypeError(
+                "rank_boundaries must be a dict of {name: values} or an object with a "
+                "boundary_values(axis, coordinate) method (e.g. an mpiarray Layout)"
+            )
+        spec = {
+            name: boundary_values(self._dim_axis[name], selected.coords[name].to_numpy())
+            for name in selected.dims
+            if name in self._dim_axis
+        }
+        if not spec:
+            raise ValueError(
+                f"rank_boundaries: none of the drawn dimensions {selected.dims} are axes of "
+                f"the plotted array (excluding the sweep dimension); it has {tuple(self._dim_axis)}"
+            )
+        return spec
 
     def _draw_overlays(self, ax, data, xg, yg, selected=None):
         """Contour lines of a second field, the grid's boundary and lines, fixed lines and points."""
@@ -1683,12 +1715,13 @@ class _SliceRenderer:
                 overlays.get("coordinate_line_color", "w"),
             )
         if overlays.get("rank_boundaries") and selected is not None:
+            spec = self._rank_boundary_spec(overlays["rank_boundaries"], selected)
             artists += _coordinate_lines(
                 ax,
                 selected,
                 xg,
                 yg,
-                overlays["rank_boundaries"],
+                spec,
                 overlays.get("rank_boundary_color", "red"),
                 linestyle="--",
                 key="rank_boundaries",
@@ -1909,10 +1942,11 @@ def plot_slice(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
-        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
-          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
-          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
-          lines without colliding;
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
         - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
@@ -2070,10 +2104,11 @@ def plot_panels(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
-        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
-          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
-          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
-          lines without colliding;
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
         - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
@@ -2221,10 +2256,11 @@ class InteractiveSliceViewer:
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
-        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
-          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
-          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
-          lines without colliding;
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
         - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
@@ -2455,10 +2491,11 @@ def animate_slices(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
-        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
-          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
-          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
-          lines without colliding;
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
         - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
@@ -2742,10 +2779,11 @@ def save_frames(
           ``theta_P``); an angle (a ``period`` attribute) gets ``n`` lines spread over its period
           and no line at its seam;
         - ``"coordinate_line_color"``: their color (default white);
-        - ``"rank_boundaries"``: a dict of coordinate names to the boundary values between
-          MPI ranks (e.g. from mpiarray's ``Layout.boundary_values``), drawn like
-          ``coordinate_lines`` but dashed, so they can share an axis with physics coordinate
-          lines without colliding;
+        - ``"rank_boundaries"``: an mpiarray ``Layout`` (its axis for each drawn dimension is
+          found by name, so it needs no dimension names of its own), or a dict of coordinate
+          names to the boundary values directly (e.g. from ``Layout.boundary_values``); drawn
+          like ``coordinate_lines`` but dashed, so they can share an axis with physics
+          coordinate lines without colliding;
         - ``"rank_boundary_color"``: their color (default red);
         - ``"lines"``: a dict of labels to lines, each a function ``y(x)`` or an ``(x, y)``
           pair, drawn in dashed styles;
