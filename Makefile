@@ -28,8 +28,9 @@ docs-install:
 docs-build: figures
 	cd docs && npm run build
 
+# the link check runs in docs-build only (and in CI), not on every reload
 docs-dev: figures
-	cd docs && npm run dev
+	cd docs && DOCS_VALIDATE_LINKS=false npm run dev
 
 clean:
 	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista docs/public/llms-api.txt

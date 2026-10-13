@@ -1,3 +1,9 @@
+## This site
+
+The shared max-models setup (palette, header, base path, API reference, link check) comes from
+`@max-models/starlight-theme` (`defineDocs` in `astro.config.mjs`); change it there, not here.
+`astro.config.mjs` and `src/styles/custom.css` hold only what is particular to plasma-plots.
+
 ## Development
 
 When starting the dev server, use background mode:
