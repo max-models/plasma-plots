@@ -1495,6 +1495,30 @@ ax_sp.set(
 ax_sp.legend(fontsize="small")
 save_fig(fig, "theory_numerics.png")
 
+# Collisions: the Coulomb logarithm and Spitzer resistivity against temperature, the drag of a fast
+# deuteron on electrons and ions, and its slowing down
+from plasma_plots.theory import collisions  # noqa: E402
+
+te_c = np.logspace(0, 4, 200)  # eV
+fig, (ax_l, ax_r, ax_s) = plt.subplots(1, 3, figsize=(13, 3.8), layout="constrained")
+ax_l.semilogx(te_c, collisions.coulomb_logarithm(1e19, te_c), label="electron-ion")
+ax_l.semilogx(te_c, collisions.coulomb_logarithm(1e19, te_c, kind="ee"), "--", label="electron-electron")
+ax_l.set(xlabel=r"$T_e$ [eV]", ylabel=r"$\ln\Lambda$", title=r"Coulomb logarithm, $n=10^{19}\,\mathrm{m^{-3}}$")
+ax_l.legend(fontsize="small")
+ax_r.loglog(te_c, collisions.spitzer_resistivity(te_c, density=1e19), label="$Z_{eff}=1$")
+ax_r.loglog(te_c, collisions.spitzer_resistivity(te_c, z_eff=2.0, density=1e19), "--", label="$Z_{eff}=2$")
+ax_r.set(xlabel=r"$T_e$ [eV]", ylabel=r"$\eta_\parallel$ [$\Omega$ m]", title="Spitzer resistivity")
+ax_r.legend(fontsize="small")
+e_crit = collisions.critical_energy(1e3, beam_mass_number=2, ion_mass_number=2)
+t_slow = np.linspace(0, 0.1, 200)
+ax_s.plot(t_slow * 1e3, collisions.beam_stopping_fast_ion(80e3, 1e19, 1e3, 2, ion_mass_number=2, time=t_slow) / 1e3)
+ax_s.axhline(e_crit / 1e3, color="gray", ls=":", label=r"$E_c$")
+ax_s.set(
+    xlabel="t [ms]", ylabel="energy [keV]", title="80 keV deuteron slowing down\n$T_e$=1 keV, $n=10^{19}$ m$^{-3}$"
+)
+ax_s.legend(fontsize="small")
+save_fig(fig, "theory_collisions.png")
+
 
 # =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
