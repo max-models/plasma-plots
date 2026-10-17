@@ -5,7 +5,7 @@ import importlib
 
 import pytest
 
-MODULES = ["special", "parameters", "kinetic", "waves", "orbits", "exact", "numerics"]
+MODULES = ["special", "parameters", "kinetic", "waves", "orbits", "exact", "numerics", "beams"]
 
 
 @pytest.mark.parametrize("name", ["__init__", *MODULES])

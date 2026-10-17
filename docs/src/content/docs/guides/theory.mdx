@@ -11,6 +11,7 @@ results plug straight into the plots.
 
 ```python
 from plasma_plots.theory import (
+    beams,
     exact,
     kinetic,
     numerics,
@@ -194,6 +195,22 @@ orbits.bounce_frequency(
 ```
 
 ![The trapped fraction against ε, and the bounce frequency across the trapped region](../../../assets/figures/theory_orbits.png)
+
+## Beams
+
+`theory.beams` has the perveance (A/V^1.5 and the dimensionless generalized one),
+the Child–Langmuir current through an aperture, KV rms envelopes (closed form
+in a drift, RK4 with space charge and focusing), thermal beam divergence, the
+Pierce angle, the Davisson–Calbick aperture lens, and beam attenuation:
+
+```python
+beams.child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=parameters.proton_mass)
+K = beams.perveance(1.0, 30e3, mass=parameters.proton_mass, kind="generalized")
+x, slope = beams.kv_envelope_ode(
+    np.linspace(0, 2, 5), 2e-3, 0.0, emittance=1e-6, perveance=K
+)
+beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0)
+```
 
 ## Exact solutions
 
