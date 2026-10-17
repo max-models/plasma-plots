@@ -103,7 +103,9 @@ def hull_cutoff(
     --------
     >>> print(f"{hull_cutoff(voltage=300.0, gap=0.05) * 1e3:.4f} mT")
     1.1681 mT
-    >>> print(f"{hull_cutoff(voltage=300.0, anode_radius=0.06, cathode_radius=0.01) * 1e3:.3f} mT")
+    >>> print(
+    ...     f"{hull_cutoff(voltage=300.0, anode_radius=0.06, cathode_radius=0.01) * 1e3:.3f} mT"
+    ... )
     2.003 mT
     >>> print(f"{hull_cutoff(field=1.16814e-3, gap=0.05):.1f} V")
     300.0 V
@@ -353,7 +355,9 @@ def simon_hoh_growth(
 
     Examples
     --------
-    >>> print(f"{simon_hoh_growth(2 * np.pi / 0.05, 1e4, 0.05, 0.01, 39.948):.4g} 1/s")
+    >>> print(
+    ...     f"{simon_hoh_growth(2 * np.pi / 0.05, 1e4, 0.05, 0.01, 39.948):.4g} 1/s"
+    ... )
     1.944e+06 1/s
     >>> print(simon_hoh_growth(2 * np.pi / 0.05, 1e4, 0.05, -0.01, 39.948))
     0.0
@@ -476,7 +480,9 @@ def gradient_drift_phase_velocity(*args, **kwargs):
     Examples
     --------
     >>> k = 2 * np.pi / 0.05
-    >>> print(f"{gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948):.1f} m/s")
+    >>> print(
+    ...     f"{gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948):.1f} m/s"
+    ... )
     603.8 m/s
     """
     omega = gradient_drift_frequency(*args, **kwargs)
