@@ -15,6 +15,7 @@ from plasma_plots.theory import (
     collisions,
     exact,
     kinetic,
+    magnetron,
     numerics,
     orbits,
     parameters,
@@ -213,6 +214,21 @@ orbits.bounce_frequency(
 ```
 
 ![The trapped fraction against ε, and the bounce frequency across the trapped region](../../../assets/figures/theory_orbits.png)
+
+## Magnetron discharges
+
+`theory.magnetron` has the crossed-field results used for magnetron spokes, in
+SI units: the Hull cutoff of planar and coaxial gaps, Brillouin flow, Hall
+parameter, critical ionisation velocity, E×B speed, and the Simon–Hoh and
+gradient-drift modes (growth rate and phase velocity):
+
+```python
+magnetron.hull_cutoff(voltage=300.0, anode_radius=0.06, cathode_radius=0.01)
+magnetron.critical_ionisation_velocity(100.0, mass_number=39.948)
+k = 2 * 3.14159 / 0.05
+magnetron.gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948)
+magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
+```
 
 ## Beams
 
