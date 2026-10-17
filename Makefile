@@ -1,4 +1,4 @@
-.PHONY: install test lint figures docs-install docs-build docs-dev clean
+.PHONY: install test lint figures gallery docs-install docs-build docs-dev clean
 
 install:
 	pip install -e ".[dev]"
@@ -22,16 +22,21 @@ figures:
 	python3 scripts/generate_gvec_figures.py
 	python3 scripts/generate_desc_figures.py
 
+# Runs the scripts in examples/ that changed (FORCE=1 reruns all) for the Gallery pages;
+# `starlight-gallery convert`, which writes the pages, runs as part of the docs build.
+gallery:
+	cd docs && DOCS_PYTHON=$(shell command -v python3) npx starlight-gallery execute $(if $(FORCE),--force,)
+
 docs-install:
 	cd docs && npm ci
 
-docs-build: figures
+docs-build: figures gallery
 	cd docs && npm run build
 
 # the link check runs in docs-build only (and in CI), not on every reload
-docs-dev: figures
+docs-dev: figures gallery
 	cd docs && DOCS_VALIDATE_LINKS=false npm run dev
 
 clean:
-	rm -rf docs/dist docs/.astro docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista docs/public/llms-api.txt
+	rm -rf docs/dist docs/.astro docs/.cache docs/public/examples docs/src/content/docs/examples docs/src/assets/figures docs/public/figures docs/public/plotly docs/public/pyvista docs/public/llms-api.txt
 	find . -name '__pycache__' -not -path './docs/node_modules/*' -exec rm -rf {} +
