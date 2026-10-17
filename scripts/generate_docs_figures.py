@@ -1495,6 +1495,122 @@ ax_sp.set(
 ax_sp.legend(fontsize="small")
 save_fig(fig, "theory_numerics.png")
 
+# Collisions: the Coulomb logarithm and Spitzer resistivity against temperature, the drag of a fast
+# deuteron on electrons and ions, and its slowing down
+from plasma_plots.theory import collisions  # noqa: E402
+
+te_c = np.logspace(0, 4, 200)  # eV
+fig, (ax_l, ax_r, ax_s) = plt.subplots(1, 3, figsize=(13, 3.8), layout="constrained")
+ax_l.semilogx(te_c, collisions.coulomb_logarithm(1e19, te_c), label="electron-ion")
+ax_l.semilogx(te_c, collisions.coulomb_logarithm(1e19, te_c, kind="ee"), "--", label="electron-electron")
+ax_l.set(xlabel=r"$T_e$ [eV]", ylabel=r"$\ln\Lambda$", title=r"Coulomb logarithm, $n=10^{19}\,\mathrm{m^{-3}}$")
+ax_l.legend(fontsize="small")
+ax_r.loglog(te_c, collisions.spitzer_resistivity(te_c, density=1e19), label="$Z_{eff}=1$")
+ax_r.loglog(te_c, collisions.spitzer_resistivity(te_c, z_eff=2.0, density=1e19), "--", label="$Z_{eff}=2$")
+ax_r.set(xlabel=r"$T_e$ [eV]", ylabel=r"$\eta_\parallel$ [$\Omega$ m]", title="Spitzer resistivity")
+ax_r.legend(fontsize="small")
+e_crit = collisions.critical_energy(1e3, beam_mass_number=2, ion_mass_number=2)
+t_slow = np.linspace(0, 0.1, 200)
+ax_s.plot(t_slow * 1e3, collisions.beam_stopping_fast_ion(80e3, 1e19, 1e3, 2, ion_mass_number=2, time=t_slow) / 1e3)
+ax_s.axhline(e_crit / 1e3, color="gray", ls=":", label=r"$E_c$")
+ax_s.set(
+    xlabel="t [ms]", ylabel="energy [keV]", title="80 keV deuteron slowing down\n$T_e$=1 keV, $n=10^{19}$ m$^{-3}$"
+)
+ax_s.legend(fontsize="small")
+save_fig(fig, "theory_collisions.png")
+
+# Sheaths: space-charge-limited flow between coaxial electrodes, Paschen curves, and a probe
+# characteristic
+from plasma_plots.theory import sheaths  # noqa: E402
+
+fig, (ax_lb, ax_p, ax_i) = plt.subplots(1, 3, figsize=(13, 3.8), layout="constrained")
+ratio = np.linspace(1.05, 20, 200)  # r_a / r_c
+for geometry, label in (("cylindrical", "cylinders"), ("spherical", "spheres")):
+    current = sheaths.langmuir_blodgett(1000.0, ratio * 1e-3, 1e-3, geometry=geometry)
+    ax_lb.plot(ratio, current / sheaths.child_langmuir(1000.0, (ratio - 1) * 1e-3), label=label)
+ax_lb.axhline(1.0, color="gray", ls=":")
+ax_lb.set(
+    xlabel=r"$r_a/r_c$",
+    ylabel=r"$J_{LB}/J_{CL}$ at the collector",
+    title="Langmuir–Blodgett against Child–Langmuir",
+)
+ax_lb.legend(fontsize="small")
+pd_ = np.logspace(-1, 2, 300)  # pressure x gap [Torr cm]
+for gas in ("air", "H2", "He", "Ar"):
+    ax_p.loglog(pd_, sheaths.paschen_breakdown(pd_, 1.0, gas=gas), label=gas)
+ax_p.set(xlabel="p d [Torr cm]", ylabel="breakdown voltage [V]", title="Paschen curves", ylim=(100, 3e4))
+ax_p.legend(fontsize="small")
+potential = np.linspace(-60, 20, 300)  # V relative to the plasma
+for te_s, label in ((1.0, "1 eV"), (3.0, "3 eV"), (10.0, "10 eV")):
+    ax_i.plot(potential, sheaths.oml_current(1e16, te_s, potential, 1e-4, length=1e-2) * 1e3, label=label)
+ax_i.set(xlabel="probe potential [V]", ylabel="current [mA]", title="OML cylindrical probe, $n=10^{16}$ m$^{-3}$")
+ax_i.legend(fontsize="small")
+save_fig(fig, "theory_sheaths.png")
+from plasma_plots.theory import parameters
+
+
+# Beams: KV envelopes with and without space charge, the perveance limit, and beam attenuation
+from plasma_plots.theory import beams  # noqa: E402
+
+fig, (ax_e, ax_k, ax_a) = plt.subplots(1, 3, figsize=(13, 3.8), layout="constrained")
+z_b = np.linspace(0.0, 1.0, 200)
+ax_e.plot(z_b, beams.kv_envelope(z_b, 2e-3, 0.0, 1e-6) * 1e3, label="no space charge")
+for current_b in (0.5e-3, 2e-3, 5e-3):
+    k_b = beams.perveance(current_b, 30e3, mass=parameters.proton_mass, kind="generalized")
+    radius_b = beams.kv_envelope_ode(z_b, 2e-3, 0.0, 1e-6, perveance=k_b)[0]
+    ax_e.plot(z_b, radius_b * 1e3, label=f"{current_b * 1e3:g} mA")
+ax_e.set(
+    xlabel="z [m]",
+    ylabel="rms radius [mm]",
+    title="Drift of a 30 keV proton beam\n$\\epsilon$ = 1 mm mrad, $r_0$ = 2 mm",
+)
+ax_e.legend(fontsize="small")
+aspect = np.linspace(0.2, 1.5, 100)  # aperture radius / gap
+for volts, label in ((10e3, "10 kV"), (30e3, "30 kV"), (100e3, "100 kV")):
+    ax_k.plot(
+        aspect,
+        beams.child_langmuir_aperture(volts, aspect * 5e-3, 5e-3, mass=parameters.proton_mass),
+        label=label,
+    )
+ax_k.set(xlabel="aperture radius / gap", ylabel="proton current [A]", title="Child–Langmuir limit of an aperture")
+ax_k.legend(fontsize="small")
+line_density = np.logspace(17, 21, 200)  # m^-2
+for sigma_b, label in ((1e-21, r"$10^{-21}$ m$^2$"), (1e-20, r"$10^{-20}$ m$^2$"), (1e-19, r"$10^{-19}$ m$^2$")):
+    ax_a.semilogx(line_density, beams.neutral_beam_attenuation(line_density, sigma_b, length=1.0), label=label)
+ax_a.set(xlabel=r"gas line density $\int n\,dl$ [m$^{-2}$]", ylabel="beam transmission", title="Beam attenuation")
+ax_a.legend(fontsize="small", title="cross section")
+save_fig(fig, "theory_beams.png")
+
+# Magnetron discharges: the Hull cutoff, the critical ionisation velocity, and the gradient-drift mode
+from plasma_plots.theory import magnetron  # noqa: E402
+
+fig, (ax_h, ax_v, ax_g) = plt.subplots(1, 3, figsize=(13, 3.8), layout="constrained")
+volts = np.linspace(50, 1000, 200)
+ax_h.plot(volts, magnetron.hull_cutoff(voltage=volts, gap=0.05) * 1e3, label="planar, gap 5 cm")
+ax_h.plot(
+    volts,
+    magnetron.hull_cutoff(voltage=volts, anode_radius=0.06, cathode_radius=0.01) * 1e3,
+    label="coaxial, 6 cm / 1 cm",
+)
+ax_h.set(xlabel="voltage [V]", ylabel="cutoff field [mT]", title="Hull cutoff")
+ax_h.legend(fontsize="small")
+for gas, mass_number in (("Ar", 39.948), ("Cu", 63.546), ("Ti", 47.867), ("Al", 26.982)):
+    ax_v.plot(volts, magnetron.critical_ionisation_velocity(volts, mass_number=mass_number) / 1e3, label=gas)
+ax_v.axhline(magnetron.exb_drift_speed(5e3, 0.05) / 1e3, color="k", ls="--", label="E×B, 5 kV/m, 50 mT")
+ax_v.set(xlabel="voltage [V]", ylabel="speed [km/s]", title="Critical ionisation velocity", yscale="log")
+ax_v.legend(fontsize="small", loc="lower right")
+k_m = np.linspace(20, 400, 200)  # rad/m
+omega_m = magnetron.gradient_drift_frequency(k_m, 1e4, 0.05, 0.01, 3.0, 39.948)
+ax_g.plot(k_m, omega_m.imag / 1e6, label="growth rate")
+ax_g.plot(k_m, omega_m.real / 1e6, label="real frequency")
+ax_g.set(
+    xlabel="k [rad/m]",
+    ylabel=r"$\omega$ [$10^6$ s$^{-1}$]",
+    title="Gradient-drift mode in argon\nE=10 kV/m, B=0.05 T, $L_n$=1 cm",
+)
+ax_g.legend(fontsize="small")
+save_fig(fig, "theory_magnetron.png")
+
 
 # =============================================================================
 # Whole-run: equilibrium profiles (optional PyVista)
