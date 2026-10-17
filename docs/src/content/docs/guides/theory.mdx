@@ -232,6 +232,8 @@ magnetron.gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 ```
 
+![The Hull cutoff, the critical ionisation velocity against the E×B drift, and the gradient-drift mode](../../../assets/figures/theory_magnetron.png)
+
 ## Beams
 
 `theory.beams` has the perveance (A/V^1.5 and the dimensionless generalized one),
@@ -247,6 +249,8 @@ x, slope = beams.kv_envelope_ode(
 )
 beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0)
 ```
+
+![A beam envelope with and without space charge, the Child–Langmuir limit of an aperture, and beam attenuation](../../../assets/figures/theory_beams.png)
 
 ## Exact solutions
 
@@ -308,6 +312,8 @@ sheaths.child_langmuir(1e4, 1e-2, mass=parameters.proton_mass)
 # coaxial or spherical; tends to child_langmuir as r_a/r_c -> 1
 sheaths.langmuir_blodgett(1e3, 5e-3, 1e-3, geometry="cylindrical")
 ```
+
+![Langmuir–Blodgett against Child–Langmuir flow, Paschen curves, and an OML probe characteristic](../../../assets/figures/theory_sheaths.png)
 
 ## Which tool for which Struphy example
 
