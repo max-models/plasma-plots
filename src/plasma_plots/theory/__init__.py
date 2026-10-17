@@ -22,6 +22,8 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
   caustics.
 * :mod:`~plasma_plots.theory.numerics`: accuracy of the numerics: amplification and phase errors
   of time integrators, and the numerical dispersion of spline finite elements.
+* :mod:`~plasma_plots.theory.collisions`: Coulomb logarithm, collision rates, Spitzer resistivity,
+  and the slowing down of fast ions (slowing-down time, critical energy, energy loss rates).
 
 Conventions
 -----------
