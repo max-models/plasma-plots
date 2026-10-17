@@ -17,6 +17,8 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
   continua and the TAE frequency.
 * :mod:`~plasma_plots.theory.orbits`: gyromotion, guiding-center drifts, trapped particles,
   bounce frequencies and banana widths in a large-aspect-ratio tokamak.
+* :mod:`~plasma_plots.theory.magnetron`: crossed-field discharges: Hull cutoff, Brillouin flow,
+  Hall parameter, critical ionisation velocity, Simon–Hoh and gradient-drift modes.
 * :mod:`~plasma_plots.theory.exact`: exact solutions to verify simulations: the Riemann problem
   of gas dynamics (with vacuum), dam break, diffusion, advection, pressureless flow and its
   caustics.
