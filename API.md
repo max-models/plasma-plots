@@ -89,7 +89,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.against_theory(theory=None, *, show_error=True, xlabel=None, ylabel=None, title=None, logx=False, logy=False, backend=None)`: Plot these measured values as points against a theory function.
   - e.g. `traced = spectrum.plasma.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))`
   - e.g. `traced.omega.plasma.plot.against_theory(bohm_gross)`
-- `array.plasma.plot.convergence(*others, order=None, xlabel=None, title='Convergence', ax=None, backend=None)`: Plot these errors against their resolution (or step size) on log-log axes, with the order.
+- `array.plasma.plot.convergence(*others, order=None, last=None, xlabel=None, title='Convergence', ax=None, backend=None)`: Plot these errors against their resolution (or step size) on log-log axes, with the order.
   - e.g. `errors = xr.DataArray(l2_errors, dims="n", coords={"n": [16, 32, 64, 128]}, name="L2 error")`
   - e.g. `errors.plasma.plot.convergence(max_errors, backend="plotly")`
 - `array.plasma.plot.vector(*, x, y, components=(0, 1), stride=1, coordinates='logical', ax=None, backend=None, **selection)`: Plot two vector components after selecting time and remaining dimensions.
@@ -132,8 +132,9 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.mode_profiles(omega=None, *, x=None, dims=None, x_of=None, xlabel=None, top=4, phase=True, scale=None, backend=None, **selection)`: Plot the radial profile of each (m, n) harmonic of this field.
   - e.g. `phi.plasma.plot.mode_profiles(omega, x_of=lambda eta1: 0.1 + 0.9 * eta1, top=2)`
   - e.g. `phi.plasma.plot.mode_profiles(t=-1, scale=(1, 6))`
-- `array.plasma.plot.profiles(*, x=None, over='t', at=None, x_of=None, xlabel=None, ax=None, title=None, reference=None, backend=None, **selection)`: Plot profiles along x at several values of over in one axes.
+- `array.plasma.plot.profiles(*, x=None, over='t', at=None, x_of=None, xlabel=None, ax=None, title=None, reference=None, logx=False, logy=False, cmap=None, backend=None, **selection)`: Plot profiles along x at several values of over in one axes.
   - e.g. `T.plasma.plot.profiles(x="eta1", at=[0, 10, 20, 40], reference={"exact": exact})`
+  - e.g. `density.plasma.plot.profiles(x="x", over="species", logy=True)`
 - `array.plasma.plot.cross_spectrum(other, *, dims=None, detrend=True, window=None, omega_max=None, backend=None)`: Plot the magnitude, coherence and phase of other relative to this signal.
   - e.g. `u.plasma.plot.cross_spectrum(b, dims="eta3", omega_max=1.5)`
 - `array.plasma.plot.pencil_fit(*, n_modes=1, pencil=None, detrend=False, backend=None, **selection)`: Plot a matrix-pencil fit of this (t,) series.

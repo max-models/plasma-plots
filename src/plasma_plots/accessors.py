@@ -384,6 +384,7 @@ class ArrayPlots(_ArrayAccessor):
         self,
         *others,
         order: float | None = None,
+        last: int | None = None,
         xlabel: str | None = None,
         title: str = "Convergence",
         ax=None,
@@ -398,6 +399,10 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         *others
             Further 1-D error arrays, e.g. of other methods or norms, drawn in the same axes.
+        last : int, optional
+            Fit the order to (or draw the reference slope through) the last ``last`` samples of
+            each series only, e.g. the finest resolutions once the coarse ones are not yet
+            asymptotic. Default: all samples.
         xlabel : str, optional
             The horizontal axis label. Default: the coordinate's label.
         backend : {"matplotlib", "plotly", "tikz"}, optional
@@ -441,6 +446,7 @@ class ArrayPlots(_ArrayAccessor):
                 np.asarray(series, dtype=float),
                 ax=ax if result is None else result.ax,
                 order=order,
+                last=last,
                 label=_label(series) or None,
                 xlabel=xlabel or axis_label(series, dim),
                 title=title,
@@ -1495,13 +1501,18 @@ class ArrayPlots(_ArrayAccessor):
         ax=None,
         title: str | None = None,
         reference=None,
+        logx: bool = False,
+        logy: bool = False,
+        cmap: str | None = None,
         backend: Backend | None = None,
         **selection,
     ):
         """Plot profiles along ``x`` at several values of ``over`` in one axes.
 
-        By default four times. ``x_of`` maps ``x`` to the plotted axis (e.g. the minor radius);
-        ``reference`` overlays the exact profiles (``lambda x, t: ...``).
+        By default four times; along a categorical ``over`` (species, cases) every value, in
+        distinct colors. ``x_of`` maps ``x`` to the plotted axis (e.g. the minor radius);
+        ``reference`` overlays the exact profiles (``lambda x, t: ...``); ``logx`` and
+        ``logy`` make the axes logarithmic; ``cmap`` chooses the colors.
 
         Parameters
         ----------
@@ -1532,6 +1543,7 @@ class ArrayPlots(_ArrayAccessor):
         >>> T.plasma.plot.profiles(
         ...     x="eta1", at=[0, 10, 20, 40], reference={"exact": exact}
         ... )
+        >>> density.plasma.plot.profiles(x="x", over="species", logy=True)
         """
         from .plotting import _select, plot_profiles
 
@@ -1547,6 +1559,9 @@ class ArrayPlots(_ArrayAccessor):
             ax=ax,
             title=title,
             reference=reference,
+            logx=logx,
+            logy=logy,
+            cmap=cmap,
         )
 
     @with_backend

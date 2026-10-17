@@ -17,11 +17,20 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
   continua and the TAE frequency.
 * :mod:`~plasma_plots.theory.orbits`: gyromotion, guiding-center drifts, trapped particles,
   bounce frequencies and banana widths in a large-aspect-ratio tokamak.
+* :mod:`~plasma_plots.theory.beams`: charged-particle beams: perveance, Child–Langmuir extraction
+  through an aperture, KV envelopes, beam divergence, aperture lenses and beam attenuation.
+* :mod:`~plasma_plots.theory.magnetron`: crossed-field discharges: Hull cutoff, Brillouin flow,
+  Hall parameter, critical ionisation velocity, Simon–Hoh and gradient-drift modes.
 * :mod:`~plasma_plots.theory.exact`: exact solutions to verify simulations: the Riemann problem
   of gas dynamics (with vacuum), dam break, diffusion, advection, pressureless flow and its
   caustics.
 * :mod:`~plasma_plots.theory.numerics`: accuracy of the numerics: amplification and phase errors
   of time integrators, and the numerical dispersion of spline finite elements.
+* :mod:`~plasma_plots.theory.sheaths`: Bohm sheaths and floating potentials, Child–Langmuir and
+  Langmuir–Blodgett space-charge-limited flow, OML probes, ambipolar and Bohm diffusion, Paschen
+  breakdown and mean free paths.
+* :mod:`~plasma_plots.theory.collisions`: Coulomb logarithm, collision rates, Spitzer resistivity,
+  and the slowing down of fast ions (slowing-down time, critical energy, energy loss rates).
 
 Conventions
 -----------

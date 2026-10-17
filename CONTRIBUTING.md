@@ -18,7 +18,11 @@ isn't required just to run `pytest`.
 
 ## Docs
 
-The documentation site (Astro + Starlight) lives in `docs/`. Almost every
+The documentation site (Astro + Starlight) lives in `docs/`. Its setup -- palette, header,
+base path, API reference, link check -- is the shared max-models theme
+([@max-models/starlight-theme](https://github.com/max-models/starlight-theme), a dependency in
+`docs/package.json`); `docs/astro.config.mjs` holds only what is particular to plasma-plots. The
+build fails on broken internal links (`make docs-dev` skips that check). Almost every
 figure and interactive Plotly chart (`docs/src/assets/figures/*`,
 `docs/public/plotly/*.json`) is built from small **synthetic** `xarray` data
 by `scripts/generate_docs_figures.py` -- the point of those guides is

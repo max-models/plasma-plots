@@ -250,6 +250,33 @@ def test_profiles_at_several_times_against_a_mapped_radius():
     assert mixed.artists[-1].get_label().endswith(f"{float(cube.t[-1]):.3g}")
 
 
+def test_profiles_of_categories_in_distinct_colors_on_log_axes():
+    x = np.geomspace(1e-3, 1.0, 30)
+    density = xr.DataArray(
+        np.outer([1e16, 3e15, 2e15], 1 + 0 * x) * np.exp(-x)[None, :],
+        dims=("species", "x"),
+        coords={"species": ["e", "Ar+", "Ar-"], "x": x},
+        name="density",
+        attrs={"units": "m^-3"},
+    )
+    result = density.plasma.plot.profiles(x="x", over="species", logx=True, logy=True)
+    assert [line.get_label() for line in result.artists] == ["e", "Ar+", "Ar-"]
+    colors = {line.get_color() for line in result.artists}
+    assert len(colors) == 3
+    assert result.ax.get_xscale() == "log" and result.ax.get_yscale() == "log"
+    picked = density.plasma.plot.profiles(x="x", over="species", at=["Ar+"])
+    assert [line.get_label() for line in picked.artists] == ["Ar+"]
+    # the same in Plotly: the log axes and the legend survive the conversion
+    plotly = density.plasma.plot.profiles(x="x", over="species", logy=True, backend="plotly")
+    layout = plotly.fig.layout
+    assert layout.yaxis.type == "log"
+    assert {trace.name for trace in plotly.fig.data} >= {"e", "Ar+", "Ar-"}
+    # a dimensionless profile is labeled without a unit
+    fraction = (density / density.sum("species")).assign_attrs(long_name="fraction", units="1")
+    labeled = fraction.plasma.plot.profiles(x="x", over="species")
+    assert labeled.ax.get_ylabel() == "fraction"
+
+
 def orbits_dataset():
     t = np.linspace(0, 40, 200)[:, None]
     rng = np.random.default_rng(0)

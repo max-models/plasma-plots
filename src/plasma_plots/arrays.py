@@ -233,6 +233,10 @@ def map_coordinate(
     return renamed.drop_vars(dim)
 
 
+#: The ``units`` of dimensionless values (CF conventions): their label has no unit.
+DIMENSIONLESS = ("1", "dimensionless")
+
+
 def value_label(data: xr.DataArray) -> str:
     """The label of an array's values, with their units.
 
@@ -245,9 +249,12 @@ def value_label(data: xr.DataArray) -> str:
     -------
     str
         ``"label [units]"``, with the ``units`` attribute or ``a.u.``; only ``"[units]"`` when
-        there is no label.
+        there is no label; only the label for dimensionless values (``units`` of ``"1"`` or
+        ``"dimensionless"``).
     """
     label = data.attrs.get("label") or data.attrs.get("long_name") or data.name or ""
+    if data.attrs.get("units") in DIMENSIONLESS and label:
+        return label  # a ratio or a fraction: no unit to show
     unit = data.attrs.get("units", "") or "a.u."
     return f"{label} [{unit}]" if label else f"[{unit}]"
 

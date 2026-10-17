@@ -2946,6 +2946,7 @@ def plot_convergence(
     *,
     ax=None,
     order=None,
+    last=None,
     label=None,
     xlabel="resolution",
     title="Convergence",
@@ -2965,6 +2966,11 @@ def plot_convergence(
         :func:`plasma_plots.analysis.convergence_order`. Pass an explicit ``order`` (e.g. ``2``
         for second-order) to draw a reference slope through the first point instead of fitting
         one.
+    last : int, optional
+        Fit the order to the last ``last`` samples only, or draw the reference slope of ``order``
+        through the last sample and over the last ``last`` samples: the asymptotic range, when the
+        sizes go from coarse to fine and the coarse samples are not yet asymptotic. Default: all
+        samples.
     label : str, optional
         The legend label of the errors. Default: none.
     xlabel : str, optional
@@ -2980,12 +2986,17 @@ def plot_convergence(
     Examples
     --------
     >>> plot_convergence([16, 32, 64, 128], errors, order=2)
+    >>> # the order of the three finest
+    >>> plot_convergence([4, 8, 16, 32, 64], errors, last=3)
     """
+    if last is not None and last < 2:
+        raise ValueError(f"last must be at least 2, got {last}")
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     (line,) = ax.loglog(sizes, errors, "o-", label=label)
     artists = [line]
+    window = slice(None) if last is None else slice(-last, None)
     if order is None:
-        fit = convergence_order(sizes, errors)
+        fit = convergence_order(np.asarray(sizes, dtype=float)[window], np.asarray(errors, dtype=float)[window])
         if fit is not None:
             (fitted,) = ax.loglog(
                 fit.sizes,
@@ -2997,7 +3008,11 @@ def plot_convergence(
             artists.append(fitted)
     else:
         sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(errors, dtype=float)
-        reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
+        if last is not None:
+            sizes_arr, errors_arr = sizes_arr[window], errors_arr[window]
+            reference = errors_arr[-1] * (sizes_arr / sizes_arr[-1]) ** order
+        else:
+            reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
         (ref_line,) = ax.loglog(sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference")
         artists.append(ref_line)
     ax.set(xlabel=xlabel, ylabel="error", title=title)
@@ -4514,10 +4529,16 @@ def plot_profiles(
     ax=None,
     title: str | None = None,
     reference=None,
+    logx: bool = False,
+    logy: bool = False,
+    cmap: str | None = None,
 ):
     """Several one-dimensional profiles along ``x`` in one axes, one per value of ``over``.
 
-    The profiles are colored from dark to light along the ``viridis`` colormap.
+    Along a numeric ``over`` (times, a scanned parameter) the profiles are colored from dark to
+    light along the ``viridis`` colormap and labeled ``over = value``; along a categorical one
+    (species, cases: strings) every value is drawn by default, in the distinct colors of
+    ``tab10``, labeled with the value itself.
 
     Parameters
     ----------
@@ -4527,9 +4548,10 @@ def plot_profiles(
         The dimension along the horizontal axis.
     over : str, optional
         The dimension to draw one profile per value of. Default: ``"t"``.
-    at : int, float or sequence of these, optional
-        The values of ``over``: integers are positions, floats nearest values. Default: four
-        evenly spaced positions.
+    at : int, float, str or sequence of these, optional
+        The values of ``over``: integers are positions, floats nearest values, strings (of a
+        categorical ``over``) exact values. Default: four evenly spaced positions, or every
+        value of a categorical ``over``.
     x_of : callable, optional
         Maps the ``x`` coordinate to the plotted axis, e.g. ``lambda eta1: 0.1 + 0.9 * eta1``
         for the minor radius of a hollow torus.
@@ -4543,6 +4565,11 @@ def plot_profiles(
         Exact or expected profiles, drawn in each profile's color in dashed styles: a function
         of the plotted ``x`` (or of ``x`` and the value of ``over``), a 1-D ``xarray.DataArray``
         (drawn over its own coordinate), an ``(x, y)`` pair, or a dict of labels to these.
+    logx, logy : bool, optional
+        Logarithmic horizontal or vertical axis. Default: linear.
+    cmap : str, optional
+        The colormap of the profiles. Default: ``viridis``, or ``tab10`` for a categorical
+        ``over``.
 
     Returns
     -------
@@ -4562,31 +4589,47 @@ def plot_profiles(
     Examples
     --------
     >>> plot_profiles(phi.isel(eta2=0, eta3=0), x="eta1", at=[0, 0.5, -1])
+    >>> # one density profile per species, on a log scale
+    >>> plot_profiles(density, x="x", over="species", logy=True)
     """
     validate_array(data, required_dims=(x, over))
     if set(data.dims) != {x, over}:
         raise ValueError(f"select every dimension except {x!r} and {over!r}; {data.dims} remain")
+    categorical = not np.issubdtype(np.asarray(data[over]).dtype, np.number)
     if at is None:
-        at = np.unique(np.linspace(0, data.sizes[over] - 1, 4).astype(int)).tolist()
+        at = (
+            list(range(data.sizes[over]))
+            if categorical
+            else np.unique(np.linspace(0, data.sizes[over] - 1, 4).astype(int)).tolist()
+        )
     xs = np.asarray(data[x], dtype=float)
     xs = np.asarray(x_of(xs), dtype=float) if x_of is not None else xs
     # not via numpy: a list like [0, 0.5, -1] would turn the positions 0 and -1 into values
     at = list(at) if isinstance(at, (list, tuple, np.ndarray)) else [at]
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     artists = []
+    colors = plt.get_cmap(cmap or ("tab10" if categorical else "viridis"))
     for i, position in enumerate(at):
-        profile = (
-            data.isel({over: position})
-            if isinstance(position, (int, np.integer))
-            else data.sel({over: position}, method="nearest")
-        )
-        value = float(profile[over])
-        color = plt.get_cmap("viridis")(i / max(len(at) - 1, 1))
+        if isinstance(position, (int, np.integer)):
+            profile = data.isel({over: position})
+        elif categorical:
+            profile = data.sel({over: position})
+        else:
+            profile = data.sel({over: position}, method="nearest")
+        if categorical:
+            value = profile[over].item()
+            # a qualitative colormap has its colors at the integers
+            color = colors(i % colors.N) if colors.N < 256 else colors(i / max(len(at) - 1, 1))
+            label = str(value)
+        else:
+            value = float(profile[over])
+            color = colors(i / max(len(at) - 1, 1))
+            label = f"{over} = {value:.3g}"
         artists += ax.plot(
             xs,
             np.asarray(profile.transpose(x)),
             color=color,
-            label=f"{over} = {value:.3g}",
+            label=label,
         )
         coordinate = np.asarray(data[x], dtype=float)
         fine = np.linspace(coordinate.min(), coordinate.max(), 400)
@@ -4606,6 +4649,10 @@ def plot_profiles(
         ylabel=value_label(data),
         title=_label(data) if title is None else title,
     )
+    if logx:
+        ax.set_xscale("log")
+    if logy:
+        ax.set_yscale("log")
     ax.legend(fontsize="small")
     _finish(fig, run_label=shared_run_label(data) if len(fig.axes) == 1 else "")
     return PlotResult(fig, ax, artists)
