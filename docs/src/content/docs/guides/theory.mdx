@@ -11,12 +11,14 @@ results plug straight into the plots.
 
 ```python
 from plasma_plots.theory import (
+    beams,
     exact,
     kinetic,
     magnetron,
     numerics,
     orbits,
     parameters,
+    sheaths,
     waves,
 )
 ```
@@ -211,6 +213,22 @@ magnetron.gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 ```
 
+## Beams
+
+`theory.beams` has the perveance (A/V^1.5 and the dimensionless generalized one),
+the Child–Langmuir current through an aperture, KV rms envelopes (closed form
+in a drift, RK4 with space charge and focusing), thermal beam divergence, the
+Pierce angle, the Davisson–Calbick aperture lens, and beam attenuation:
+
+```python
+beams.child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=parameters.proton_mass)
+K = beams.perveance(1.0, 30e3, mass=parameters.proton_mass, kind="generalized")
+x, slope = beams.kv_envelope_ode(
+    np.linspace(0, 2, 5), 2e-3, 0.0, emittance=1e-6, perveance=K
+)
+beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0)
+```
+
 ## Exact solutions
 
 `theory.exact` has exact solutions to verify runs. Most take `(x, t)` first, so
@@ -254,6 +272,23 @@ numerics.spline_galerkin_dispersion(k, dx, degree=3)
 ```
 
 ![Phase errors of time integrators, and the numerical dispersion of spline finite elements](../../../assets/figures/theory_numerics.png)
+
+## Sheaths and space-charge-limited flow
+
+`theory.sheaths` has the low-pressure and bounded-plasma results, in SI units
+(m⁻³, eV, V, m): Bohm speed and current, floating potential (with secondary
+emission), Child–Langmuir and matrix sheath widths, space-charge-limited flow
+in planar, coaxial and spherical diodes, OML probes and the ion saturation
+current, ambipolar and Bohm diffusion, Paschen breakdown, and mean free paths.
+
+```python
+sheaths.bohm_current_density(1e18, 5.0)  # A/m², hydrogen, 5 eV
+sheaths.floating_potential(5.0, mass_number=40)  # V, argon wall
+# planar, any charge and mass; optional injection speed
+sheaths.child_langmuir(1e4, 1e-2, mass=parameters.proton_mass)
+# coaxial or spherical; tends to child_langmuir as r_a/r_c -> 1
+sheaths.langmuir_blodgett(1e3, 5e-3, 1e-3, geometry="cylindrical")
+```
 
 ## Which tool for which Struphy example
 
