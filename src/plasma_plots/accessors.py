@@ -384,6 +384,7 @@ class ArrayPlots(_ArrayAccessor):
         self,
         *others,
         order: float | None = None,
+        last: int | None = None,
         xlabel: str | None = None,
         title: str = "Convergence",
         ax=None,
@@ -398,6 +399,10 @@ class ArrayPlots(_ArrayAccessor):
         ----------
         *others
             Further 1-D error arrays, e.g. of other methods or norms, drawn in the same axes.
+        last : int, optional
+            Fit the order to (or draw the reference slope through) the last ``last`` samples of
+            each series only, e.g. the finest resolutions once the coarse ones are not yet
+            asymptotic. Default: all samples.
         xlabel : str, optional
             The horizontal axis label. Default: the coordinate's label.
         backend : {"matplotlib", "plotly", "tikz"}, optional
@@ -441,6 +446,7 @@ class ArrayPlots(_ArrayAccessor):
                 np.asarray(series, dtype=float),
                 ax=ax if result is None else result.ax,
                 order=order,
+                last=last,
                 label=_label(series) or None,
                 xlabel=xlabel or axis_label(series, dim),
                 title=title,

@@ -366,6 +366,31 @@ def test_plot_convergence_with_explicit_order_draws_a_reference_instead_of_fitti
     assert "order 2" in result.artists[1].get_label()
 
 
+def test_plot_convergence_fits_and_anchors_on_the_last_samples():
+    # pre-asymptotic coarse samples, then fourth order on the three finest
+    sizes = np.array([4.0, 8.0, 16.0, 32.0, 64.0])
+    errors = np.array([0.5, 0.4, 1.0e-3, 1.0e-3 / 16, 1.0e-3 / 256])
+    fit = plot_convergence(sizes, errors, last=3).artists[1]
+    assert np.allclose(fit.get_xdata(), sizes[-3:])
+    assert "order -4.00" in fit.get_label()
+
+    reference = plot_convergence(sizes, errors, order=-4, last=3).artists[1]
+    assert np.allclose(reference.get_xdata(), sizes[-3:])
+    assert np.allclose(reference.get_ydata(), errors[-3:])  # through the finest sample
+
+    with pytest.raises(ValueError, match="last must be at least 2"):
+        plot_convergence(sizes, errors, last=1)
+
+
+def test_convergence_accessor_passes_last_to_every_series():
+    sizes = [4, 8, 16, 32]
+    first = xr.DataArray([0.5, 0.1, 1e-2 / 4, 1e-2 / 16], dims="n", coords={"n": sizes})
+    second = xr.DataArray([0.5, 0.2, 1e-2 / 8, 1e-2 / 64], dims="n", coords={"n": sizes})
+    result = first.plasma.plot.convergence(second, last=2)
+    fits = [artist for artist in result.artists if artist.get_label().startswith("fit")]
+    assert [artist.get_label() for artist in fits] == ["fit: order -2.00", "fit: order -3.00"]
+
+
 def test_marker_scatter_selects_a_time_and_colors_by_a_variable():
     markers = orbits_dataset(n_t=5, n_m=6)
     result = markers.plasma.plot.scatter(x="x", y="y", color="weight", t=-1)
