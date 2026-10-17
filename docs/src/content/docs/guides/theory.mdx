@@ -12,6 +12,7 @@ results plug straight into the plots.
 ```python
 from plasma_plots.theory import (
     beams,
+    collisions,
     exact,
     kinetic,
     numerics,
@@ -173,6 +174,22 @@ parameters.struphy_equation_parameters(units, charge_number=1, mass_number=1)
 `struphy_units` takes the same arguments as Struphy's `BaseUnits` and mirrors
 `Units.derive_units`, so normalized results can be converted to physical ones
 and back.
+
+## Collisions and fast-ion slowing down
+
+`theory.collisions` gives the NRL Coulomb logarithm and collision rates, the
+Spitzer resistivity, and the Stix slowing down of a fast ion on electrons and
+ions (SI units, temperatures and energies in eV):
+
+```python
+n, te = 1e19, 1e3  # m^-3, eV
+collisions.coulomb_logarithm(n, te)
+collisions.collision_frequencies(n, te)  # dict of nu_e, nu_i, nu_ei in 1/s
+collisions.spitzer_resistivity(te, density=n)  # ohm m
+ec = collisions.critical_energy(te, beam_mass_number=2, ion_mass_number=2)
+collisions.slowing_down_time(n, te, 2, energy=80e3, critical_energy_ev=ec)
+collisions.beam_stopping_fast_ion(80e3, n, te, 2, ion_mass_number=2, time=0.02)
+```
 
 ## Particle orbits
 
