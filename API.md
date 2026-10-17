@@ -89,7 +89,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.against_theory(theory=None, *, show_error=True, xlabel=None, ylabel=None, title=None, logx=False, logy=False, backend=None)`: Plot these measured values as points against a theory function.
   - e.g. `traced = spectrum.plasma.analysis.trace_branch(bohm_gross, k_range=(1.5, 5.5))`
   - e.g. `traced.omega.plasma.plot.against_theory(bohm_gross)`
-- `array.plasma.plot.convergence(*others, order=None, xlabel=None, title='Convergence', ax=None, backend=None)`: Plot these errors against their resolution (or step size) on log-log axes, with the order.
+- `array.plasma.plot.convergence(*others, order=None, last=None, xlabel=None, title='Convergence', ax=None, backend=None)`: Plot these errors against their resolution (or step size) on log-log axes, with the order.
   - e.g. `errors = xr.DataArray(l2_errors, dims="n", coords={"n": [16, 32, 64, 128]}, name="L2 error")`
   - e.g. `errors.plasma.plot.convergence(max_errors, backend="plotly")`
 - `array.plasma.plot.vector(*, x, y, components=(0, 1), stride=1, coordinates='logical', ax=None, backend=None, **selection)`: Plot two vector components after selecting time and remaining dimensions.

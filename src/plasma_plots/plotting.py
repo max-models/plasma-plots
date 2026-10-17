@@ -2946,6 +2946,7 @@ def plot_convergence(
     *,
     ax=None,
     order=None,
+    last=None,
     label=None,
     xlabel="resolution",
     title="Convergence",
@@ -2965,6 +2966,11 @@ def plot_convergence(
         :func:`plasma_plots.analysis.convergence_order`. Pass an explicit ``order`` (e.g. ``2``
         for second-order) to draw a reference slope through the first point instead of fitting
         one.
+    last : int, optional
+        Fit the order to the last ``last`` samples only, or draw the reference slope of ``order``
+        through the last sample and over the last ``last`` samples: the asymptotic range, when the
+        sizes go from coarse to fine and the coarse samples are not yet asymptotic. Default: all
+        samples.
     label : str, optional
         The legend label of the errors. Default: none.
     xlabel : str, optional
@@ -2980,12 +2986,17 @@ def plot_convergence(
     Examples
     --------
     >>> plot_convergence([16, 32, 64, 128], errors, order=2)
+    >>> # the order of the three finest
+    >>> plot_convergence([4, 8, 16, 32, 64], errors, last=3)
     """
+    if last is not None and last < 2:
+        raise ValueError(f"last must be at least 2, got {last}")
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     (line,) = ax.loglog(sizes, errors, "o-", label=label)
     artists = [line]
+    window = slice(None) if last is None else slice(-last, None)
     if order is None:
-        fit = convergence_order(sizes, errors)
+        fit = convergence_order(np.asarray(sizes, dtype=float)[window], np.asarray(errors, dtype=float)[window])
         if fit is not None:
             (fitted,) = ax.loglog(
                 fit.sizes,
@@ -2997,7 +3008,11 @@ def plot_convergence(
             artists.append(fitted)
     else:
         sizes_arr, errors_arr = np.asarray(sizes, dtype=float), np.asarray(errors, dtype=float)
-        reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
+        if last is not None:
+            sizes_arr, errors_arr = sizes_arr[window], errors_arr[window]
+            reference = errors_arr[-1] * (sizes_arr / sizes_arr[-1]) ** order
+        else:
+            reference = errors_arr[0] * (sizes_arr / sizes_arr[0]) ** order
         (ref_line,) = ax.loglog(sizes_arr, reference, ":", color="grey", label=f"order {order:g} reference")
         artists.append(ref_line)
     ax.set(xlabel=xlabel, ylabel="error", title=title)
