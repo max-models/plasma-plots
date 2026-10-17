@@ -29,6 +29,8 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
 * :mod:`~plasma_plots.theory.sheaths`: Bohm sheaths and floating potentials, Child–Langmuir and
   Langmuir–Blodgett space-charge-limited flow, OML probes, ambipolar and Bohm diffusion, Paschen
   breakdown and mean free paths.
+* :mod:`~plasma_plots.theory.collisions`: Coulomb logarithm, collision rates, Spitzer resistivity,
+  and the slowing down of fast ions (slowing-down time, critical energy, energy loss rates).
 
 Conventions
 -----------

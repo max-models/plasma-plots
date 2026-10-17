@@ -68,6 +68,10 @@ jobs:
       - name: Install docs dependencies
         run: make docs-install
 
+      # the scripts in examples/, run here (not in the docs build) for the Gallery pages
+      - name: Run gallery examples
+        run: make gallery
+
       - name: Build site
         working-directory: docs
         run: npm run build
