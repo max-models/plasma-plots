@@ -59,6 +59,10 @@ jobs:
       - name: Generate example figures
         run: xvfb-run -a make figures
 
+      # the scripts in examples/, run here (not in the docs build) for the Gallery pages
+      - name: Run gallery examples
+        run: make gallery
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22

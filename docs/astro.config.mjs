@@ -27,6 +27,7 @@ export default defineDocs({
 	],
 	nav: [
 		{ label: 'Guides', link: '/guides/getting-started/' },
+		{ label: 'Gallery', link: '/examples/' },
 		{ label: 'Reference', link: '/reference/plot/' },
 	],
 	sidebar: [
@@ -54,6 +55,7 @@ export default defineDocs({
 				{ label: 'Theory toolbox', slug: 'guides/theory' },
 			],
 		},
+		{ label: 'Gallery', items: [{ autogenerate: { directory: 'examples' } }] },
 		{
 			label: 'Reference',
 			items: [
