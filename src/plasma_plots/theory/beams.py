@@ -28,7 +28,9 @@ Examples
 The Child–Langmuir limit of a 5 mm radius, 4 mm gap proton extraction aperture at 30 kV, and the
 generalized perveance of a 1 A, 30 keV proton beam:
 
->>> print(f"{child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=proton_mass):.4g} A")
+>>> print(
+...     f"{child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=proton_mass):.4g} A"
+... )
 1.389 A
 >>> print(f"{perveance(1.0, 30e3, mass=proton_mass, kind='generalized'):.4g}")
 0.125
@@ -166,7 +168,9 @@ def child_langmuir_aperture(voltage, radius, gap, mass=electron_mass, charge=ele
 
     Examples
     --------
-    >>> print(f"{child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=proton_mass):.4g} A")
+    >>> print(
+    ...     f"{child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=proton_mass):.4g} A"
+    ... )
     1.389 A
     """
     voltage, radius, gap = (np.asarray(x, dtype=float) for x in (voltage, radius, gap))
@@ -203,7 +207,9 @@ def optimal_perveance(aspect_ratio, mass=electron_mass, charge=elementary_charge
     --------
     Electrons and protons at r/d = 1 (the ratio is √(m_p/m_e) = 42.8):
 
-    >>> print(f"{optimal_perveance(1.0):.4g} {optimal_perveance(1.0, mass=proton_mass):.4g}")
+    >>> print(
+    ...     f"{optimal_perveance(1.0):.4g} {optimal_perveance(1.0, mass=proton_mass):.4g}"
+    ... )
     7.332e-06 1.711e-07
     """
     aspect_ratio = np.asarray(aspect_ratio, dtype=float)
