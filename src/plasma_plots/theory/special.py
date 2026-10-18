@@ -1,5 +1,5 @@
 """Special functions of plasma theory: the Faddeeva function, the plasma dispersion function and
-complete elliptic integrals, in plain numpy (no scipy needed).
+complete elliptic integrals and Bessel functions, in plain numpy (no scipy needed).
 """
 
 from __future__ import annotations
@@ -170,3 +170,49 @@ def elliptic_e(m):
             total = total + power * c**2  # E = K (1 − Σ 2ⁿ⁻¹ cₙ²), c₀² = m
         e = elliptic_k(m) * (1 - total)
         return _out(np.where(m == 1, 1.0, e))
+
+
+def bessel_j(order, x):
+    """Compute the Bessel function of the first kind J_n(x) of integer order n.
+
+    From Bessel's integral J_n(x) = (1/2π) ∫₀^{2π} cos(nτ − x sin τ) dτ with the trapezoid rule.
+    The integrand is periodic and analytic, so the rule converges exponentially: it is accurate
+    to machine precision once the number of points exceeds |x| + |n| by a few tens.
+
+    Parameters
+    ----------
+    order : int
+        The order n (any integer).
+    x : float or array_like
+        The argument.
+
+    Returns
+    -------
+    float or numpy.ndarray
+        J_n(x).
+
+    Raises
+    ------
+    ValueError
+        If ``order`` is not an integer.
+
+    References
+    ----------
+    M. Abramowitz and I. A. Stegun, Handbook of Mathematical Functions (Dover, 1972), 9.1.21 and
+    table 9.1.
+
+    Examples
+    --------
+    J₀(1) and J₁(1) (Abramowitz and Stegun, table 9.1):
+
+    >>> print(f"{bessel_j(0, 1.0):.10f} {bessel_j(1, 1.0):.10f}")
+    0.7651976866 0.4400505857
+    """
+    if int(order) != order:
+        raise ValueError(f"order must be an integer; got {order!r}")
+    x = np.asarray(x, dtype=float)
+    n = int(order)
+    points = int(np.max(np.abs(x), initial=0.0)) + abs(n) + 40
+    tau = 2 * np.pi * np.arange(points) / points
+    values = np.cos(n * tau - x[..., None] * np.sin(tau)).mean(axis=-1)
+    return _out(values)
