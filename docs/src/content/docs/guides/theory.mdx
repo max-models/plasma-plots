@@ -190,7 +190,19 @@ collisions.spitzer_resistivity(te, density=n)  # ohm m
 ec = collisions.critical_energy(te, beam_mass_number=2, ion_mass_number=2)
 collisions.slowing_down_time(n, te, 2, energy=80e3, critical_energy_ev=ec)
 collisions.beam_stopping_fast_ion(80e3, n, te, 2, ion_mass_number=2, time=0.02)
+# pitch evolution of the slowing-down ion, and the shielded beam-driven current
+beta = collisions.pitch_scattering_exponent(2, ion_mass_number=2)
+collisions.pitch_angle_moments(ec, 80e3, ec, beta)  # mean, mean_square, width
+collisions.beam_driven_current(
+    1e20, 1.7, 80e3, n, te, 2, ion_mass_number=2, g=0.3
+)
 ```
+
+The pitch formulas follow from the Lorentz scattering rate and drag of
+arXiv:2111.11721 (Eq. D2 to D7), checked against an RK4 integration of the
+moment equations; the shielding factor is `1 - (Z_b/Z_eff)(1 - G)` with
+Sauter's `L31` (`bootstrap_coefficient_l31`). The Start-Cordey fit for `G` is
+not included because its coefficients could not be confirmed.
 
 ![The Coulomb logarithm and Spitzer resistivity against temperature, and a deuteron slowing down](../../../assets/figures/theory_collisions.png)
 
