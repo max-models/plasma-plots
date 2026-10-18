@@ -6,7 +6,7 @@ numerical schemes.
 Everything here is plain numpy (no scipy) and independent of Struphy. The modules:
 
 * :mod:`~plasma_plots.theory.special`: the Faddeeva and plasma dispersion functions, complete
-  elliptic integrals.
+  elliptic integrals, Bessel functions.
 * :mod:`~plasma_plots.theory.parameters`: plasma frequencies, lengths, speeds and dimensionless
   numbers, in SI units.
 * :mod:`~plasma_plots.theory.kinetic`: kinetic dispersion relations: Langmuir waves and Landau
@@ -25,6 +25,9 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
 * :mod:`~plasma_plots.theory.exact`: exact solutions to verify simulations: the Riemann problem
   of gas dynamics (with vacuum), dam break, diffusion, advection, pressureless flow and its
   caustics.
+* :mod:`~plasma_plots.theory.equilibria`: exact MHD equilibria to verify MHD codes: the Harris
+  current sheet, the Bennett pinch, the Solov'ev tokamak equilibrium (Cerfon–Freidberg shapes,
+  safety factor on the axis), and linear force-free (Lundquist) fields with the Taylor state.
 * :mod:`~plasma_plots.theory.numerics`: accuracy of the numerics: amplification and phase errors
   of time integrators, and the numerical dispersion of spline finite elements.
 * :mod:`~plasma_plots.theory.sheaths`: Bohm sheaths and floating potentials, Child–Langmuir and

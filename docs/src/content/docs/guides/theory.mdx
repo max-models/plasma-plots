@@ -13,6 +13,7 @@ results plug straight into the plots.
 from plasma_plots.theory import (
     beams,
     collisions,
+    equilibria,
     exact,
     kinetic,
     magnetron,
@@ -295,6 +296,35 @@ exact.caustic_time(lambda q: -0.5 * np.sin(q), q)  # first shell crossing
 ```
 
 ![The Sod shock tube and a dam break](../../../assets/figures/theory_exact.png)
+
+## MHD equilibria
+
+`theory.equilibria` has exact equilibria whose force balance ∇p = J × B a MHD
+code can be checked against. The profile functions take the coordinates first,
+so a field of the result works as `reference=`:
+
+| Function | Equilibrium |
+| --- | --- |
+| `harris_sheet`, `harris_drift_speed` | Harris current sheet B₀ tanh(z/L), n₀ sech²(z/L), with its vector potential |
+| `bennett_pinch` | Bennett z-pinch, n₀/(1 + r²/a²)², with μ₀I² = 8πN k(Tₑ + Tᵢ) |
+| `solovev`, `solovev_coefficients`, `solovev_boundary`, `solovev_axis`, `solovev_safety_factor_axis` | Solov'ev tokamak with a D-shaped boundary (ε, κ, δ), after Cerfon and Freidberg |
+| `lundquist_field`, `taylor_state` | linear force-free field J₀, J₁ and the Taylor state |
+
+```python
+s = equilibria.solovev(
+    R,
+    Z,
+    r0=1.7,
+    epsilon=0.32,
+    kappa=1.7,
+    delta=0.33,
+    a_param=-0.155,
+    psi0=0.4,
+    b0=2.5,
+)  # .psi, .b_r, .b_z, .pressure
+equilibria.harris_sheet(z, 0.01, 1.0, 5.0, 5.0).density
+equilibria.solovev_safety_factor_axis(0.32, 1.7, 0.33, -0.155, 0.4, 1.7, 2.5)
+```
 
 ## Properties of the numerics
 
