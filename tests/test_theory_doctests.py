@@ -17,6 +17,7 @@ MODULES = [
     "collisions",
     "beams",
     "magnetron",
+    "negative_ions",
     "equilibria",
 ]
 
