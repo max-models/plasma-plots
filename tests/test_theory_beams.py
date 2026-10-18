@@ -195,3 +195,50 @@ def test_attenuation_and_compensation_time():
     n_g, sigma, v = 1e18, 2e-20, 1e6
     assert beams.space_charge_compensation_time(n_g, sigma, v) == pytest.approx(5e-5)
     assert beams.space_charge_compensation_time(np.array([n_g, 2 * n_g]), sigma, v).shape == (2,)
+
+
+def _field_energy_factor(density, r):
+    """u = 16 pi eps0 (W - W_u)/lambda^2 for a radial profile in a pipe of radius r[-1].
+
+    With f(r) the enclosed charge fraction, 4 pi eps0 W/lambda^2 = int f^2 / r dr, and a uniform beam
+    of the same rms radius has 1/4 + ln(r_pipe/r_b).
+    """
+    shell = density * r
+    f = np.concatenate([[0.0], np.cumsum(0.5 * (shell[1:] + shell[:-1]) * np.diff(r))])
+    f /= f[-1]
+    x2 = np.trapezoid(density * r**3, r) / np.trapezoid(shell, r) / 2
+    rb = 2 * np.sqrt(x2)
+    integrand = np.zeros_like(r)
+    integrand[1:] = f[1:] ** 2 / r[1:]
+    return 4 * (np.trapezoid(integrand, r) - (0.25 + np.log(r[-1] / rb)))
+
+
+def test_emittance_growth_space_charge():
+    # a KV beam (u = 0) does not change its emittance, whatever its space charge
+    assert beams.emittance_growth_space_charge(0.0, 0.3) == 1.0
+    assert beams.emittance_growth_space_charge(0.15, 1.0) == 1.0  # no space charge: no growth
+    # the closed form, and it is symmetric: u_i = u_f gives 1
+    assert beams.emittance_growth_space_charge(0.1, 0.5) == pytest.approx(np.sqrt(1 + 0.5 * 3 * 0.1))
+    assert beams.emittance_growth_space_charge(0.1, 0.5, field_energy_final=0.1) == 1.0
+    assert beams.emittance_growth_space_charge(0.0, 0.5, field_energy_final=0.1) < 1.0
+    assert beams.emittance_growth_space_charge([0.1, 0.2], 0.5).shape == (2,)
+    with pytest.raises(ValueError):
+        beams.emittance_growth_space_charge(0.1, 0.0)
+    with pytest.raises(ValueError):
+        beams.emittance_growth_space_charge(0.0, 0.1, field_energy_final=1.0)
+
+
+def test_field_energy_factor_gaussian_and_uniform():
+    # numerical u = 16 pi eps0 (W - W_u)/lambda^2 of a Gaussian in a pipe: 2 gamma_E - 1 (derived from
+    # int (1 - e^-u)^2 du / u = ln X + gamma - ln 2 in the large pipe limit)
+    r = np.linspace(0.0, 400.0, 400001)
+    gauss = np.exp(-(r**2) / 2)
+    assert _field_energy_factor(gauss, r) == pytest.approx(2 * np.euler_gamma - 1, abs=2e-3)
+    # a uniform (KV) profile has u = 0
+    uniform = np.where(r < 2.0, 1.0, 0.0)
+    assert _field_energy_factor(uniform, r) == pytest.approx(0.0, abs=2e-3)
+    # the Gaussian-to-uniform growth then follows from the formula
+    u = _field_energy_factor(gauss, r)
+    assert beams.emittance_growth_space_charge(u, 0.2) == pytest.approx(
+        np.sqrt(1 + 12 * (2 * np.euler_gamma - 1)), rel=1e-2
+    )
