@@ -16,6 +16,7 @@ from plasma_plots.theory import (
     exact,
     kinetic,
     magnetron,
+    negative_ions,
     numerics,
     orbits,
     parameters,
@@ -314,6 +315,25 @@ sheaths.langmuir_blodgett(1e3, 5e-3, 1e-3, geometry="cylindrical")
 ```
 
 ![Langmuir–Blodgett against Child–Langmuir flow, Paschen curves, and an OML probe characteristic](../../../assets/figures/theory_sheaths.png)
+
+## Negative-ion sources
+
+`theory.negative_ions` has analytic references for H⁻ sources: the detachment
+and mutual-neutralization cross sections as fitted by Janev, Reiter and Samm
+(Jül-4105) with their Maxwellian rate coefficients, the Debye length and the
+Braithwaite–Allen Bohm speed of an electron–H⁻–H⁺ plasma with the H⁻ fraction
+α = n₋/nₑ and γ = Tₑ/T₋, the survival of an H⁻ beam in H₂ and H gas (through
+`beams.neutral_beam_attenuation`), and the current from a surface-production
+flux. Cross sections are used as printed in the source and are not clipped
+outside its fit range.
+
+```python
+negative_ions.electron_detachment_rate_coefficient(1.0)  # m³/s, Tₑ = 1 eV
+negative_ions.mutual_neutralization_rate_coefficient(1.0)  # m³/s, 1 eV ions
+# m/s, α = 1, T₋ = 1 eV
+negative_ions.bohm_speed_electronegative(5.0, 1.0, 1.0)
+negative_ions.beam_survival_fraction(50e3, h2_density=2.4e18, length=0.5)
+```
 
 ## Which tool for which Struphy example
 
