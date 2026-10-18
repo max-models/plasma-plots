@@ -142,3 +142,103 @@ def test_gradient_drift_broadcasts():
     k = np.array([K, 2 * K])
     growth = magnetron.gradient_drift_growth(k, E0, B, LN, 3.0, A)
     assert growth.shape == (2,) and growth[1] > growth[0]
+
+
+# --- lower-hybrid drift (Malkov and Sotnikov, arXiv:1805.01933, Eq. (1)) ----------------------
+LHD = dict(field=0.02, density=1e17, electron_temperature=10.0, mass_number=131.293)
+
+
+def lhd_plasma(field, density, electron_temperature, mass_number):
+    e = elementary_charge
+    wpe2 = density * e**2 / (parameters.vacuum_permittivity * electron_mass)
+    wpi2 = wpe2 * electron_mass / (mass_number * proton_mass)
+    wce = e * field / electron_mass
+    return wpe2, wpi2, wce, 2 * electron_temperature * e / electron_mass
+
+
+def test_lower_hybrid_drift_root_satisfies_equation_with_scipy():
+    special = pytest.importorskip("scipy.special")
+    k, ti, vi, ve, vd, kz = 1326.0, 10.0, -1e4, 0.0, 3e3, 0.0
+    w = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, ti, vi, ve, 131.293, kz, vd)
+    wpe2, wpi2, wce, vte2 = lhd_plasma(0.02, 1e17, 10.0, 131.293)
+    vti = np.sqrt(2 * ti * elementary_charge / (131.293 * proton_mass))
+    b = k**2 * vte2 / (2 * wce**2)
+    xi = (w - k * vi) / (k * vti)
+    plasma_z = 1j * np.sqrt(np.pi) * special.wofz(xi)
+    gamma0 = special.ive(0, b)
+    value = (
+        1
+        + 2 * wpi2 / (k * vti) ** 2 * (1 + xi * plasma_z)
+        + wpe2 / wce**2 * (1 - gamma0) / b
+        - kz**2 * wpe2 / (w - k * ve) ** 2
+        + 2 * wpe2 / (k**2 * vte2) * k * vd / (w - k * ve)
+    )
+    assert w.imag > 1e6  # unstable: the ion-resonant LHDI of the docstring example
+    assert abs(value) < 1e-8
+
+
+def test_lower_hybrid_drift_galilean_shift_and_mirror():
+    args = (1326.0, 0.02, 1e17, 10.0, 10.0)
+    base = magnetron.lower_hybrid_drift(*args, -1e4, 0.0, 131.293, 0.0, 3e3)
+    shifted = magnetron.lower_hybrid_drift(*args, -1e4 + 5e3, 5e3, 131.293, 0.0, 3e3)
+    assert shifted.imag == pytest.approx(base.imag, rel=1e-6)
+    assert shifted.real == pytest.approx(base.real + 1326.0 * 5e3, rel=1e-6)
+    mirrored = magnetron.lower_hybrid_drift(*args, 1e4, 0.0, 131.293, 0.0, -3e3)
+    assert mirrored == pytest.approx(-base.conjugate(), rel=1e-6)
+
+
+def test_lower_hybrid_drift_needs_a_drive():
+    for ti in (0.5, 10.0):
+        w = magnetron.lower_hybrid_drift(1326.0, 0.02, 1e17, 10.0, ti, 0.0, 3e5, 131.293)
+        assert w.imag <= 1e-6 * abs(w)
+
+
+def test_lower_hybrid_drift_cold_ions_match_polynomial_roots_and_threshold():
+    k, kz = 1000.0, 0.05
+    wpe2, wpi2, wce, vte2 = lhd_plasma(**LHD)
+    b = k**2 * vte2 / (2 * wce**2)
+    flr = 1 + wpe2 / wce**2 * (1 - np.i0(b) * np.exp(-b)) / b
+    c2 = kz**2 * wpe2
+
+    def modified_two_stream(ve):
+        # R (w − ui)² (w − ue)² − ωpi² (w − ue)² − c² (w − ui)² = 0 with ui = 0, ue = k ve
+        ue = k * ve
+        poly = np.poly1d([flr, 0, 0]) * np.poly1d([1, -ue]) ** 2
+        poly = poly - wpi2 * np.poly1d([1, -ue]) ** 2 - c2 * np.poly1d([1, 0, 0])
+        roots = poly.roots
+        return roots[np.argmax(roots.imag)]
+
+    critical = np.sqrt((wpi2 ** (1 / 3) + c2 ** (1 / 3)) ** 3 / flr) / k  # Eq. (7)
+    for fraction in (0.3, 0.8, 0.97):
+        expected = modified_two_stream(fraction * critical)
+        got = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, 1e-6, 0.0, fraction * critical, 131.293, kz)
+        assert expected.imag > 0
+        assert got == pytest.approx(expected, rel=1e-5)
+    for fraction in (1.02, 1.5):
+        got = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, 1e-6, 0.0, fraction * critical, 131.293, kz)
+        assert got.imag <= 1e-6 * abs(got)
+
+
+def test_lower_hybrid_drift_cold_threshold_growth_formula():
+    # near-threshold growth of the source (just above Eq. (7)): γ = Δ² K^{1/6} √(F_min − R)
+    # / (√3 (1 + K^{1/3})^{5/2} ω_pi), Δ = k (V_e − V_i), K = (m_i/m_e)(k_z/k)²
+    k, kz = 1000.0, 0.05
+    wpe2, wpi2, wce, vte2 = lhd_plasma(**LHD)
+    b = k**2 * vte2 / (2 * wce**2)
+    flr = 1 + wpe2 / wce**2 * (1 - np.i0(b) * np.exp(-b)) / b
+    c2 = kz**2 * wpe2
+    critical = np.sqrt((wpi2 ** (1 / 3) + c2 ** (1 / 3)) ** 3 / flr) / k
+    drift = 0.995 * critical
+    delta = k * drift
+    x = np.linspace(1e-3, 1 - 1e-3, 400001) * delta
+    f_min = np.min(wpi2 / x**2 + c2 / (delta - x) ** 2)
+    mass_ratio = 131.293 * proton_mass / electron_mass
+    big_k = mass_ratio * kz**2
+    formula = (
+        delta**2
+        * big_k ** (1 / 6)
+        / (np.sqrt(3) * (1 + big_k ** (1 / 3)) ** 2.5 * np.sqrt(wpi2))
+        * np.sqrt(f_min - flr)
+    )
+    got = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, 1e-6, 0.0, drift, 131.293, kz)
+    assert got.imag == pytest.approx(formula, rel=0.03)

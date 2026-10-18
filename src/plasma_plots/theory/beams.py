@@ -182,9 +182,10 @@ def optimal_perveance(aspect_ratio, mass=electron_mass, charge=elementary_charge
     """Compute the perveance P = I/V^(3/2) of the optimum (minimum-divergence) extraction, in A/V^1.5.
 
     The optimum is the Child–Langmuir perveance of the aperture, P_opt = (4π ε₀ / 9) √(2 q / m) (r/d)²
-    with the aspect ratio r/d of aperture radius over gap: the beamlet is then neither over- nor
-    under-focused by the plasma meniscus, which is flat. It equals
-    ``child_langmuir_aperture(V, r, d) / V**1.5``; this function takes only the geometry.
+    with the aspect ratio r/d of aperture radius over gap. This is the planar space-charge-limited
+    scaling, used here as the leading-order estimate of the perveance of minimum divergence; it
+    ignores the curvature of the plasma meniscus and the fringe fields, so real optima deviate from
+    it. It equals ``child_langmuir_aperture(V, r, d) / V**1.5``; this function takes only the geometry.
 
     Parameters
     ----------
@@ -200,8 +201,11 @@ def optimal_perveance(aspect_ratio, mass=electron_mass, charge=elementary_charge
 
     References
     ----------
-    J. R. Coupland et al., Rev. Sci. Instrum. 44, 1258 (1973), for the optimum perveance and the
-    meniscus; Brown (ed.), The Physics and Technology of Ion Sources, 2nd ed., ch. 2.
+    Brown (ed.), The Physics and Technology of Ion Sources, 2nd ed., ch. 2. The existence of a
+    perveance of minimum divergence for a three-electrode aperture is studied in J. R. Coupland,
+    T. S. Green, D. P. Hammond and A. C. Riviere, "A Study of the Ion Beam Intensity and Divergence
+    Obtained from a Single Aperture Three Electrode Extraction System", Rev. Sci. Instrum. 44, 1258
+    (1973); that paper's own optimum-perveance formula was not checked against this one.
 
     Examples
     --------
@@ -581,7 +585,10 @@ def space_charge_compensation_time(gas_density, cross_section, beam_speed):
 
     References
     ----------
-    M. D. Gabovich, Sov. Phys. Usp. 20, 134 (1977); Reiser, Theory and Design of Charged
+    The estimate τ = 1/(n_g σ v_b) follows from the ionisation rate above. For the physics of
+    space-charge compensation of ion beams by the gas-ionisation plasma see the review of M. D.
+    Gabovich, "Ion-beam plasma and the propagation of intense compensated ion beams", Sov. Phys.
+    Usp. 20, 134 (1977) (only its abstract was checked); Reiser, Theory and Design of Charged
     Particle Beams, 2nd ed., ch. 4 (neutralisation).
 
     Examples
@@ -600,3 +607,65 @@ def space_charge_compensation_time(gas_density, cross_section, beam_speed):
             * np.asarray(beam_speed, dtype=float)
         )
     )
+
+
+def emittance_growth_space_charge(field_energy_initial, tune_depression, field_energy_final=0.0):
+    """Compute the rms emittance growth ε_f/ε_i of a non-uniform beam from its field energy.
+
+    For a round, axisymmetric beam in continuous focusing, the nonlinear space-charge force changes
+    the rms emittance according to Wangler's theorem,
+    d(ε²)/ds = −32π ε₀ K ⟨x²⟩ d[(W − W_u)/λ²]/ds (the edge emittance, 16 times the squared rms
+    emittance), where W is the field energy per unit length of the beam, W_u that of the rms-equivalent
+    uniform beam and λ the line charge density. If the rms radius stays constant and the beam starts
+    matched, with the tune depression μ = σ/σ₀ (so K x_rms² = 4 k₀² x_rms⁴ (1 − μ²) and
+    ε² = k₀² x_rms⁴ μ²), this integrates to
+
+    ε_f²/ε_i² = 1 + ½ (1/μ² − 1) (u_i − u_f),   u = U/w₀ = 16π ε₀ (W − W_u)/λ²,
+
+    with the dimensionless nonlinear field energy factor u (w₀ = λ²/(16π ε₀)) of the initial and
+    final charge distributions. It is zero for a uniform (KV) distribution, so a beam that relaxes
+    to a uniform one, u_f = 0, has the largest growth. The ½ (1/μ² − 1) form with u_f = 0 is
+    Eq. (1) of Kikuchi and Horioka, who quote it from Reiser; the u_f ≠ 0 generalisation and the
+    reduction to the tune depression were derived from the Lund slides' Wangler theorem as above.
+
+    Parameters
+    ----------
+    field_energy_initial : float or array_like
+        u_i = U/w₀ of the initial distribution. For a Gaussian it is 2γ_E − 1 = 0.1544
+        (γ_E is Euler's constant), for a KV beam 0.
+    tune_depression : float or array_like
+        μ = σ/σ₀ of the initial matched beam, 0 < μ ≤ 1.
+    field_energy_final : float or array_like, optional
+        u_f of the final distribution. Default: 0 (relaxation to a uniform beam).
+
+    Returns
+    -------
+    float or numpy.ndarray
+        The ratio ε_f/ε_i of the rms emittances. Values below 1 occur for u_f > u_i.
+
+    Raises
+    ------
+    ValueError
+        If ε_f²/ε_i² would be negative, which means the assumptions (constant rms radius) fail.
+
+    References
+    ----------
+    T. Kikuchi and K. Horioka, Proc. PAC09, FR5PFP038 (2009), Eq. (1), and the Wangler theorem as
+    derived in S. M. Lund, USPAS lecture notes on transverse kinetic stability, 2017, slides 61-73
+    (cites T. P. Wangler et al., IEEE Trans. Nucl. Sci. 32, 2196 (1985), and Reiser). Both were read;
+    Reiser's book was not.
+
+    Examples
+    --------
+    A Gaussian beam with tune depression 0.2 that relaxes to a uniform beam:
+
+    >>> print(f"{emittance_growth_space_charge(2 * np.euler_gamma - 1, 0.2):.4f}")
+    1.6891
+    """
+    u_i, mu, u_f = (np.asarray(x, dtype=float) for x in (field_energy_initial, tune_depression, field_energy_final))
+    if np.any(mu <= 0) or np.any(mu > 1):
+        raise ValueError("tune_depression must be in (0, 1]")
+    ratio_sq = 1.0 + 0.5 * (1.0 / mu**2 - 1.0) * (u_i - u_f)
+    if np.any(ratio_sq < 0):
+        raise ValueError("the field-energy change gives a negative emittance; the constant-radius assumption fails")
+    return _out(np.sqrt(ratio_sq))
