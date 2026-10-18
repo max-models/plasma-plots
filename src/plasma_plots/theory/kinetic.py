@@ -1101,3 +1101,159 @@ def weibel(k, anisotropy, parallel_thermal_speed):
         step = 2 * step
     gamma = _bisect(dispersion, lo, hi)
     return _out(np.where(zero, 0.0, 1j * gamma + 0.0))
+
+
+# ---------------------------------------------------------------------------------------------
+# Electron cyclotron drift instability
+# ---------------------------------------------------------------------------------------------
+def _scaled_bessel(order, argument):
+    """Γ_m(λ) = exp(−λ) I_m(λ) for m = 0 … order (leading axis), from the power series.
+
+    The terms are summed in log form so that large λ does not overflow; every term is positive.
+    """
+    lam = np.asarray(argument, dtype=float)
+    terms = int(np.max(lam, initial=0.0) + 8 * np.sqrt(np.max(lam, initial=0.0)) + 40)
+    log_factorial = np.concatenate([[0.0], np.cumsum(np.log(np.arange(1.0, terms + order + 2)))])
+    j = np.arange(terms)[:, None]
+    m = np.arange(order + 1)[None, :]
+    out = np.zeros((order + 1,) + lam.shape)
+    for index in np.ndindex(lam.shape):
+        if lam[index] == 0.0:
+            out[(0,) + index] = 1.0
+            continue
+        log_terms = -lam[index] + (2 * j + m) * np.log(lam[index] / 2) - log_factorial[j] - log_factorial[j + m]
+        out[(slice(None),) + index] = np.exp(log_terms).sum(axis=0)
+    return out
+
+
+def electron_cyclotron_drift(
+    k,
+    drift_speed,
+    cyclotron_frequency,
+    temperature_ratio=50.0,
+    mass_ratio=131.293 * PROTON_ELECTRON_MASS_RATIO,
+    harmonics=None,
+    bernstein=2,
+):
+    """Compute the electron cyclotron drift instability (ECDI) of magnetized electrons, unmagnetized ions.
+
+    Electrons are a Maxwellian drifting at v_d (the E×B drift) across B, with the wave vector
+    along the drift (k ⊥ B, k_∥ = 0); the ions are an unmagnetized stationary Maxwellian. The
+    electrostatic dispersion relation is ε = 1 + K_i + K_e = 0 with (in the notation of Eq. (1) of
+    Janhunen et al.)
+
+        K_i = −Z'(ζ_i)/(2 k² λ_Di²),  ζ_i = ω/(√2 k v_i),
+        K_e = [1 − Γ₀ − 2 (ω − k v_d)² Σ_{m≥1} Γ_m/((ω − k v_d)² − m² Ω_ce²)]/(k² λ_De²),
+
+    with Γ_m = exp(−λ) I_m(λ), λ = k² ρ_e², ρ_e = v_the/Ω_ce. For λ → 0 (k ρ_e ≪ 1, cold electrons)
+    it reduces to the magnetized Buneman relation 1 = ω_pi²/ω² + ω_pe²/((ω − k v_d)² − Ω_ce²)
+    (checked in the tests). Unstable roots lie near the resonances k v_d ≈ m Ω_ce, where the
+    low-frequency ion-acoustic root couples to the Doppler-shifted electron Bernstein modes
+    ω − k v_d ≈ ±m Ω_ce; the growth is a few percent of ω_pe (ECDI) for a hot electron drift.
+
+    **Units** as in the rest of this module: ω in ω_pe, k in 1/λ_De, speeds in v_the = √(T_e/m_e)
+    (so ω_pe = v_the/λ_De = 1). Here exp(i(kx − ωt)). Assumptions: collisionless, homogeneous,
+    electrostatic, singly charged ions, k ⊥ B exactly (the true ECDI is very sensitive to
+    k_∥ ≠ 0), and a truncated harmonic sum (``harmonics``).
+
+    Parameters
+    ----------
+    k : float or array_like
+        Wavenumber along the drift, in units of 1/λ_De. Broadcasts with the other parameters.
+    drift_speed : float or array_like
+        Electron drift v_d = E/B in units of v_the (the ion drift is zero in this frame).
+    cyclotron_frequency : float or array_like
+        Ω_ce/ω_pe, positive.
+    temperature_ratio : float or array_like, optional
+        T_e/T_i. Default: ``50.0``.
+    mass_ratio : float or array_like, optional
+        m_i/m_e. Default: xenon, 131.293 × 1836.15.
+    harmonics : int, optional
+        Number of cyclotron harmonics kept in the sum. Default: λ + 6 √λ + 10, for the largest λ.
+    bernstein : int, optional
+        How many Doppler-shifted Bernstein branches to return. Default: ``2``.
+
+    Returns
+    -------
+    dict
+        Branch name to complex ω (in units of ω_pe, ``nan`` where no root was found):
+        ``"ion-acoustic"`` is the unstable root with the largest growth rate and
+        |Re ω| < Ω_ce/2 + 5 k c_s, c_s = √(T_e/m_i) (the ECDI mode), or if there is none the lowest-frequency stable root
+        (the ion-acoustic wave), and
+        ``"Bernstein m"`` the root with (ω − k v_d)/Ω_ce between m and m + 1, m = 1 … ``bernstein``.
+
+    Raises
+    ------
+    ValueError
+        If ``cyclotron_frequency`` is not positive.
+
+    References
+    ----------
+    S. Janhunen, A. Smolyakov, O. Chapurin, D. Sydorenko, I. Kaganovich and Y. Raitses,
+    "Nonlinear structures and anomalous transport in partially magnetized E×B plasmas",
+    Phys. Plasmas 25, 011608 (2018), arXiv:1705.00749, Eq. (1) (the Bessel-sum form was read there
+    and re-derived; the Γ_m sum is the k_∥ = 0 magnetized-Maxwellian response, e.g. Stix, Waves in
+    Plasmas, ch. 11). A. B. Mikhailovskii, Theory of Plasma Instabilities, vol. 1 (1974).
+
+    Examples
+    --------
+    Xenon at n = 1e17 m⁻³, T_e = 10 eV, E = 20 kV/m and B = 20 mT (v_d/v_the = 0.75,
+    Ω_ce/ω_pe = 0.197), just above the first resonance k v_d = Ω_ce:
+
+    >>> branches = electron_cyclotron_drift(0.3, 0.75, 0.197)
+    >>> print(f"{branches['ion-acoustic'].imag:.3e}")
+    6.343e-04
+    """
+    k, v_d, omega_c, tau, mu = _floats(k, drift_speed, cyclotron_frequency, temperature_ratio, mass_ratio)
+    if np.any(omega_c <= 0):
+        raise ValueError("cyclotron_frequency must be positive")
+    shape = k.shape
+    k, v_d, omega_c, tau, mu = (a.ravel() for a in (k, v_d, omega_c, tau, mu))
+    lam = (k / omega_c) ** 2
+    if harmonics is None:
+        top = float(np.max(lam))
+        harmonics = int(np.ceil(top + 6 * np.sqrt(top) + 10))
+    gamma = _scaled_bessel(harmonics, lam)
+    orders = np.arange(1, harmonics + 1)[:, None]
+    ion_speed = 1 / np.sqrt(mu * tau)
+
+    def dielectric(omega, kk):
+        shifted = omega - kk * v_d
+        w, _ = _response(omega / (_SQRT2 * np.abs(kk) * ion_speed))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            series = np.sum(gamma[1:] / (shifted**2 - (orders * omega_c) ** 2), axis=0)
+            electrons = (1 - gamma[0] - 2 * shifted**2 * series) / kk**2
+        return 1 + w / (mu * (kk * ion_speed) ** 2) + electrons
+
+    def roots(guesses):
+        found = [np.asarray(solve_dispersion(dielectric, k, g, continuation=False), dtype=complex) for g in guesses]
+        return np.array(found)
+
+    # ion-acoustic / ECDI: seeds on the acoustic scale and next to the poles k v_d − m Ω_ce ≈ 0
+    sound = 1 / np.sqrt(mu)
+    seeds = [s * k * sound + 1j * g * k * sound for s in (-4.0, -1.0, 0.0, 1.0, 4.0) for g in (0.01, 0.1, 1.0, 10.0)]
+    for m in range(1, 4):
+        pole = k * v_d - m * omega_c
+        seeds += [pole + (0.3 * s + 1j) * d * omega_c for d in (1e-3, 1e-2, 1e-1) for s in (-1.0, 1.0)]
+    candidates = roots(seeds)
+    ok = (
+        np.isfinite(candidates)
+        & (np.abs(candidates.real) < 0.5 * omega_c + 5 * k * sound)
+        & (np.abs(candidates.imag) < omega_c + 5 * k * sound)
+    )
+    score = np.where(candidates.imag > 1e-10, candidates.imag, -1.0 - np.abs(candidates))
+    growth = np.where(ok, score, -np.inf)
+    best = np.argmax(growth, axis=0)
+    chosen = np.take_along_axis(candidates, best[None], axis=0)[0]
+    chosen = np.where(ok.any(axis=0), chosen, np.nan + 1j * np.nan)
+    result = {"ion-acoustic": _out(chosen.reshape(shape))}
+
+    for m in range(1, bernstein + 1):
+        omega = np.full(k.shape, np.nan + 1j * np.nan)
+        for fraction in (0.5, 0.2, 0.8):
+            trial = roots([k * v_d + (m + fraction) * omega_c])[0]
+            shifted = (trial.real - k * v_d) / omega_c
+            good = np.isnan(omega) & np.isfinite(trial) & (shifted > m) & (shifted < m + 1)
+            omega = np.where(good, trial, omega)
+        result[f"Bernstein {m}"] = _out(omega.reshape(shape))
+    return result

@@ -98,6 +98,8 @@ kinetic.bump_on_tail(
 )
 kinetic.two_stream(k, beam_speed=1.0, thermal_speed=0.1)
 kinetic.weibel(k, anisotropy=4.0, parallel_thermal_speed=0.1)  # k in ω_p/c
+# magnetized electron drift (E×B): branches of the cyclotron drift instability
+kinetic.electron_cyclotron_drift(0.3, 0.75, 0.197)
 # (k, ω) of the fastest growth
 kinetic.maximum_growth(kinetic.bump_on_tail, (0.05, 0.5))
 ```
@@ -234,7 +236,8 @@ orbits.bounce_frequency(
 `theory.magnetron` has the crossed-field results used for magnetron spokes, in
 SI units: the Hull cutoff of planar and coaxial gaps, Brillouin flow, Hall
 parameter, critical ionisation velocity, E×B speed, and the Simon–Hoh and
-gradient-drift modes (growth rate and phase velocity):
+gradient-drift modes (growth rate and phase velocity), and the lower-hybrid
+drift / modified two-stream root:
 
 ```python
 magnetron.hull_cutoff(voltage=300.0, anode_radius=0.06, cathode_radius=0.01)
@@ -242,6 +245,9 @@ magnetron.critical_ionisation_velocity(100.0, mass_number=39.948)
 k = 2 * 3.14159 / 0.05
 magnetron.gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
+magnetron.lower_hybrid_drift(
+    1326.0, 0.02, 1e17, 10.0, 10.0, -1e4, 0.0, 131.293, 0.0, 3e3
+)
 ```
 
 ![The Hull cutoff, the critical ionisation velocity against the E×B drift, and the gradient-drift mode](../../../assets/figures/theory_magnetron.png)
@@ -251,7 +257,8 @@ magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 `theory.beams` has the perveance (A/V^1.5 and the dimensionless generalized one),
 the Child–Langmuir current through an aperture, KV rms envelopes (closed form
 in a drift, RK4 with space charge and focusing), thermal beam divergence, the
-Pierce angle, the Davisson–Calbick aperture lens, and beam attenuation:
+Pierce angle, the Davisson–Calbick aperture lens, the emittance growth of a
+non-uniform beam from its field energy, and beam attenuation:
 
 ```python
 beams.child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=parameters.proton_mass)
@@ -259,6 +266,7 @@ K = beams.perveance(1.0, 30e3, mass=parameters.proton_mass, kind="generalized")
 x, slope = beams.kv_envelope_ode(
     np.linspace(0, 2, 5), 2e-3, 0.0, emittance=1e-6, perveance=K
 )
+beams.emittance_growth_space_charge(0.154, 0.2)
 beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0)
 ```
 
@@ -337,6 +345,7 @@ analytic results to compare them with:
 | Langmuir wave dispersion, weak and strong Landau damping | `kinetic.langmuir`, `bohm_gross`, `landau_damping_weak` |
 | Two-stream and bump-on-tail instabilities | `kinetic.two_stream`, `two_stream_cold`, `bump_on_tail`, `maximum_growth` |
 | Weibel instability | `kinetic.weibel` |
+| Electron cyclotron drift instability (MHz spoke-related modes) | `kinetic.electron_cyclotron_drift` |
 | Maxwell light-wave dispersion, cavity resonances | `waves.light_wave`, `cavity_modes` |
 | Cold-plasma oscillation, wave packets, waves along a magnetic field | `waves.cold_plasma_waves`, `stix`, `group_velocity` |
 | Ordinary waves and the plasma cutoff, Faraday rotation | `waves.plasma_light_wave`, `cutoffs`, `faraday_rotation` |

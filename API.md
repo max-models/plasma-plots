@@ -550,6 +550,7 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `bump_on_tail(k, beam_density=0.1, beam_speed=4.5, beam_thermal_speed=0.5, bulk_density=None)`: Compute the most unstable kinetic root of a bump-on-tail distribution.
 - `maximum_growth(function, k_range, samples=64, tol=1e-08)`: Find the wavenumber of maximum growth rate of a dispersion relation.
 - `weibel(k, anisotropy, parallel_thermal_speed)`: Compute the purely growing (or damped) root of the electron Weibel instability.
+- `electron_cyclotron_drift(k, drift_speed, cyclotron_frequency, temperature_ratio=50.0, mass_ratio=241073.992952645, harmonics=None, bernstein=2)`: Compute the electron cyclotron drift instability (ECDI) of magnetized electrons, unmagnetized ions.
 
 ### plasma_plots.theory.waves
 
