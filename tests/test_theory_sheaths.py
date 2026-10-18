@@ -297,8 +297,9 @@ def test_paschen_minimum_and_branches():
     v_min = math.e * b / a * math.log(1 + 1 / gamma)
     assert pd[k] == pytest.approx(pd_min, rel=2e-3)
     assert v[k] == pytest.approx(v_min, rel=1e-6)
-    # air: a minimum of a few hundred volts
-    assert v_min == pytest.approx(330.0, rel=0.15)
+    # air: measured minimum 327 V at 0.567 Torr cm (Naidu, High Voltage Engineering, p. 27)
+    assert v_min == pytest.approx(327.0, rel=0.08)
+    assert pd_min / 133.322368 * 1e2 == pytest.approx(0.567, rel=0.5)
     # the same value in 1/(cm Torr) units: B p d with p d = 1 Torr cm
     assert sh.paschen_breakdown(133.322368, 1e-2) == pytest.approx(
         365.0 / (math.log(15.0) - math.log(math.log(101.0))), rel=1e-9
@@ -309,6 +310,36 @@ def test_paschen_minimum_and_branches():
     assert sh.paschen_breakdown(1e5, 1e-3, constants=(a, b)) == sh.paschen_breakdown(1e5, 1e-3)
     with pytest.raises(ValueError):
         sh.paschen_breakdown(1e5, 1e-3, gas="xenon")
+
+
+# measured minimum sparking potential (V) and p d (Torr cm), Naidu p. 27, with the largest
+# relative deviation of the model (γ = 0.01) in the voltage and in p d
+_MEASURED_MINIMA = {
+    "air": (327.0, 0.567, 0.08, 0.5),
+    "N2": (251.0, 0.67, 0.45, 0.6),
+    "H2": (273.0, 1.15, 0.25, 1.2),
+    "He": (156.0, 4.0, 0.1, 0.1),
+    "Ar": (137.0, 0.9, 0.4, 0.2),
+}
+
+
+@pytest.mark.parametrize("gas", list(_MEASURED_MINIMA))
+def test_paschen_minima_against_measurements(gas):
+    v_meas, pd_meas, v_tol, pd_tol = _MEASURED_MINIMA[gas]
+    a, b = sh.PASCHEN_GASES[gas]
+    torr_cm = 133.322368 * 1e-2
+    pd = np.linspace(0.05, 20.0, 40001) * torr_cm
+    v = sh.paschen_breakdown(pd, 1.0, gas=gas)
+    k = np.nanargmin(v)
+    assert v[k] == pytest.approx(v_meas, rel=v_tol)
+    assert pd[k] / torr_cm == pytest.approx(pd_meas, rel=pd_tol)
+
+
+def test_paschen_helium_constant():
+    # B = 34 V/(cm Torr) (not 25) for helium
+    a, b = sh.PASCHEN_GASES["He"]
+    assert b * 133.322368 * 1e-2 == pytest.approx(34.0)
+    assert a * 133.322368 * 1e-2 == pytest.approx(3.0)
 
 
 def test_mean_free_path():

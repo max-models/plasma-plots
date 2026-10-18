@@ -65,15 +65,22 @@ _e = elementary_charge
 _SHEATH_EDGE = math.exp(-0.5)
 
 #: Constants (A in 1/(Pa m), B in V/(Pa m)) of the Paschen law for some gases, converted from
-#: the usual 1/(cm Torr) and V/(cm Torr) (Raizer, Gas Discharge Physics, table 13.1;
-#: Lieberman and Lichtenberg, section 14.2).
+#: the usual 1/(cm Torr) and V/(cm Torr). These are fits of the first Townsend coefficient,
+#: α/p = A exp(−B p/E), valid only over a limited range of E/p (V/(cm Torr)), with the
+#: values of the standard compilation (Raizer, Gas Discharge Physics, Springer 1991):
+#: air A = 15, B = 365, E/p = 100-800 (also Bazelyan and Raizer, Spark Discharge, p. 32; as
+#: 112.5 /(kPa cm) and 2737.5 V/(kPa cm), Husain and Nema, IEEE Trans. Electr. Insul. 1982);
+#: N2 12, 342, 100-600; H2 5, 130, 150-600; He 3, 34, 20-150; Ne 4, 100, 100-400; Ar 12, 180,
+#: 100-600. Verification: air, Ar and the E/p ranges of air, N2 and H2 were checked against
+#: secondary web tables, Ne and the He, Ne and Ar ranges were not found in a source; He B = 34
+#: (not 25) follows the tabulations (arXiv:2206.13440, B = 26 /mbar = 34.7; arXiv:1612.07170).
 PASCHEN_GASES = {
     name: (a / (1e-2 * 133.322368), b / (1e-2 * 133.322368))
     for name, (a, b) in {
         "air": (15.0, 365.0),
         "N2": (12.0, 342.0),
         "H2": (5.0, 130.0),
-        "He": (3.0, 25.0),
+        "He": (3.0, 34.0),
         "Ne": (4.0, 100.0),
         "Ar": (12.0, 180.0),
     }.items()
@@ -194,7 +201,7 @@ def ion_saturation_current(density, electron_temperature, area, mass_number=1, c
 
     References
     ----------
-    Chen, Introduction to Plasma Physics, section 10.5 (Langmuir probes):
+    Chen, Introduction to Plasma Physics, section 8.2.5 (electrostatic probes):
     I_is = 0.61 e n A √(T_e/M).
 
     Examples
@@ -250,7 +257,7 @@ def floating_potential(
 
     References
     ----------
-    Lieberman and Lichtenberg, section 6.3: V_f = −(T_e/2) ln(M/(2π m)) for hydrogen-like
+    Lieberman and Lichtenberg, section 6.2: V_f = −(T_e/2) ln(M/(2π m)) for hydrogen-like
     ions; Hobbs and Wesson, Plasma Phys. Control. Fusion 9, 85 (1967), for the emission factor
     1/(1 − δ).
 
@@ -300,8 +307,8 @@ def sheath_width(density, electron_temperature, voltage, model="child-langmuir")
 
     References
     ----------
-    Lieberman and Lichtenberg, section 6.3 (the Child–Langmuir sheath) and section 11.2 (the
-    matrix sheath).
+    Lieberman and Lichtenberg, section 6.3 (the matrix sheath and the Child–Langmuir
+    sheath).
 
     Examples
     --------
@@ -571,7 +578,7 @@ def oml_current(
     References
     ----------
     H. M. Mott-Smith and I. Langmuir, Phys. Rev. 28, 727 (1926); Chen, Introduction to Plasma
-    Physics, section 10.5; the exact cylindrical Maxwellian result is in J. G. Laframboise,
+    Physics, section 8.2.5; the exact cylindrical Maxwellian result is in J. G. Laframboise,
     UTIAS Report 100 (1966).
 
     Examples
@@ -633,7 +640,7 @@ def ambipolar_diffusion(ion_mobility, electron_temperature, ion_temperature=0.0,
 
     References
     ----------
-    Lieberman and Lichtenberg, section 5.2; Chen, section 5.5.
+    Lieberman and Lichtenberg, section 5.1; Chen, chapter 5.
 
     Examples
     --------
@@ -668,7 +675,7 @@ def bohm_diffusion(electron_temperature, field):
     References
     ----------
     D. Bohm, in The Characteristics of Electrical Discharges in Magnetic Fields (McGraw-Hill,
-    1949); Chen, Introduction to Plasma Physics, section 5.6: D_B = k T_e / (16 e B).
+    1949); Chen, Introduction to Plasma Physics, chapter 5 (Bohm diffusion): D_B = k T_e / (16 e B).
 
     Examples
     --------
@@ -706,10 +713,20 @@ def paschen_breakdown(pressure, gap, gas="air", secondary_emission=0.01, constan
     ValueError
         If ``gas`` is unknown.
 
+    Notes
+    -----
+    A and B are fits of the Townsend coefficient, so the formula is only accurate when the
+    breakdown field E/p = V_b/(p d) is inside the range of the gas. The minimum is
+    V_min = e (B/A) ln(1 + 1/γ) at p d = e ln(1 + 1/γ)/A, which for γ = 0.01 is within about
+    10 % of the measured minimum sparking potential for air and He but 20-40 % too high for
+    H2, N2 and Ar, and its p d is off by 5-120 % (measured air: 327 V at 0.567 Torr cm; N2:
+    251 V at 0.67; H2: 273 V at 1.15; He: 156 V at 4.0; Ar: 137 V at 0.9; Naidu, High Voltage
+    Engineering, p. 27). Use ``secondary_emission`` to fit a measured minimum.
+
     References
     ----------
-    F. Paschen, Ann. Phys. 273, 69 (1889); Lieberman and Lichtenberg, section 14.2; the
-    constants are Raizer, Gas Discharge Physics (Springer, 1991), table 13.1.
+    F. Paschen, Ann. Phys. 273, 69 (1889); Raizer, Gas Discharge Physics (Springer, 1991). The constants and their
+    E/p validity ranges are documented at :data:`PASCHEN_GASES`.
 
     Examples
     --------
@@ -760,7 +777,7 @@ def mean_free_path(cross_section, density=None, pressure=None, temperature=300.0
 
     References
     ----------
-    Lieberman and Lichtenberg, section 3.3: λ = 1/(n σ).
+    Lieberman and Lichtenberg, section 3.1: λ = 1/(n σ).
 
     Examples
     --------
