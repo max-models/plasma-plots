@@ -10,7 +10,8 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
 * :mod:`~plasma_plots.theory.parameters`: plasma frequencies, lengths, speeds and dimensionless
   numbers, in SI units.
 * :mod:`~plasma_plots.theory.kinetic`: kinetic dispersion relations: Langmuir waves and Landau
-  damping, ion-acoustic waves, beam-plasma, bump-on-tail and two-stream instabilities, Weibel.
+  damping, ion-acoustic waves, beam-plasma, bump-on-tail and two-stream instabilities, Weibel,
+  electron cyclotron drift instability.
 * :mod:`~plasma_plots.theory.waves`: fluid, MHD and cold-plasma waves: light waves, MHD waves at
   any angle, dissipative and Hall-MHD Alfvén waves, cold-plasma (Stix) waves, cutoffs and
   resonances, Faraday rotation, cavity modes, drift waves and Hasegawa–Wakatani, Alfvén and slow
@@ -20,7 +21,7 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
 * :mod:`~plasma_plots.theory.beams`: charged-particle beams: perveance, Child–Langmuir extraction
   through an aperture, KV envelopes, beam divergence, aperture lenses and beam attenuation.
 * :mod:`~plasma_plots.theory.magnetron`: crossed-field discharges: Hull cutoff, Brillouin flow,
-  Hall parameter, critical ionisation velocity, Simon–Hoh and gradient-drift modes.
+  Hall parameter, critical ionisation velocity, Simon–Hoh, gradient-drift and lower-hybrid drift modes.
 * :mod:`~plasma_plots.theory.exact`: exact solutions to verify simulations: the Riemann problem
   of gas dynamics (with vacuum), dam break, diffusion, advection, pressureless flow and its
   caustics.
@@ -31,6 +32,9 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
   breakdown and mean free paths.
 * :mod:`~plasma_plots.theory.collisions`: Coulomb logarithm, collision rates, Spitzer resistivity,
   and the slowing down of fast ions (slowing-down time, critical energy, energy loss rates).
+* :mod:`~plasma_plots.theory.negative_ions`: H⁻ sources: detachment and mutual-neutralization cross
+  sections and thermal rates (Janev et al.), the electronegative Debye length and Bohm speed,
+  H⁻ beam survival in gas and the current from surface production.
 
 Conventions
 -----------
