@@ -637,3 +637,4 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `plasma_dispersion(zeta, derivative=0)`: Compute the plasma dispersion function Z(ζ) of Fried and Conte, or its first derivative.
 - `elliptic_k(m)`: Compute the complete elliptic integral of the first kind K(m), with parameter m = k².
 - `elliptic_e(m)`: Compute the complete elliptic integral of the second kind E(m), with parameter m = k².
+- `bessel_j(order, x)`: Compute the Bessel function of the first kind J_n(x) of integer order n.
