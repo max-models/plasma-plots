@@ -164,3 +164,108 @@ def test_beam_stopping_rates():
     assert (80e3 - e1) / dt == pytest.approx(loss["total"], rel=1e-4)
     # an array of energies broadcasts
     assert col.beam_stopping_fast_ion(np.array([20e3, 80e3]), **kw)["total"].shape == (2,)
+
+
+def _rk4_slowing_down(e0_ev, density, temperature, a_b, z_b, ions, ln_lambda, e_end_ev=None, xi0=1.0):
+    """Independent RK4 of the drag + Lorentz-diffusion moment ODEs (arXiv:2111.11721, Eq. D2-D7).
+
+    Uses ln v as the independent variable, with nu_d = Z_eff Gamma / v^3, the electron drag nu_s of
+    Eq. D6 and v_c^3 = 3 sqrt(pi)/4 (m_e/m_p) v_Te^3 sum_j f_j Z_j^2 / A_j, and integrates
+    d<xi>/dt = -nu_d <xi>, d<xi^2>/dt = nu_d (1 - 3 <xi^2>), d(path)/dt = v <xi>, dt = dv / (dv/dt).
+    Returns (<xi>, <xi^2>, path, time) at e_end_ev (default: ~rest).
+    """
+    me, mp, e = par.electron_mass, par.proton_mass, par.elementary_charge
+    m_b = a_b * mp
+    gamma = density * z_b**2 * e**4 * ln_lambda / (4 * math.pi * par.vacuum_permittivity**2 * m_b**2)
+    z_eff = sum(f * z**2 for f, z, _ in ions)
+    v_te = math.sqrt(2 * temperature * par.ev_to_joule / me)
+    nu_s0 = 4 * m_b / (3 * math.sqrt(math.pi) * me) * gamma / v_te**3  # Eq. D6
+    s_ion = sum(f * z**2 / a for f, z, a in ions)
+    vc3 = 3 * math.sqrt(math.pi) / 4 * (me / mp) * v_te**3 * s_ion
+    v0 = math.sqrt(2 * e0_ev * par.ev_to_joule / m_b)
+    v_end = v0 * math.sqrt(e_end_ev / e0_ev) if e_end_ev else (vc3 ** (1 / 3)) * 1e-4
+
+    def rhs(lnv, y):
+        v = math.exp(lnv)
+        nu_d = z_eff * gamma / v**3
+        dvdt = -nu_s0 * v * (1 + vc3 / v**3)
+        m1, m2, path, t = y
+        # dy/dlnv = v dy/dt / (dv/dt)
+        return np.array([-nu_d * m1, nu_d * (1 - 3 * m2), v * m1, 1.0]) * (v / dvdt)
+
+    n = 6000
+    x, y = math.log(v0), np.array([xi0, xi0**2, 0.0, 0.0])
+    h = (math.log(v_end) - x) / n
+    for _ in range(n):
+        k1 = rhs(x, y)
+        k2 = rhs(x + h / 2, y + h / 2 * k1)
+        k3 = rhs(x + h / 2, y + h / 2 * k2)
+        k4 = rhs(x + h, y + h * k3)
+        y = y + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+        x += h
+    return y[0], y[1], y[2], y[3]
+
+
+PITCH_CASES = {
+    "D in D": (2.0, [(1.0, 1, 2.0)]),
+    "H in D": (1.0, [(1.0, 1, 2.0)]),
+    "D in D + 5% C6+": (2.0, [(0.7, 1, 2.0), (0.05, 6, 12.0)]),
+}
+
+
+@pytest.mark.parametrize("name", list(PITCH_CASES))
+def test_pitch_evolution_and_parallel_path_match_rk4(name):
+    a_b, ions = PITCH_CASES[name]
+    n, t, lnl, e0, xi0 = 1e19, 1500.0, 17.0, 80e3, 0.7
+    e_c = col.critical_energy(t, a_b, ions=ions)
+    beta = col.pitch_scattering_exponent(a_b, ions=ions)
+    z_eff = sum(f * z**2 for f, z, _ in ions)
+    s = sum(f * z**2 / a for f, z, a in ions)
+    assert beta == pytest.approx(z_eff / (a_b * s), rel=1e-14)
+    # the electron drag rate of D6 is 1 / tau_s of this module, so the RK4 above is on the same scale
+    for e_end in (50e3, e_c, 2e3):
+        m1, m2, _, time = _rk4_slowing_down(e0, n, t, a_b, 1, ions, lnl, e_end, xi0)
+        mom = col.pitch_angle_moments(e_end, e0, e_c, beta, xi0)
+        assert mom["mean"] == pytest.approx(m1, rel=2e-7)
+        assert mom["mean_square"] == pytest.approx(m2, rel=2e-7)
+        assert mom["width"] == pytest.approx(math.sqrt(m2 - m1**2), rel=2e-6)
+        tau = col.slowing_down_time(n, t, a_b, ln_lambda=lnl, energy=e0, final_energy=e_end, critical_energy_ev=e_c)
+        assert tau == pytest.approx(time, rel=2e-7)
+    # to rest: the path along B
+    _, _, path, _ = _rk4_slowing_down(e0, n, t, a_b, 1, ions, lnl, None, xi0)
+    kw = dict(density=n, temperature=t, beam_mass_number=a_b, ions=ions, ln_lambda=lnl, initial_pitch=xi0)
+    assert col.fast_ion_parallel_path(e0, **kw) == pytest.approx(path, rel=1e-5)
+
+
+def test_pitch_evolution_limits():
+    e_c = 20e3
+    # above E_c the pitch is kept, far below it becomes isotropic: <xi^2> -> 1/3, <xi> -> 0
+    early = col.pitch_angle_moments(0.99 * 1e6, 1e6, e_c, 1.0)
+    assert early["mean"] == pytest.approx(1.0, abs=1e-3) and early["width"] < 0.02
+    late = col.pitch_angle_moments(1e-3, 1e5, e_c, 1.0)
+    assert late["mean"] < 1e-3 and late["mean_square"] == pytest.approx(1 / 3, abs=1e-3)
+    # exponent beta = 0 (no scattering): nothing changes
+    assert col.pitch_angle_moments(1e3, 8e4, e_c, 0.0, 0.5)["mean"] == pytest.approx(0.5)
+    # more Z_eff, faster scattering: smaller mean pitch
+    assert col.pitch_angle_moments(1e4, 8e4, e_c, 2.5)["mean"] < col.pitch_angle_moments(1e4, 8e4, e_c, 1.0)["mean"]
+    # beta of a beam in its own isotope is 1 for any charge
+    assert col.pitch_scattering_exponent(4.0, 4.0, 2.0) == pytest.approx(1.0)
+    assert col.pitch_scattering_exponent(1.0, 2.0) == pytest.approx(2.0)
+
+
+def test_shielding_and_beam_driven_current():
+    assert col.electron_shielding_factor(1.0, 1.0) == 0.0  # complete cancellation, Z_b = Z_eff
+    assert col.electron_shielding_factor(1.0, 2.0) == pytest.approx(0.5)
+    assert col.electron_shielding_factor(1.0, 2.0, g=1.0) == pytest.approx(1.0)
+    # L31 with no trapped electrons is 0; banana-regime value of the polynomial at f_t = 1, Z = 1
+    assert col.bootstrap_coefficient_l31(1.5, 0.0) == 0.0
+    assert col.bootstrap_coefficient_l31(1.0, 1.0) == pytest.approx(1 + 1.4 / 2 - 1.9 / 2 + 0.3 / 2 + 0.2 / 2)
+    # collisionality lowers it
+    assert col.bootstrap_coefficient_l31(1.0, 0.3, 1.0) < col.bootstrap_coefficient_l31(1.0, 0.3)
+    kw = dict(density=1e19, temperature=1000.0, beam_mass_number=2.0, ion_mass_number=2.0, ln_lambda=17.0)
+    path = col.fast_ion_parallel_path(80e3, **kw)
+    out = col.beam_driven_current(1e20, 1.7, 80e3, ion_charge_number=1.0, **kw)
+    assert out["fast_ion"] == pytest.approx(par.elementary_charge * 1e20 * path / (2 * math.pi * 1.7))
+    assert out["net"] == 0.0  # Z_b = Z_eff = 1, G = 0
+    out = col.beam_driven_current(1e20, 1.7, 80e3, g=0.3, **kw)
+    assert out["net"] == pytest.approx(0.3 * out["fast_ion"])
