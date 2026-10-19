@@ -16,6 +16,7 @@ from plasma_plots.theory import (
     exact,
     kinetic,
     magnetron,
+    negative_ions,
     numerics,
     orbits,
     parameters,
@@ -98,6 +99,8 @@ kinetic.bump_on_tail(
 )
 kinetic.two_stream(k, beam_speed=1.0, thermal_speed=0.1)
 kinetic.weibel(k, anisotropy=4.0, parallel_thermal_speed=0.1)  # k in ω_p/c
+# magnetized electron drift (E×B): branches of the cyclotron drift instability
+kinetic.electron_cyclotron_drift(0.3, 0.75, 0.197)
 # (k, ω) of the fastest growth
 kinetic.maximum_growth(kinetic.bump_on_tail, (0.05, 0.5))
 ```
@@ -190,7 +193,19 @@ collisions.spitzer_resistivity(te, density=n)  # ohm m
 ec = collisions.critical_energy(te, beam_mass_number=2, ion_mass_number=2)
 collisions.slowing_down_time(n, te, 2, energy=80e3, critical_energy_ev=ec)
 collisions.beam_stopping_fast_ion(80e3, n, te, 2, ion_mass_number=2, time=0.02)
+# pitch evolution of the slowing-down ion, and the shielded beam-driven current
+beta = collisions.pitch_scattering_exponent(2, ion_mass_number=2)
+collisions.pitch_angle_moments(ec, 80e3, ec, beta)  # mean, mean_square, width
+collisions.beam_driven_current(
+    1e20, 1.7, 80e3, n, te, 2, ion_mass_number=2, g=0.3
+)
 ```
+
+The pitch formulas follow from the Lorentz scattering rate and drag of
+arXiv:2111.11721 (Eq. D2 to D7), checked against an RK4 integration of the
+moment equations; the shielding factor is `1 - (Z_b/Z_eff)(1 - G)` with
+Sauter's `L31` (`bootstrap_coefficient_l31`). The Start-Cordey fit for `G` is
+not included because its coefficients could not be confirmed.
 
 ![The Coulomb logarithm and Spitzer resistivity against temperature, and a deuteron slowing down](../../../assets/figures/theory_collisions.png)
 
@@ -222,7 +237,8 @@ orbits.bounce_frequency(
 `theory.magnetron` has the crossed-field results used for magnetron spokes, in
 SI units: the Hull cutoff of planar and coaxial gaps, Brillouin flow, Hall
 parameter, critical ionisation velocity, E×B speed, and the Simon–Hoh and
-gradient-drift modes (growth rate and phase velocity):
+gradient-drift modes (growth rate and phase velocity), and the lower-hybrid
+drift / modified two-stream root:
 
 ```python
 magnetron.hull_cutoff(voltage=300.0, anode_radius=0.06, cathode_radius=0.01)
@@ -230,6 +246,9 @@ magnetron.critical_ionisation_velocity(100.0, mass_number=39.948)
 k = 2 * 3.14159 / 0.05
 magnetron.gradient_drift_phase_velocity(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
+magnetron.lower_hybrid_drift(
+    1326.0, 0.02, 1e17, 10.0, 10.0, -1e4, 0.0, 131.293, 0.0, 3e3
+)
 ```
 
 ![The Hull cutoff, the critical ionisation velocity against the E×B drift, and the gradient-drift mode](../../../assets/figures/theory_magnetron.png)
@@ -239,7 +258,8 @@ magnetron.gradient_drift_growth(k, 1e4, 0.05, 0.01, 3.0, 39.948)
 `theory.beams` has the perveance (A/V^1.5 and the dimensionless generalized one),
 the Child–Langmuir current through an aperture, KV rms envelopes (closed form
 in a drift, RK4 with space charge and focusing), thermal beam divergence, the
-Pierce angle, the Davisson–Calbick aperture lens, and beam attenuation:
+Pierce angle, the Davisson–Calbick aperture lens, the emittance growth of a
+non-uniform beam from its field energy, and beam attenuation:
 
 ```python
 beams.child_langmuir_aperture(30e3, 5e-3, 4e-3, mass=parameters.proton_mass)
@@ -247,6 +267,7 @@ K = beams.perveance(1.0, 30e3, mass=parameters.proton_mass, kind="generalized")
 x, slope = beams.kv_envelope_ode(
     np.linspace(0, 2, 5), 2e-3, 0.0, emittance=1e-6, perveance=K
 )
+beams.emittance_growth_space_charge(0.154, 0.2)
 beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0)
 ```
 
@@ -315,6 +336,25 @@ sheaths.langmuir_blodgett(1e3, 5e-3, 1e-3, geometry="cylindrical")
 
 ![Langmuir–Blodgett against Child–Langmuir flow, Paschen curves, and an OML probe characteristic](../../../assets/figures/theory_sheaths.png)
 
+## Negative-ion sources
+
+`theory.negative_ions` has analytic references for H⁻ sources: the detachment
+and mutual-neutralization cross sections as fitted by Janev, Reiter and Samm
+(Jül-4105) with their Maxwellian rate coefficients, the Debye length and the
+Braithwaite–Allen Bohm speed of an electron–H⁻–H⁺ plasma with the H⁻ fraction
+α = n₋/nₑ and γ = Tₑ/T₋, the survival of an H⁻ beam in H₂ and H gas (through
+`beams.neutral_beam_attenuation`), and the current from a surface-production
+flux. Cross sections are used as printed in the source and are not clipped
+outside its fit range.
+
+```python
+negative_ions.electron_detachment_rate_coefficient(1.0)  # m³/s, Tₑ = 1 eV
+negative_ions.mutual_neutralization_rate_coefficient(1.0)  # m³/s, 1 eV ions
+# m/s, α = 1, T₋ = 1 eV
+negative_ions.bohm_speed_electronegative(5.0, 1.0, 1.0)
+negative_ions.beam_survival_fraction(50e3, h2_density=2.4e18, length=0.5)
+```
+
 ## Which tool for which Struphy example
 
 The [Struphy examples](https://struphy-hub.github.io/examples/) and the
@@ -325,6 +365,7 @@ analytic results to compare them with:
 | Langmuir wave dispersion, weak and strong Landau damping | `kinetic.langmuir`, `bohm_gross`, `landau_damping_weak` |
 | Two-stream and bump-on-tail instabilities | `kinetic.two_stream`, `two_stream_cold`, `bump_on_tail`, `maximum_growth` |
 | Weibel instability | `kinetic.weibel` |
+| Electron cyclotron drift instability (MHz spoke-related modes) | `kinetic.electron_cyclotron_drift` |
 | Maxwell light-wave dispersion, cavity resonances | `waves.light_wave`, `cavity_modes` |
 | Cold-plasma oscillation, wave packets, waves along a magnetic field | `waves.cold_plasma_waves`, `stix`, `group_velocity` |
 | Ordinary waves and the plasma cutoff, Faraday rotation | `waves.plasma_light_wave`, `cutoffs`, `faraday_rotation` |

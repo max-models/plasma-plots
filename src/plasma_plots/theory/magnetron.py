@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from plasma_plots.theory import orbits, parameters
+from plasma_plots.theory import kinetic, orbits, parameters
 from plasma_plots.theory.parameters import (
     electron_mass,
     elementary_charge,
@@ -487,3 +487,174 @@ def gradient_drift_phase_velocity(*args, **kwargs):
     """
     omega = gradient_drift_frequency(*args, **kwargs)
     return _out(np.real(omega) / np.asarray(args[0], dtype=float))
+
+
+# ---------------------------------------------------------------------------------------------
+# Lower-hybrid drift modes
+# ---------------------------------------------------------------------------------------------
+def lower_hybrid_drift(
+    wavenumber,
+    field,
+    density,
+    electron_temperature,
+    ion_temperature,
+    ion_drift,
+    electron_drift,
+    mass_number=1.0,
+    parallel_ratio=0.0,
+    diamagnetic_drift=0.0,
+):
+    """Compute the electrostatic lower-hybrid drift / modified two-stream root (Malkov and Sotnikov, Eq. 1).
+
+    Local, electrostatic, collisionless; unmagnetized Maxwellian ions of charge e (ω ≫ Ω_i and
+    k ρ_i ≫ 1); magnetized Maxwellian electrons with finite Larmor radius; k ⊥ B up to a small
+    k_z ≪ k. With exp(i(k y − ω t)) the relation is
+
+        1 + (2 ω_pi²/(k² v_Ti²)) [1 + ξ Z(ξ)] + (ω_pe²/Ω_ce²) (1 − Γ₀(b))/b
+          − (k_z²/k²) ω_pe²/(ω − k V_e)² + (2 ω_pe²/(k² v_Te²)) k V_Δ/(ω − k V_e) = 0,
+
+    with ξ = (ω − k V_i)/(|k| v_Ti), v_T = √(2T/m), Γ₀(b) = exp(−b) I₀(b) and
+    b = k² T_e/(m_e Ω_ce²) = k² ρ_e². V_i and V_e are the ion and electron drifts along k (the
+    instability depends on V_e − V_i, so V_i = 0 gives the ion rest frame) and V_Δ is the electron
+    drift due to density, field and temperature gradients, taken as an input (the paper's
+    V_Δ = −(v_Te²/Ω_ce) Γ₀(b) {κ_n − …} includes the Larmor-radius factors). In the source the
+    thermal speed v_T and b are printed ambiguously (b = |k| v_Te/Ω_ce); the values above are
+    those for which the electron response reduces to the Debye one, (1 − Γ₀)/(k² λ_De²), and
+    the V_Δ term to the standard Maxwellian drift term; the cold-electron limit is checked in the
+    tests.
+
+    * With k_z = 0 and V_Δ = 0 every root is real: a drive is needed.
+    * With k_z ≠ 0, V_Δ = 0 and cold ions the relation is the modified two-stream relation
+      ω_pi²/(ω − k V_i)² + (k_z/k)² ω_pe²/(ω − k V_e)² = R, R = 1 + (ω_pe²/Ω_ce²)(1 − Γ₀)/b,
+      which has a complex pair iff R k² (V_e − V_i)² < (ω_pi^{2/3} + (k_z/k)^{2/3} ω_pe^{2/3})³
+      (Eq. (7) of the source, restated here and checked in the tests).
+    * With k_z = 0 and V_Δ ≠ 0 the relation is the electrostatic lower-hybrid drift instability
+      (LHDI): a lower-hybrid branch with ω of order ω_LH = ω_pi/√(1 + ω_pe²/Ω_ce²), driven by the
+      gradient drift V_Δ through resonance with ions of relative drift V_i of a few v_Ti and
+      T_i ~ T_e (the sign of V_Δ opposite to V_e − V_i, as in the example). This is the weak-β,
+      electrostatic limit only: no magnetic fluctuations, no β-dependent stabilization, and no
+      density-gradient (k_x) structure. The relation of this source was checked here against its
+      cold-ion closed form and against scipy (see the tests), not against the original paper of
+      Davidson and Gladd.
+
+    The root with the largest growth rate is found by Newton iteration from several seeds with
+    :func:`~plasma_plots.theory.kinetic.solve_dispersion`; ``nan`` if none converged.
+
+    Parameters
+    ----------
+    wavenumber : float or array_like
+        k along the drift, in 1/m.
+    field : float or array_like
+        B, in T.
+    density : float or array_like
+        n_e = n_i, in m⁻³.
+    electron_temperature, ion_temperature : float or array_like
+        T_e and T_i, in eV.
+    ion_drift, electron_drift : float or array_like
+        V_i and V_e along k, in m/s.
+    mass_number : float or array_like, optional
+        Ion mass in proton masses. Default: ``1``.
+    parallel_ratio : float or array_like, optional
+        k_z/k. Default: ``0``.
+    diamagnetic_drift : float or array_like, optional
+        V_Δ in m/s along k. Default: ``0``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Complex ω in rad/s, in the frame in which V_i and V_e are given.
+
+    References
+    ----------
+    M. A. Malkov and V. I. Sotnikov, arXiv:1805.01933, Eq. (1) (read in full; the equation there
+    is adapted from R. C. Davidson and N. T. Gladd, Phys. Fluids 18, 1327 (1975), not read) and
+    Eq. (7).
+
+    Examples
+    --------
+    Xenon, n = 1e17 m⁻³, B = 20 mT, T_e = T_i = 10 eV, k ρ_e = 0.5 (k = 1326 1/m), ions drifting at
+    −10 km/s (2.6 v_Ti) through electrons with V_Δ = 3 km/s and no E×B drift:
+
+    >>> w = lower_hybrid_drift(
+    ...     1326.0, 0.02, 1e17, 10.0, 10.0, -1e4, 0.0, 131.293, 0.0, 3e3
+    ... )
+    >>> print(f"{w.real:.4g} rad/s, {w.imag:.4g} 1/s")
+    -8.989e+06 rad/s, 4.691e+06 1/s
+    """
+    k, B, n, Te, Ti, Vi, Ve, A, kz, Vd = np.broadcast_arrays(
+        *(
+            np.asarray(x, dtype=float)
+            for x in (
+                wavenumber,
+                field,
+                density,
+                electron_temperature,
+                ion_temperature,
+                ion_drift,
+                electron_drift,
+                mass_number,
+                parallel_ratio,
+                diamagnetic_drift,
+            )
+        )
+    )
+    shape = k.shape
+    k, B, n, Te, Ti, Vi, Ve, A, kz, Vd = (x.ravel() for x in (k, B, n, Te, Ti, Vi, Ve, A, kz, Vd))
+    ion_mass = A * proton_mass
+    wpe2 = n * elementary_charge**2 / (vacuum_permittivity * electron_mass)
+    wpi2 = n * elementary_charge**2 / (vacuum_permittivity * ion_mass)
+    wce = elementary_charge * np.abs(B) / electron_mass
+    vte2 = 2 * Te * elementary_charge / electron_mass
+    vti = np.sqrt(2 * Ti * elementary_charge / ion_mass)
+    b = k**2 * vte2 / (2 * wce**2)
+    with np.errstate(over="ignore"):
+        gamma0 = np.where(
+            b < 500,
+            np.i0(np.minimum(b, 500.0)) * np.exp(-np.minimum(b, 500.0)),
+            (1 + 1 / (8 * b) + 9 / (128 * b**2)) / np.sqrt(2 * np.pi * b),
+        )
+    flr = np.where(b < 1e-6, 1 - 0.75 * b, (1 - gamma0) / np.where(b == 0, 1.0, b))
+    static = 1 + wpe2 / wce**2 * flr
+    parallel = kz**2 * wpe2
+    drive = 2 * wpe2 / (k**2 * vte2) * k * Vd
+    ion_scale = 2 * wpi2 / (k * vti) ** 2
+
+    def dielectric(omega, kk):
+        w, _ = kinetic._response((omega - kk * Vi) / (np.abs(kk) * vti))
+        shifted = omega - kk * Ve
+        return static + ion_scale * w - parallel / shifted**2 + drive / shifted
+
+    def slope(omega, kk):
+        _, dw = kinetic._response((omega - kk * Vi) / (np.abs(kk) * vti))
+        shifted = omega - kk * Ve
+        return ion_scale * dw / (np.abs(kk) * vti) + 2 * parallel / shifted**3 - drive / shifted**2
+
+    wlh = np.sqrt(wpi2 / (1 + wpe2 / wce**2))
+    scale = np.abs(k * (Ve - Vi)) + np.abs(k * Vd) + wlh
+    seeds = [
+        k * Vi + f * k * (Ve - Vi) + 1j * g * scale for f in (0.05, 0.25, 0.5, 0.75, 0.95) for g in (0.02, 0.1, 0.3)
+    ]
+    seeds += [k * Vi + s * wlh + 1j * g * wlh for s in (-1.0, -0.5, 0.5, 1.0) for g in (0.05, 0.3)]
+    # the roots of the cold-ion polynomial (the quartic of Eq. (2) with the drive term) as seeds
+    cold = np.empty((4, k.size), dtype=complex)
+    for i in range(k.size):
+        ui, ue = np.poly1d([1.0, -k[i] * Vi[i]]), np.poly1d([1.0, -k[i] * Ve[i]])
+        scalar = np.poly1d
+        poly = (
+            scalar([static[i]]) * ui**2 * ue**2
+            - scalar([wpi2[i]]) * ue**2
+            - scalar([parallel[i]]) * ui**2
+            + scalar([drive[i]]) * ue * ui**2
+        )
+        found = poly.roots
+        cold[:, i] = np.pad(found, (0, 4 - found.size), constant_values=np.nan)
+    seeds += list(cold)
+    roots = np.array(
+        [
+            np.asarray(kinetic.solve_dispersion(dielectric, k, seed, derivative=slope, continuation=False))
+            for seed in seeds
+        ]
+    )
+    growth = np.where(np.isfinite(roots), roots.imag, -np.inf)
+    best = np.take_along_axis(roots, np.argmax(growth, axis=0)[None], axis=0)[0]
+    return best.reshape(shape)[()]
