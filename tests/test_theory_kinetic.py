@@ -12,6 +12,7 @@ from plasma_plots.theory.kinetic import (
     beam_plasma_cold,
     bohm_gross,
     bump_on_tail,
+    electron_cyclotron_drift,
     electrostatic_dielectric,
     ion_acoustic,
     ion_acoustic_fluid,
@@ -308,3 +309,88 @@ def test_solve_dispersion():
         solve_dispersion(electrostatic_dielectric, k, np.ones(13))
     with pytest.raises(ValueError, match="no finite"):
         maximum_growth(lambda k: np.full(np.shape(k), complex(np.nan, np.nan)), (0.1, 1.0))
+
+
+# --- electron cyclotron drift instability (Janhunen et al., arXiv:1705.00749, Eq. (1)) --------
+XENON = 131.293 * kinetic.PROTON_ELECTRON_MASS_RATIO
+
+
+def test_ecdi_cold_limit_matches_magnetized_buneman_polynomial():
+    # k ρ_e → 0: 1 = ω_pi²/ω² + 1/((ω − k v_d)² − Ω²), a quartic solved with numpy.roots
+    mu = 1 / kinetic.PROTON_ELECTRON_MASS_RATIO
+    k, omega_c = 0.005, 1.0
+    for ratio in (0.9, 1.0, 1.1):
+        u = ratio * omega_c
+        poly = np.polymul([1, -2 * u, u**2 - omega_c**2], [1, 0, -mu]) - np.array([0, 0, 1, 0, 0])
+        roots = np.roots(poly)
+        got = electron_cyclotron_drift(
+            k,
+            u / k,
+            omega_c,
+            temperature_ratio=1e8,
+            mass_ratio=kinetic.PROTON_ELECTRON_MASS_RATIO,
+            bernstein=0,
+        )["ion-acoustic"]
+        assert np.min(np.abs(roots - got)) < 1e-4 * max(abs(got), mu)
+        if ratio == 1.1:
+            assert got.imag > 1e-2  # the unstable (Buneman-like) root, gamma about 0.012
+            assert got.imag == pytest.approx(roots[np.argmax(roots.imag)].imag, rel=1e-4)
+
+
+def test_ecdi_unmagnetized_limit_is_the_ion_acoustic_drift_instability():
+    # Omega_ce -> 0 at fixed k: electrons drifting at 2 v_the through ions with T_e/T_i = 10
+    species = [Maxwellian(drift=2.0), Maxwellian.ions(kinetic.PROTON_ELECTRON_MASS_RATIO, 10.0)]
+    k = 0.6
+    reference = max(
+        (
+            solve_dispersion(lambda w, kk: electrostatic_dielectric(w, kk, species), k, 0.01 + 1j * g)
+            for g in (0.001, 0.01, 0.05)
+        ),
+        key=lambda w: w.imag,
+    )
+    errors = []
+    for omega_c in (0.1, 0.03, 0.01):
+        got = electron_cyclotron_drift(
+            k,
+            2.0,
+            omega_c,
+            temperature_ratio=10.0,
+            mass_ratio=kinetic.PROTON_ELECTRON_MASS_RATIO,
+            bernstein=0,
+        )["ion-acoustic"]
+        errors.append(abs(got - reference))
+    assert errors[-1] < 2e-3 * abs(reference)
+    assert errors[-1] < errors[-2]
+
+
+def test_ecdi_resonance_pattern_and_scipy_residual():
+    special = pytest.importorskip("scipy.special")
+    omega_c, v_d = 0.197, 0.75
+    # unstable just above the first and second resonance k v_d = m Omega, stable well away from it
+    growth = {
+        k: electron_cyclotron_drift(k, v_d, omega_c, bernstein=0)["ion-acoustic"].imag for k in (0.2, 0.3, 0.4, 0.55)
+    }
+    assert growth[0.3] > 5e-4 and growth[0.55] > 5e-4
+    assert growth[0.2] < 1e-9 and growth[0.4] < 1e-9
+    k = 0.3
+    branches = electron_cyclotron_drift(k, v_d, omega_c, bernstein=2)
+    lam = (k / omega_c) ** 2
+    vi = np.sqrt(1 / (XENON * 50.0))
+    for name, w in branches.items():
+        shifted = w - k * v_d
+        gamma = [special.ive(m, lam) for m in range(60)]
+        k_e = (
+            1 - gamma[0] - 2 * shifted**2 * sum(gamma[m] / (shifted**2 - (m * omega_c) ** 2) for m in range(1, 60))
+        ) / k**2
+        zeta = w / (np.sqrt(2) * k * vi)
+        chi_i = (1 / XENON) / (k * vi) ** 2 * (1 + zeta * 1j * np.sqrt(np.pi) * special.wofz(zeta))
+        assert abs(1 + chi_i + k_e) < 1e-7, name
+    assert 1 < (branches["Bernstein 1"].real - k * v_d) / omega_c < 2
+    assert 2 < (branches["Bernstein 2"].real - k * v_d) / omega_c < 3
+
+
+def test_ecdi_broadcasts_and_validates():
+    out = electron_cyclotron_drift(np.array([0.2, 0.3]), 0.75, 0.197, bernstein=1)
+    assert out["ion-acoustic"].shape == (2,) and out["Bernstein 1"].shape == (2,)
+    with pytest.raises(ValueError, match="positive"):
+        electron_cyclotron_drift(0.3, 0.75, 0.0)
