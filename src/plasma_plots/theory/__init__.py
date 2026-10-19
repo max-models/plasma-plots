@@ -32,6 +32,9 @@ Everything here is plain numpy (no scipy) and independent of Struphy. The module
   breakdown and mean free paths.
 * :mod:`~plasma_plots.theory.collisions`: Coulomb logarithm, collision rates, Spitzer resistivity,
   and the slowing down of fast ions (slowing-down time, critical energy, energy loss rates).
+* :mod:`~plasma_plots.theory.negative_ions`: H⁻ sources: detachment and mutual-neutralization cross
+  sections and thermal rates (Janev et al.), the electronegative Debye length and Bohm speed,
+  H⁻ beam survival in gas and the current from surface production.
 
 Conventions
 -----------
