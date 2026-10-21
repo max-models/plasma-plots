@@ -40,6 +40,15 @@ jobs:
       - name: Install plasma-plots with dev dependencies
         run: pip install -e ".[dev,profiling,pyvista,desc,plotly,netcdf]"
 
+      # Runs that do not target main replace the max-models dependencies with their devel
+      # branches; PRs to main and the release use PyPI only. Uninstall first: pip keeps an
+      # installed package of the same version.
+      - name: Install the devel branches of the max-models dependencies
+        if: (github.base_ref || github.ref_name) != 'main'
+        run: |
+          pip uninstall -y -r requirements-devel.txt
+          pip install -r requirements-devel.txt
+
       # The PyVista tests build scenes off-screen, which needs a virtual display
       # and Mesa's software OpenGL. Tests marked `simulation` (real struphy runs,
       # compiled kernels) are skipped here and run in the docs workflow.
@@ -51,3 +60,18 @@ jobs:
 
       - name: Lint
         run: ruff check src tests scripts
+
+  # PyPI rejects direct references (`name @ git+...`): the wheel's metadata must have none.
+  no-direct-references:
+    if: (github.base_ref || github.ref_name) == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the wheel for direct references
+        run: |
+          pip install build
+          python -m build --wheel
+          ! unzip -p dist/*.whl '*.dist-info/METADATA' | grep -E '^Requires-Dist:.* @ '

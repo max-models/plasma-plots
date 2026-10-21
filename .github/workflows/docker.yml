@@ -58,13 +58,23 @@ jobs:
             python -c "import plotly.graph_objects as go; go.Figure(go.Scatter(y=[1, 2, 3])).write_image(\"/tmp/plotly.png\")"
           '
 
+      # Off main, the tests run with the devel branches of the max-models dependencies; the
+      # published image keeps the PyPI versions.
       - name: Run simulation, equilibrium and LaTeX export tests in the image
         # Native runtimes can close pytest's capture streams; use real stdout/stderr.
+        env:
+          DEVEL_DEPENDENCIES: ${{ github.ref_name != 'main' }}
         run: |
-          docker run --rm --init -v "$PWD/tests:/work/tests:ro" plasma-plots:test \
-            xvfb-run -a pytest -s -v --run-simulations \
-            tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile \
-            tests/test_gvec.py tests/test_gvec_runtime.py tests/test_desc.py
+          docker run --rm --init -e DEVEL_DEPENDENCIES -v "$PWD/tests:/work/tests:ro" \
+            -v "$PWD/requirements-devel.txt:/tmp/requirements-devel.txt:ro" plasma-plots:test bash -e -c '
+              if [ "$DEVEL_DEPENDENCIES" = true ]; then
+                pip uninstall -y -r /tmp/requirements-devel.txt
+                pip install -r /tmp/requirements-devel.txt
+              fi
+              xvfb-run -a pytest -s -v --run-simulations \
+                tests/test_real_simulations.py tests/test_tikz_backend.py::test_figures_compile \
+                tests/test_gvec.py tests/test_gvec_runtime.py tests/test_desc.py
+            '
 
       - name: Log in to GitHub Container Registry
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/devel')

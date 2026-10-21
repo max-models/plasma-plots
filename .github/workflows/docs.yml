@@ -49,6 +49,14 @@ jobs:
           # only for the docs' interactive PyVista exports.
           python -m pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
 
+      # Off main, the devel branches of the max-models dependencies replace the image's PyPI
+      # versions; PRs to main use the image as it is.
+      - name: Install the devel branches of the max-models dependencies
+        if: (github.base_ref || github.ref_name) != 'main'
+        run: |
+          python -m pip uninstall -y -r requirements-devel.txt
+          python -m pip install -r requirements-devel.txt
+
       # The plotting layer on real struphy output: small torus, guiding-center and
       # slab runs (tests/test_real_simulations.py, ~1 min), and the `plasma-plots`
       # command on them. They need the compiled kernels, so they run here rather

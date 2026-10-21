@@ -37,6 +37,8 @@ jobs:
         run: |
           python -m build
           python -m twine check dist/*
+          # PyPI rejects direct references (`name @ git+...`)
+          ! unzip -p dist/*.whl '*.dist-info/METADATA' | grep -E '^Requires-Dist:.* @ '
 
       - uses: actions/upload-artifact@v4
         with:

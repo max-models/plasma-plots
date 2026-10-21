@@ -75,6 +75,12 @@ packages.find.where = [
   "src",
 ]
 
+# PRs to devel test against the devel branches of the max-models packages; PRs to main
+# and the release use PyPI only.
+[tool.uv.sources]
+maxplotlibx = { git = "https://github.com/max-models/maxplotlib", branch = "devel" }
+scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }
+
 [tool.ruff]
 line-length = 120
 lint.select = [
