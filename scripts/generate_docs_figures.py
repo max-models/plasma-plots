@@ -1693,18 +1693,14 @@ try:
             plotter.camera_position = "iso"
             plotter.reset_camera()
         plotter.camera.zoom(zoom)
-        plotter.screenshot(str(OUT / filename), window_size=[1000, 700])
-        print(f"wrote {OUT / filename}")
+        view = p3.scene(plotter, window_size=[1000, 700])
+        print(f"wrote {view.save_png(OUT / filename)}")
         if interactive:
+            # the export leaves out the color bar (vtk.js would read 0-255); the PNG keeps it
             html = PYVISTA_OUT / filename.replace(".png", ".html")
-            # vtk.js receives pre-mapped RGB colors, so an exported color bar would read 0-255;
-            # the static image next to each scene keeps the correct one.
-            for title in list(plotter.scalar_bars.keys()):
-                plotter.remove_scalar_bar(title)
             try:
-                plotter.trame.export_html(str(html))
-                print(f"wrote {html}")
-            except Exception as exc:  # optional: needs trame-pyvista (see .github/workflows/docs.yml)
+                print(f"wrote {view.save_html(html)}")
+            except Exception as exc:  # optional: needs the scene extra (see .github/workflows/docs.yml)
                 print(f"skipped {html.name} (interactive export unavailable): {exc}")
         plotter.close()
 
@@ -1783,6 +1779,36 @@ try:
         )
 
     shot(p3.pyvista_domain(solid_torus, n1=6, n2=24, n3=36), "3d_domain.png", zoom=1.3)
+
+    # generic surface meshes: a vessel as a (vertices, faces) pair, and two probes as PolyData
+    vessel = pv.ParametricTorus(ringradius=3.0, crosssectionradius=1.0).triangulate()
+    vertices, faces = np.asarray(vessel.points), vessel.faces.reshape(-1, 4)[:, 1:]
+    shot(
+        p3.pyvista_surfaces(
+            {
+                "vessel": (vertices, faces),
+                "probe 1": pv.Sphere(radius=0.3, center=(3.0, 0.0, 0.0)),
+                "probe 2": pv.Sphere(radius=0.3, center=(0.0, 3.0, 0.0)),
+            },
+            opacity={"vessel": 0.3, "probe 1": 1.0, "probe 2": 1.0},
+        ),
+        "3d_surfaces.png",
+        zoom=1.3,
+    )
+
+    # labelled point sets with normals, over the same vessel: one legend for surfaces and points
+    rng_points = np.random.default_rng(0)
+    theta_s, phi_s = rng_points.uniform(0, 2 * np.pi, (2, 150))
+    normals = np.stack([np.cos(theta_s) * np.cos(phi_s), np.cos(theta_s) * np.sin(phi_s), np.sin(theta_s)])
+    samples = 3.0 * np.stack([np.cos(phi_s), np.sin(phi_s), 0 * phi_s]) + normals
+    points_scene = p3.pyvista_surfaces({"vessel": (vertices, faces)}, opacity=0.3)
+    p3.pyvista_points(
+        {"wall samples": samples, "probes": [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0]]},
+        vectors={"wall samples": normals},
+        size={"wall samples": 6, "probes": 14},
+        plotter=points_scene,
+    )
+    shot(points_scene, "3d_points.png", zoom=1.3)
 
     # guiding-center-like orbits: passing markers circle the torus, trapped ones bounce
     rng3 = np.random.default_rng(3)

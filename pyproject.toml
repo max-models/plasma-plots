@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "plasma-plots"
-version = "0.2.3"
+version = "0.2.5"
 description = "Plots and diagnostics of labeled xarray output from plasma simulations, such as Struphy"
 readme = "README.md"
 license.text = "MIT"
@@ -61,6 +61,12 @@ optional-dependencies.pyvista = [
   "imageio",
   "pyvista",
 ]
+# plasma_plots.scene: trame-pyvista exports the vtk.js page, nest-asyncio2 starts its server
+optional-dependencies.scene = [
+  "nest-asyncio2",
+  "pyvista",
+  "trame-pyvista",
+]
 optional-dependencies.tikz = [
   "maxplotlibx>=0.2",
 ]
@@ -74,6 +80,12 @@ scripts.plasma-plots = "plasma_plots.cli:main"
 packages.find.where = [
   "src",
 ]
+
+# PRs to devel test against the devel branches of the max-models packages; PRs to main
+# and the release use PyPI only.
+[tool.uv.sources]
+maxplotlibx = { git = "https://github.com/max-models/maxplotlib", branch = "devel" }
+scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }
 
 [tool.ruff]
 line-length = 120

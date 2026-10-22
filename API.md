@@ -98,8 +98,9 @@ Plots of one array, as array.plasma.plot.<kind>(...).
   - e.g. `density.plasma.plot.volume_slices(t=-1)`
 - `array.plasma.plot.volume(*, name=None, cmap='viridis', opacity='linear', **selection)`: Create a PyVista volume plotter for a selected scalar field.
   - e.g. `density.plasma.plot.volume(cmap="viridis", opacity="linear", t=-1).show()`
-- `array.plasma.plot.isosurface(*, values=5, cmap='viridis', opacity=1.0, clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista contour surfaces of this scalar field in physical space.
+- `array.plasma.plot.isosurface(*, values=5, cmap='viridis', opacity=1.0, colors=None, labels=None, clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista contour surfaces of this scalar field in physical space.
   - e.g. `phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0).show()`
+  - e.g. `phi.plasma.plot.isosurface(values=[0, 0.2], colors=["tab:blue", "lightgrey"], opacity=[1, 0.3], t=0).show()`
 - `array.plasma.plot.slices_3d(*, cuts=None, cmap='viridis', clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista surfaces of constant logical coordinate in physical space.
   - e.g. `phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0).show()`
 - `array.plasma.plot.glyphs(*, components='cartesian', stride=2, scale=None, cmap='viridis', show_domain=True, title=None, plotter=None, **selection)`: Draw PyVista arrows of this (component, eta1, eta2, eta3) vector field.
@@ -475,6 +476,11 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.mpi_rank()`: Return this process' rank in MPI_COMM_WORLD, without initializing MPI.
   - e.g. `mpi_rank()  # in a serial run`
 - `plasma_plots.is_plotting_rank()`: Tell whether this process draws plots and writes their files.
+- `plasma_plots.scene(plotter, *, alt=None, title=None, window_size=None)`: Show a pyvista.Plotter as an interactive 3-D scene in a notebook.
+  - e.g. `plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], t=-1)`
+  - e.g. `plasma_plots.scene(plotter, alt="Two isosurfaces of phi")`
+- `plasma_plots.pyvista_plots.Scene.save_html(path)`: Write the scene to a standalone HTML file.
+- `plasma_plots.pyvista_plots.Scene.save_png(path)`: Write the screenshot to a PNG file.
 - `plasma_plots.plotting.PlotResult.save(path, *, close=False, frame=None, **kwargs)`: Save the figure to a file, as drawn.
 - `plasma_plots.plotting.PlotResult.show()`: Show the figure with matplotlib.pyplot.show, or a Plotly or TikZ figure with its show.
 - `plasma_plots.plotting.PlotResult.to_plotly(*, close=False)`: The same result with the figure converted to an interactive Plotly figure.
@@ -517,7 +523,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.arrays`: `logical_dims`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
-- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `save_vtk`, `save_movie`
+- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene`
 
 ## Command line: plasma-plots
 

@@ -16,6 +16,12 @@ objects (`struphy.post_processing.output.Output` and friends, plus `h5py`),
 built from small fixtures that don't need compiled kernels, so `struphy compile`
 isn't required just to run `pytest`.
 
+On `devel`, plasma-plots is developed against the `devel` branches of the other max-models
+packages (maxplotlib, scope-profiler, tikzfigure): `uv` picks them up from `[tool.uv.sources]`,
+and with pip run `pip uninstall -y -r requirements-devel.txt && pip install -r requirements-devel.txt`
+after the install above. CI does the same for pull requests to `devel`; pull requests to `main`
+and the PyPI release use PyPI versions only.
+
 ## Docs
 
 The documentation site (Astro + Starlight) lives in `docs/`. Its setup -- palette, header,

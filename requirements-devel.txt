@@ -1,0 +1,7 @@
+# The devel branches of the max-models packages in plasma-plots' dependency tree. CI installs
+# them over plasma-plots' dependencies on every run that does not target main (after the
+# project, because struphy caps scope-profiler); main and the release use PyPI only.
+#   pip install -r requirements-devel.txt
+maxplotlibx @ git+https://github.com/max-models/maxplotlib@devel
+scope-profiler @ git+https://github.com/max-models/scope-profiler@devel
+tikzfigure @ git+https://github.com/max-models/tikzfigure@devel

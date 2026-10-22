@@ -112,7 +112,8 @@ What is where
 Plots return a ``PlotResult`` (``.fig``, ``.ax``, ``.save(path)``, ``.show()``); animations a
 ``matplotlib.animation.FuncAnimation`` (keep a reference; ``.save("a.gif", writer="pillow")``); 3-D
 views a ``pyvista.Plotter`` (``.show()``, ``.screenshot(path)``; ``pyvista.OFF_SCREEN = True`` in
-scripts). Analysis methods return labeled xarray objects, which have ``.plasma`` in turn.
+scripts), which ``plasma_plots.scene(plotter)`` shows as an interactive scene that docs sites built
+from notebooks keep (``pip install "plasma-plots[scene]"``). Analysis methods return labeled xarray objects, which have ``.plasma`` in turn.
 
 Every Matplotlib plot also draws as an interactive Plotly figure (``pip install
 "plasma-plots[plotly]"``): ``phi.plasma.plot.slice(t=-1, eta3=0, backend="plotly")``, or
@@ -170,6 +171,7 @@ from .gvec import from_gvec
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .plotly_backend import get_backend, set_backend
 from .plotting import save_figure
+from .pyvista_plots import scene
 
 __all__ = [
     "SkippedPlot",
@@ -181,5 +183,6 @@ __all__ = [
     "is_plotting_rank",
     "mpi_rank",
     "save_figure",
+    "scene",
     "set_backend",
 ]

@@ -4,12 +4,21 @@ Every function returns a ``pyvista.Plotter`` without showing it: call ``.show()`
 interactive session or notebook, or ``.screenshot(path)`` (with ``pyvista.OFF_SCREEN = True``
 in batch jobs). Pass ``plotter=`` to draw several views into one scene.
 
+:func:`pyvista_surfaces` draws any surface meshes (geometry, marching-cubes surfaces) in the
+same style, and :func:`pyvista_points` labelled point sets with optional arrows; in one scene
+they continue one color cycle and share one legend. :func:`scene` shows a plotter as an interactive 3-D scene in a notebook, which docs sites
+built from notebooks embed as they are.
+
 Fields need their physical ``X``, ``Y``, ``Z`` coordinates attached, as every Struphy field
 product has; orbits need physical positions ``x``, ``y``, ``z``.
 """
 
 from __future__ import annotations
 
+import base64
+import io
+import tempfile
+import weakref
 from pathlib import Path
 from typing import Literal
 
@@ -95,8 +104,10 @@ def _plane_normal(grid):
 
 
 def _camera(plotter, grid):
-    """Look straight at a planar grid (a 2-D run); leave 3-D scenes at the default view."""
-    if not is_flat(grid):
+    """Look straight at a planar grid (a 2-D run) or surface; leave 3-D scenes at the default view."""
+    if isinstance(grid, _pv().StructuredGrid) and not is_flat(grid):
+        return
+    if not grid.n_points:
         return
     normal = _plane_normal(grid)
     if normal is None:
@@ -337,13 +348,26 @@ def _finish(plotter, title, grid=None):
     return plotter
 
 
+def _per_level(value, n, name):
+    """One value per level from a single value or a sequence of ``n``."""
+    single = isinstance(value, str) or np.ndim(value) == 0 or (name == "colors" and _is_color(value))
+    if single:
+        return [value] * n
+    value = list(value)
+    if len(value) != n:
+        raise ValueError(f"{name} needs one entry per level ({n}); got {len(value)}")
+    return value
+
+
 @rank_zero
 def pyvista_isosurface(
     data: xr.DataArray,
     *,
     values: int | list[float] = 5,
     cmap="viridis",
-    opacity: float = 1.0,
+    opacity: float | list[float] = 1.0,
+    colors=None,
+    labels: list[str] | None = None,
     clim=None,
     show_domain: bool = True,
     title: str | None = None,
@@ -355,9 +379,11 @@ def pyvista_isosurface(
 
     ``values`` is the number of evenly spaced levels, or explicit levels (between the color
     limits, which ``symmetric``/``robust`` set as in :func:`~plasma_plots.plotting.color_limits`).
-    ``show_domain`` draws
-    the domain's outer surface translucently for context. For a 2-D field (one logical
-    direction with a single point) the levels are contour lines over the colored plane.
+    Each level is colored from ``cmap`` with a scalar bar, or with its own ``colors`` and a
+    legend of the levels instead; ``opacity`` may differ per level too, e.g. an opaque surface
+    inside a translucent shell. ``show_domain`` draws the domain's outer surface translucently
+    for context. For a 2-D field (one logical direction with a single point) the levels are
+    contour lines over the colored plane.
 
     Parameters
     ----------
@@ -369,8 +395,18 @@ def pyvista_isosurface(
         levels. Default: 5.
     cmap : str or matplotlib colormap, optional
         The colormap. Default: ``"viridis"``.
-    opacity : float, optional
-        Opacity of the surfaces (of the plane for a 2-D field). Default: 1.
+    opacity : float or sequence of float, optional
+        Opacity of the surfaces, one for all or one per level. For a 2-D field a single value
+        is the plane's opacity and a sequence sets the contour lines' (the plane is then
+        opaque). Default: 1.
+    colors : color or sequence of colors, optional
+        Colors of the surfaces (of the contour lines for a 2-D field), one for all or one per
+        level; any Matplotlib color. They replace the colormap and its scalar bar with a legend
+        of the levels (the plane of a 2-D field keeps the colormap). Default: from ``cmap``
+        (black lines for a 2-D field).
+    labels : sequence of str, optional
+        One legend entry per level; giving them shows the legend even without ``colors``.
+        Default: ``"level <value>"``.
     clim : (float, float), optional
         Color limits; default from the field's values, see ``symmetric`` and ``robust``.
     show_domain : bool, optional
@@ -390,54 +426,91 @@ def pyvista_isosurface(
     Returns
     -------
     pyvista.Plotter
-        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``. The surfaces are
+        the actors ``"isosurface 0"``, ``"isosurface 1"``, ... in the order of the levels.
 
     Raises
     ------
     ValueError
-        If other dimensions remain or the physical coordinates are missing.
+        If other dimensions remain, the physical coordinates are missing, or ``opacity``,
+        ``colors`` or ``labels`` don't have one entry per level.
 
     See Also
     --------
     pyvista_slices : The field on surfaces of constant logical coordinate.
+    pyvista_surfaces : Any surface meshes, with per-mesh colors and opacities.
 
     Examples
     --------
     >>> pyvista_isosurface(phi.isel(t=-1), values=[-0.1, 0.1]).show()
     >>> pyvista_isosurface(phi.isel(t=-1), symmetric=True, opacity=0.6).show()
+
+    An opaque surface inside a translucent shell:
+
+    >>> pyvista_isosurface(
+    ...     distance,
+    ...     values=[0, 0.2],
+    ...     colors=["tab:blue", "lightgrey"],
+    ...     opacity=[1, 0.3],
+    ... ).show()
     """
+    from matplotlib import colormaps
+    from matplotlib.colors import Normalize, to_hex
+
     grid = structured_grid(data)
     name = grid.active_scalars_name
     lo, hi = _clim(grid[name], clim, symmetric=symmetric, robust=robust)
     levels = np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    levels = [float(level) for level in np.atleast_1d(levels)]
+    n = len(levels)
+    flat = is_flat(grid)
+    plane_opacity = 1.0
+    if flat and np.ndim(opacity) == 0:  # the plane's opacity; the lines stay opaque
+        plane_opacity, opacity = opacity, 1.0
+    opacities = [float(value) for value in _per_level(opacity, n, "opacity")]
+    explicit = colors is not None
+    legend = explicit or labels is not None
+    if explicit:
+        colors = [to_hex(color) for color in _per_level(colors, n, "colors")]
+    elif flat or not legend:
+        colors = ["#000000"] * n  # the lines of a 2-D field; unused for colormapped surfaces
+    else:  # the legend shows each surface's colormap color
+        cm = colormaps[cmap] if isinstance(cmap, str) else cmap
+        colors = [to_hex(cm(Normalize(lo, hi)(level))) for level in levels]
+    labels = [f"level {level:.3g}" for level in levels] if labels is None else _per_level(labels, n, "labels")
+    labels = [str(label) for label in labels]
+
     own = plotter is None
     plotter = _plotter(plotter)
-    contours = grid.contour(isosurfaces=list(levels), scalars=name)
     bar = _bar(value_label(data))
-    if is_flat(grid):
+    if flat:
         plotter.add_mesh(
             grid,
             scalars=name,
             cmap=cmap,
             clim=(lo, hi),
-            opacity=opacity,
+            opacity=plane_opacity,
             scalar_bar_args=bar,
             name="plane",
         )
-        if contours.n_points:
-            plotter.add_mesh(contours, color="black", line_width=1.5, name="isosurface")
     else:
         _add_context(plotter, grid, show_domain)
-        if contours.n_points:
-            plotter.add_mesh(
-                contours,
-                scalars=name,
-                cmap=cmap,
-                clim=(lo, hi),
-                opacity=opacity,
-                scalar_bar_args=bar,
-                name="isosurface",
-            )
+    drawn = []
+    for i, (level, color, alpha, label) in enumerate(zip(levels, colors, opacities, labels)):
+        contour = grid.contour(isosurfaces=[level], scalars=name)
+        if not contour.n_points:
+            continue
+        options = dict(opacity=alpha, name=f"isosurface {i}")
+        if flat:
+            options.update(color=color, line_width=1.5)
+        elif explicit:
+            options["color"] = color
+        else:
+            options.update(scalars=name, cmap=cmap, clim=(lo, hi), scalar_bar_args=bar)
+        plotter.add_mesh(contour, **options)
+        drawn.append([label, color])
+    if legend and drawn:
+        plotter.add_legend(drawn, bcolor=None, face="line" if flat else "rectangle")
     return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 
@@ -1059,6 +1132,492 @@ def pyvista_domain(
     return _finish(plotter, "Domain" if title is None else title, grid if own else None)
 
 
+def _surface(mesh):
+    """A ``pyvista.PolyData`` of a mesh: any pyvista dataset, a ``(vertices, faces)`` pair, or
+    an object with ``vertices`` and ``cells`` (or ``faces``), such as simgeometry's ``SurfaceMesh``."""
+    pv = _pv()
+    if isinstance(mesh, pv.PolyData):
+        return mesh
+    if isinstance(mesh, pv.DataSet):
+        return mesh.extract_surface(algorithm="dataset_surface")
+    if _is_vertices_faces(mesh):
+        vertices, cells = mesh
+    elif hasattr(mesh, "vertices") and (hasattr(mesh, "cells") or hasattr(mesh, "faces")):
+        vertices, cells = mesh.vertices, getattr(mesh, "cells", None)
+        cells = mesh.faces if cells is None else cells
+    else:
+        raise TypeError(
+            "a mesh is a pyvista dataset, a (vertices, faces) pair of arrays, or has vertices and "
+            f"cells; got {type(mesh).__name__}"
+        )
+    vertices = np.asarray(vertices, dtype=float)
+    cells = np.asarray(cells, dtype=np.int64)
+    if vertices.ndim != 2 or vertices.shape[1] not in (2, 3):
+        raise ValueError(f"vertices must have shape (n, 3) (or (n, 2) in a plane); got {vertices.shape}")
+    if vertices.shape[1] == 2:  # a 2-D outline in the z = 0 plane
+        vertices = np.column_stack([vertices, np.zeros(len(vertices))])
+    if cells.ndim != 2 or cells.shape[1] < 2:
+        raise ValueError(f"faces must have shape (m, 3) (or (m, k) polygons, (m, 2) segments); got {cells.shape}")
+    if len(cells) and (cells.min() < 0 or cells.max() >= len(vertices)):
+        raise ValueError(f"faces index {len(vertices)} vertices; got indices {cells.min()} to {cells.max()}")
+    packed = np.column_stack([np.full(len(cells), cells.shape[1]), cells]).ravel()
+    if cells.shape[1] == 2:
+        return pv.PolyData(vertices, lines=packed)
+    return pv.PolyData(vertices, faces=packed)
+
+
+def _is_vertices_faces(mesh) -> bool:
+    if not isinstance(mesh, (tuple, list)) or len(mesh) != 2:
+        return False
+    try:
+        arrays = [np.asarray(part) for part in mesh]
+    except (TypeError, ValueError):  # ragged: two meshes, not one pair
+        return False
+    return all(array.ndim == 2 and array.dtype.kind in "iuf" for array in arrays)
+
+
+def _per_mesh(value, labels, name, what="mesh"):
+    """One value per mesh (or point set) from a single value, a sequence, or a dict keyed by label."""
+    if isinstance(value, dict):
+        missing = [label for label in labels if label not in value]
+        if missing:
+            raise ValueError(f"{name} has no entry for {missing}")
+        return [value[label] for label in labels]
+    if isinstance(value, (list, tuple)) and not (name == "colors" and _is_color(value)):
+        if len(value) != len(labels):
+            raise ValueError(f"{name} needs one entry per {what} ({len(labels)}); got {len(value)}")
+        return list(value)
+    return [value] * len(labels)
+
+
+def _is_color(value) -> bool:
+    """Whether ``value`` is one RGB(A) color such as ``(0.2, 0.4, 0.6)``, not a list of colors."""
+    return len(value) in (3, 4) and all(isinstance(v, (int, float, np.number)) for v in value)
+
+
+# Per scene (renderer): how many colors of Matplotlib's cycle are taken, and the legend entry of
+# each labelled actor, so that pyvista_surfaces and pyvista_points drawn into one plotter
+# continue one color cycle and share one legend.
+_CYCLE: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+_LEGEND: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def _cycle_colors(plotter, n: int) -> list[str]:
+    """The next ``n`` colors of Matplotlib's cycle in this scene: ``C0``, ``C1``, ... at first."""
+    start = _CYCLE.get(plotter.renderer, 0)
+    _CYCLE[plotter.renderer] = start + n
+    return [f"C{start + i}" for i in range(n)]
+
+
+def _update_legend(plotter, entries) -> None:
+    """Add ``(actor, label, color, face)`` entries and redraw the scene's legend from every
+    labelled actor in it, in drawing order, when there are two or more. Actors labelled by
+    PyVista itself (``add_mesh(..., label=...)``) are listed too."""
+    renderer = plotter.renderer
+    registry = _LEGEND.setdefault(renderer, {})
+    for actor, label, color, face in entries:
+        registry[actor.GetAddressAsString("")] = (label, color, face)
+    labelled = getattr(renderer, "_labels", {})  # PyVista's own: address -> (glyph, label, color)
+    rows = []
+    for actor in renderer.actors.values():
+        key = actor.GetAddressAsString("")
+        if key in registry:
+            rows.append(list(registry[key]))
+        elif key in labelled:
+            _, label, color = labelled[key]
+            rows.append([label, color, "rectangle"])
+    if len(rows) > 1:
+        plotter.add_legend(rows, bcolor=None)
+
+
+@rank_zero
+def pyvista_surfaces(
+    meshes,
+    *,
+    labels=None,
+    colors=None,
+    scalars=None,
+    cmap=None,
+    clim=None,
+    opacity=1.0,
+    show_edges: bool = False,
+    title: str | None = None,
+    legend: bool = True,
+    plotter=None,
+):
+    """Surface meshes in physical space, such as geometry or marching-cubes surfaces.
+
+    Each mesh gets its own color from Matplotlib's color cycle (``C0``, ``C1``, ...), and the
+    labels go in a legend when there is more than one. Drawn into a scene with ``plotter=``, the
+    color cycle continues and the legend lists the labelled meshes and point sets
+    (:func:`pyvista_points`) of every call. With ``scalars``, the surfaces are
+    colored by a value instead, on one color scale with a scalar bar, e.g. conductors by their
+    potential. A flat scene (every point in one plane) is viewed face on.
+
+    Parameters
+    ----------
+    meshes : mesh, sequence of meshes, or dict of str to mesh
+        A mesh is a ``pyvista.PolyData`` (any other pyvista dataset is drawn by its surface), a
+        ``(vertices, faces)`` pair of arrays with shapes ``(n, 3)`` and ``(m, 3)`` (triangles,
+        as from ``skimage.measure.marching_cubes``), or an object with ``vertices`` and
+        ``cells`` such as simgeometry's ``SurfaceMesh``. Faces with two columns are line
+        segments, and ``(n, 2)`` vertices lie in the ``z = 0`` plane. A dict's keys are the
+        labels. Empty meshes are skipped.
+    labels : sequence of str, optional
+        One label per mesh, for the legend. Default: the dict's keys, else none.
+    colors : color, sequence of colors, or dict of str to color, optional
+        Colors of the meshes, by position or by label; any Matplotlib color. Default:
+        Matplotlib's color cycle, continued from earlier calls into the same ``plotter``.
+    scalars : str or callable, optional
+        Color by this point-data array of every mesh, or by ``scalars(points)``, a function of
+        the ``(n, 3)`` points that returns ``n`` values. The scalar bar shows the array's name,
+        or the function's name. Default: plain colors.
+    cmap : str or matplotlib colormap, optional
+        The colormap for ``scalars``. Default: ``"viridis"``.
+    clim : (float, float), optional
+        Color limits for ``scalars``. Default: the range over all meshes.
+    opacity : float, sequence of float, or dict of str to float, optional
+        Opacity of the meshes, one for all or by position or label. Default: 1.
+    show_edges : bool, optional
+        Draw the mesh edges. Default: ``False``.
+    title : str, optional
+        Text in the scene's corner. Default: none.
+    legend : bool, optional
+        Put the labels in the scene's legend, shown when it has two or more entries (not with
+        ``scalars``). Default: ``True``.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the surfaces when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    TypeError
+        If a mesh is none of the accepted kinds.
+    ValueError
+        If ``labels``, ``colors`` or ``opacity`` don't match the meshes, faces index missing
+        vertices, or a mesh lacks the ``scalars`` array.
+
+    Examples
+    --------
+    >>> import pyvista as pv
+    >>> pyvista_surfaces(
+    ...     {"inner": pv.Sphere(radius=0.5), "outer": pv.Sphere()},
+    ...     opacity={"inner": 1.0, "outer": 0.3},
+    ... ).show()
+    >>> vertices, faces, _, _ = skimage.measure.marching_cubes(values, level=0)
+    >>> pyvista_surfaces(
+    ...     (vertices, faces), scalars=lambda p: p[:, 2], show_edges=True
+    ... ).show()
+    """
+    from matplotlib.colors import to_hex
+
+    if isinstance(meshes, dict):
+        if labels is not None:
+            raise ValueError("pass labels either as the dict's keys or as labels, not both")
+        labels, meshes = [str(label) for label in meshes], list(meshes.values())
+    elif _is_vertices_faces(meshes) or not isinstance(meshes, (list, tuple)):
+        meshes = [meshes]
+    meshes = [_surface(mesh) for mesh in meshes]
+    named = labels is not None
+    labels = list(labels) if named else [f"surface {i}" for i in range(len(meshes))]
+    if len(labels) != len(meshes):
+        raise ValueError(f"labels needs one entry per mesh ({len(meshes)}); got {len(labels)}")
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"labels must be distinct; got {labels}")
+    colors = None if colors is None else [to_hex(color) for color in _per_mesh(colors, labels, "colors")]
+    opacities = [float(value) for value in _per_mesh(opacity, labels, "opacity")]
+
+    bar = None
+    if scalars is not None:
+        if callable(scalars):
+            name = getattr(scalars, "__name__", "<lambda>")
+            bar = "value" if name.startswith("<") else name
+            computed = []
+            for mesh in meshes:
+                mesh = mesh.copy(deep=False)  # leave the caller's mesh as it is
+                if mesh.n_points:
+                    mesh.point_data[bar] = np.asarray(scalars(np.asarray(mesh.points)), dtype=float)
+                computed.append(mesh)
+            meshes = computed
+        else:
+            bar = scalars
+            missing = [label for label, mesh in zip(labels, meshes) if mesh.n_points and bar not in mesh.point_data]
+            if missing:
+                raise ValueError(f"no point data {bar!r} on {missing}")
+        # NaN marks points without a value (drawn in the NaN color), e.g. objects that are not
+        # conductors; a mesh may be NaN throughout.
+        values = np.concatenate([np.asarray(mesh.point_data[bar], dtype=float).ravel() for mesh in meshes] or [[]])
+        values = values[np.isfinite(values)]
+        if clim is None and values.size:
+            clim = (float(values.min()), float(values.max()))
+
+    own = plotter is None
+    plotter = _plotter(plotter)
+    if colors is None:
+        colors = (
+            [to_hex(color) for color in _cycle_colors(plotter, len(meshes))] if bar is None else [None] * len(meshes)
+        )
+    drawn = []
+    for label, mesh, color, alpha in zip(labels, meshes, colors, opacities):
+        if not mesh.n_points:
+            continue
+        options = dict(opacity=alpha, show_edges=show_edges, line_width=2)
+        if bar is None:
+            options["color"] = color
+        else:
+            options.update(scalars=bar, cmap=cmap or "viridis", clim=clim, scalar_bar_args=_bar(bar))
+        actor = plotter.add_mesh(mesh, **options)
+        drawn.append((actor, label, color, mesh))
+    if legend and named and bar is None:
+        _update_legend(plotter, [(actor, label, color, "rectangle") for actor, label, color, _ in drawn])
+    if own and drawn:
+        _camera(plotter, _pv().merge([mesh for *_, mesh in drawn]))
+    return _finish(plotter, title)
+
+
+def _point_array(points, name="points") -> np.ndarray:
+    """``(n, 3)`` points from ``(n, 3)``, ``(3, n)`` or ``(n, 2)``/``(2, n)`` (in ``z = 0``) arrays.
+
+    The last axis is read as the coordinates when its length is 2 or 3, else the first axis
+    (component-major, as simgeometry stores points); one point may be a 1-D array.
+    """
+    array = np.asarray(points, dtype=float)
+    if array.ndim == 1 and array.size in (2, 3):
+        array = array[None]
+    if array.ndim != 2 or (array.shape[1] not in (2, 3) and array.shape[0] not in (2, 3)):
+        raise ValueError(f"{name} must have shape (n, 3) or (3, n) (or 2 for points in a plane); got {array.shape}")
+    if array.shape[1] not in (2, 3):
+        array = array.T
+    if array.shape[1] == 2:
+        array = np.column_stack([array, np.zeros(len(array))])
+    return array
+
+
+def _vector_array(vectors, n: int, label) -> np.ndarray:
+    """``(n, 3)`` vectors of ``n`` points, given as ``(n, 3)`` or ``(3, n)`` (or 2 components)."""
+    array = np.asarray(vectors, dtype=float)
+    if array.ndim == 2 and array.shape[0] == n and array.shape[1] in (2, 3):
+        pass
+    elif array.ndim == 2 and array.shape[1] == n and array.shape[0] in (2, 3):
+        array = array.T
+    else:
+        raise ValueError(f"vectors of {label!r} must have shape ({n}, 3) or (3, {n}); got {array.shape}")
+    if array.shape[1] == 2:
+        array = np.column_stack([array, np.zeros(n)])
+    return array
+
+
+def _is_point_sets(points) -> bool:
+    """Whether ``points`` is a sequence of point arrays rather than one array (or list of points)."""
+    return isinstance(points, (list, tuple)) and len(points) > 0 and all(np.ndim(item) == 2 for item in points)
+
+
+def _per_set(value, labels, name, collection: bool) -> list:
+    """One entry (or ``None``) per point set: by label from a dict, by position from a sequence
+    when the points came as a collection, else the one set's."""
+    if isinstance(value, dict):
+        unknown = [key for key in value if key not in labels]
+        if unknown:
+            raise ValueError(f"{name} has entries {unknown} for no point set; the labels are {labels}")
+        return [value.get(label) for label in labels]
+    if not collection:
+        return [value]
+    if not isinstance(value, (list, tuple)) or len(value) != len(labels):
+        raise ValueError(f"{name} needs a dict by label or one entry per point set ({len(labels)})")
+    return list(value)
+
+
+@rank_zero
+def pyvista_points(
+    points,
+    *,
+    labels=None,
+    colors=None,
+    scalars=None,
+    cmap=None,
+    clim=None,
+    size=8,
+    opacity=1.0,
+    vectors=None,
+    vector_scale: float | None = None,
+    title: str | None = None,
+    legend: bool = True,
+    plotter=None,
+):
+    """Point sets in physical space, such as samples, grid nodes or crossings, optionally with arrows.
+
+    Each set gets its own color from Matplotlib's color cycle, and the labels go in a legend
+    when there is more than one. Drawn into a scene with ``plotter=``, e.g. after
+    :func:`pyvista_surfaces`, the color cycle continues and the scene keeps one legend of the
+    labelled surfaces and point sets. With ``scalars``, the points are colored by a value
+    instead, on one color scale with a scalar bar. ``vectors`` adds an arrow at every point,
+    e.g. surface normals.
+
+    Parameters
+    ----------
+    points : array, sequence of arrays, or dict of str to array
+        One set of points is an ``(n, 3)`` array, or ``(3, n)`` component-major as simgeometry
+        stores points: the last axis holds the coordinates when its length is 3 (or 2), else
+        the first axis does, so a ``(3, 3)`` array is three points as rows. ``(n, 2)`` points
+        lie in the ``z = 0`` plane. A dict's keys are the labels. Empty sets are skipped.
+    labels : sequence of str, optional
+        One label per set, for the legend. Default: the dict's keys, else none.
+    colors : color, sequence of colors, or dict of str to color, optional
+        Colors of the sets, by position or by label; any Matplotlib color. Default:
+        Matplotlib's color cycle, continued from earlier calls into the same ``plotter``.
+    scalars : callable, array, sequence of arrays, or dict of str to array, optional
+        Color by ``scalars(points)``, a function of the ``(n, 3)`` points of each set that
+        returns ``n`` values, or by given values: ``n`` per set, with the same options as
+        ``points``. The scalar bar shows the function's name, else "value". NaN values are
+        drawn in the NaN color. Default: plain colors.
+    cmap : str or matplotlib colormap, optional
+        The colormap for ``scalars``. Default: ``"viridis"``.
+    clim : (float, float), optional
+        Color limits for ``scalars``. Default: the range over all sets.
+    size : float, sequence of float, or dict of str to float, optional
+        Point size in pixels, one for all or by position or label. Default: 8.
+    opacity : float, sequence of float, or dict of str to float, optional
+        Opacity of the sets (and their arrows), one for all or by position or label. Default: 1.
+    vectors : array, sequence of arrays, or dict of str to array, optional
+        A vector at every point, drawn as an arrow from it in the set's color: ``(n, 3)`` or
+        ``(3, n)`` per set, with the same options as ``points``; a dict may leave sets out, and
+        ``None`` in a sequence draws no arrows for that set. Default: no arrows.
+    vector_scale : float, optional
+        The length of the longest arrow, in physical units; the others are scaled by their
+        magnitude (unit normals are all this long). Default: 5% of the scene's extent.
+    title : str, optional
+        Text in the scene's corner. Default: none.
+    legend : bool, optional
+        Put the labels in the scene's legend, shown when it has two or more entries (not with
+        ``scalars``). Default: ``True``.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the points when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If an array has none of the accepted shapes, or ``labels``, ``colors``, ``size``,
+        ``opacity``, ``scalars`` or ``vectors`` don't match the point sets.
+
+    See Also
+    --------
+    pyvista_surfaces : Surface meshes, e.g. the geometry the points belong to.
+
+    Examples
+    --------
+    >>> import pyvista as pv
+    >>> sphere = pv.Sphere()
+    >>> plotter = pyvista_surfaces({"sphere": sphere}, opacity=0.3)
+    >>> pyvista_points(
+    ...     {"vertices": sphere.points, "center": [0.0, 0.0, 0.0]},
+    ...     vectors={"vertices": sphere.point_normals},
+    ...     plotter=plotter,
+    ... ).show()
+    >>> pyvista_points(np.random.rand(3, 500), scalars=lambda p: p[:, 2]).show()
+    """
+    from matplotlib.colors import to_hex
+
+    pv = _pv()
+    collection = isinstance(points, dict) or _is_point_sets(points)
+    if isinstance(points, dict):
+        if labels is not None:
+            raise ValueError("pass labels either as the dict's keys or as labels, not both")
+        labels, sets = [str(label) for label in points], list(points.values())
+    else:
+        sets = list(points) if collection else [points]
+    sets = [_point_array(points_) for points_ in sets]
+    named = labels is not None
+    labels = [str(label) for label in labels] if named else [f"points {i}" for i in range(len(sets))]
+    if len(labels) != len(sets):
+        raise ValueError(f"labels needs one entry per point set ({len(sets)}); got {len(labels)}")
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"labels must be distinct; got {labels}")
+    colors = None if colors is None else [to_hex(c) for c in _per_mesh(colors, labels, "colors", "point set")]
+    sizes = [float(value) for value in _per_mesh(size, labels, "size", "point set")]
+    opacities = [float(value) for value in _per_mesh(opacity, labels, "opacity", "point set")]
+    arrows = [None] * len(sets) if vectors is None else _per_set(vectors, labels, "vectors", collection)
+    arrows = [
+        None if value is None else _vector_array(value, len(xyz), label)
+        for value, xyz, label in zip(arrows, sets, labels)
+    ]
+
+    clouds = []
+    for xyz, vec in zip(sets, arrows):
+        cloud = pv.PolyData(xyz)
+        if vec is not None:
+            cloud.point_data["vectors"] = vec
+            cloud.point_data["|vectors|"] = np.linalg.norm(vec, axis=1)
+        clouds.append(cloud)
+
+    bar = None
+    if scalars is not None:
+        if callable(scalars):
+            name = getattr(scalars, "__name__", "<lambda>")
+            bar = "value" if name.startswith("<") else name
+            values = [np.asarray(scalars(xyz), dtype=float) if len(xyz) else np.empty(0) for xyz in sets]
+        else:
+            bar = "value"
+            values = [
+                np.asarray(value, dtype=float).ravel() for value in _per_set(scalars, labels, "scalars", collection)
+            ]
+        for label, cloud, value in zip(labels, clouds, values):
+            if value.shape != (cloud.n_points,):
+                raise ValueError(f"scalars of {label!r} need one value per point ({cloud.n_points}); got {value.shape}")
+            cloud.point_data[bar] = value
+        finite = np.concatenate(values or [np.empty(0)])
+        finite = finite[np.isfinite(finite)]
+        if clim is None and finite.size:
+            clim = (float(finite.min()), float(finite.max()))
+
+    own = plotter is None
+    plotter = _plotter(plotter)
+    if colors is None:
+        colors = [to_hex(c) for c in _cycle_colors(plotter, len(sets))] if bar is None else [None] * len(sets)
+    drawn = []
+    for label, cloud, color, point_size, alpha in zip(labels, clouds, colors, sizes, opacities):
+        if not cloud.n_points:
+            continue
+        options = dict(opacity=alpha, point_size=point_size, render_points_as_spheres=True)
+        if bar is None:
+            options["color"] = color
+        else:
+            options.update(scalars=bar, cmap=cmap or "viridis", clim=clim, scalar_bar_args=_bar(bar))
+        actor = plotter.add_points(cloud, **options)
+        drawn.append((actor, label, color, cloud, alpha))
+
+    with_vectors = [entry for entry in drawn if "vectors" in entry[3].point_data]
+    peak = max((float(entry[3]["|vectors|"].max()) for entry in with_vectors), default=0.0)
+    if peak > 0:
+        if vector_scale is None:
+            low, high = np.asarray(plotter.bounds, dtype=float).reshape(3, 2).T
+            vector_scale = 0.05 * (float(np.linalg.norm(high - low)) or 1.0)
+        for _, label, color, cloud, alpha in with_vectors:
+            glyphs = cloud.glyph(orient="vectors", scale="|vectors|", factor=vector_scale / peak)
+            options = dict(opacity=alpha)
+            if bar is None:
+                options["color"] = color
+            else:
+                options.update(scalars=bar, cmap=cmap or "viridis", clim=clim, scalar_bar_args=_bar(bar))
+            plotter.add_mesh(glyphs, **options)
+
+    if legend and named and bar is None:
+        _update_legend(plotter, [(actor, label, color, "circle") for actor, label, color, *_ in drawn])
+    if own and drawn:
+        _camera(plotter, pv.merge([entry[3] for entry in drawn]))
+    return _finish(plotter, title)
+
+
 @rank_zero
 def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
     """Write a field to VTK structured grids (``.vts``) on its physical points, for ParaView.
@@ -1224,3 +1783,170 @@ def save_movie(
     finally:
         plotter.close()
     return str(path)
+
+
+SCENE_EXTRA = 'pip install "plasma-plots[scene]"'
+
+
+class Scene:
+    """A ``pyvista.Plotter`` displayed as an interactive 3-D scene; see :func:`scene`.
+
+    The PNG and the HTML are rendered from the plotter the first time they are needed and
+    kept, so later changes to the plotter don't show.
+
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        The scene, off screen.
+    alt : str, optional
+        A text alternative for the screenshot.
+    title : str, optional
+        A title for the scene.
+    window_size : (int, int), optional
+        The screenshot's size in pixels. Default: the plotter's window size.
+    """
+
+    def __init__(self, plotter, *, alt: str | None = None, title: str | None = None, window_size=None):
+        self.plotter = plotter
+        self.alt = alt
+        self.title = title
+        self.window_size = window_size
+        self._png: bytes | None = None
+        self._html: str | None = None
+
+    def png(self) -> bytes:
+        """The screenshot of the plotter, as PNG bytes.
+
+        Returns
+        -------
+        bytes
+            The PNG file's content.
+
+        Raises
+        ------
+        RuntimeError
+            If the plotter isn't off screen and hasn't been shown.
+        """
+        if self._png is None:
+            buffer = io.BytesIO()
+            try:
+                self.plotter.screenshot(buffer, return_img=False, window_size=self.window_size)
+            except RuntimeError as error:
+                raise RuntimeError(
+                    "scene() takes a screenshot, which needs an off-screen plotter: "
+                    "pyvista.Plotter(off_screen=True), or pyvista.OFF_SCREEN = True before creating it"
+                ) from error
+            self._png = buffer.getvalue()
+        return self._png
+
+    def html(self) -> str:
+        """The scene as a standalone HTML page, vtk.js inlined (``plotter.trame.export_html``).
+
+        Scalar bars are hidden in the export: vtk.js receives colors already mapped to RGB, so
+        its color bar would read 0-255. The PNG keeps the correct one.
+
+        Returns
+        -------
+        str
+            The HTML document.
+
+        Raises
+        ------
+        ImportError
+            If trame-pyvista isn't installed (the ``scene`` extra).
+        """
+        if self._html is None:
+            try:
+                trame = self.plotter.trame
+            except AttributeError as error:
+                raise ImportError(f"Interactive scenes need the optional extra: {SCENE_EXTRA}") from error
+            bars = [actor for actor in self.plotter.scalar_bars.values() if actor.GetVisibility()]
+            for actor in bars:
+                actor.VisibilityOff()
+            try:
+                with tempfile.TemporaryDirectory() as folder:
+                    path = Path(folder) / "scene.html"
+                    trame.export_html(str(path))
+                    self._html = path.read_text(encoding="utf-8")
+            except ImportError as error:  # e.g. nest-asyncio2, to start trame's server
+                raise ImportError(f"Interactive scenes need the optional extra: {SCENE_EXTRA} ({error})") from error
+            finally:
+                for actor in bars:
+                    actor.VisibilityOn()
+        return self._html
+
+    def save_png(self, path) -> str:
+        """Write the screenshot to a PNG file.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            The file to write.
+
+        Returns
+        -------
+        str
+            ``path``, as a string.
+        """
+        Path(path).write_bytes(self.png())
+        return str(path)
+
+    def save_html(self, path) -> str:
+        """Write the scene to a standalone HTML file.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            The file to write.
+
+        Returns
+        -------
+        str
+            ``path``, as a string.
+        """
+        Path(path).write_text(self.html(), encoding="utf-8")
+        return str(path)
+
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        # the screenshot first: it renders the plotter, which the export then reuses
+        png = base64.b64encode(self.png()).decode("ascii")
+        data = {"text/html": self.html(), "image/png": png}
+        info = {key: value for key, value in (("alt", self.alt), ("title", self.title)) if value is not None}
+        return data, {"pyvista-scene": info}
+
+
+def scene(plotter, *, alt: str | None = None, title: str | None = None, window_size=None) -> Scene:
+    """Show a ``pyvista.Plotter`` as an interactive 3-D scene in a notebook.
+
+    As the last expression of a cell, the result displays as a standalone vtk.js page
+    (``text/html``) plus a screenshot (``image/png``). Jupyter shows the page; docs sites built
+    from the notebook show the screenshot and swap in the scene on click. ``alt`` and ``title``
+    travel in the output's ``"pyvista-scene"`` metadata.
+
+    The screenshot needs an off-screen plotter: plotters created in a notebook are, and in a
+    script set ``pyvista.OFF_SCREEN = True`` (or pass ``off_screen=True``) before creating
+    one. The export needs trame-pyvista: ``pip install "plasma-plots[scene]"``.
+
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        The scene, e.g. from ``phi.plasma.plot.isosurface(...)``. Set its camera first.
+    alt : str, optional
+        A text alternative for the screenshot.
+    title : str, optional
+        A title for the scene, e.g. of the frame it is shown in.
+    window_size : (int, int), optional
+        The screenshot's size in pixels. Default: the plotter's window size.
+
+    Returns
+    -------
+    Scene
+        Displays itself in Jupyter; ``.save_png(path)`` and ``.save_html(path)`` write the two
+        files, e.g. for a docs page.
+
+    Examples
+    --------
+    >>> plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], t=-1)
+    >>> plasma_plots.scene(plotter, alt="Two isosurfaces of phi")
+    """
+    return Scene(plotter, alt=alt, title=title, window_size=window_size)
