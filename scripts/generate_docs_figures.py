@@ -1796,6 +1796,20 @@ try:
         zoom=1.3,
     )
 
+    # labelled point sets with normals, over the same vessel: one legend for surfaces and points
+    rng_points = np.random.default_rng(0)
+    theta_s, phi_s = rng_points.uniform(0, 2 * np.pi, (2, 150))
+    normals = np.stack([np.cos(theta_s) * np.cos(phi_s), np.cos(theta_s) * np.sin(phi_s), np.sin(theta_s)])
+    samples = 3.0 * np.stack([np.cos(phi_s), np.sin(phi_s), 0 * phi_s]) + normals
+    points_scene = p3.pyvista_surfaces({"vessel": (vertices, faces)}, opacity=0.3)
+    p3.pyvista_points(
+        {"wall samples": samples, "probes": [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0]]},
+        vectors={"wall samples": normals},
+        size={"wall samples": 6, "probes": 14},
+        plotter=points_scene,
+    )
+    shot(points_scene, "3d_points.png", zoom=1.3)
+
     # guiding-center-like orbits: passing markers circle the torus, trapped ones bounce
     rng3 = np.random.default_rng(3)
     n_orb, t_orb = 40, np.linspace(0, 40, 240)[:, None]

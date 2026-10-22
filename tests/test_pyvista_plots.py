@@ -417,3 +417,124 @@ def test_surfaces_without_values_take_no_part_in_the_scale():
     ranges = {tuple(actor.mapper.scalar_range) for actor in mesh_actors(plotter)}
     assert ranges == {(0.0, 5.0)}
     plotter.close()
+
+
+def point_actors(plotter):
+    """The actors that draw vertices only (point sets), not surfaces or arrows."""
+    return [actor for actor in mesh_actors(plotter) if actor.mapper.dataset.n_points == actor.mapper.dataset.n_verts]
+
+
+def test_points_draw_a_set_with_the_first_cycle_color():
+    from matplotlib.colors import to_rgb
+
+    points = np.random.default_rng(0).random((20, 3))
+    plotter = p3.pyvista_points(points, size=5, title="Samples")
+    (actor,) = mesh_actors(plotter)
+    assert np.allclose(actor.mapper.dataset.points, points)
+    assert np.allclose(actor.prop.color.float_rgb, to_rgb("C0")) and actor.prop.point_size == 5
+    assert plotter.legend is None
+    plotter.close()
+    with pytest.raises(ValueError, match="must have shape"):
+        p3.pyvista_points(np.zeros((4, 5)))
+
+
+def test_a_dict_of_points_gets_labels_colors_and_a_legend():
+    from matplotlib.colors import to_rgb
+
+    plotter = p3.pyvista_points(
+        {"inside": np.zeros((4, 3)), "outside": np.ones((3, 3)), "none": np.empty((0, 3))},
+        opacity={"inside": 1.0, "outside": 0.5, "none": 1.0},
+    )
+    actors = mesh_actors(plotter)
+    assert [a.mapper.dataset.n_points for a in actors] == [4, 3]  # the empty set is skipped
+    assert [a.prop.color.float_rgb for a in actors] == [to_rgb("C0"), to_rgb("C1")]
+    assert [a.prop.opacity for a in actors] == [1.0, 0.5]
+    assert plotter.legend.GetNumberOfEntries() == 2
+    plotter.close()
+    with pytest.raises(ValueError, match="one entry per point set"):
+        p3.pyvista_points([np.zeros((2, 3)), np.ones((2, 3))], labels=["only one"])
+
+
+def test_points_take_component_major_and_planar_arrays():
+    xyz = np.array([[0.0, 1.0, 2.0, 3.0], [0.0, 0.0, 1.0, 1.0], [5.0, 5.0, 5.0, 5.0]])  # (3, n)
+    plotter = p3.pyvista_points(xyz)
+    assert np.allclose(mesh_actors(plotter)[0].mapper.dataset.points, xyz.T)
+    # a flat scene in a z = const plane is viewed along z
+    position, focus, _ = plotter.camera_position
+    assert np.allclose(position[:2], focus[:2])
+    plotter.close()
+    planar = p3.pyvista_points([xyz[:2], xyz[:2].T + 1])  # (2, n) and (n, 2): in z = 0
+    first, second = (actor.mapper.dataset.points for actor in mesh_actors(planar))
+    assert np.allclose(first, np.column_stack([xyz[:2].T, np.zeros(4)]))
+    assert np.allclose(second[:, 2], 0.0)
+    planar.close()
+
+
+def test_points_with_vectors_draw_arrows_of_the_set_color():
+    from matplotlib.colors import to_rgb
+
+    sphere = pv.Sphere(theta_resolution=8, phi_resolution=8)
+    normals = np.asarray(sphere.point_normals)
+    plotter = p3.pyvista_points({"nodes": sphere.points}, vectors={"nodes": normals.T}, vector_scale=0.2)
+    (points,) = point_actors(plotter)
+    (arrows,) = [actor for actor in mesh_actors(plotter) if actor is not points]
+    assert np.allclose(arrows.prop.color.float_rgb, to_rgb("C0"))
+    # unit normals: every arrow is vector_scale long, so they reach 0.2 beyond the unit sphere
+    assert np.isclose(np.linalg.norm(arrows.mapper.dataset.points, axis=1).max(), 0.5 + 0.2, atol=1e-3)
+    plotter.close()
+    default = p3.pyvista_points(sphere.points, vectors=normals)  # 5% of the scene's extent
+    assert len(mesh_actors(default)) == 2
+    default.close()
+    with pytest.raises(ValueError, match="vectors of 'nodes'"):
+        p3.pyvista_points({"nodes": sphere.points}, vectors={"nodes": normals[:3]})
+    with pytest.raises(ValueError, match="for no point set"):
+        p3.pyvista_points({"nodes": sphere.points}, vectors={"other": normals})
+
+
+def test_points_and_surfaces_in_one_plotter_share_the_legend_and_color_cycle():
+    from matplotlib.colors import to_rgb
+
+    plotter = p3.pyvista_surfaces({"vessel": pv.Sphere()}, opacity=0.3)
+    assert plotter.legend is None  # one entry: no legend yet
+    camera = plotter.camera_position
+    same = p3.pyvista_points({"samples": np.zeros((3, 3)), "nodes": np.ones((2, 3))}, plotter=plotter)
+    assert same is plotter and plotter.camera_position == camera
+    assert plotter.legend.GetNumberOfEntries() == 3
+    colors = [actor.prop.color.float_rgb for actor in point_actors(plotter)]
+    assert np.allclose(colors, [to_rgb("C1"), to_rgb("C2")])  # the cycle continues after the vessel
+    p3.pyvista_surfaces({"coil": pv.Cube()}, plotter=plotter)
+    assert plotter.legend.GetNumberOfEntries() == 4
+    p3.pyvista_points({"hidden": np.zeros((1, 3))}, legend=False, plotter=plotter)
+    assert plotter.legend.GetNumberOfEntries() == 4
+    plotter.close()
+    # meshes labelled by PyVista itself join the legend too
+    own = pv.Plotter()
+    own.add_mesh(pv.Cube(), color="red", label="cube")
+    p3.pyvista_points({"corner": np.ones((1, 3))}, plotter=own)
+    assert own.legend.GetNumberOfEntries() == 2
+    own.close()
+
+
+def test_points_colored_by_scalars_share_one_scale():
+    a, b = np.zeros((3, 3)), np.ones((4, 3))
+    a[:, 2] = [0.0, 1.0, 2.0]
+    plotter = p3.pyvista_points([a, b], scalars=lambda points: points[:, 2], vectors=[a + 1, None])
+    assert list(plotter.scalar_bars.keys()) == ["value"]
+    ranges = {tuple(actor.mapper.scalar_range) for actor in mesh_actors(plotter)}
+    assert ranges == {(0.0, 2.0)}  # both sets and the arrows
+    assert plotter.legend is None
+    plotter.close()
+
+    def height(points):
+        return points[:, 2]
+
+    named = p3.pyvista_points({"a": a, "b": b}, scalars={"a": [0, 1, np.nan], "b": [1, 2, 3, 4]}, cmap="plasma")
+    assert {tuple(actor.mapper.scalar_range) for actor in mesh_actors(named)} == {(0.0, 4.0)}
+    assert named.legend is None
+    named.close()
+    by_function = p3.pyvista_points(a, scalars=height, clim=(-1.0, 1.0))
+    assert list(by_function.scalar_bars.keys()) == ["height"]
+    assert tuple(mesh_actors(by_function)[0].mapper.scalar_range) == (-1.0, 1.0)
+    by_function.close()
+    with pytest.raises(ValueError, match="one value per point"):
+        p3.pyvista_points(a, scalars=[1.0, 2.0])
