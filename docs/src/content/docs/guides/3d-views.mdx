@@ -12,6 +12,7 @@ import fig_glyphs from '../../../assets/figures/3d_glyphs.png';
 import fig_orbits from '../../../assets/figures/3d_orbits.png';
 import fig_domain from '../../../assets/figures/3d_domain.png';
 import fig_surfaces from '../../../assets/figures/3d_surfaces.png';
+import fig_points from '../../../assets/figures/3d_points.png';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -181,6 +182,39 @@ pyvista_surfaces((vertices, faces), scalars=potential, cmap="plasma")
 
 As with the other views, `plotter=` draws into an existing scene, e.g. the geometry around
 an isosurface.
+
+### Points and normals
+
+`pyvista_points` draws labelled point sets, such as samples, grid nodes or crossings. A set
+is an `(n, 3)` array or a component-major `(3, n)` one, as simgeometry stores points: the
+last axis holds the coordinates when its length is 3, else the first one does. `(n, 2)`
+points lie in the `z = 0` plane. `vectors=` adds an arrow at every point, e.g. normals, with
+the longest `vector_scale` long (default: 5% of the scene). Drawn into the same `plotter=`
+as `pyvista_surfaces`, the color cycle continues and the scene keeps one legend of both:
+
+```python
+from plasma_plots.pyvista_plots import pyvista_points
+
+rng = np.random.default_rng(0)
+theta, phi = rng.uniform(0, 2 * np.pi, (2, 150))
+normals = np.stack(
+    [np.cos(theta) * np.cos(phi), np.cos(theta) * np.sin(phi), np.sin(theta)]
+)  # (3, n)
+samples = 3.0 * np.stack([np.cos(phi), np.sin(phi), 0 * phi]) + normals
+
+plotter = pyvista_surfaces({"vessel": (vertices, faces)}, opacity=0.3)
+pyvista_points(
+    {"wall samples": samples, "probes": [[3.0, 0.0, 0.0], [0.0, 3.0, 0.0]]},
+    vectors={"wall samples": normals},
+    size={"wall samples": 6, "probes": 14},
+    plotter=plotter,
+)
+```
+
+<PyVistaScene src="/pyvista/3d_points.html" image={fig_points} alt="A translucent toroidal vessel with sample points and their normals on its wall, and two probe points" />
+
+`colors=`, `size=` and `opacity=` take one value, a list or a dict by label, and `scalars=`
+colors the points by a function of the points or by given values, as for surfaces.
 
 ## 2-D runs
 

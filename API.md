@@ -522,7 +522,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.arrays`: `logical_dims`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
-- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `save_vtk`, `save_movie`, `scene`
+- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene`
 
 ## Command line: plasma-plots
 
