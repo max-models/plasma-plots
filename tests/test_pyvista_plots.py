@@ -456,6 +456,12 @@ def test_points_and_surfaces_in_one_plotter_share_the_legend_and_color_cycle():
     p3.pyvista_points({"hidden": np.zeros((1, 3))}, legend=False, plotter=plotter)
     assert plotter.legend.GetNumberOfEntries() == 4
     plotter.close()
+    # meshes labelled by PyVista itself join the legend too
+    own = pv.Plotter()
+    own.add_mesh(pv.Cube(), color="red", label="cube")
+    p3.pyvista_points({"corner": np.ones((1, 3))}, plotter=own)
+    assert own.legend.GetNumberOfEntries() == 2
+    own.close()
 
 
 def test_points_colored_by_scalars_share_one_scale():

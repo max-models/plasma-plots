@@ -1149,13 +1149,21 @@ def _cycle_colors(plotter, n: int) -> list[str]:
 
 def _update_legend(plotter, entries) -> None:
     """Add ``(actor, label, color, face)`` entries and redraw the scene's legend from every
-    labelled actor still in it, when there are two or more."""
+    labelled actor in it, in drawing order, when there are two or more. Actors labelled by
+    PyVista itself (``add_mesh(..., label=...)``) are listed too."""
     renderer = plotter.renderer
     registry = _LEGEND.setdefault(renderer, {})
     for actor, label, color, face in entries:
         registry[actor.GetAddressAsString("")] = (label, color, face)
-    present = {actor.GetAddressAsString("") for actor in renderer.actors.values()}
-    rows = [list(entry) for key, entry in registry.items() if key in present]
+    labelled = getattr(renderer, "_labels", {})  # PyVista's own: address -> (glyph, label, color)
+    rows = []
+    for actor in renderer.actors.values():
+        key = actor.GetAddressAsString("")
+        if key in registry:
+            rows.append(list(registry[key]))
+        elif key in labelled:
+            _, label, color = labelled[key]
+            rows.append([label, color, "rectangle"])
     if len(rows) > 1:
         plotter.add_legend(rows, bcolor=None)
 
