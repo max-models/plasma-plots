@@ -281,16 +281,13 @@ try:
         plotter.camera_position = camera
         plotter.reset_camera()
         plotter.camera.zoom(zoom)
-        plotter.screenshot(str(OUT / filename), window_size=[1000, 700])
-        print(f"wrote {OUT / filename}")
+        view = plasma_plots.scene(plotter, window_size=[1000, 700])
+        print(f"wrote {view.save_png(OUT / filename)}")
+        # without the color bar, which vtk.js would show 0-255
         html = PYVISTA_OUT / filename.replace(".png", ".html")
-        # vtk.js would show them 0-255
-        for title in list(plotter.scalar_bars.keys()):
-            plotter.remove_scalar_bar(title)
         try:
-            plotter.trame.export_html(str(html))
-            print(f"wrote {html}")
-        except Exception as exc:  # needs trame-pyvista
+            print(f"wrote {view.save_html(html)}")
+        except Exception as exc:  # needs the scene extra
             print(
                 f"skipped {html.name} (interactive export unavailable): {exc}"
             )

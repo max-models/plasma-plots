@@ -49,6 +49,11 @@ jobs:
           pip uninstall -y -r requirements-devel.txt
           pip install -r requirements-devel.txt
 
+      # plasma_plots.scene exports with trame-pyvista (the scene extra). struphy pins an older
+      # trame-vtk than VTK 9.7 needs, so install it separately, as the docs workflow does.
+      - name: Install the interactive scene export
+        run: pip install trame-pyvista nest-asyncio2
+
       # The PyVista tests build scenes off-screen, which needs a virtual display
       # and Mesa's software OpenGL. Tests marked `simulation` (real struphy runs,
       # compiled kernels) are skipped here and run in the docs workflow.
