@@ -157,14 +157,65 @@ def test_boundary_faces_drop_periodic_seams_and_polar_axes():
 
 def test_isosurface_is_a_surface_in_3d_and_contour_lines_in_2d():
     plotter = p3.pyvista_isosurface(scalar(torus_coords()), values=3)
-    assert "isosurface" in actor_names(plotter) and "plane" not in actor_names(plotter)
+    assert "isosurface 0" in actor_names(plotter) and "plane" not in actor_names(plotter)
+    assert len(plotter.scalar_bars) == 1 and plotter.legend is None
     plotter.close()
 
     flat = scalar(plane_coords()).copy(data=np.asarray(plane_coords()["X"][1]))
     plotter = p3.pyvista_isosurface(flat, values=3)
-    assert {"plane", "isosurface"} <= actor_names(plotter)
+    assert {"plane", "isosurface 0"} <= actor_names(plotter)
     assert np.allclose(np.abs(plotter.camera.direction), (0, 0, 1))  # looking at the plane
     plotter.close()
+
+
+def isosurfaces(plotter):
+    return [actor for name, actor in sorted(plotter.renderer.actors.items()) if name.startswith("isosurface")]
+
+
+def test_isosurface_opacity_per_level():
+    field = scalar(torus_coords())
+    plotter = p3.pyvista_isosurface(field, values=[-0.3, 0.3], opacity=[1.0, 0.3])
+    assert [actor.prop.opacity for actor in isosurfaces(plotter)] == [1.0, 0.3]
+    assert len(plotter.scalar_bars) == 1  # still colored by the colormap
+    plotter.close()
+
+
+def test_isosurface_colors_per_level_replace_the_scalar_bar_by_a_legend():
+    from matplotlib.colors import to_rgb
+
+    field = scalar(torus_coords())
+    plotter = p3.pyvista_isosurface(field, values=[-0.3, 0.3], colors=["red", "tab:blue"], opacity=[1, 0.3])
+    actors = isosurfaces(plotter)
+    assert [actor.prop.color.float_rgb for actor in actors] == [(1.0, 0.0, 0.0), to_rgb("tab:blue")]
+    assert [actor.prop.opacity for actor in actors] == [1.0, 0.3]
+    assert not plotter.scalar_bars and plotter.legend is not None
+    plotter.close()
+
+    one = p3.pyvista_isosurface(field, values=[-0.3, 0.3], colors=(0.0, 0.0, 1.0), labels=["inner", "outer"])
+    assert [actor.prop.color.float_rgb for actor in isosurfaces(one)] == [(0.0, 0.0, 1.0)] * 2
+    one.close()
+
+    flat = scalar(plane_coords()).copy(data=np.asarray(plane_coords()["X"][1]))
+    lines = p3.pyvista_isosurface(flat, values=[-0.5, 0.5], colors=["red", "blue"], opacity=0.5)
+    assert [actor.prop.color.float_rgb for actor in isosurfaces(lines)] == [(1.0, 0.0, 0.0), (0.0, 0.0, 1.0)]
+    assert lines.renderer.actors["plane"].prop.opacity == 0.5  # a single value is the plane's
+    assert [actor.prop.opacity for actor in isosurfaces(lines)] == [1.0, 1.0]
+    assert len(lines.scalar_bars) == 1  # the plane keeps its colormap
+    lines.close()
+
+
+@pytest.mark.parametrize("option", [{"opacity": [1.0, 0.5]}, {"colors": ["red"]}, {"labels": ["a", "b"]}])
+def test_isosurface_per_level_options_need_one_entry_per_level(option):
+    with pytest.raises(ValueError, match="one entry per level"):
+        p3.pyvista_isosurface(scalar(torus_coords()), values=3, **option)
+
+
+def test_isosurface_accessor_passes_colors_labels_and_opacity_on(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(p3, "pyvista_isosurface", lambda data, **options: seen.update(options))
+    field = scalar(torus_coords(), t=[0.0, 1.0])
+    field.plasma.plot.isosurface(values=[0, 0.2], colors=["red", "grey"], labels=["a", "b"], opacity=[1, 0.3], t=-1)
+    assert seen["colors"] == ["red", "grey"] and seen["labels"] == ["a", "b"] and seen["opacity"] == [1, 0.3]
 
 
 def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():

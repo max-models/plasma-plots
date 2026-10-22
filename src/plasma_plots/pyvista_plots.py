@@ -348,13 +348,26 @@ def _finish(plotter, title, grid=None):
     return plotter
 
 
+def _per_level(value, n, name):
+    """One value per level from a single value or a sequence of ``n``."""
+    single = isinstance(value, str) or np.ndim(value) == 0 or (name == "colors" and _is_color(value))
+    if single:
+        return [value] * n
+    value = list(value)
+    if len(value) != n:
+        raise ValueError(f"{name} needs one entry per level ({n}); got {len(value)}")
+    return value
+
+
 @rank_zero
 def pyvista_isosurface(
     data: xr.DataArray,
     *,
     values: int | list[float] = 5,
     cmap="viridis",
-    opacity: float = 1.0,
+    opacity: float | list[float] = 1.0,
+    colors=None,
+    labels: list[str] | None = None,
     clim=None,
     show_domain: bool = True,
     title: str | None = None,
@@ -366,9 +379,11 @@ def pyvista_isosurface(
 
     ``values`` is the number of evenly spaced levels, or explicit levels (between the color
     limits, which ``symmetric``/``robust`` set as in :func:`~plasma_plots.plotting.color_limits`).
-    ``show_domain`` draws
-    the domain's outer surface translucently for context. For a 2-D field (one logical
-    direction with a single point) the levels are contour lines over the colored plane.
+    Each level is colored from ``cmap`` with a scalar bar, or with its own ``colors`` and a
+    legend of the levels instead; ``opacity`` may differ per level too, e.g. an opaque surface
+    inside a translucent shell. ``show_domain`` draws the domain's outer surface translucently
+    for context. For a 2-D field (one logical direction with a single point) the levels are
+    contour lines over the colored plane.
 
     Parameters
     ----------
@@ -380,8 +395,18 @@ def pyvista_isosurface(
         levels. Default: 5.
     cmap : str or matplotlib colormap, optional
         The colormap. Default: ``"viridis"``.
-    opacity : float, optional
-        Opacity of the surfaces (of the plane for a 2-D field). Default: 1.
+    opacity : float or sequence of float, optional
+        Opacity of the surfaces, one for all or one per level. For a 2-D field a single value
+        is the plane's opacity and a sequence sets the contour lines' (the plane is then
+        opaque). Default: 1.
+    colors : color or sequence of colors, optional
+        Colors of the surfaces (of the contour lines for a 2-D field), one for all or one per
+        level; any Matplotlib color. They replace the colormap and its scalar bar with a legend
+        of the levels (the plane of a 2-D field keeps the colormap). Default: from ``cmap``
+        (black lines for a 2-D field).
+    labels : sequence of str, optional
+        One legend entry per level; giving them shows the legend even without ``colors``.
+        Default: ``"level <value>"``.
     clim : (float, float), optional
         Color limits; default from the field's values, see ``symmetric`` and ``robust``.
     show_domain : bool, optional
@@ -401,54 +426,91 @@ def pyvista_isosurface(
     Returns
     -------
     pyvista.Plotter
-        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``. The surfaces are
+        the actors ``"isosurface 0"``, ``"isosurface 1"``, ... in the order of the levels.
 
     Raises
     ------
     ValueError
-        If other dimensions remain or the physical coordinates are missing.
+        If other dimensions remain, the physical coordinates are missing, or ``opacity``,
+        ``colors`` or ``labels`` don't have one entry per level.
 
     See Also
     --------
     pyvista_slices : The field on surfaces of constant logical coordinate.
+    pyvista_surfaces : Any surface meshes, with per-mesh colors and opacities.
 
     Examples
     --------
     >>> pyvista_isosurface(phi.isel(t=-1), values=[-0.1, 0.1]).show()
     >>> pyvista_isosurface(phi.isel(t=-1), symmetric=True, opacity=0.6).show()
+
+    An opaque surface inside a translucent shell:
+
+    >>> pyvista_isosurface(
+    ...     distance,
+    ...     values=[0, 0.2],
+    ...     colors=["tab:blue", "lightgrey"],
+    ...     opacity=[1, 0.3],
+    ... ).show()
     """
+    from matplotlib import colormaps
+    from matplotlib.colors import Normalize, to_hex
+
     grid = structured_grid(data)
     name = grid.active_scalars_name
     lo, hi = _clim(grid[name], clim, symmetric=symmetric, robust=robust)
     levels = np.linspace(lo, hi, values + 2)[1:-1] if isinstance(values, int) else values
+    levels = [float(level) for level in np.atleast_1d(levels)]
+    n = len(levels)
+    flat = is_flat(grid)
+    plane_opacity = 1.0
+    if flat and np.ndim(opacity) == 0:  # the plane's opacity; the lines stay opaque
+        plane_opacity, opacity = opacity, 1.0
+    opacities = [float(value) for value in _per_level(opacity, n, "opacity")]
+    explicit = colors is not None
+    legend = explicit or labels is not None
+    if explicit:
+        colors = [to_hex(color) for color in _per_level(colors, n, "colors")]
+    elif flat or not legend:
+        colors = ["#000000"] * n  # the lines of a 2-D field; unused for colormapped surfaces
+    else:  # the legend shows each surface's colormap color
+        cm = colormaps[cmap] if isinstance(cmap, str) else cmap
+        colors = [to_hex(cm(Normalize(lo, hi)(level))) for level in levels]
+    labels = [f"level {level:.3g}" for level in levels] if labels is None else _per_level(labels, n, "labels")
+    labels = [str(label) for label in labels]
+
     own = plotter is None
     plotter = _plotter(plotter)
-    contours = grid.contour(isosurfaces=list(levels), scalars=name)
     bar = _bar(value_label(data))
-    if is_flat(grid):
+    if flat:
         plotter.add_mesh(
             grid,
             scalars=name,
             cmap=cmap,
             clim=(lo, hi),
-            opacity=opacity,
+            opacity=plane_opacity,
             scalar_bar_args=bar,
             name="plane",
         )
-        if contours.n_points:
-            plotter.add_mesh(contours, color="black", line_width=1.5, name="isosurface")
     else:
         _add_context(plotter, grid, show_domain)
-        if contours.n_points:
-            plotter.add_mesh(
-                contours,
-                scalars=name,
-                cmap=cmap,
-                clim=(lo, hi),
-                opacity=opacity,
-                scalar_bar_args=bar,
-                name="isosurface",
-            )
+    drawn = []
+    for i, (level, color, alpha, label) in enumerate(zip(levels, colors, opacities, labels)):
+        contour = grid.contour(isosurfaces=[level], scalars=name)
+        if not contour.n_points:
+            continue
+        options = dict(opacity=alpha, name=f"isosurface {i}")
+        if flat:
+            options.update(color=color, line_width=1.5)
+        elif explicit:
+            options["color"] = color
+        else:
+            options.update(scalars=name, cmap=cmap, clim=(lo, hi), scalar_bar_args=bar)
+        plotter.add_mesh(contour, **options)
+        drawn.append([label, color])
+    if legend and drawn:
+        plotter.add_legend(drawn, bcolor=None, face="line" if flat else "rectangle")
     return _finish(plotter, _label(data) if title is None else title, grid if own else None)
 
 

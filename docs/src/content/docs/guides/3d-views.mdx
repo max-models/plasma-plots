@@ -54,6 +54,20 @@ it off).
 
 <PyVistaScene src="/pyvista/3d_isosurface.html" image={fig_isosurface} alt="Isosurfaces of a helical mode in a torus" />
 
+`opacity` and `colors` take one value for all levels or a list with one per level,
+e.g. an opaque surface inside a translucent shell:
+
+```python
+distance.plasma.plot.isosurface(
+    values=[0, 0.2], colors=["tab:blue", "lightgrey"], opacity=[1, 0.3]
+)
+```
+
+Explicit `colors` replace the colormap, so the scalar bar gives way to a legend of the
+levels ("level 0", "level 0.2"). Name them with `labels=["surface", "shell"]`, which also
+adds the legend to colormapped surfaces. In a [2-D run](#2-d-runs), `colors` and a list of
+opacities apply to the contour lines, and a single `opacity` to the plane.
+
 ## Cuts at fixed logical coordinates
 
 `slices_3d(cuts=...)` draws surfaces of constant `eta1`, `eta2` or `eta3` where they

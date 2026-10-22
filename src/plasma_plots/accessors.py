@@ -589,7 +589,9 @@ class ArrayPlots(_ArrayAccessor):
         *,
         values=5,
         cmap="viridis",
-        opacity: float = 1.0,
+        opacity: float | list[float] = 1.0,
+        colors=None,
+        labels: list[str] | None = None,
         clim=None,
         show_domain: bool = True,
         title: str | None = None,
@@ -600,7 +602,10 @@ class ArrayPlots(_ArrayAccessor):
     ):
         """Draw PyVista contour surfaces of this scalar field in physical space.
 
-        For a 2-D field, contour lines over the colored plane instead.
+        For a 2-D field, contour lines over the colored plane instead. ``opacity`` and
+        ``colors`` take one value for all levels or one per level; explicit ``colors`` replace
+        the colormap's scalar bar with a legend of the levels (or of ``labels``). The other
+        options are those of :func:`~plasma_plots.pyvista_plots.pyvista_isosurface`.
 
         Parameters
         ----------
@@ -621,6 +626,12 @@ class ArrayPlots(_ArrayAccessor):
         Examples
         --------
         >>> phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0).show()
+        >>> phi.plasma.plot.isosurface(
+        ...     values=[0, 0.2],
+        ...     colors=["tab:blue", "lightgrey"],
+        ...     opacity=[1, 0.3],
+        ...     t=0,
+        ... ).show()
         """
         from .pyvista_plots import pyvista_isosurface
 
@@ -629,6 +640,8 @@ class ArrayPlots(_ArrayAccessor):
             values=values,
             cmap=cmap,
             opacity=opacity,
+            colors=colors,
+            labels=labels,
             clim=clim,
             show_domain=show_domain,
             title=title,
