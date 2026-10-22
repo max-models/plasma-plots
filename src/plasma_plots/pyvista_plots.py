@@ -4,12 +4,19 @@ Every function returns a ``pyvista.Plotter`` without showing it: call ``.show()`
 interactive session or notebook, or ``.screenshot(path)`` (with ``pyvista.OFF_SCREEN = True``
 in batch jobs). Pass ``plotter=`` to draw several views into one scene.
 
+:func:`pyvista_surfaces` draws any surface meshes (geometry, marching-cubes surfaces) in the
+same style. :func:`scene` shows a plotter as an interactive 3-D scene in a notebook, which docs sites
+built from notebooks embed as they are.
+
 Fields need their physical ``X``, ``Y``, ``Z`` coordinates attached, as every Struphy field
 product has; orbits need physical positions ``x``, ``y``, ``z``.
 """
 
 from __future__ import annotations
 
+import base64
+import io
+import tempfile
 from pathlib import Path
 from typing import Literal
 
@@ -95,8 +102,10 @@ def _plane_normal(grid):
 
 
 def _camera(plotter, grid):
-    """Look straight at a planar grid (a 2-D run); leave 3-D scenes at the default view."""
-    if not is_flat(grid):
+    """Look straight at a planar grid (a 2-D run) or surface; leave 3-D scenes at the default view."""
+    if isinstance(grid, _pv().StructuredGrid) and not is_flat(grid):
+        return
+    if not grid.n_points:
         return
     normal = _plane_normal(grid)
     if normal is None:
@@ -1059,6 +1068,214 @@ def pyvista_domain(
     return _finish(plotter, "Domain" if title is None else title, grid if own else None)
 
 
+def _surface(mesh):
+    """A ``pyvista.PolyData`` of a mesh: any pyvista dataset, a ``(vertices, faces)`` pair, or
+    an object with ``vertices`` and ``cells`` (or ``faces``), such as simgeometry's ``SurfaceMesh``."""
+    pv = _pv()
+    if isinstance(mesh, pv.PolyData):
+        return mesh
+    if isinstance(mesh, pv.DataSet):
+        return mesh.extract_surface(algorithm="dataset_surface")
+    if _is_vertices_faces(mesh):
+        vertices, cells = mesh
+    elif hasattr(mesh, "vertices") and (hasattr(mesh, "cells") or hasattr(mesh, "faces")):
+        vertices, cells = mesh.vertices, getattr(mesh, "cells", None)
+        cells = mesh.faces if cells is None else cells
+    else:
+        raise TypeError(
+            "a mesh is a pyvista dataset, a (vertices, faces) pair of arrays, or has vertices and "
+            f"cells; got {type(mesh).__name__}"
+        )
+    vertices = np.asarray(vertices, dtype=float)
+    cells = np.asarray(cells, dtype=np.int64)
+    if vertices.ndim != 2 or vertices.shape[1] not in (2, 3):
+        raise ValueError(f"vertices must have shape (n, 3) (or (n, 2) in a plane); got {vertices.shape}")
+    if vertices.shape[1] == 2:  # a 2-D outline in the z = 0 plane
+        vertices = np.column_stack([vertices, np.zeros(len(vertices))])
+    if cells.ndim != 2 or cells.shape[1] < 2:
+        raise ValueError(f"faces must have shape (m, 3) (or (m, k) polygons, (m, 2) segments); got {cells.shape}")
+    if len(cells) and (cells.min() < 0 or cells.max() >= len(vertices)):
+        raise ValueError(f"faces index {len(vertices)} vertices; got indices {cells.min()} to {cells.max()}")
+    packed = np.column_stack([np.full(len(cells), cells.shape[1]), cells]).ravel()
+    if cells.shape[1] == 2:
+        return pv.PolyData(vertices, lines=packed)
+    return pv.PolyData(vertices, faces=packed)
+
+
+def _is_vertices_faces(mesh) -> bool:
+    if not isinstance(mesh, (tuple, list)) or len(mesh) != 2:
+        return False
+    try:
+        arrays = [np.asarray(part) for part in mesh]
+    except (TypeError, ValueError):  # ragged: two meshes, not one pair
+        return False
+    return all(array.ndim == 2 and array.dtype.kind in "iuf" for array in arrays)
+
+
+def _per_mesh(value, labels, name):
+    """One value per mesh from a single value, a sequence, or a dict keyed by label."""
+    if isinstance(value, dict):
+        missing = [label for label in labels if label not in value]
+        if missing:
+            raise ValueError(f"{name} has no entry for {missing}")
+        return [value[label] for label in labels]
+    if isinstance(value, (list, tuple)) and not (name == "colors" and _is_color(value)):
+        if len(value) != len(labels):
+            raise ValueError(f"{name} needs one entry per mesh ({len(labels)}); got {len(value)}")
+        return list(value)
+    return [value] * len(labels)
+
+
+def _is_color(value) -> bool:
+    """Whether ``value`` is one RGB(A) color such as ``(0.2, 0.4, 0.6)``, not a list of colors."""
+    return len(value) in (3, 4) and all(isinstance(v, (int, float, np.number)) for v in value)
+
+
+@rank_zero
+def pyvista_surfaces(
+    meshes,
+    *,
+    labels=None,
+    colors=None,
+    scalars=None,
+    cmap=None,
+    clim=None,
+    opacity=1.0,
+    show_edges: bool = False,
+    title: str | None = None,
+    legend: bool = True,
+    plotter=None,
+):
+    """Surface meshes in physical space, such as geometry or marching-cubes surfaces.
+
+    Each mesh gets its own color from Matplotlib's color cycle (``C0``, ``C1``, ...), and the
+    labels go in a legend when there is more than one. With ``scalars``, the surfaces are
+    colored by a value instead, on one color scale with a scalar bar, e.g. conductors by their
+    potential. A flat scene (every point in one plane) is viewed face on.
+
+    Parameters
+    ----------
+    meshes : mesh, sequence of meshes, or dict of str to mesh
+        A mesh is a ``pyvista.PolyData`` (any other pyvista dataset is drawn by its surface), a
+        ``(vertices, faces)`` pair of arrays with shapes ``(n, 3)`` and ``(m, 3)`` (triangles,
+        as from ``skimage.measure.marching_cubes``), or an object with ``vertices`` and
+        ``cells`` such as simgeometry's ``SurfaceMesh``. Faces with two columns are line
+        segments, and ``(n, 2)`` vertices lie in the ``z = 0`` plane. A dict's keys are the
+        labels. Empty meshes are skipped.
+    labels : sequence of str, optional
+        One label per mesh, for the legend. Default: the dict's keys, else none.
+    colors : color, sequence of colors, or dict of str to color, optional
+        Colors of the meshes, by position or by label; any Matplotlib color. Default:
+        Matplotlib's color cycle.
+    scalars : str or callable, optional
+        Color by this point-data array of every mesh, or by ``scalars(points)``, a function of
+        the ``(n, 3)`` points that returns ``n`` values. The scalar bar shows the array's name,
+        or the function's name. Default: plain colors.
+    cmap : str or matplotlib colormap, optional
+        The colormap for ``scalars``. Default: ``"viridis"``.
+    clim : (float, float), optional
+        Color limits for ``scalars``. Default: the range over all meshes.
+    opacity : float, sequence of float, or dict of str to float, optional
+        Opacity of the meshes, one for all or by position or label. Default: 1.
+    show_edges : bool, optional
+        Draw the mesh edges. Default: ``False``.
+    title : str, optional
+        Text in the scene's corner. Default: none.
+    legend : bool, optional
+        Show a legend of the labels when there are two or more (not with ``scalars``).
+        Default: ``True``.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views. The camera is only
+        aimed at the surfaces when this function creates the plotter.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    TypeError
+        If a mesh is none of the accepted kinds.
+    ValueError
+        If ``labels``, ``colors`` or ``opacity`` don't match the meshes, faces index missing
+        vertices, or a mesh lacks the ``scalars`` array.
+
+    Examples
+    --------
+    >>> import pyvista as pv
+    >>> pyvista_surfaces(
+    ...     {"inner": pv.Sphere(radius=0.5), "outer": pv.Sphere()},
+    ...     opacity={"inner": 1.0, "outer": 0.3},
+    ... ).show()
+    >>> vertices, faces, _, _ = skimage.measure.marching_cubes(values, level=0)
+    >>> pyvista_surfaces(
+    ...     (vertices, faces), scalars=lambda p: p[:, 2], show_edges=True
+    ... ).show()
+    """
+    from matplotlib.colors import to_hex
+
+    if isinstance(meshes, dict):
+        if labels is not None:
+            raise ValueError("pass labels either as the dict's keys or as labels, not both")
+        labels, meshes = [str(label) for label in meshes], list(meshes.values())
+    elif _is_vertices_faces(meshes) or not isinstance(meshes, (list, tuple)):
+        meshes = [meshes]
+    meshes = [_surface(mesh) for mesh in meshes]
+    named = labels is not None
+    labels = list(labels) if named else [f"surface {i}" for i in range(len(meshes))]
+    if len(labels) != len(meshes):
+        raise ValueError(f"labels needs one entry per mesh ({len(meshes)}); got {len(labels)}")
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"labels must be distinct; got {labels}")
+    colors = [f"C{i}" for i in range(len(meshes))] if colors is None else _per_mesh(colors, labels, "colors")
+    colors = [to_hex(color) for color in colors]
+    opacities = [float(value) for value in _per_mesh(opacity, labels, "opacity")]
+
+    bar = None
+    if scalars is not None:
+        if callable(scalars):
+            name = getattr(scalars, "__name__", "<lambda>")
+            bar = "value" if name.startswith("<") else name
+            computed = []
+            for mesh in meshes:
+                mesh = mesh.copy(deep=False)  # leave the caller's mesh as it is
+                if mesh.n_points:
+                    mesh.point_data[bar] = np.asarray(scalars(np.asarray(mesh.points)), dtype=float)
+                computed.append(mesh)
+            meshes = computed
+        else:
+            bar = scalars
+            missing = [label for label, mesh in zip(labels, meshes) if mesh.n_points and bar not in mesh.point_data]
+            if missing:
+                raise ValueError(f"no point data {bar!r} on {missing}")
+        # NaN marks points without a value (drawn in the NaN color), e.g. objects that are not
+        # conductors; a mesh may be NaN throughout.
+        values = np.concatenate([np.asarray(mesh.point_data[bar], dtype=float).ravel() for mesh in meshes] or [[]])
+        values = values[np.isfinite(values)]
+        if clim is None and values.size:
+            clim = (float(values.min()), float(values.max()))
+
+    own = plotter is None
+    plotter = _plotter(plotter)
+    drawn = []
+    for label, mesh, color, alpha in zip(labels, meshes, colors, opacities):
+        if not mesh.n_points:
+            continue
+        options = dict(opacity=alpha, show_edges=show_edges, line_width=2)
+        if bar is None:
+            options["color"] = color
+        else:
+            options.update(scalars=bar, cmap=cmap or "viridis", clim=clim, scalar_bar_args=_bar(bar))
+        plotter.add_mesh(mesh, **options)
+        drawn.append((label, color, mesh))
+    if legend and named and bar is None and len(drawn) > 1:
+        plotter.add_legend([[label, color] for label, color, _ in drawn], bcolor=None, face="rectangle")
+    if own and drawn:
+        _camera(plotter, _pv().merge([mesh for _, _, mesh in drawn]))
+    return _finish(plotter, title)
+
+
 @rank_zero
 def save_vtk(data: xr.DataArray, path, *, name: str | None = None) -> list[str]:
     """Write a field to VTK structured grids (``.vts``) on its physical points, for ParaView.
@@ -1224,3 +1441,170 @@ def save_movie(
     finally:
         plotter.close()
     return str(path)
+
+
+SCENE_EXTRA = 'pip install "plasma-plots[scene]"'
+
+
+class Scene:
+    """A ``pyvista.Plotter`` displayed as an interactive 3-D scene; see :func:`scene`.
+
+    The PNG and the HTML are rendered from the plotter the first time they are needed and
+    kept, so later changes to the plotter don't show.
+
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        The scene, off screen.
+    alt : str, optional
+        A text alternative for the screenshot.
+    title : str, optional
+        A title for the scene.
+    window_size : (int, int), optional
+        The screenshot's size in pixels. Default: the plotter's window size.
+    """
+
+    def __init__(self, plotter, *, alt: str | None = None, title: str | None = None, window_size=None):
+        self.plotter = plotter
+        self.alt = alt
+        self.title = title
+        self.window_size = window_size
+        self._png: bytes | None = None
+        self._html: str | None = None
+
+    def png(self) -> bytes:
+        """The screenshot of the plotter, as PNG bytes.
+
+        Returns
+        -------
+        bytes
+            The PNG file's content.
+
+        Raises
+        ------
+        RuntimeError
+            If the plotter isn't off screen and hasn't been shown.
+        """
+        if self._png is None:
+            buffer = io.BytesIO()
+            try:
+                self.plotter.screenshot(buffer, return_img=False, window_size=self.window_size)
+            except RuntimeError as error:
+                raise RuntimeError(
+                    "scene() takes a screenshot, which needs an off-screen plotter: "
+                    "pyvista.Plotter(off_screen=True), or pyvista.OFF_SCREEN = True before creating it"
+                ) from error
+            self._png = buffer.getvalue()
+        return self._png
+
+    def html(self) -> str:
+        """The scene as a standalone HTML page, vtk.js inlined (``plotter.trame.export_html``).
+
+        Scalar bars are hidden in the export: vtk.js receives colors already mapped to RGB, so
+        its color bar would read 0-255. The PNG keeps the correct one.
+
+        Returns
+        -------
+        str
+            The HTML document.
+
+        Raises
+        ------
+        ImportError
+            If trame-pyvista isn't installed (the ``scene`` extra).
+        """
+        if self._html is None:
+            try:
+                trame = self.plotter.trame
+            except AttributeError as error:
+                raise ImportError(f"Interactive scenes need the optional extra: {SCENE_EXTRA}") from error
+            bars = [actor for actor in self.plotter.scalar_bars.values() if actor.GetVisibility()]
+            for actor in bars:
+                actor.VisibilityOff()
+            try:
+                with tempfile.TemporaryDirectory() as folder:
+                    path = Path(folder) / "scene.html"
+                    trame.export_html(str(path))
+                    self._html = path.read_text(encoding="utf-8")
+            except ImportError as error:  # e.g. nest-asyncio2, to start trame's server
+                raise ImportError(f"Interactive scenes need the optional extra: {SCENE_EXTRA} ({error})") from error
+            finally:
+                for actor in bars:
+                    actor.VisibilityOn()
+        return self._html
+
+    def save_png(self, path) -> str:
+        """Write the screenshot to a PNG file.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            The file to write.
+
+        Returns
+        -------
+        str
+            ``path``, as a string.
+        """
+        Path(path).write_bytes(self.png())
+        return str(path)
+
+    def save_html(self, path) -> str:
+        """Write the scene to a standalone HTML file.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            The file to write.
+
+        Returns
+        -------
+        str
+            ``path``, as a string.
+        """
+        Path(path).write_text(self.html(), encoding="utf-8")
+        return str(path)
+
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        # the screenshot first: it renders the plotter, which the export then reuses
+        png = base64.b64encode(self.png()).decode("ascii")
+        data = {"text/html": self.html(), "image/png": png}
+        info = {key: value for key, value in (("alt", self.alt), ("title", self.title)) if value is not None}
+        return data, {"pyvista-scene": info}
+
+
+def scene(plotter, *, alt: str | None = None, title: str | None = None, window_size=None) -> Scene:
+    """Show a ``pyvista.Plotter`` as an interactive 3-D scene in a notebook.
+
+    As the last expression of a cell, the result displays as a standalone vtk.js page
+    (``text/html``) plus a screenshot (``image/png``). Jupyter shows the page; docs sites built
+    from the notebook show the screenshot and swap in the scene on click. ``alt`` and ``title``
+    travel in the output's ``"pyvista-scene"`` metadata.
+
+    The screenshot needs an off-screen plotter: plotters created in a notebook are, and in a
+    script set ``pyvista.OFF_SCREEN = True`` (or pass ``off_screen=True``) before creating
+    one. The export needs trame-pyvista: ``pip install "plasma-plots[scene]"``.
+
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        The scene, e.g. from ``phi.plasma.plot.isosurface(...)``. Set its camera first.
+    alt : str, optional
+        A text alternative for the screenshot.
+    title : str, optional
+        A title for the scene, e.g. of the frame it is shown in.
+    window_size : (int, int), optional
+        The screenshot's size in pixels. Default: the plotter's window size.
+
+    Returns
+    -------
+    Scene
+        Displays itself in Jupyter; ``.save_png(path)`` and ``.save_html(path)`` write the two
+        files, e.g. for a docs page.
+
+    Examples
+    --------
+    >>> plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], t=-1)
+    >>> plasma_plots.scene(plotter, alt="Two isosurfaces of phi")
+    """
+    return Scene(plotter, alt=alt, title=title, window_size=window_size)

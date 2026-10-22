@@ -47,7 +47,7 @@ jobs:
           python -m pip install flameprof pyarrow pyvis snakeviz textual
           # VTK 9.7 needs newer trame-vtk; this overrides Struphy's older pin
           # only for the docs' interactive PyVista exports.
-          python -m pip install trame-pyvista "trame-vtk>=2.11.15,<2.11.17"
+          python -m pip install trame-pyvista nest-asyncio2 "trame-vtk>=2.11.15,<2.11.17"
 
       # Off main, the devel branches of the max-models dependencies replace the image's PyPI
       # versions; PRs to main use the image as it is.

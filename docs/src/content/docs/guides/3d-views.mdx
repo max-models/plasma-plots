@@ -11,6 +11,7 @@ import fig_streamlines from '../../../assets/figures/3d_streamlines.png';
 import fig_glyphs from '../../../assets/figures/3d_glyphs.png';
 import fig_orbits from '../../../assets/figures/3d_orbits.png';
 import fig_domain from '../../../assets/figures/3d_domain.png';
+import fig_surfaces from '../../../assets/figures/3d_surfaces.png';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -31,7 +32,7 @@ pip install "plasma-plots[pyvista]"
 ```
 
 On this page, the 3-D figures have an **Interactive 3-D view** button that loads the
-scene itself, exported with PyVista's `plotter.trame.export_html(...)`.
+scene itself, exported with [`plasma_plots.scene`](#interactive-scenes-in-notebooks).
 
 Each method returns a `pyvista.Plotter` without showing it. Call `.show()` in
 a notebook or an interactive session, or `.screenshot("view.png")` in a batch
@@ -137,6 +138,50 @@ pyvista_domain(domain, n1=6, n2=24, n3=36)
 
 <PyVistaScene src="/pyvista/3d_domain.html" image={fig_domain} alt="Wireframe of a toroidal mapping" />
 
+## Surfaces and geometry
+
+`pyvista_surfaces` draws surface meshes that are not fields: a vessel, coils, conductors, or
+a surface from marching cubes. A mesh is a PyVista dataset, a `(vertices, faces)` pair of
+arrays (shapes `(n, 3)` and `(m, 3)`, triangles), or an object with `vertices` and `cells`,
+such as simgeometry's `SurfaceMesh`. Pass a dict to label the meshes; each gets its own color
+from Matplotlib's color cycle, and the labels go in a legend:
+
+```python
+import numpy as np
+import pyvista as pv
+from plasma_plots.pyvista_plots import pyvista_surfaces
+
+vessel = pv.ParametricTorus(
+    ringradius=3.0, crosssectionradius=1.0
+).triangulate()
+vertices, faces = vessel.points, vessel.faces.reshape(-1, 4)[:, 1:]
+pyvista_surfaces(
+    {
+        "vessel": (vertices, faces),
+        "probe 1": pv.Sphere(radius=0.3, center=(3.0, 0.0, 0.0)),
+        "probe 2": pv.Sphere(radius=0.3, center=(0.0, 3.0, 0.0)),
+    },
+    opacity={"vessel": 0.3, "probe 1": 1.0, "probe 2": 1.0},
+)
+```
+
+<PyVistaScene src="/pyvista/3d_surfaces.html" image={fig_surfaces} alt="A translucent toroidal vessel with two spherical probes" />
+
+`colors=` and `opacity=` take one value, a list or a dict by label. `scalars=` colors the
+surfaces by a value on one color scale instead: the name of a point-data array, or a function
+of the `(n, 3)` points, e.g. a potential:
+
+```python
+def potential(points):
+    return 1 / np.linalg.norm(points - [3.0, 0.0, 0.0], axis=1)
+
+
+pyvista_surfaces((vertices, faces), scalars=potential, cmap="plasma")
+```
+
+As with the other views, `plotter=` draws into an existing scene, e.g. the geometry around
+an isosurface.
+
 ## 2-D runs
 
 In a 2-D run one logical direction has a single grid point, or you have
@@ -181,6 +226,36 @@ phi_2d.plasma.plot.movie(
 
 ![A rotating mode in a 2-D cross-section](/plasma-plots/figures/2d_isosurface.gif)
 
+## Interactive scenes in notebooks
+
+`plasma_plots.scene(plotter)` shows a plotter as an interactive 3-D scene. As the
+last expression of a notebook cell, it displays the scene as a standalone vtk.js
+page together with a screenshot. Jupyter shows the page. Docs sites built from the
+notebook show the screenshot and load the scene on click, as on this page:
+
+```python
+import plasma_plots
+
+plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0)
+plotter.camera_position = "iso"
+plasma_plots.scene(plotter, alt="Isosurfaces of a helical mode in a torus")
+```
+
+`alt` describes the screenshot and `title` names the scene, and `window_size=(w, h)`
+sets the screenshot's size. The color bar is left out of the interactive scene,
+because vtk.js would label it 0 to 255; the screenshot keeps it. Outside a notebook,
+`.save_html("scene.html")` and `.save_png("scene.png")` write the two files.
+
+The export needs trame-pyvista, which comes with the `scene` extra:
+
+```bash
+pip install "plasma-plots[scene]"
+```
+
+The screenshot needs an off-screen plotter. Plotters created in a notebook are off
+screen already. In a script, set `pyvista.OFF_SCREEN = True` before creating the
+plotter.
+
 ## Your own PyVista pipeline
 
 `field.plasma.data.grid(t=-1)` returns the field as a
@@ -198,6 +273,5 @@ series. Any array works, e.g. a filtered mode from
 `filter_time(...).filtered`.
 
 To share a scene as a standalone web page, like the interactive views on this
-page, export it with `plotter.trame.export_html("scene.html")`. This needs
-`pip install trame-pyvista`, and with VTK 9.7 also `trame-vtk` 2.11.15 or
-newer.
+page, write it with `plasma_plots.scene(plotter).save_html("scene.html")` (see
+[Interactive scenes in notebooks](#interactive-scenes-in-notebooks)).

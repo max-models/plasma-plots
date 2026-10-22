@@ -1,5 +1,7 @@
 """Tests for the PyVista 3-D views, for 3-D fields and for 2-D ones (one flat direction)."""
 
+import warnings
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -247,3 +249,120 @@ def test_save_movie_writes_one_frame_per_step(tmp_path):
     assert Image.open(path).n_frames == 2
     with pytest.raises(ValueError, match="kind"):
         p3.save_movie(field, tmp_path / "x.gif", kind="volume")
+
+
+def mesh_actors(plotter):
+    """The drawn PolyData of each surface actor (not the axes or text)."""
+    return [
+        actor
+        for actor in plotter.renderer.actors.values()
+        if isinstance(getattr(actor, "mapper", None), pv.DataSetMapper)
+    ]
+
+
+def square():
+    vertices = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
+    return vertices, np.array([[0, 1, 2], [1, 3, 2]])
+
+
+def test_surfaces_draw_a_polydata_with_the_first_cycle_color():
+    from matplotlib.colors import to_rgb
+
+    plotter = p3.pyvista_surfaces(pv.Sphere(), title="A sphere")
+    (actor,) = mesh_actors(plotter)
+    assert actor.mapper.dataset.n_cells == pv.Sphere().n_cells
+    assert np.allclose(actor.prop.color.float_rgb, to_rgb("C0"))
+    assert plotter.legend is None
+    plotter.close()
+    grid = p3.pyvista_surfaces(pv.ImageData(dimensions=(3, 3, 3)))  # any dataset: its surface
+    assert mesh_actors(grid)[0].mapper.dataset.n_cells == 24
+    grid.close()
+
+
+def test_surfaces_draw_a_vertices_faces_pair_face_on():
+    vertices, faces = square()
+    plotter = p3.pyvista_surfaces((vertices, faces), show_edges=True)
+    (actor,) = mesh_actors(plotter)
+    assert actor.mapper.dataset.n_cells == 2 and actor.prop.show_edges
+    # a flat scene in a z = const plane is viewed along z
+    position, focus, _ = plotter.camera_position
+    assert np.allclose(position[:2], focus[:2])
+    plotter.close()
+    with pytest.raises(ValueError, match="faces index"):
+        p3.pyvista_surfaces((vertices, faces + 2))
+    with pytest.raises(TypeError, match="a mesh is"):
+        p3.pyvista_surfaces("sphere")
+
+
+def test_surfaces_take_an_object_with_vertices_and_cells_and_skip_empty_ones():
+    class SurfaceMesh:  # like simgeometry.mesh.SurfaceMesh
+        def __init__(self, vertices, cells):
+            self.vertices, self.cells = vertices, cells
+
+    empty = SurfaceMesh(np.empty((0, 3)), np.empty((0, 3), dtype=int))
+    plotter = p3.pyvista_surfaces([SurfaceMesh(*square()), empty])
+    assert len(mesh_actors(plotter)) == 1
+    plotter.close()
+
+
+def test_a_dict_of_surfaces_gets_labels_colors_and_a_legend():
+    meshes = {"inner": pv.Sphere(radius=0.5), "outer": pv.Sphere()}
+    plotter = p3.pyvista_surfaces(
+        meshes, colors={"inner": "red", "outer": "blue"}, opacity={"inner": 1.0, "outer": 0.3}
+    )
+    actors = mesh_actors(plotter)
+    assert [a.prop.color.float_rgb for a in actors] == [(1.0, 0.0, 0.0), (0.0, 0.0, 1.0)]
+    assert [a.prop.opacity for a in actors] == [1.0, 0.3]
+    assert plotter.legend is not None
+    plotter.close()
+    no_legend = p3.pyvista_surfaces(meshes, legend=False)
+    assert no_legend.legend is None
+    no_legend.close()
+    with pytest.raises(ValueError, match="one entry per mesh"):
+        p3.pyvista_surfaces([pv.Sphere(), pv.Cube()], labels=["only one"])
+    with pytest.raises(ValueError, match="no entry for"):
+        p3.pyvista_surfaces(meshes, colors={"inner": "red"})
+
+
+def test_surfaces_combine_with_an_existing_plotter():
+    plotter = p3.pyvista_surfaces({"a": pv.Sphere(), "b": pv.Cube()})
+    camera = plotter.camera_position
+    same = p3.pyvista_surfaces(pv.Cone(), plotter=plotter)
+    assert same is plotter and len(mesh_actors(plotter)) == 3
+    assert plotter.camera_position == camera
+    plotter.close()
+
+
+def test_surfaces_colored_by_scalars_share_one_scale():
+    sphere, cube = pv.Sphere(), pv.Cube()
+    plotter = p3.pyvista_surfaces([sphere, cube], scalars=lambda points: points[:, 2])
+    assert list(plotter.scalar_bars.keys()) == ["value"]
+    ranges = {tuple(actor.mapper.scalar_range) for actor in mesh_actors(plotter)}
+    assert ranges == {(-0.5, 0.5)}  # the cube's z range covers the sphere's
+    assert "value" not in sphere.point_data  # the caller's meshes are left as they are
+    plotter.close()
+
+    def potential(points):
+        return np.linalg.norm(points, axis=1)
+
+    named = p3.pyvista_surfaces(sphere, scalars=potential, clim=(0.0, 1.0), cmap="plasma")
+    assert list(named.scalar_bars.keys()) == ["potential"]
+    named.close()
+    sphere.point_data["phi"] = sphere.points[:, 0]
+    by_name = p3.pyvista_surfaces(sphere, scalars="phi")
+    assert list(by_name.scalar_bars.keys()) == ["phi"]
+    by_name.close()
+    with pytest.raises(ValueError, match="no point data 'phi'"):
+        p3.pyvista_surfaces({"s": sphere, "t": pv.Cube()}, scalars="phi")
+
+
+def test_surfaces_without_values_take_no_part_in_the_scale():
+    valued, empty = pv.Sphere(), pv.Sphere(center=(2, 0, 0))
+    valued.point_data["voltage"] = np.linspace(0.0, 5.0, valued.n_points)
+    empty.point_data["voltage"] = np.full(empty.n_points, np.nan)  # e.g. not a conductor
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        plotter = p3.pyvista_surfaces({"conductor": valued, "probe": empty}, scalars="voltage")
+    ranges = {tuple(actor.mapper.scalar_range) for actor in mesh_actors(plotter)}
+    assert ranges == {(0.0, 5.0)}
+    plotter.close()
