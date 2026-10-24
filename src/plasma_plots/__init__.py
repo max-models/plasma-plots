@@ -165,6 +165,7 @@ Runs as is, on synthetic data:
 
 from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
+from .arrays import repeat_periodic
 from .desc import from_desc
 from .figures import figure
 from .gvec import from_gvec
@@ -184,5 +185,6 @@ __all__ = [
     "mpi_rank",
     "save_figure",
     "scene",
+    "repeat_periodic",
     "set_backend",
 ]
