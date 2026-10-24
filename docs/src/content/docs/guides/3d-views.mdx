@@ -35,22 +35,34 @@ result to the full torus before plotting it:
 from plasma_plots import repeat_periodic
 
 phi = out.evaluate("em_fields/phi", t=-1)
-phi.plasma.plot.isosurface(values=0, cmap="RdBu_r")
-
+poloidal_period, toroidal_period = 2, 6
+phi.plasma.plot.isosurface(
+    values=0,
+    cmap="RdBu_r",
+    title="Simulated sector",
+)
 full_phi = repeat_periodic(
     phi,
-    poloidal_period=2,
-    toroidal_period=6,
+    poloidal_period=poloidal_period,
+    toroidal_period=toroidal_period,
     R0=3.0,  # major radius of the circular poloidal axis
 )
-full_phi.plasma.plot.isosurface(values=0, cmap="RdBu_r")
+full_phi.plasma.plot.isosurface(
+    values=0,
+    cmap="RdBu_r",
+    title=(
+        f"Full torus "
+        f"(poloidal periodicity={poloidal_period}, "
+        f"toroidal periodicity={toroidal_period})"
+    ),
+)
 ```
 
-The first plot shows the simulated sector; the second shows the expanded
-full torus. `repeat_periodic` copies the values and rotates the attached
-`X`, `Y`, `Z` coordinates around both toroidal and poloidal axes. `R0` and
-`Z0` specify the poloidal rotation centre; use the major-axis parameters of
-the mapping.
+The first plot (`phi.plasma.plot.isosurface(...)`) shows the simulated
+sector; the titled second plot shows the expanded full torus. `repeat_periodic`
+copies the values and rotates the attached `X`, `Y`, `Z` coordinates around
+both toroidal and poloidal axes. `R0` and `Z0` specify the poloidal rotation
+centre; use the major-axis parameters of the mapping.
 
 They need the optional PyVista extra:
 
