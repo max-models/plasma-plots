@@ -5,6 +5,8 @@ description: Isosurfaces, cuts, field lines, orbits and domain wireframes with P
 
 import PyVistaScene from '@max-models/starlight-theme/components/PyVistaScene.astro';
 import fig_isosurface from '../../../assets/figures/3d_isosurface.png';
+import fig_periodic_sector from '../../../assets/figures/3d_periodic_sector.png';
+import fig_periodic_full from '../../../assets/figures/3d_periodic_full.png';
 import fig_slices from '../../../assets/figures/3d_slices.png';
 import fig_flux_surface from '../../../assets/figures/3d_flux_surface.png';
 import fig_streamlines from '../../../assets/figures/3d_streamlines.png';
@@ -63,6 +65,10 @@ sector; the titled second plot shows the expanded full torus. `repeat_periodic`
 copies the values and rotates the attached `X`, `Y`, `Z` coordinates around
 both toroidal and poloidal axes. `R0` and `Z0` specify the poloidal rotation
 centre; use the major-axis parameters of the mapping.
+
+<PyVistaScene src="/pyvista/3d_periodic_sector.html" image={fig_periodic_sector} alt="A simulated poloidal and toroidal sector of a torus" />
+
+<PyVistaScene src="/pyvista/3d_periodic_full.html" image={fig_periodic_full} alt="The sector copied to a full torus" />
 
 They need the optional PyVista extra:
 
