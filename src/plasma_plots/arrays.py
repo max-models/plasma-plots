@@ -48,6 +48,100 @@ LOGICAL_DIMS = (
 )
 
 
+def repeat_periodic(
+    data: xr.DataArray | xr.Dataset,
+    *,
+    poloidal_period: int = 1,
+    toroidal_period: int = 1,
+    R0: float = 0.0,
+    Z0: float = 0.0,
+    dims: tuple[str, str] | None = None,
+) -> xr.DataArray | xr.Dataset:
+    """Copy a poloidal/toroidal sector to the full periodic domain.
+
+    The copies retain the values of ``data`` and extend its logical coordinates by one
+    sector per copy.  Attached ``X``, ``Y`` and ``Z`` coordinates are rotated around
+    the toroidal axis and around the circular poloidal axis, respectively.  This is
+    useful for plotting a Struphy run whose mapping covers only one of several identical
+    sectors.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        The field or collection of fields.  Physical coordinates are transformed when
+        all of ``X``, ``Y`` and ``Z`` are present; without them only the data and logical
+        coordinates are repeated.
+    poloidal_period, toroidal_period : int, optional
+        Number of copies represented by the input in the poloidal and toroidal
+        directions.  A value of one leaves that direction unchanged. Default: one.
+    R0, Z0 : float, optional
+        Centre of the circular poloidal rotation in the ``(R, Z)`` plane. ``R0`` is
+        normally the major radius of a Struphy torus. Default: zero.
+    dims : tuple of str, optional
+        Names of the poloidal and toroidal dimensions. Default: the second and third
+        logical dimensions, e.g. ``("eta2", "eta3")``.
+
+    Returns
+    -------
+    xarray.DataArray or xarray.Dataset
+        ``data`` copied over the requested full periodic domain.
+
+    Raises
+    ------
+    ValueError
+        If a period is not a positive integer or a requested dimension is absent.
+
+    Examples
+    --------
+    >>> full = repeat_periodic(phi, poloidal_period=2, toroidal_period=6, R0=3.0)
+    >>> full.sizes["eta3"] == 6 * phi.sizes["eta3"]
+    True
+    """
+    periods = (poloidal_period, toroidal_period)
+    if any(not isinstance(period, (int, np.integer)) or period < 1 for period in periods):
+        raise ValueError("poloidal_period and toroidal_period must be positive integers")
+    logical = logical_dims(data)
+    poloidal, toroidal = logical[1:] if dims is None else dims
+    missing = [dim for dim in (poloidal, toroidal) if dim not in data.dims]
+    if missing:
+        raise ValueError(f"periodic dimensions {missing} are missing from {data.dims}")
+    has_physical = all(name in data.coords for name in ("X", "Y", "Z"))
+
+    def transformed(part, poloidal_copy, toroidal_copy):
+        coords = {}
+        if has_physical:
+            angle_p = 2.0 * np.pi * poloidal_copy / poloidal_period
+            angle_t = 2.0 * np.pi * toroidal_copy / toroidal_period
+            cos_p, sin_p = np.cos(angle_p), np.sin(angle_p)
+            cos_t, sin_t = np.cos(angle_t), np.sin(angle_t)
+            X, Y, Z = (np.asarray(part.coords[name], dtype=float) for name in ("X", "Y", "Z"))
+            R = np.hypot(X, Y)
+            radial = R - R0
+            poloidal_r = R0 + radial * cos_p - (Z - Z0) * sin_p
+            poloidal_z = Z0 + radial * sin_p + (Z - Z0) * cos_p
+            coords["X"] = (part.coords["X"].dims, X * cos_t - Y * sin_t)
+            coords["Y"] = (part.coords["Y"].dims, X * sin_t + Y * cos_t)
+            coords["Z"] = (part.coords["Z"].dims, poloidal_z)
+        for dim, copy in ((poloidal, poloidal_copy), (toroidal, toroidal_copy)):
+            if dim in part.coords:
+                coords[dim] = np.asarray(part[dim]) + copy
+        return part.assign_coords(coords)
+
+    result = data
+    for dim, period, index in (
+        (poloidal, poloidal_period, 0),
+        (toroidal, toroidal_period, 1),
+    ):
+        if period == 1:
+            continue
+        parts = [
+            transformed(result.isel({dim: slice(None)}), p if index == 0 else 0, p if index == 1 else 0)
+            for p in range(period)
+        ]
+        result = xr.concat(parts, dim=dim, coords="minimal", compat="override", join="override")
+    return result
+
+
 def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
     """The names of the three logical dimensions of ``data``, radial first.
 
