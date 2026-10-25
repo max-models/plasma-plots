@@ -106,12 +106,42 @@ def repeat_periodic(
     if missing:
         raise ValueError(f"periodic dimensions {missing} are missing from {data.dims}")
     has_physical = all(name in data.coords for name in ("X", "Y", "Z"))
+    sign_p, sign_t = 1.0, 1.0
+    if has_physical:
+        points = []
+        for name in ("X", "Y", "Z"):
+            coordinate = data.coords[name]
+            for dim in (poloidal, toroidal):
+                if dim not in coordinate.dims:
+                    coordinate = coordinate.expand_dims({dim: data.sizes[dim]})
+            remaining = tuple(dim for dim in coordinate.dims if dim not in (poloidal, toroidal))
+            points.append(np.asarray(coordinate.transpose(poloidal, toroidal, *remaining), dtype=float))
+        points = np.stack(points, axis=-1)
+        if points.shape[0] >= 2:
+            radial = np.hypot(points[..., 0], points[..., 1]) - R0
+            z_coord = points[..., 2] - Z0
+            theta = np.arctan2(z_coord, radial)
+            dtheta = np.unwrap(theta, axis=0)
+            delta_p = np.take(dtheta, -1, axis=0) - np.take(dtheta, 0, axis=0)
+            if float(np.nanmedian(delta_p)) < 0.0:
+                sign_p = -1.0
+        if points.shape[1] >= 2:
+            phi = np.arctan2(points[..., 1], points[..., 0])
+            dphi = np.unwrap(phi, axis=1)
+            delta_t = np.take(dphi, -1, axis=1) - np.take(dphi, 0, axis=1)
+            if float(np.nanmedian(delta_t)) < 0.0:
+                sign_t = -1.0
+        for axis, dim in enumerate((poloidal, toroidal)):
+            if data.sizes[dim] >= 3 and periodicity(points, axis) == "closed":
+                data = data.isel({dim: slice(None, -1)})
+        if any(data.sizes[dim] < 1 for dim in (poloidal, toroidal)):
+            raise ValueError("periodic dimensions must contain at least one point")
 
     def transformed(part, poloidal_copy, toroidal_copy):
         coords = {}
         if has_physical:
-            angle_p = 2.0 * np.pi * poloidal_copy / poloidal_period
-            angle_t = 2.0 * np.pi * toroidal_copy / toroidal_period
+            angle_p = sign_p * 2.0 * np.pi * poloidal_copy / poloidal_period
+            angle_t = sign_t * 2.0 * np.pi * toroidal_copy / toroidal_period
             cos_p, sin_p = np.cos(angle_p), np.sin(angle_p)
             cos_t, sin_t = np.cos(angle_t), np.sin(angle_t)
             X, Y, Z = (np.asarray(part.coords[name], dtype=float) for name in ("X", "Y", "Z"))
@@ -119,8 +149,16 @@ def repeat_periodic(
             radial = R - R0
             poloidal_r = R0 + radial * cos_p - (Z - Z0) * sin_p
             poloidal_z = Z0 + radial * sin_p + (Z - Z0) * cos_p
-            coords["X"] = (part.coords["X"].dims, X * cos_t - Y * sin_t)
-            coords["Y"] = (part.coords["Y"].dims, X * sin_t + Y * cos_t)
+            safe_R = np.where(R > 0.0, R, 1.0)
+            cos_phi, sin_phi = X / safe_R, Y / safe_R
+            coords["X"] = (
+                part.coords["X"].dims,
+                poloidal_r * (cos_phi * cos_t - sin_phi * sin_t),
+            )
+            coords["Y"] = (
+                part.coords["Y"].dims,
+                poloidal_r * (sin_phi * cos_t + cos_phi * sin_t),
+            )
             coords["Z"] = (part.coords["Z"].dims, poloidal_z)
         for dim, copy in ((poloidal, poloidal_copy), (toroidal, toroidal_copy)):
             if dim in part.coords:

@@ -1738,10 +1738,10 @@ try:
     )
 
     # A periodic torus sector expanded to the full torus.
-    sector_pol_period, sector_tor_period = 2, 6
-    s1 = np.linspace(0.0, 1.0, 32)
-    s2 = np.linspace(0.0, 1.0, 32, endpoint=False)
-    s3 = np.linspace(0.0, 1.0, 48, endpoint=False)
+    sector_pol_period, sector_tor_period = 1, 6
+    s1 = np.linspace(0.0, 1.0, 16)
+    s2 = np.linspace(0.0, 1.0, 64, endpoint=False)
+    s3 = np.linspace(0.0, 1.0, 64, endpoint=False)
     SX, SY, SZ = torus_mapping(s1, s2 / sector_pol_period, s3 / sector_tor_period)
     sector_coords = {
         "eta1": s1,
@@ -1750,18 +1750,18 @@ try:
         **{n: (("eta1", "eta2", "eta3"), c) for n, c in zip("XYZ", (SX, SY, SZ))},
     }
     SR = 0.1 + 0.9 * s1[:, None, None]
-    STH = 2 * np.pi * s2[None, :, None] / sector_pol_period
-    SPH = 2 * np.pi * s3[None, None, :] / sector_tor_period
+    STH = 2 * np.pi * s2[None, :, None]
+    SPH = 2 * np.pi * s3[None, None, :]
     sector_mode = xr.DataArray(
-        np.sin(np.pi * SR) ** 2 * np.cos(3 * STH - 2 * SPH) + 0 * SX,
+        (0.2 + 0.8 * SR) * np.cos(2 * STH - SPH) + 0 * SX,
         dims=("eta1", "eta2", "eta3"),
         coords=sector_coords,
         name="phi",
         attrs={"label": "phi"},
     )
     shot(
-        sector_mode.plasma.plot.isosurface(
-            values=0,
+        sector_mode.plasma.plot.slices_3d(
+            cuts={"eta1": 1.0},
             cmap="RdBu_r",
             title=f"Sector ({sector_pol_period} poloidal, {sector_tor_period} toroidal)",
         ),
@@ -1775,8 +1775,8 @@ try:
         R0=3.0,
     )
     shot(
-        full_periodic_mode.plasma.plot.isosurface(
-            values=0,
+        full_periodic_mode.plasma.plot.slices_3d(
+            cuts={"eta1": 1.0},
             cmap="RdBu_r",
             title=f"Full torus ({sector_pol_period} poloidal, {sector_tor_period} toroidal)",
         ),

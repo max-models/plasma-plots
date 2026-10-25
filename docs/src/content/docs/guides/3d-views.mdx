@@ -28,48 +28,6 @@ These views draw a field where it actually lives: on the physical `X`, `Y`,
 (a torus, a cylinder, a stellarator) that is what makes them different from
 the logical-coordinate [field plots](/plasma-plots/guides/field-plots/).
 
-### Expanding a periodic sector
-
-Some Struphy mappings cover only one poloidal or toroidal sector. Copy the
-result to the full torus before plotting it:
-
-```python
-from plasma_plots import repeat_periodic
-
-phi = out.evaluate("em_fields/phi", t=-1)
-poloidal_period, toroidal_period = 2, 6
-phi.plasma.plot.isosurface(
-    values=0,
-    cmap="RdBu_r",
-    title="Simulated sector",
-)
-full_phi = repeat_periodic(
-    phi,
-    poloidal_period=poloidal_period,
-    toroidal_period=toroidal_period,
-    R0=3.0,  # major radius of the circular poloidal axis
-)
-full_phi.plasma.plot.isosurface(
-    values=0,
-    cmap="RdBu_r",
-    title=(
-        f"Full torus "
-        f"(poloidal periodicity={poloidal_period}, "
-        f"toroidal periodicity={toroidal_period})"
-    ),
-)
-```
-
-The first plot (`phi.plasma.plot.isosurface(...)`) shows the simulated
-sector; the titled second plot shows the expanded full torus. `repeat_periodic`
-copies the values and rotates the attached `X`, `Y`, `Z` coordinates around
-both toroidal and poloidal axes. `R0` and `Z0` specify the poloidal rotation
-centre; use the major-axis parameters of the mapping.
-
-<PyVistaScene src="/pyvista/3d_periodic_sector.html" image={fig_periodic_sector} alt="A simulated poloidal and toroidal sector of a torus" />
-
-<PyVistaScene src="/pyvista/3d_periodic_full.html" image={fig_periodic_full} alt="The sector copied to a full torus" />
-
 They need the optional PyVista extra:
 
 ```bash
@@ -367,3 +325,54 @@ series. Any array works, e.g. a filtered mode from
 To share a scene as a standalone web page, like the interactive views on this
 page, write it with `plasma_plots.scene(plotter).save_html("scene.html")` (see
 [Interactive scenes in notebooks](#interactive-scenes-in-notebooks)).
+
+## Expanding a periodic sector
+
+Some Struphy mappings cover only one poloidal or toroidal sector. Copy the
+result to the full torus before plotting it:
+
+```python
+from plasma_plots import repeat_periodic
+
+pol_period, tor_period = 1, 6
+phi = out.evaluate(
+    "em_fields/phi",
+    t=-1,
+    eta1=np.array([1.0]),
+    eta2=np.linspace(0.0, 1.0, 64, endpoint=False),
+    eta3=np.linspace(0.0, 1.0, 64, endpoint=False),
+)
+
+# Simulated sector (1 poloidal, 6 toroidal)
+phi.plasma.plot.slices_3d(
+    cuts={"eta1": 1.0},
+    cmap="RdBu_r",
+    title=f"Simulated sector ({pol_period} poloidal, {tor_period} toroidal)",
+)
+
+# Copy the sector to the full torus, rotating both the values' physical coordinates
+# and the attached X/Y/Z coordinates
+full_phi = repeat_periodic(
+    phi,
+    poloidal_period=pol_period,
+    toroidal_period=tor_period,
+    R0=3.0,  # major radius of the circular poloidal axis
+)
+full_phi.plasma.plot.slices_3d(
+    cuts={"eta1": 1.0},
+    cmap="RdBu_r",
+    title=f"Full torus ({pol_period} poloidal, {tor_period} toroidal)",
+)
+```
+
+The first plot shows the simulated sector; the titled second plot shows the
+expanded full torus. `repeat_periodic` copies the values and rotates the
+attached `X`, `Y`, `Z` coordinates around both toroidal and poloidal axes,
+automatically matching the direction the sector is oriented in. `R0` and `Z0`
+specify the poloidal rotation centre; use the major-axis parameters of the
+mapping. `repeat_periodic` works with both 2-D surfaces drawn with `slices_3d`
+and full 3-D volumes drawn with `isosurface`.
+
+<PyVistaScene src="/pyvista/3d_periodic_sector.html" image={fig_periodic_sector} alt="A simulated poloidal and toroidal sector of a torus" />
+
+<PyVistaScene src="/pyvista/3d_periodic_full.html" image={fig_periodic_full} alt="The sector copied to a full torus" />
