@@ -109,4 +109,3 @@ post-processing products use other representations (`"norm"`, `"0"`). For
 other models, `plasma_plots.analysis.field_energy` and `volume_integral`
 compute the same kinds of integrals for any form. See the
 [Diagnostics guide](/plasma-plots/guides/analysis/#volume-integrals-and-field-energies).
-

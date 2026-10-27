@@ -115,11 +115,6 @@ class SkippedPlot:
         self._name = name
         self._rank = rank
 
-    def __getattr__(self, name):
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return self
-
     def __call__(self, *args, **kwargs):
         """Do nothing, in place of the skipped plot's method.
 
@@ -135,14 +130,19 @@ class SkippedPlot:
         """
         return self
 
-    def __bool__(self):
-        return False
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return self
 
     def __iter__(self):
         return iter(())
 
     def __len__(self):
         return 0
+
+    def __bool__(self):
+        return False
 
     def __repr__(self):
         return f"SkippedPlot({self._name}, rank={self._rank})"

@@ -98,7 +98,13 @@ def _array(value):
 # ---------------------------------------------------------------------------------------------
 # Sheaths
 # ---------------------------------------------------------------------------------------------
-def bohm_speed(electron_temperature, ion_temperature=0.0, mass_number=1, charge_number=1, ion_gamma=1.0):
+def bohm_speed(
+    electron_temperature,
+    ion_temperature=0.0,
+    mass_number=1,
+    charge_number=1,
+    ion_gamma=1.0,
+):
     """Compute the Bohm speed u_B = √((Z T_e + γ_i T_i) / m_i) at the sheath edge.
 
     Parameters
@@ -143,7 +149,9 @@ def bohm_speed(electron_temperature, ion_temperature=0.0, mass_number=1, charge_
     )
 
 
-def bohm_current_density(density, electron_temperature, mass_number=1, charge_number=1, ion_temperature=0.0):
+def bohm_current_density(
+    density, electron_temperature, mass_number=1, charge_number=1, ion_temperature=0.0
+):
     """Compute the ion current density J = Z e n_s u_B to a wall, with n_s = n exp(−1/2).
 
     Parameters
@@ -178,7 +186,14 @@ def bohm_current_density(density, electron_temperature, mass_number=1, charge_nu
     return _out(_SHEATH_EDGE * charge_number * _e * n * u_b)
 
 
-def ion_saturation_current(density, electron_temperature, area, mass_number=1, charge_number=1, ion_temperature=0.0):
+def ion_saturation_current(
+    density,
+    electron_temperature,
+    area,
+    mass_number=1,
+    charge_number=1,
+    ion_temperature=0.0,
+):
     """Compute the ion saturation current I = Z e n_s u_B A of a strongly negative planar probe.
 
     Valid when the sheath is thin compared with the probe (otherwise see :func:`oml_current`).
@@ -210,7 +225,12 @@ def ion_saturation_current(density, electron_temperature, area, mass_number=1, c
     >>> print(f"{ion_saturation_current(1e18, 5.0, 1e-6):.4g} A")
     0.002127 A
     """
-    return _out(bohm_current_density(density, electron_temperature, mass_number, charge_number, ion_temperature) * area)
+    return _out(
+        bohm_current_density(
+            density, electron_temperature, mass_number, charge_number, ion_temperature
+        )
+        * area
+    )
 
 
 def floating_potential(
@@ -275,7 +295,9 @@ def floating_potential(
     u_b = bohm_speed(te, ion_temperature, mass_number, charge_number)
     # ion flux Z u_B against the electron flux (1 − δ) √(e T_e / (2π m_e)) exp(V/T_e)
     electron_thermal_flux = np.sqrt(te * _e / (2 * np.pi * electron_mass))
-    return _out(te * np.log(charge_number * u_b / ((1 - delta) * electron_thermal_flux)))
+    return _out(
+        te * np.log(charge_number * u_b / ((1 - delta) * electron_thermal_flux))
+    )
 
 
 def sheath_width(density, electron_temperature, voltage, model="child-langmuir"):
@@ -329,7 +351,9 @@ def sheath_width(density, electron_temperature, voltage, model="child-langmuir")
 # ---------------------------------------------------------------------------------------------
 # Space-charge-limited flow
 # ---------------------------------------------------------------------------------------------
-def child_langmuir(voltage, gap, mass=electron_mass, charge=elementary_charge, initial_velocity=0.0):
+def child_langmuir(
+    voltage, gap, mass=electron_mass, charge=elementary_charge, initial_velocity=0.0
+):
     """Compute the space-charge-limited current density J of a planar diode.
 
     For particles starting at rest, J = (4/9) ε₀ √(2|q|/m) V^{3/2} / d². Particles injected with
@@ -380,7 +404,15 @@ def child_langmuir(voltage, gap, mass=electron_mass, charge=elementary_charge, i
     speed_scale = np.sqrt(2 * q / m)
     w0 = _array(initial_velocity) / speed_scale
     s = np.sqrt(w0**2 + v) - w0
-    return _out(4 / 9 * vacuum_permittivity * speed_scale * s * (s + 3 * w0) ** 2 / np.square(gap))
+    return _out(
+        4
+        / 9
+        * vacuum_permittivity
+        * speed_scale
+        * s
+        * (s + 3 * w0) ** 2
+        / np.square(gap)
+    )
 
 
 def _lb_series(geometry, terms):
@@ -401,7 +433,12 @@ def _lb_series(geometry, terms):
         dd = [k * (k - 1) * a[k] for k in range(2, len(a))]
         if geometry == "spherical":
             return product(d, d, m) + 3 * product(a, d, m) + 3 * product(a, dd, m)
-        return product(a, a, m) + 4 * product(a, d, m) + product(d, d, m) + 3 * product(a, dd, m)
+        return (
+            product(a, a, m)
+            + 4 * product(a, d, m)
+            + product(d, d, m)
+            + 3 * product(a, dd, m)
+        )
 
     a = [Fraction(0), Fraction(1)]
     for m in range(1, terms - 1):
@@ -493,13 +530,17 @@ def langmuir_blodgett(
     0.8126 A
     """
     if geometry not in ("cylindrical", "spherical"):
-        raise ValueError(f"geometry must be 'cylindrical' or 'spherical'; got {geometry!r}")
+        raise ValueError(
+            f"geometry must be 'cylindrical' or 'spherical'; got {geometry!r}"
+        )
     r_a = _array(anode_radius)
     gamma = np.log(r_a / _array(cathode_radius))
     if np.any(np.abs(gamma) > _LB_MAX_GAMMA):
         raise ValueError("the Langmuir–Blodgett series needs |ln(r_a / r_c)| <= 4")
     prefactor = (
-        vacuum_permittivity * np.sqrt(2 * np.abs(_array(charge)) / _array(mass)) * np.abs(_array(voltage)) ** 1.5
+        vacuum_permittivity
+        * np.sqrt(2 * np.abs(_array(charge)) / _array(mass))
+        * np.abs(_array(voltage)) ** 1.5
     )
     if geometry == "cylindrical":
         beta = _lb_function(gamma, _LB_CYLINDRICAL)
@@ -519,7 +560,9 @@ def _erfcx(x):
     small = np.where(x < 25, x, 0.0)
     exact = np.exp(small**2) * np.vectorize(math.erfc, otypes=[float])(small)
     big = np.where(x < 25, 25.0, x)
-    asymptotic = (1 - 1 / (2 * big**2) + 3 / (4 * big**4) - 15 / (8 * big**6)) / (big * math.sqrt(math.pi))
+    asymptotic = (1 - 1 / (2 * big**2) + 3 / (4 * big**4) - 15 / (8 * big**6)) / (
+        big * math.sqrt(math.pi)
+    )
     return np.where(x < 25, exact, asymptotic)
 
 
@@ -599,10 +642,17 @@ def oml_current(
     elif geometry == "spherical":
         area = 4 * np.pi * _array(radius) ** 2
     else:
-        raise ValueError(f"geometry must be 'cylindrical' or 'spherical'; got {geometry!r}")
+        raise ValueError(
+            f"geometry must be 'cylindrical' or 'spherical'; got {geometry!r}"
+        )
     q = _array(charge)
     t = _array(temperature)
-    random_current = area * _array(density) * np.abs(q) * np.sqrt(t * ev_to_joule / (2 * np.pi * _array(mass)))
+    random_current = (
+        area
+        * _array(density)
+        * np.abs(q)
+        * np.sqrt(t * ev_to_joule / (2 * np.pi * _array(mass)))
+    )
     chi = -q * _array(potential) / (t * ev_to_joule)
     attracted = np.maximum(chi, 0.0)
     if geometry == "cylindrical":
@@ -616,7 +666,9 @@ def oml_current(
 # ---------------------------------------------------------------------------------------------
 # Transport and breakdown
 # ---------------------------------------------------------------------------------------------
-def ambipolar_diffusion(ion_mobility, electron_temperature, ion_temperature=0.0, electron_mobility=None):
+def ambipolar_diffusion(
+    ion_mobility, electron_temperature, ion_temperature=0.0, electron_mobility=None
+):
     """Compute the ambipolar diffusion coefficient D_a = (μ_i D_e + μ_e D_i)/(μ_i + μ_e).
 
     With the Einstein relations D = μ T/e this is D_a = μ_i μ_e (T_e + T_i)/(μ_i + μ_e), which
@@ -685,7 +737,9 @@ def bohm_diffusion(electron_temperature, field):
     return _out(_array(electron_temperature) / (16 * np.abs(_array(field))))
 
 
-def paschen_breakdown(pressure, gap, gas="air", secondary_emission=0.01, constants=None):
+def paschen_breakdown(
+    pressure, gap, gas="air", secondary_emission=0.01, constants=None
+):
     """Compute the breakdown voltage V_b = B p d / (ln(A p d) − ln ln(1 + 1/γ)).
 
     Parameters

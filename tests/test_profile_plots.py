@@ -10,8 +10,10 @@ from matplotlib import pyplot as plt  # noqa: E402
 
 scope_profiler = pytest.importorskip("scope_profiler")
 
-from plasma_plots.output_accessors import OutputPlots  # noqa: E402
-from plasma_plots.output_accessors import ProfilePlots
+from plasma_plots.output_accessors import (
+    OutputPlots,  # noqa: E402
+    ProfilePlots,
+)
 
 
 class FakeProfile:
@@ -28,7 +30,9 @@ class FakeOutput:
 
 @pytest.fixture
 def results(tmp_path):
-    with scope_profiler.session(verbose=False, file_path=str(tmp_path / "profiling_data.h5")):
+    with scope_profiler.session(
+        verbose=False, file_path=str(tmp_path / "profiling_data.h5")
+    ):
         with scope_profiler.region("solve"):
             time.sleep(0.001)
             with scope_profiler.region("kernel: push"):

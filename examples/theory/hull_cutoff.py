@@ -32,8 +32,16 @@ ax_h.set(
 ax_h.legend(frameon=False, loc="lower right")
 
 ax_b.loglog(field * 1e3, flow["density"], lw=2, color="C2")
-ax_b.set(xlabel="magnetic field (mT)", ylabel=r"Brillouin density (m$^{-3}$)", title="Brillouin flow limit")
+ax_b.set(
+    xlabel="magnetic field (mT)",
+    ylabel=r"Brillouin density (m$^{-3}$)",
+    title="Brillouin flow limit",
+)
 
-print(f"Brillouin flow at 50 mT: n = {magnetron.brillouin_flow(0.05)['density']:.3e} m^-3")
-print(f"300 V, 5 cm gap: B_c = {magnetron.hull_cutoff(voltage=300.0, gap=0.05) * 1e3:.3f} mT")
+print(
+    f"Brillouin flow at 50 mT: n = {magnetron.brillouin_flow(0.05)['density']:.3e} m^-3"
+)
+print(
+    f"300 V, 5 cm gap: B_c = {magnetron.hull_cutoff(voltage=300.0, gap=0.05) * 1e3:.3f} mT"
+)
 plt.show()

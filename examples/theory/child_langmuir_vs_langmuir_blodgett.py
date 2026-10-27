@@ -44,6 +44,8 @@ ax_i.set(
 )
 ax_i.legend(frameon=False)
 
-j_ratio = sheaths.langmuir_blodgett(voltage, 5e-3, r_c) / sheaths.child_langmuir(voltage, 4e-3)
+j_ratio = sheaths.langmuir_blodgett(voltage, 5e-3, r_c) / sheaths.child_langmuir(
+    voltage, 4e-3
+)
 print(f"r_a/r_c = 5, cylinders: J_LB/J_CL = {j_ratio:.4f}")
 plt.show()

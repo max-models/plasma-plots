@@ -45,9 +45,15 @@ BLOCK = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 # a script a guide includes: import script from '../../../../../scripts/generate_gvec_figures.py?raw'
-INCLUDE = re.compile(r"""^import\s+\w+\s+from\s+['"](?P<path>[^'"]+\.py)\?raw['"]""", re.MULTILINE)
+INCLUDE = re.compile(
+    r"""^import\s+\w+\s+from\s+['"](?P<path>[^'"]+\.py)\?raw['"]""",
+    re.MULTILINE,
+)
 # a docstring example: a ">>> " line and the "... " lines that continue it, at the same indentation
-EXAMPLE = re.compile(r"^(?P<indent>[ \t]*)>>> .*\n(?:(?P=indent)\.\.\.(?: .*)?\n)*", re.MULTILINE)
+EXAMPLE = re.compile(
+    r"^(?P<indent>[ \t]*)>>> .*\n(?:(?P=indent)\.\.\.(?: .*)?\n)*",
+    re.MULTILINE,
+)
 
 
 def hoist_long_comments(code: str, line_length: int = LINE_LENGTH) -> str:
@@ -70,7 +76,11 @@ def hoist_long_comments(code: str, line_length: int = LINE_LENGTH) -> str:
             elif token.type == tokenize.COMMENT and depth == 0:
                 row, col = token.start
                 before = lines[row - 1][:col].rstrip()
-                if row == start_row and before.strip() and len(before) + 2 + len(token.string) > line_length:
+                if (
+                    row == start_row
+                    and before.strip()
+                    and len(before) + 2 + len(token.string) > line_length
+                ):
                     moves[row] = col
     except (tokenize.TokenError, SyntaxError):
         return code
@@ -126,7 +136,9 @@ def format_text(text: str, name: str = "") -> tuple[str, list[str], list[str]]:
         except ValueError as error:
             failed.append(_failure(name, line, error))
             return match[0]
-        formatted = textwrap.indent(formatted, indent, lambda s: s.strip() != "")
+        formatted = textwrap.indent(
+            formatted, indent, lambda s: s.strip() != ""
+        )
         if formatted != code:
             changed.append(f"{name}:{line}")
         return match[0].replace(code, formatted, 1)
@@ -134,7 +146,30 @@ def format_text(text: str, name: str = "") -> tuple[str, list[str], list[str]]:
     return BLOCK.sub(replace, text), changed, failed
 
 
-def format_examples(text: str, name: str = "") -> tuple[str, list[str], list[str]]:
+CONTINUATIONS = (")", "]", "}", "else", "elif", "except", "finally", "case")
+
+
+def _complete(code: str) -> bool:
+    """Whether ``code`` ends outside brackets and strings, where a new statement can start."""
+    try:
+        list(tokenize.generate_tokens(io.StringIO(code + "\n").readline))
+    except (tokenize.TokenError, SyntaxError):
+        return False
+    return True
+
+
+def _prompt(rows: list[str], i: int) -> str:
+    """``>>>`` for a row that starts a statement (or is a comment of its own), else ``...``."""
+    row = rows[i]
+    if i == 0:
+        return ">>>"
+    starts = row and not row[0].isspace() and not row.startswith(CONTINUATIONS)
+    return ">>>" if starts and _complete("\n".join(rows[:i])) else "..."
+
+
+def format_examples(
+    text: str, name: str = ""
+) -> tuple[str, list[str], list[str]]:
     """``text`` (a module's source) with its docstring examples formatted, as :func:`format_text`.
 
     Each ``>>>`` statement with its ``...`` lines is formatted on its own, so that with its prompt
@@ -153,33 +188,15 @@ def format_examples(text: str, name: str = "") -> tuple[str, list[str], list[str
             failed.append(_failure(name, line, error))
             return source
         rows = formatted.rstrip("\n").split("\n")
-        new = "".join(f"{indent}{_prompt(rows, i)}{' ' + row if row else ''}\n" for i, row in enumerate(rows))
+        new = "".join(
+            f"{indent}{_prompt(rows, i)}{' ' + row if row else ''}\n"
+            for i, row in enumerate(rows)
+        )
         if new != source:
             changed.append(f"{name}:{line}")
         return new
 
     return EXAMPLE.sub(replace, text), changed, failed
-
-
-CONTINUATIONS = (")", "]", "}", "else", "elif", "except", "finally", "case")
-
-
-def _prompt(rows: list[str], i: int) -> str:
-    """``>>>`` for a row that starts a statement (or is a comment of its own), else ``...``."""
-    row = rows[i]
-    if i == 0:
-        return ">>>"
-    starts = row and not row[0].isspace() and not row.startswith(CONTINUATIONS)
-    return ">>>" if starts and _complete("\n".join(rows[:i])) else "..."
-
-
-def _complete(code: str) -> bool:
-    """Whether ``code`` ends outside brackets and strings, where a new statement can start."""
-    try:
-        list(tokenize.generate_tokens(io.StringIO(code + "\n").readline))
-    except (tokenize.TokenError, SyntaxError):
-        return False
-    return True
 
 
 def included_scripts() -> list[Path]:
@@ -191,7 +208,9 @@ def included_scripts() -> list[Path]:
     return sorted(scripts)
 
 
-def format_script(text: str, name: str = "") -> tuple[str, list[str], list[str]]:
+def format_script(
+    text: str, name: str = ""
+) -> tuple[str, list[str], list[str]]:
     """A whole script formatted, as :func:`format_text`."""
     try:
         formatted = format_code(text)
@@ -223,12 +242,19 @@ def format_all(*, write: bool) -> tuple[list[str], list[str]]:
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(one, targets()))
-    return [c for changed, _ in results for c in changed], [f for _, failed in results for f in failed]
+    return [c for changed, _ in results for c in changed], [
+        f for _, failed in results for f in failed
+    ]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--check", action="store_true", help="only list what would change")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="only list what would change"
+    )
     args = parser.parse_args()
 
     all_changed, all_failed = format_all(write=not args.check)

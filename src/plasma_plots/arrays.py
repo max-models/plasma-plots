@@ -48,6 +48,79 @@ LOGICAL_DIMS = (
 )
 
 
+def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
+    """The names of the three logical dimensions of ``data``, radial first.
+
+    One of :data:`LOGICAL_DIMS`: the one with the most of its names among the dimensions of
+    ``data`` (then among its coordinates, for a slice that selected some away), Struphy's
+    ``("eta1", "eta2", "eta3")`` when none match.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        The field.
+
+    Returns
+    -------
+    tuple of str
+        Three dimension names, e.g. ``("eta1", "eta2", "eta3")`` or ``("rho", "theta_B", "zeta_B")``;
+        ``data`` need not have all three.
+
+    Examples
+    --------
+    >>> logical_dims(phi)  # Struphy
+    ('eta1', 'eta2', 'eta3')
+    >>> # GVEC, Boozer
+    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))
+    ('rho', 'theta_B', 'zeta_B')
+    """
+    dims, coords = set(data.dims), set(data.coords)
+    return max(
+        LOGICAL_DIMS,
+        key=lambda names: (
+            sum(n in dims for n in names),
+            sum(n in coords for n in names),
+        ),
+    )
+
+
+def periodicity(points: np.ndarray, axis: int) -> str | None:
+    """How a direction of a ``(..., 3)`` array of physical points wraps around, if it does.
+
+    The direction is ``"closed"`` when its last slice coincides with its first (to 1e-9 of the
+    median step), and ``"open"`` when the seam between them is at most 1.5 times the last grid
+    step everywhere.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Physical points, with the Cartesian coordinates ``(X, Y, Z)`` along the last axis.
+    axis : int
+        The axis of ``points`` to examine; it needs at least three points to be periodic.
+
+    Returns
+    -------
+    {"closed", "open", None}
+        ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of
+        the seam, as on Struphy's cell centers), or ``None`` (not periodic, e.g. a radius or the
+        ends of a torus sector).
+    """
+    n = points.shape[axis]
+    if n < 3:
+        return None
+    take = lambda i: np.take(points, i, axis=axis)  # noqa: E731
+    seam = np.linalg.norm(take(-1) - take(0), axis=-1)
+    step = np.linalg.norm(take(-1) - take(-2), axis=-1)
+    scale = np.median(step)
+    if scale <= 0:
+        return None
+    if np.all(seam < 1e-9 * scale):
+        return "closed"
+    if np.all(seam <= 1.5 * np.maximum(step, 1e-12 * scale)):
+        return "open"
+    return None
+
+
 def repeat_periodic(
     data: xr.DataArray | xr.Dataset,
     *,
@@ -98,8 +171,12 @@ def repeat_periodic(
     True
     """
     periods = (poloidal_period, toroidal_period)
-    if any(not isinstance(period, (int, np.integer)) or period < 1 for period in periods):
-        raise ValueError("poloidal_period and toroidal_period must be positive integers")
+    if any(
+        not isinstance(period, (int, np.integer)) or period < 1 for period in periods
+    ):
+        raise ValueError(
+            "poloidal_period and toroidal_period must be positive integers"
+        )
     logical = logical_dims(data)
     poloidal, toroidal = logical[1:] if dims is None else dims
     missing = [dim for dim in (poloidal, toroidal) if dim not in data.dims]
@@ -114,8 +191,14 @@ def repeat_periodic(
             for dim in (poloidal, toroidal):
                 if dim not in coordinate.dims:
                     coordinate = coordinate.expand_dims({dim: data.sizes[dim]})
-            remaining = tuple(dim for dim in coordinate.dims if dim not in (poloidal, toroidal))
-            points.append(np.asarray(coordinate.transpose(poloidal, toroidal, *remaining), dtype=float))
+            remaining = tuple(
+                dim for dim in coordinate.dims if dim not in (poloidal, toroidal)
+            )
+            points.append(
+                np.asarray(
+                    coordinate.transpose(poloidal, toroidal, *remaining), dtype=float
+                )
+            )
         points = np.stack(points, axis=-1)
         if points.shape[0] >= 2:
             radial = np.hypot(points[..., 0], points[..., 1]) - R0
@@ -144,7 +227,9 @@ def repeat_periodic(
             angle_t = sign_t * 2.0 * np.pi * toroidal_copy / toroidal_period
             cos_p, sin_p = np.cos(angle_p), np.sin(angle_p)
             cos_t, sin_t = np.cos(angle_t), np.sin(angle_t)
-            X, Y, Z = (np.asarray(part.coords[name], dtype=float) for name in ("X", "Y", "Z"))
+            X, Y, Z = (
+                np.asarray(part.coords[name], dtype=float) for name in ("X", "Y", "Z")
+            )
             R = np.hypot(X, Y)
             radial = R - R0
             poloidal_r = R0 + radial * cos_p - (Z - Z0) * sin_p
@@ -173,47 +258,17 @@ def repeat_periodic(
         if period == 1:
             continue
         parts = [
-            transformed(result.isel({dim: slice(None)}), p if index == 0 else 0, p if index == 1 else 0)
+            transformed(
+                result.isel({dim: slice(None)}),
+                p if index == 0 else 0,
+                p if index == 1 else 0,
+            )
             for p in range(period)
         ]
-        result = xr.concat(parts, dim=dim, coords="minimal", compat="override", join="override")
+        result = xr.concat(
+            parts, dim=dim, coords="minimal", compat="override", join="override"
+        )
     return result
-
-
-def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
-    """The names of the three logical dimensions of ``data``, radial first.
-
-    One of :data:`LOGICAL_DIMS`: the one with the most of its names among the dimensions of
-    ``data`` (then among its coordinates, for a slice that selected some away), Struphy's
-    ``("eta1", "eta2", "eta3")`` when none match.
-
-    Parameters
-    ----------
-    data : xarray.DataArray or xarray.Dataset
-        The field.
-
-    Returns
-    -------
-    tuple of str
-        Three dimension names, e.g. ``("eta1", "eta2", "eta3")`` or ``("rho", "theta_B", "zeta_B")``;
-        ``data`` need not have all three.
-
-    Examples
-    --------
-    >>> logical_dims(phi)  # Struphy
-    ('eta1', 'eta2', 'eta3')
-    >>> # GVEC, Boozer
-    >>> logical_dims(ev.mod_B.plasma.data.slice(x="zeta_B", y="theta_B", rho=0.5))
-    ('rho', 'theta_B', 'zeta_B')
-    """
-    dims, coords = set(data.dims), set(data.coords)
-    return max(
-        LOGICAL_DIMS,
-        key=lambda names: (
-            sum(n in dims for n in names),
-            sum(n in coords for n in names),
-        ),
-    )
 
 
 def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
@@ -239,7 +294,9 @@ def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
     return None if period is None else float(period)
 
 
-def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> xr.DataArray:
+def validate_array(
+    data: xr.DataArray, *, required_dims: Sequence[str] = ()
+) -> xr.DataArray:
     """Check that ``data`` is an xarray.DataArray with the required dimensions.
 
     Parameters
@@ -265,7 +322,9 @@ def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> 
         raise TypeError(f"expected xarray.DataArray, got {type(data).__name__}")
     missing = tuple(dim for dim in required_dims if dim not in data.dims)
     if missing:
-        raise ValueError(f"missing dimensions {missing}; available dimensions are {data.dims}")
+        raise ValueError(
+            f"missing dimensions {missing}; available dimensions are {data.dims}"
+        )
     return data
 
 
@@ -355,7 +414,9 @@ def map_coordinate(
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")
     values = np.asarray(data[dim], dtype=float)
-    mapped = np.asarray(mapping(values) if callable(mapping) else mapping * values, dtype=float)
+    mapped = np.asarray(
+        mapping(values) if callable(mapping) else mapping * values, dtype=float
+    )
     attrs = {"long_name": label if label is not None else (name or dim)}
     if units:
         attrs["units"] = units
@@ -391,7 +452,9 @@ def value_label(data: xr.DataArray) -> str:
     return f"{label} [{unit}]" if label else f"[{unit}]"
 
 
-def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE) -> list[str]:
+def scalar_names(
+    scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE
+) -> list[str]:
     """The names of the scalar time series to use from a collection.
 
     Parameters
@@ -414,7 +477,9 @@ def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_E
     KeyError
         If one of ``names`` is not in ``scalars``.
     """
-    available = tuple(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys())
+    available = tuple(
+        scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys()
+    )
     if names is not None:
         missing = [name for name in names if name not in available]
         if missing:
@@ -475,7 +540,9 @@ def save_scalars(
     for array in arrays:
         validate_array(array, required_dims=("t",))
         if array.dims != ("t",):
-            raise ValueError(f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}")
+            raise ValueError(
+                f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}"
+            )
     if arrays:
         arrays = xr.align(*arrays, join="exact")
         time = np.asarray(arrays[0].coords["t"])
@@ -484,7 +551,9 @@ def save_scalars(
         time, values = np.zeros(0), np.zeros((0, 0))
     fmt = (fmt or os.path.splitext(path)[1].lstrip(".") or "csv").lower()
     if fmt == "npz":
-        np.savez(path, t=time, **{name: values[:, i] for i, name in enumerate(selected)})
+        np.savez(
+            path, t=time, **{name: values[:, i] for i, name in enumerate(selected)}
+        )
     elif fmt == "csv":
         np.savetxt(
             path,
@@ -496,43 +565,6 @@ def save_scalars(
     else:
         raise ValueError(f"unknown format {fmt!r}, expected 'csv' or 'npz'")
     return path
-
-
-def periodicity(points: np.ndarray, axis: int) -> str | None:
-    """How a direction of a ``(..., 3)`` array of physical points wraps around, if it does.
-
-    The direction is ``"closed"`` when its last slice coincides with its first (to 1e-9 of the
-    median step), and ``"open"`` when the seam between them is at most 1.5 times the last grid
-    step everywhere.
-
-    Parameters
-    ----------
-    points : numpy.ndarray
-        Physical points, with the Cartesian coordinates ``(X, Y, Z)`` along the last axis.
-    axis : int
-        The axis of ``points`` to examine; it needs at least three points to be periodic.
-
-    Returns
-    -------
-    {"closed", "open", None}
-        ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of
-        the seam, as on Struphy's cell centers), or ``None`` (not periodic, e.g. a radius or the
-        ends of a torus sector).
-    """
-    n = points.shape[axis]
-    if n < 3:
-        return None
-    take = lambda i: np.take(points, i, axis=axis)  # noqa: E731
-    seam = np.linalg.norm(take(-1) - take(0), axis=-1)
-    step = np.linalg.norm(take(-1) - take(-2), axis=-1)
-    scale = np.median(step)
-    if scale <= 0:
-        return None
-    if np.all(seam < 1e-9 * scale):
-        return "closed"
-    if np.all(seam <= 1.5 * np.maximum(step, 1e-12 * scale)):
-        return "open"
-    return None
 
 
 def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
@@ -577,7 +609,11 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
         if periodicity(current, axis) == "open":
             first = data.isel({dim: [0]})
             step = float(data[dim][1] - data[dim][0]) if dim in data.coords else 1.0
-            end = float(data[dim][-1]) + step if dim in data.coords else float(data.sizes[dim])
+            end = (
+                float(data[dim][-1]) + step
+                if dim in data.coords
+                else float(data.sizes[dim])
+            )
             data = xr.concat(
                 [data, first.assign_coords({dim: [end]})],
                 dim=dim,
@@ -588,7 +624,9 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
     return data
 
 
-def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None) -> np.ndarray:
+def logical_derivative(
+    values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None
+) -> np.ndarray:
     """The derivative ``∂ values / ∂ coordinate`` along ``axis``.
 
     Around a periodic direction on a uniform grid (``kind`` ``"open"`` or ``"closed"``, see
@@ -617,17 +655,27 @@ def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, ki
     spacing = np.diff(coordinate)
     uniform = len(spacing) > 0 and np.allclose(spacing, spacing[0])
     if kind is None or not uniform:
-        return np.gradient(values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1)
-    unique = np.take(values, range(values.shape[axis] - 1), axis=axis) if kind == "closed" else values
+        return np.gradient(
+            values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1
+        )
+    unique = (
+        np.take(values, range(values.shape[axis] - 1), axis=axis)
+        if kind == "closed"
+        else values
+    )
     n = unique.shape[axis]
     wavenumbers = 2 * np.pi * np.fft.fftfreq(n, d=spacing[0])
     if n % 2 == 0:
         wavenumbers[n // 2] = 0.0  # the Nyquist mode has no well-defined derivative
     shape = [1] * unique.ndim
     shape[axis] = n
-    derivative = np.fft.ifft(1j * wavenumbers.reshape(shape) * np.fft.fft(unique, axis=axis), axis=axis).real
+    derivative = np.fft.ifft(
+        1j * wavenumbers.reshape(shape) * np.fft.fft(unique, axis=axis), axis=axis
+    ).real
     if kind == "closed":
-        derivative = np.concatenate([derivative, np.take(derivative, [0], axis=axis)], axis=axis)
+        derivative = np.concatenate(
+            [derivative, np.take(derivative, [0], axis=axis)], axis=axis
+        )
     return derivative
 
 
@@ -664,7 +712,15 @@ def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
             f"a numerical Jacobian needs at least two points along each of {spatial}; "
             f"{missing + short} have fewer (pass a struphy domain instead)"
         )
-    points = [np.asarray(data.coords[name].transpose(*spatial), dtype=float) for name in ("X", "Y", "Z")]
+    points = [
+        np.asarray(data.coords[name].transpose(*spatial), dtype=float)
+        for name in ("X", "Y", "Z")
+    ]
     axes = [np.asarray(data[d], dtype=float) for d in spatial]
     kinds = [periodicity(np.stack(points, axis=-1), axis) for axis in range(3)]
-    return np.array([[logical_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)] for a in range(3)])
+    return np.array(
+        [
+            [logical_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)]
+            for a in range(3)
+        ]
+    )

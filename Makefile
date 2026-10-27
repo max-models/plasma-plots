@@ -7,7 +7,9 @@ test:
 	pytest
 
 lint:
-	ruff check src tests scripts
+	ruff check .
+	ruff format --check .
+	ssort --check --diff .
 
 # Renders docs/src/assets/figures/*.png (synthetic data, fast),
 # docs/src/assets/figures/real_*.png (a real struphy simulation, needs the
