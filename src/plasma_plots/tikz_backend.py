@@ -85,6 +85,12 @@ def _is_tikz(figure) -> bool:
     return type(figure).__module__.startswith("tikzfigure")
 
 
+def _tikz_result(figure, result):
+    from .plotting import PlotResult
+
+    return PlotResult(figure, None, [], list(result.fit_results), dict(result.data))
+
+
 def _drawn_as_tikz(draw):
     """Run ``draw`` off screen and convert what it returns."""
     from .mpi import SkippedPlot
@@ -106,9 +112,3 @@ def _drawn_as_tikz(draw):
                 "backend='matplotlib' or backend='plotly'"
             )
     raise TypeError(f"cannot convert a {type(result).__name__} to TikZ")
-
-
-def _tikz_result(figure, result):
-    from .plotting import PlotResult
-
-    return PlotResult(figure, None, [], list(result.fit_results), dict(result.data))

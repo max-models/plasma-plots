@@ -1,0 +1,4 @@
+# the guides' Python code blocks keep the width of the docs site's code blocks
+# (LINE_LENGTH in scripts/format_docs_snippets.py)
+extend = "../pyproject.toml"
+line-length = 79

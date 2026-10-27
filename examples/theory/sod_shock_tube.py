@@ -17,7 +17,9 @@ x = np.linspace(0.0, 1.0, 1000)
 fig, axes = plt.subplots(2, 2, figsize=(9, 6), sharex=True, layout="constrained")
 for t, color in zip((0.05, 0.1, 0.2), ("C0", "C1", "C2")):
     sol = exact.sod_shock_tube(x, t)
-    for ax, values in zip(axes.flat, (sol.density, sol.velocity, sol.pressure, sol.internal_energy)):
+    for ax, values in zip(
+        axes.flat, (sol.density, sol.velocity, sol.pressure, sol.internal_energy)
+    ):
         ax.plot(x, values, color=color, lw=1.8, label=f"t = {t:g}")
 for ax, label in zip(axes.flat, ("density", "velocity", "pressure", "internal energy")):
     ax.set_ylabel(label)

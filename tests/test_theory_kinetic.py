@@ -35,7 +35,9 @@ def scipy_dielectric(omega, k, species):
         for s in species:
             zeta = (omega - k * s.drift) / (np.sqrt(2) * abs(k) * s.thermal_speed)
             z = 1j * np.sqrt(np.pi) * special.wofz(zeta)
-            total = total + s.density * s.charge**2 / s.mass / (k * s.thermal_speed) ** 2 * (1 + zeta * z)
+            total = total + s.density * s.charge**2 / s.mass / (
+                k * s.thermal_speed
+            ) ** 2 * (1 + zeta * z)
     return total
 
 
@@ -56,7 +58,9 @@ def test_dielectric_agrees_with_scipy_near_and_far():
     k = rng.uniform(0.2, 2.0, 200)
     species = (Maxwellian(), Maxwellian(density=0.2, thermal_speed=0.4, drift=2.0))
     expected = scipy_dielectric(omega, k, species)
-    np.testing.assert_allclose(electrostatic_dielectric(omega, k, species), expected, rtol=1e-9)
+    np.testing.assert_allclose(
+        electrostatic_dielectric(omega, k, species), expected, rtol=1e-9
+    )
     # large |ζ| on and near the real axis: scipy is accurate here to ~1e-13 · |ζ|² relative
     zeta = np.linspace(6.5, 40, 50) + 1j * np.linspace(-0.5, 0.5, 50)[:, None]
     species = Maxwellian()
@@ -73,15 +77,24 @@ def test_dielectric_derivative_and_limits():
     omega = np.array([0.3 + 0.1j, 1.2 - 0.4j, 2.0 + 0.0j, 5.0 - 0.2j, 20.0 + 1j])
     for k in (0.3, -0.7):
         h = 1e-6
-        up, down = electrostatic_dielectric(omega + h, k, species), electrostatic_dielectric(omega - h, k, species)
+        up, down = (
+            electrostatic_dielectric(omega + h, k, species),
+            electrostatic_dielectric(omega - h, k, species),
+        )
         analytic = electrostatic_dielectric(omega, k, species, derivative=1)
-        np.testing.assert_allclose(analytic, (up - down) / (2 * h), rtol=1e-7, atol=1e-9)
+        np.testing.assert_allclose(
+            analytic, (up - down) / (2 * h), rtol=1e-7, atol=1e-9
+        )
     # cold limit χ → −ω_p²/(ω − ku)², also for a drifting species
-    assert susceptibility(3.0, 0.01, Maxwellian(drift=100.0, thermal_speed=1e-3)) == pytest.approx(-1 / 4, rel=1e-8)
+    assert susceptibility(
+        3.0, 0.01, Maxwellian(drift=100.0, thermal_speed=1e-3)
+    ) == pytest.approx(-1 / 4, rel=1e-8)
     # χ(ω, −k) is χ(ω, k) with the drift reversed
     beam = Maxwellian(density=0.3, drift=2.0)
     reversed_beam = Maxwellian(density=0.3, drift=-2.0)
-    assert susceptibility(1.1 + 0.2j, -0.4, beam) == pytest.approx(susceptibility(1.1 + 0.2j, 0.4, reversed_beam))
+    assert susceptibility(1.1 + 0.2j, -0.4, beam) == pytest.approx(
+        susceptibility(1.1 + 0.2j, 0.4, reversed_beam)
+    )
     # static limit: Debye shielding ε(0, k) = 1 + 1/k²
     assert electrostatic_dielectric(0.0, 0.5) == pytest.approx(5.0)
     assert Maxwellian().plasma_frequency == 1.0
@@ -115,14 +128,21 @@ def test_langmuir_literature_values():
 
 def test_langmuir_agrees_with_scipy_roots():
     for k in (0.1, 0.2, 0.3, 0.5, 1.0, 2.0):
-        root = scipy_root(lambda w: scipy_dielectric(w, k, [Maxwellian()]), langmuir(k) + 1e-3)
+        root = scipy_root(
+            lambda w: scipy_dielectric(w, k, [Maxwellian()]), langmuir(k) + 1e-3
+        )
         assert langmuir(k) == pytest.approx(root, rel=1e-11, abs=1e-14)
     k = np.linspace(0.01, 3.0, 200)
     omega = langmuir(k)
     assert np.all(np.isfinite(omega))
     assert np.abs(electrostatic_dielectric(omega, k)).max() < 1e-12
-    assert np.all(omega.imag < 1e-300)  # Landau damping, also at small k where it is ~1e-80 (or underflows)
-    assert np.all(np.diff(omega.imag[k > 0.05]) < 0) and np.abs(np.diff(omega)).max() < 0.05  # one smooth branch
+    assert np.all(
+        omega.imag < 1e-300
+    )  # Landau damping, also at small k where it is ~1e-80 (or underflows)
+    assert (
+        np.all(np.diff(omega.imag[k > 0.05]) < 0)
+        and np.abs(np.diff(omega)).max() < 0.05
+    )  # one smooth branch
     assert langmuir(-0.4) == langmuir(0.4)
     assert langmuir(0.0) == 1.0
     assert isinstance(langmuir(0.3), complex) and langmuir([[0.3]]).shape == (1, 1)
@@ -131,12 +151,19 @@ def test_langmuir_agrees_with_scipy_roots():
 def test_bohm_gross_and_weak_damping_limits():
     # ω = 1 + 3k²/2 + 15k⁴/8 + ...: the Bohm–Gross frequency misses 3k⁴
     for k in (0.02, 0.05):
-        assert (langmuir(k).real - bohm_gross(k).real) / k**4 == pytest.approx(3.0, rel=0.05)
+        assert (langmuir(k).real - bohm_gross(k).real) / k**4 == pytest.approx(
+            3.0, rel=0.05
+        )
     assert bohm_gross(0.5) == pytest.approx(np.sqrt(1.75))
     # the weak-damping rate converges to the exact one as k → 0
-    errors = [abs(landau_damping_weak(k).imag / langmuir(k).imag - 1) for k in (0.08, 0.1, 0.15, 0.2)]
+    errors = [
+        abs(landau_damping_weak(k).imag / langmuir(k).imag - 1)
+        for k in (0.08, 0.1, 0.15, 0.2)
+    ]
     assert errors[1] < 0.05 and errors == sorted(errors)
-    assert landau_damping_weak(0.3).imag == pytest.approx(-np.sqrt(np.pi / 8) / 0.027 * np.exp(-1 / 0.18 - 1.5))
+    assert landau_damping_weak(0.3).imag == pytest.approx(
+        -np.sqrt(np.pi / 8) / 0.027 * np.exp(-1 / 0.18 - 1.5)
+    )
     assert landau_damping_weak(0.0) == 1.0
 
 
@@ -148,10 +175,14 @@ def test_ion_acoustic_sound_speed_and_damping():
     # T_e ≫ T_i: ω/k → c_s = √(T_e/m_i) with electron Landau damping γ/ω = −√(π m_e/(8 m_i))
     omega = ion_acoustic(0.01, temperature_ratio=1000.0, mass_ratio=mass_ratio)
     assert omega.real / 0.01 * np.sqrt(mass_ratio) == pytest.approx(1.0, rel=5e-3)
-    assert omega.imag / omega.real == pytest.approx(-np.sqrt(np.pi / (8 * mass_ratio)), rel=0.03)
+    assert omega.imag / omega.real == pytest.approx(
+        -np.sqrt(np.pi / (8 * mass_ratio)), rel=0.03
+    )
     # the fluid estimate with γ_i = 3 at T_e/T_i = 100, including the Debye correction at larger k
     k = np.array([0.01, 0.1, 0.5])
-    np.testing.assert_allclose(ion_acoustic(k, 100.0).real, ion_acoustic_fluid(k, 100.0).real, rtol=0.01)
+    np.testing.assert_allclose(
+        ion_acoustic(k, 100.0).real, ion_acoustic_fluid(k, 100.0).real, rtol=0.01
+    )
     # stronger ion Landau damping for T_e ~ T_i
     hot_ions, cold_ions = ion_acoustic(0.1, 1.0), ion_acoustic(0.1, 10.0)
     assert hot_ions.imag / hot_ions.real < 5 * cold_ions.imag / cold_ions.real
@@ -181,10 +212,14 @@ def test_two_stream_cold_matches_polynomial_roots():
         got = np.sort_complex(two_stream_cold(k, v, n, all_roots=True))
         np.testing.assert_allclose(got, expected, atol=1e-9)
         slow = two_stream_cold(k, v, n)
-        assert slow.imag == pytest.approx(max(np.roots(polynomial.coeffs).imag), abs=1e-9)
+        assert slow.imag == pytest.approx(
+            max(np.roots(polynomial.coeffs).imag), abs=1e-9
+        )
     assert two_stream_cold(0.3, 1.0).real == 0 and two_stream_cold(1.5, 1.0).imag == 0
     k_max, omega = maximum_growth(lambda k: two_stream_cold(k, 1.0), (0.01, 1.4))
-    assert k_max == pytest.approx(np.sqrt(3 / 8), abs=1e-6) and omega.imag == pytest.approx(np.sqrt(0.5) / 2, rel=1e-10)
+    assert k_max == pytest.approx(
+        np.sqrt(3 / 8), abs=1e-6
+    ) and omega.imag == pytest.approx(np.sqrt(0.5) / 2, rel=1e-10)
 
 
 def test_beam_plasma_cold_matches_polynomial_roots():
@@ -195,7 +230,9 @@ def test_beam_plasma_cold_matches_polynomial_roots():
         polynomial = square * shifted - shifted - nb * square
         expected = np.roots(polynomial.coeffs)
         got = beam_plasma_cold(k, v, nb, all_roots=True)
-        np.testing.assert_allclose(np.sort_complex(got), np.sort_complex(expected), atol=1e-9)
+        np.testing.assert_allclose(
+            np.sort_complex(got), np.sort_complex(expected), atol=1e-9
+        )
         omega = beam_plasma_cold(k, v, nb)
         if expected.imag.max() > 1e-8:
             assert omega == pytest.approx(expected[np.argmax(expected.imag)], abs=1e-9)
@@ -210,10 +247,14 @@ def test_beam_plasma_cold_matches_polynomial_roots():
 def test_two_stream_kinetic():
     k = np.linspace(0.05, 0.3, 11)
     # cold limit (near the cold cutoff k v_b = 1 the warm beams grow faster than the cold ones)
-    np.testing.assert_allclose(two_stream(k, 3.0, 1e-4), two_stream_cold(k, 3.0), rtol=1e-6)
+    np.testing.assert_allclose(
+        two_stream(k, 3.0, 1e-4), two_stream_cold(k, 3.0), rtol=1e-6
+    )
     # growth decreases with temperature and the roots are zeros of ε
     warm = two_stream(k, 3.0, 0.3)
-    assert np.all(warm.imag[:8] < two_stream_cold(k[:8], 3.0).imag) and np.all(warm.real == 0)
+    assert np.all(warm.imag[:8] < two_stream_cold(k[:8], 3.0).imag) and np.all(
+        warm.real == 0
+    )
     species = [Maxwellian(density=0.5, thermal_speed=0.3, drift=d) for d in (3.0, -3.0)]
     assert np.abs(scipy_dielectric(warm, k, species)).max() < 1e-10
     # no instability once the beams overlap (v_b ≲ 1.3 v_t): the least damped root is a Langmuir wave
@@ -240,15 +281,21 @@ def test_bump_on_tail():
     assert np.abs(scipy_dielectric(omega, k, species)).max() < 1e-10
     # it is the most unstable root: no root from a dense grid of guesses grows faster
     for kk, w in zip(k[::5], omega[::5]):
-        for guess in (np.linspace(0.2, 2.5, 24)[:, None] + 1j * np.array([-0.2, 0.05, 0.3])).ravel():
+        for guess in (
+            np.linspace(0.2, 2.5, 24)[:, None] + 1j * np.array([-0.2, 0.05, 0.3])
+        ).ravel():
             try:
-                root = scipy_root(lambda x: scipy_dielectric(x, kk, species), complex(guess))
+                root = scipy_root(
+                    lambda x: scipy_dielectric(x, kk, species), complex(guess)
+                )
             except RuntimeError:
                 continue
             if abs(scipy_dielectric(root, kk, species)) < 1e-9:
                 assert root.imag <= w.imag + 1e-9
     # without the beam: the (damped) Langmuir wave
-    assert bump_on_tail(0.3, beam_density=0.0) == pytest.approx(langmuir(0.3), abs=1e-10)
+    assert bump_on_tail(0.3, beam_density=0.0) == pytest.approx(
+        langmuir(0.3), abs=1e-10
+    )
     assert np.all(bump_on_tail(k, beam_density=0.0).imag < 0)
     # mirrored for negative k, broadcasting over parameters
     assert bump_on_tail(-0.3) == pytest.approx(-bump_on_tail(0.3).conjugate())
@@ -271,15 +318,24 @@ def test_weibel_cutoff_and_dispersion():
         assert abs(weibel(cutoff, anisotropy, speed)) < 1e-12
         # the dispersion relation, with scipy's Faddeeva function
         zeta = omega / (np.sqrt(2) * k * speed)
-        residual = omega**2 - k**2 - 1 + anisotropy * (1 + zeta * 1j * np.sqrt(np.pi) * special.wofz(zeta))
+        residual = (
+            omega**2
+            - k**2
+            - 1
+            + anisotropy * (1 + zeta * 1j * np.sqrt(np.pi) * special.wofz(zeta))
+        )
         assert np.abs(residual).max() < 1e-10
         # near the cutoff γ ≈ √(2/π) k v_∥ (A − 1 − k²)/A
         k = cutoff * 0.999
         approx = np.sqrt(2 / np.pi) * k * speed * (anisotropy - 1 - k**2) / anisotropy
         assert weibel(k, anisotropy, speed).imag == pytest.approx(approx, rel=0.01)
     # isotropic and T⊥ < T∥: stable
-    assert np.all(weibel([0.5, 2.0], 1.0, 0.1).imag < 0) and np.all(weibel([0.5, 2.0], 0.5, 0.1).imag < 0)
-    assert weibel(0.0, 4.0, 0.1) == 0 and weibel(-1.0, 4.0, 0.1) == weibel(1.0, 4.0, 0.1)
+    assert np.all(weibel([0.5, 2.0], 1.0, 0.1).imag < 0) and np.all(
+        weibel([0.5, 2.0], 0.5, 0.1).imag < 0
+    )
+    assert weibel(0.0, 4.0, 0.1) == 0 and weibel(-1.0, 4.0, 0.1) == weibel(
+        1.0, 4.0, 0.1
+    )
     assert weibel(np.linspace(0, 3, 5)[:, None], [2.0, 4.0, 9.0], 0.2).shape == (5, 3)
 
 
@@ -297,18 +353,24 @@ def test_solve_dispersion():
         derivative=lambda w, kk: electrostatic_dielectric(w, kk, derivative=1),
     )
     np.testing.assert_allclose(analytic, langmuir(k), rtol=1e-11)
-    independent = solve_dispersion(electrostatic_dielectric, k, langmuir(k) + 0.01, continuation=False)
+    independent = solve_dispersion(
+        electrostatic_dielectric, k, langmuir(k) + 0.01, continuation=False
+    )
     np.testing.assert_allclose(independent, langmuir(k), rtol=1e-11)
     assert isinstance(solve_dispersion(electrostatic_dielectric, 0.5, 1.4), complex)
     # no root: nan, and no exception
     assert np.all(np.isnan(solve_dispersion(lambda w, kk: 1 + 0 * w, k, 1.0)))
-    assert np.isnan(solve_dispersion(lambda w, kk: w**2 + 1, 1.0, 0.0))  # zero derivative at the guess
+    assert np.isnan(
+        solve_dispersion(lambda w, kk: w**2 + 1, 1.0, 0.0)
+    )  # zero derivative at the guess
     with pytest.raises(ValueError, match="one-dimensional"):
         solve_dispersion(electrostatic_dielectric, k[:, None], 1.0)
     with pytest.raises(ValueError, match="scalar"):
         solve_dispersion(electrostatic_dielectric, k, np.ones(13))
     with pytest.raises(ValueError, match="no finite"):
-        maximum_growth(lambda k: np.full(np.shape(k), complex(np.nan, np.nan)), (0.1, 1.0))
+        maximum_growth(
+            lambda k: np.full(np.shape(k), complex(np.nan, np.nan)), (0.1, 1.0)
+        )
 
 
 # --- electron cyclotron drift instability (Janhunen et al., arXiv:1705.00749, Eq. (1)) --------
@@ -321,7 +383,9 @@ def test_ecdi_cold_limit_matches_magnetized_buneman_polynomial():
     k, omega_c = 0.005, 1.0
     for ratio in (0.9, 1.0, 1.1):
         u = ratio * omega_c
-        poly = np.polymul([1, -2 * u, u**2 - omega_c**2], [1, 0, -mu]) - np.array([0, 0, 1, 0, 0])
+        poly = np.polymul([1, -2 * u, u**2 - omega_c**2], [1, 0, -mu]) - np.array(
+            [0, 0, 1, 0, 0]
+        )
         roots = np.roots(poly)
         got = electron_cyclotron_drift(
             k,
@@ -333,17 +397,26 @@ def test_ecdi_cold_limit_matches_magnetized_buneman_polynomial():
         )["ion-acoustic"]
         assert np.min(np.abs(roots - got)) < 1e-4 * max(abs(got), mu)
         if ratio == 1.1:
-            assert got.imag > 1e-2  # the unstable (Buneman-like) root, gamma about 0.012
-            assert got.imag == pytest.approx(roots[np.argmax(roots.imag)].imag, rel=1e-4)
+            assert (
+                got.imag > 1e-2
+            )  # the unstable (Buneman-like) root, gamma about 0.012
+            assert got.imag == pytest.approx(
+                roots[np.argmax(roots.imag)].imag, rel=1e-4
+            )
 
 
 def test_ecdi_unmagnetized_limit_is_the_ion_acoustic_drift_instability():
     # Omega_ce -> 0 at fixed k: electrons drifting at 2 v_the through ions with T_e/T_i = 10
-    species = [Maxwellian(drift=2.0), Maxwellian.ions(kinetic.PROTON_ELECTRON_MASS_RATIO, 10.0)]
+    species = [
+        Maxwellian(drift=2.0),
+        Maxwellian.ions(kinetic.PROTON_ELECTRON_MASS_RATIO, 10.0),
+    ]
     k = 0.6
     reference = max(
         (
-            solve_dispersion(lambda w, kk: electrostatic_dielectric(w, kk, species), k, 0.01 + 1j * g)
+            solve_dispersion(
+                lambda w, kk: electrostatic_dielectric(w, kk, species), k, 0.01 + 1j * g
+            )
             for g in (0.001, 0.01, 0.05)
         ),
         key=lambda w: w.imag,
@@ -368,7 +441,8 @@ def test_ecdi_resonance_pattern_and_scipy_residual():
     omega_c, v_d = 0.197, 0.75
     # unstable just above the first and second resonance k v_d = m Omega, stable well away from it
     growth = {
-        k: electron_cyclotron_drift(k, v_d, omega_c, bernstein=0)["ion-acoustic"].imag for k in (0.2, 0.3, 0.4, 0.55)
+        k: electron_cyclotron_drift(k, v_d, omega_c, bernstein=0)["ion-acoustic"].imag
+        for k in (0.2, 0.3, 0.4, 0.55)
     }
     assert growth[0.3] > 5e-4 and growth[0.55] > 5e-4
     assert growth[0.2] < 1e-9 and growth[0.4] < 1e-9
@@ -380,10 +454,18 @@ def test_ecdi_resonance_pattern_and_scipy_residual():
         shifted = w - k * v_d
         gamma = [special.ive(m, lam) for m in range(60)]
         k_e = (
-            1 - gamma[0] - 2 * shifted**2 * sum(gamma[m] / (shifted**2 - (m * omega_c) ** 2) for m in range(1, 60))
+            1
+            - gamma[0]
+            - 2
+            * shifted**2
+            * sum(gamma[m] / (shifted**2 - (m * omega_c) ** 2) for m in range(1, 60))
         ) / k**2
         zeta = w / (np.sqrt(2) * k * vi)
-        chi_i = (1 / XENON) / (k * vi) ** 2 * (1 + zeta * 1j * np.sqrt(np.pi) * special.wofz(zeta))
+        chi_i = (
+            (1 / XENON)
+            / (k * vi) ** 2
+            * (1 + zeta * 1j * np.sqrt(np.pi) * special.wofz(zeta))
+        )
         assert abs(1 + chi_i + k_e) < 1e-7, name
     assert 1 < (branches["Bernstein 1"].real - k * v_d) / omega_c < 2
     assert 2 < (branches["Bernstein 2"].real - k * v_d) / omega_c < 3

@@ -18,11 +18,17 @@ omega = kinetic.langmuir(k)
 fig, (ax_f, ax_g) = plt.subplots(1, 2, figsize=(10, 4), layout="constrained")
 ax_f.plot(k, omega.real, lw=2, label="kinetic")
 ax_f.plot(k, kinetic.bohm_gross(k).real, "--", lw=1.5, label="Bohm–Gross")
-ax_f.set(xlabel=r"$k\lambda_D$", ylabel=r"$\mathrm{Re}\,\omega/\omega_p$", title="Frequency")
+ax_f.set(
+    xlabel=r"$k\lambda_D$", ylabel=r"$\mathrm{Re}\,\omega/\omega_p$", title="Frequency"
+)
 ax_f.legend(frameon=False)
 
 ax_g.semilogy(k, -omega.imag, lw=2)
-ax_g.set(xlabel=r"$k\lambda_D$", ylabel=r"$-\mathrm{Im}\,\omega/\omega_p$", title="Landau damping rate")
+ax_g.set(
+    xlabel=r"$k\lambda_D$",
+    ylabel=r"$-\mathrm{Im}\,\omega/\omega_p$",
+    title="Landau damping rate",
+)
 
 print(f"k lambda_D = 0.5: omega = {kinetic.langmuir(0.5):.4f}")
 plt.show()

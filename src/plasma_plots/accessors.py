@@ -233,7 +233,9 @@ class ArrayPlots(_ArrayAccessor):
         ):
             kept = selected.dims[0]
             axis = self._array.dims.index(kept)
-            rank_boundaries = rank_boundaries.boundary_values(axis, self._array.coords[kept].to_numpy())
+            rank_boundaries = rank_boundaries.boundary_values(
+                axis, self._array.coords[kept].to_numpy()
+            )
         return plot_lineout(
             selected,
             x=x,
@@ -439,7 +441,9 @@ class ArrayPlots(_ArrayAccessor):
         result = None
         for series in (self._array, *others):
             if series.ndim != 1:
-                raise ValueError(f"convergence needs one-dimensional errors; got {series.dims}")
+                raise ValueError(
+                    f"convergence needs one-dimensional errors; got {series.dims}"
+                )
             (dim,) = series.dims
             drawn = plot_convergence(
                 np.asarray(series[dim], dtype=float),
@@ -549,9 +553,13 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select, plot_volume_slices
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return plot_volume_slices(_select(self._array, view), indices=indices, cmap=cmap)
+        return plot_volume_slices(
+            _select(self._array, view), indices=indices, cmap=cmap
+        )
 
-    def volume(self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection):
+    def volume(
+        self, *, name: str | None = None, cmap="viridis", opacity="linear", **selection
+    ):
         """Create a PyVista volume plotter for a selected scalar field.
 
         Parameters
@@ -577,12 +585,16 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select, pyvista_volume
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        return pyvista_volume(_select(self._array, view), name=name, cmap=cmap, opacity=opacity)
+        return pyvista_volume(
+            _select(self._array, view), name=name, cmap=cmap, opacity=opacity
+        )
 
     def _spatial_selection(self, selection):
         from .plotting import _select
 
-        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
+        return _select(
+            self._array, self._view(None, None, "t", "logical", "XY", selection)
+        )
 
     def isosurface(
         self,
@@ -950,7 +962,9 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import plot_field_with_orbits
 
         view = self._view(x, y, "t", "logical", "XY", selection)
-        return plot_field_with_orbits(self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap)
+        return plot_field_with_orbits(
+            self._array, view, orbits, max_markers=max_markers, ax=ax, cmap=cmap
+        )
 
     @with_backend
     def dispersion(
@@ -1039,7 +1053,9 @@ class ArrayPlots(_ArrayAccessor):
     def _time_selection(self, selection):
         from .plotting import _select
 
-        return _select(self._array, self._view(None, None, "t", "logical", "XY", selection))
+        return _select(
+            self._array, self._view(None, None, "t", "logical", "XY", selection)
+        )
 
     @with_backend
     def power_spectrum(
@@ -1284,7 +1300,9 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_mode_amplitudes
 
         amplitudes = mode_amplitudes(
-            mode_spectrum(self._time_selection(selection), dims=dims, names=names, scale=scale),
+            mode_spectrum(
+                self._time_selection(selection), dims=dims, names=names, scale=scale
+            ),
             relative=relative,
         )
         others = [d for d in amplitudes.dims if d not in ("t", "mode")]
@@ -1348,7 +1366,9 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral import mode_spectrum
         from .spectral_plots import plot_mode_map
 
-        modes = abs(mode_spectrum(self._time_selection(selection), dims=dims, scale=scale))
+        modes = abs(
+            mode_spectrum(self._time_selection(selection), dims=dims, scale=scale)
+        )
         others = [d for d in modes.dims if d not in ("m", "n")]
         if others:
             modes = getattr(modes, reduce)(others, keep_attrs=True)
@@ -1410,7 +1430,9 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_radial_power
 
         x = logical_dims(self._array)[0] if x is None else x
-        power = time_fft(self._time_selection(selection), detrend=detrend, window=window).power
+        power = time_fft(
+            self._time_selection(selection), detrend=detrend, window=window
+        ).power
         others = [d for d in power.dims if d not in ("omega", x)]
         power = power.mean(others, keep_attrs=True) if others else power
         return plot_radial_power(
@@ -1494,13 +1516,21 @@ class ArrayPlots(_ArrayAccessor):
         name = self._array.name or "the field"
         if omega is None:
             if "t" in field.dims:
-                raise ValueError("select a time (e.g. t=-1), or pass omega for an eigenfunction")
+                raise ValueError(
+                    "select a time (e.g. t=-1), or pass omega for an eigenfunction"
+                )
             structure = mode_amplitudes(mode_spectrum(field, dims=dims, scale=scale))
-            title = f"Harmonics of {name}" + (f" at t = {float(field.t):.4g}" if "t" in field.coords else "")
+            title = f"Harmonics of {name}" + (
+                f" at t = {float(field.t):.4g}" if "t" in field.coords else ""
+            )
         else:
-            structure = mode_spectrum(mode_structure(field, omega), dims=dims, scale=scale)
+            structure = mode_spectrum(
+                mode_structure(field, omega), dims=dims, scale=scale
+            )
             title = f"Harmonics of {name} at omega = {omega:.4g}"
-        return plot_mode_profiles(structure, x=x, x_of=x_of, xlabel=xlabel, top=top, phase=phase, title=title)
+        return plot_mode_profiles(
+            structure, x=x, x_of=x_of, xlabel=xlabel, top=top, phase=phase, title=title
+        )
 
     @with_backend
     def profiles(
@@ -1624,7 +1654,9 @@ class ArrayPlots(_ArrayAccessor):
         from .spectral_plots import plot_cross_spectrum
 
         return plot_cross_spectrum(
-            cross_spectrum(self._array, other, dims=dims, detrend=detrend, window=window),
+            cross_spectrum(
+                self._array, other, dims=dims, detrend=detrend, window=window
+            ),
             omega_max=omega_max,
         )
 
@@ -2137,7 +2169,9 @@ class ArrayPlots(_ArrayAccessor):
             ylabel=ylabel,
             colorbar_label=colorbar_label,
             **selection,
-        ).animation(interval=interval, step=step, max_frames=max_frames, alongside=alongside)
+        ).animation(
+            interval=interval, step=step, max_frames=max_frames, alongside=alongside
+        )
 
     def frames(
         self,
@@ -2253,7 +2287,9 @@ class ArrayPlots(_ArrayAccessor):
         """
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(self._array, ax=ax, max_markers=max_markers, show_paths=show_paths)
+        return plot_marker_trajectories(
+            self._array, ax=ax, max_markers=max_markers, show_paths=show_paths
+        )
 
     @with_backend
     def poincare(
@@ -2318,7 +2354,9 @@ class ArrayPlots(_ArrayAccessor):
         from .plotting import _select
 
         view = self._view(None, None, "t", "logical", "XY", selection)
-        lines = trace_field_lines(_select(self._array, view), seeds=seeds, turns=turns, section=section)
+        lines = trace_field_lines(
+            _select(self._array, view), seeds=seeds, turns=turns, section=section
+        )
         result = plot_poincare(
             lines,
             coords=coords,
@@ -2655,9 +2693,13 @@ class ArrayData(_ArrayAccessor):
         from .plotting import _select, prepare_vector
 
         view = self._view(None, None, "t", coordinates, "XY", selection)
-        return prepare_vector(_select(self._array, view), x=x, y=y, components=components, stride=stride)
+        return prepare_vector(
+            _select(self._array, view), x=x, y=y, components=components, stride=stride
+        )
 
-    def volume_slices(self, *, indices: dict[str, int] | None = None, **selection) -> dict[str, xr.DataArray]:
+    def volume_slices(
+        self, *, indices: dict[str, int] | None = None, **selection
+    ) -> dict[str, xr.DataArray]:
         """Return the three orthogonal planes :meth:`ArrayPlots.volume_slices` would plot.
 
         Returns
@@ -2858,7 +2900,9 @@ class ArrayData(_ArrayAccessor):
         selected, _grids = _slice_data(self._array, view)
         return selected
 
-    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+    def dispersion(
+        self, *, dim: str | None = None, detrend: bool = True
+    ) -> xr.DataArray:
         """Return the space-time power spectrum :meth:`ArrayPlots.dispersion` would plot.
 
         The same as :meth:`ArrayAnalysis.dispersion`; included here too for parity with every
@@ -2932,7 +2976,9 @@ class ArrayData(_ArrayAccessor):
         """
         from .plotting import prepare_orbits
 
-        return prepare_orbits(self._array, max_markers=max_markers, required=("x", "y", "z"))
+        return prepare_orbits(
+            self._array, max_markers=max_markers, required=("x", "y", "z")
+        )
 
     def timeseries(self, *others) -> list[xr.DataArray]:
         """Return this time series and any ``others``, validated, as :meth:`ArrayPlots.timeseries` plots them.
@@ -2998,7 +3044,9 @@ class ArrayData(_ArrayAccessor):
 
         view = self._view(None, None, "t", "logical", "XY", selection)
         return poincare_section(
-            trace_field_lines(_select(self._array, view), seeds=seeds, turns=turns, section=section)
+            trace_field_lines(
+                _select(self._array, view), seeds=seeds, turns=turns, section=section
+            )
         )
 
     def critical_points(self, *, refine: bool = True, **selection) -> xr.Dataset:
@@ -3149,7 +3197,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import oscillation_frequency
 
-        return oscillation_frequency(self._array, window=window, method=method, detrend=detrend)
+        return oscillation_frequency(
+            self._array, window=window, method=method, detrend=detrend
+        )
 
     def map_coordinate(
         self,
@@ -3180,7 +3230,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .arrays import map_coordinate
 
-        return map_coordinate(self._array, dim, mapping, name=name, units=units, label=label)
+        return map_coordinate(
+            self._array, dim, mapping, name=name, units=units, label=label
+        )
 
     def envelope(self) -> xr.DataArray:
         """Return the local maxima of this time series.
@@ -3304,7 +3356,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return velocity_moments(self._array, dims=dims)
 
-    def dispersion(self, *, dim: str | None = None, detrend: bool = True) -> xr.DataArray:
+    def dispersion(
+        self, *, dim: str | None = None, detrend: bool = True
+    ) -> xr.DataArray:
         """Return the space-time power spectrum of this ``(t, dim)`` field.
 
         A plain FFT, as a function of angular frequency and wavenumber: the data behind a
@@ -3371,7 +3425,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
     # Spectral diagnostics: see plasma_plots.spectral for the definitions and conventions.
 
-    def fft(self, *, dim: str, detrend: bool = False, window: str | None = None) -> xr.DataArray:
+    def fft(
+        self, *, dim: str, detrend: bool = False, window: str | None = None
+    ) -> xr.DataArray:
         """Return the two-sided Fourier coefficients along ``dim``.
 
         Returns
@@ -3392,7 +3448,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return fft(self._array, dim=dim, detrend=detrend, window=window)
 
-    def time_fft(self, *, detrend: bool = False, window: str | None = None) -> xr.Dataset:
+    def time_fft(
+        self, *, detrend: bool = False, window: str | None = None
+    ) -> xr.Dataset:
         """Return the one-sided temporal coefficients and the power per bin.
 
         Returns
@@ -3432,9 +3490,13 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import filter_time
 
-        return filter_time(self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins)
+        return filter_time(
+            self._array, dims=dims, omega_min=omega_min, pad_bins=pad_bins
+        )
 
-    def band_filter(self, omega_lo: float, omega_hi: float, *, detrend: bool = False) -> xr.DataArray:
+    def band_filter(
+        self, omega_lo: float, omega_hi: float, *, detrend: bool = False
+    ) -> xr.DataArray:
         """Return only the frequencies in ``[omega_lo, omega_hi]``.
 
         Returns
@@ -3491,7 +3553,9 @@ class ArrayAnalysis(_ArrayAccessor):
             window=window,
         )
 
-    def spectrogram(self, *, length, step=None, detrend: bool = True, window: str | None = "hann") -> xr.DataArray:
+    def spectrogram(
+        self, *, length, step=None, detrend: bool = True, window: str | None = "hann"
+    ) -> xr.DataArray:
         """Return power spectra in sliding time windows.
 
         Returns
@@ -3510,9 +3574,13 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import spectrogram
 
-        return spectrogram(self._array, length=length, step=step, detrend=detrend, window=window)
+        return spectrogram(
+            self._array, length=length, step=step, detrend=detrend, window=window
+        )
 
-    def mode_spectrum(self, *, dims=None, names=("m", "n"), periods=None, scale=None) -> xr.DataArray:
+    def mode_spectrum(
+        self, *, dims=None, names=("m", "n"), periods=None, scale=None
+    ) -> xr.DataArray:
         """Return the complex amplitudes over poloidal/toroidal mode numbers.
 
         Returns
@@ -3531,9 +3599,13 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import mode_spectrum
 
-        return mode_spectrum(self._array, dims=dims, names=names, periods=periods, scale=scale)
+        return mode_spectrum(
+            self._array, dims=dims, names=names, periods=periods, scale=scale
+        )
 
-    def mode_amplitudes(self, *, top: int | None = None, real: bool = True, relative: bool = False) -> xr.DataArray:
+    def mode_amplitudes(
+        self, *, top: int | None = None, real: bool = True, relative: bool = False
+    ) -> xr.DataArray:
         """Return the real amplitudes of this mode spectrum along one ``mode`` dimension.
 
         Returns
@@ -3554,7 +3626,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return mode_amplitudes(self._array, top=top, real=real, relative=relative)
 
-    def mode_structure(self, omega: float, *, window: str | None = "hann", detrend: bool = True) -> xr.DataArray:
+    def mode_structure(
+        self, omega: float, *, window: str | None = "hann", detrend: bool = True
+    ) -> xr.DataArray:
         """Return the complex amplitude at the exact frequency ``omega`` at every point.
 
         Returns
@@ -3575,7 +3649,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return mode_structure(self._array, omega, window=window, detrend=detrend)
 
-    def cross_spectrum(self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None) -> xr.Dataset:
+    def cross_spectrum(
+        self, other: xr.DataArray, *, dims=None, detrend: bool = True, window=None
+    ) -> xr.Dataset:
         """Return the cross-spectrum, phase (of ``other`` relative to this) and coherence.
 
         Parameters
@@ -3599,9 +3675,13 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import cross_spectrum
 
-        return cross_spectrum(self._array, other, dims=dims, detrend=detrend, window=window)
+        return cross_spectrum(
+            self._array, other, dims=dims, detrend=detrend, window=window
+        )
 
-    def matrix_pencil(self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False) -> xr.Dataset:
+    def matrix_pencil(
+        self, *, n_modes: int = 1, pencil: int | None = None, detrend: bool = False
+    ) -> xr.Dataset:
         """Return frequencies and growth rates beyond the FFT resolution.
 
         Returns
@@ -3620,7 +3700,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import matrix_pencil
 
-        return matrix_pencil(self._array, n_modes=n_modes, pencil=pencil, detrend=detrend)
+        return matrix_pencil(
+            self._array, n_modes=n_modes, pencil=pencil, detrend=detrend
+        )
 
     def gradient(self, *, domain=None) -> xr.DataArray:
         """Return the Cartesian gradient of this scalar field on a mapped domain.
@@ -3642,7 +3724,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return gradient(self._array, domain=domain)
 
-    def surface_average(self, *, jacobian=None, domain=None, quadrature=None) -> xr.DataArray:
+    def surface_average(
+        self, *, jacobian=None, domain=None, quadrature=None
+    ) -> xr.DataArray:
         """Return the flux-surface average of this field over its two angles.
 
         Returns
@@ -3661,9 +3745,13 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import surface_average
 
-        return surface_average(self._array, jacobian=jacobian, domain=domain, quadrature=quadrature)
+        return surface_average(
+            self._array, jacobian=jacobian, domain=domain, quadrature=quadrature
+        )
 
-    def rational_surfaces(self, *, count: int = 4, nfp: int | None = None, max_denominator: int = 12) -> xr.DataArray:
+    def rational_surfaces(
+        self, *, count: int = 4, nfp: int | None = None, max_denominator: int = 12
+    ) -> xr.DataArray:
         """Return where this rotational transform (or safety factor) profile is a low-order rational.
 
         Returns
@@ -3682,7 +3770,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import rational_surfaces
 
-        return rational_surfaces(self._array, count=count, nfp=nfp, max_denominator=max_denominator)
+        return rational_surfaces(
+            self._array, count=count, nfp=nfp, max_denominator=max_denominator
+        )
 
     def error(
         self,
@@ -3881,7 +3971,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return polar_coordinates(self._array, center=center)
 
-    def trace_branch(self, theory, *, window: float = 0.2, k_range=None, threshold: float = 1e-3) -> xr.Dataset:
+    def trace_branch(
+        self, theory, *, window: float = 0.2, k_range=None, threshold: float = 1e-3
+    ) -> xr.Dataset:
         """Return the measured frequency of a dispersion branch near ``theory(k)`` in this ``(omega, k)`` spectrum.
 
         Returns
@@ -3902,7 +3994,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .spectral import trace_branch
 
-        return trace_branch(self._array, theory, window=window, k_range=k_range, threshold=threshold)
+        return trace_branch(
+            self._array, theory, window=window, k_range=k_range, threshold=threshold
+        )
 
     def drop_periodic_endpoint(self, dim: str, *, period: float = 1.0) -> xr.DataArray:
         """Return this array without a duplicated periodic endpoint along ``dim``.
@@ -4037,7 +4131,9 @@ class ArrayAnalysis(_ArrayAccessor):
         samples = self._array if lines is None else sample_along(self._array, lines)
         return parallel_wavenumber(samples, method=method, detrend=detrend)
 
-    def boozer_spectrum(self, *, top: int | None = None, angles: str = "boozer") -> xr.DataArray:
+    def boozer_spectrum(
+        self, *, top: int | None = None, angles: str = "boozer"
+    ) -> xr.DataArray:
         """Return the Boozer harmonics ``B_mn`` of this quantity over the radius.
 
         Returns
@@ -4059,7 +4155,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return boozer_spectrum(self._array, top=top, angles=angles)
 
-    def quasisymmetry_error(self, *, helicity="QA", angles: str = "boozer") -> xr.DataArray:
+    def quasisymmetry_error(
+        self, *, helicity="QA", angles: str = "boozer"
+    ) -> xr.DataArray:
         """Return the quasi-symmetry error of this ``|B|`` on each flux surface.
 
         Returns
@@ -4102,7 +4200,9 @@ class ArrayAnalysis(_ArrayAccessor):
 
         return critical_points(self._array, refine=refine)
 
-    def reconnected_flux(self, *, relative: bool = True, o_point=None, x_point=None) -> xr.DataArray:
+    def reconnected_flux(
+        self, *, relative: bool = True, o_point=None, x_point=None
+    ) -> xr.DataArray:
         """Return the reconnected flux over time: this flux function between an O- and an X-point.
 
         Returns
@@ -4124,7 +4224,9 @@ class ArrayAnalysis(_ArrayAccessor):
         """
         from .analysis import reconnected_flux
 
-        return reconnected_flux(self._array, relative=relative, o_point=o_point, x_point=x_point)
+        return reconnected_flux(
+            self._array, relative=relative, o_point=o_point, x_point=x_point
+        )
 
 
 @xr.register_dataarray_accessor("plasma")
@@ -4239,7 +4341,9 @@ class DatasetAnalysis:
 
         return bounce_period(self._dataset, v_par=v_par)
 
-    def surface_average(self, name: str, *, jacobian: str | None = "Jac", domain=None, quadrature=None) -> xr.DataArray:
+    def surface_average(
+        self, name: str, *, jacobian: str | None = "Jac", domain=None, quadrature=None
+    ) -> xr.DataArray:
         """Return the flux-surface average of one variable, with this Dataset's Jacobian.
 
         Parameters
@@ -4266,8 +4370,14 @@ class DatasetAnalysis:
         """
         from .analysis import surface_average
 
-        sqrt_g = self._dataset[jacobian] if jacobian is not None and jacobian in self._dataset else None
-        return surface_average(self._dataset[name], jacobian=sqrt_g, domain=domain, quadrature=quadrature)
+        sqrt_g = (
+            self._dataset[jacobian]
+            if jacobian is not None and jacobian in self._dataset
+            else None
+        )
+        return surface_average(
+            self._dataset[name], jacobian=sqrt_g, domain=domain, quadrature=quadrature
+        )
 
     def poincare_section(self, *, angle: float | None = None) -> xr.Dataset:
         """Return the punctures of a poloidal plane by these traced field lines.
@@ -4441,7 +4551,9 @@ class DatasetAnalysis:
 
         return weight_statistics(self._dataset, weight=weight)
 
-    def marker_density(self, *, dims=("eta1",), bins=32, weight: str | None = None, ranges=None) -> xr.DataArray:
+    def marker_density(
+        self, *, dims=("eta1",), bins=32, weight: str | None = None, ranges=None
+    ) -> xr.DataArray:
         """Return the markers binned over position variables, per unit volume.
 
         Returns
@@ -4460,7 +4572,9 @@ class DatasetAnalysis:
         """
         from .analysis import marker_density
 
-        return marker_density(self._dataset, dims=dims, bins=bins, weight=weight, ranges=ranges)
+        return marker_density(
+            self._dataset, dims=dims, bins=bins, weight=weight, ranges=ranges
+        )
 
     def lost_fraction(self, *, weight: str | None = None) -> xr.DataArray:
         """Return the fraction of markers lost from the domain, over time.
@@ -4483,7 +4597,9 @@ class DatasetAnalysis:
 
         return lost_fraction(self._dataset, weight=weight)
 
-    def loss_map(self, *, x: str = "v_par", y: str | None = None, t=0, absB=None) -> xr.Dataset:
+    def loss_map(
+        self, *, x: str = "v_par", y: str | None = None, t=0, absB=None
+    ) -> xr.Dataset:
         """Return each marker's initial phase-space position, whether it is lost, and when.
 
         Returns
@@ -4557,7 +4673,9 @@ class DatasetPlots:
         return plot_power_spectrum(self._dataset, **options)
 
     @with_backend
-    def cross_spectrum(self, *, omega_max: float | None = None, backend: Backend | None = None):
+    def cross_spectrum(
+        self, *, omega_max: float | None = None, backend: Backend | None = None
+    ):
         """Plot the magnitude, coherence and phase of a ``cross_spectrum`` Dataset.
 
         Parameters
@@ -4625,7 +4743,9 @@ class DatasetPlots:
         """
         from .plotting import plot_marker_trajectories
 
-        return plot_marker_trajectories(self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths)
+        return plot_marker_trajectories(
+            self._dataset, ax=ax, max_markers=max_markers, show_paths=show_paths
+        )
 
     @with_backend
     def scatter(
@@ -4735,7 +4855,9 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_classification
 
-        return plot_orbit_classification(self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s)
+        return plot_orbit_classification(
+            self._dataset, x=x, y=y, v_par=v_par, t=t, ax=ax, s=s
+        )
 
     @with_backend
     def animation(
@@ -4948,7 +5070,9 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_grid
 
-        return plot_orbit_grid(self._dataset, markers=markers, ncols=ncols, boundary=boundary)
+        return plot_orbit_grid(
+            self._dataset, markers=markers, ncols=ncols, boundary=boundary
+        )
 
     @with_backend
     def quantities(
@@ -4986,7 +5110,9 @@ class DatasetPlots:
         """
         from .plotting import plot_orbit_quantities
 
-        return plot_orbit_quantities(self._dataset, quantities=quantities, markers=markers, drift_of=drift_of)
+        return plot_orbit_quantities(
+            self._dataset, quantities=quantities, markers=markers, drift_of=drift_of
+        )
 
     def orbits_3d(
         self,
@@ -5182,7 +5308,9 @@ class DatasetPlots:
         """
         from .fieldline_plots import plot_footprint
 
-        return plot_footprint(self._dataset, log=log, s=s, cmap=cmap, ax=ax, title=title)
+        return plot_footprint(
+            self._dataset, log=log, s=s, cmap=cmap, ax=ax, title=title
+        )
 
     @with_backend
     def connection_length(
@@ -5221,7 +5349,9 @@ class DatasetPlots:
         """
         from .fieldline_plots import plot_connection_length
 
-        return plot_connection_length(self._dataset, log=log, cmap=cmap, s=s, ax=ax, title=title)
+        return plot_connection_length(
+            self._dataset, log=log, cmap=cmap, s=s, ax=ax, title=title
+        )
 
     @with_backend
     def weight_histogram(
@@ -5363,7 +5493,9 @@ class DatasetPlots:
         """
         from .plotting import plot_lost_fraction
 
-        return plot_lost_fraction(self._dataset, weight=weight, percent=percent, ax=ax, title=title)
+        return plot_lost_fraction(
+            self._dataset, weight=weight, percent=percent, ax=ax, title=title
+        )
 
     @with_backend
     def loss_map(
@@ -5406,7 +5538,9 @@ class DatasetPlots:
         """
         from .plotting import plot_loss_map
 
-        return plot_loss_map(self._dataset, x=x, y=y, t=t, absB=absB, ax=ax, s=s, cmap=cmap, title=title)
+        return plot_loss_map(
+            self._dataset, x=x, y=y, t=t, absB=absB, ax=ax, s=s, cmap=cmap, title=title
+        )
 
 
 class DatasetData:
@@ -5443,9 +5577,13 @@ class DatasetData:
         """
         from .plotting import prepare_orbits
 
-        return prepare_orbits(self._dataset, max_markers=max_markers, required=("x", "y", "z"))
+        return prepare_orbits(
+            self._dataset, max_markers=max_markers, required=("x", "y", "z")
+        )
 
-    def scatter(self, *, x: str, y: str, color: str | None = None, color_at=None, **selection) -> xr.Dataset:
+    def scatter(
+        self, *, x: str, y: str, color: str | None = None, color_at=None, **selection
+    ) -> xr.Dataset:
         """Return the per-marker positions and colors :meth:`DatasetPlots.scatter` would plot.
 
         ``.to_dataframe()`` hands them straight to e.g. Plotly Express.
@@ -5470,9 +5608,13 @@ class DatasetData:
         """
         from .plotting import prepare_marker_scatter
 
-        return prepare_marker_scatter(self._dataset, x=x, y=y, color=color, color_at=color_at, **selection)
+        return prepare_marker_scatter(
+            self._dataset, x=x, y=y, color=color, color_at=color_at, **selection
+        )
 
-    def orbit_classification(self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0) -> xr.Dataset:
+    def orbit_classification(
+        self, *, x: str = "v_par", y: str | None = None, v_par: str = "v_par", t=0
+    ) -> xr.Dataset:
         """Return the per-marker ``x``, ``y`` and ``classification`` that orbit_classification plots.
 
         The values :meth:`DatasetPlots.orbit_classification` would plot.
@@ -5537,7 +5679,9 @@ class DatasetData:
 
         return footprint(self._dataset)
 
-    def loss_map(self, *, x: str = "v_par", y: str | None = None, t=0, absB=None) -> xr.Dataset:
+    def loss_map(
+        self, *, x: str = "v_par", y: str | None = None, t=0, absB=None
+    ) -> xr.Dataset:
         """Return the per-marker values :meth:`DatasetPlots.loss_map` would plot.
 
         Returns
@@ -5617,7 +5761,9 @@ class SliceView:
         self._options = dict(options)
 
     def _view(self, **selection):
-        return ArrayPlots(self._array)._view(**self._coordinates, selection={**self._selection, **selection})
+        return ArrayPlots(self._array)._view(
+            **self._coordinates, selection={**self._selection, **selection}
+        )
 
     @with_backend
     def slice(self, *, ax=None, backend: Backend | None = None, **selection):
@@ -5692,7 +5838,9 @@ class SliceView:
         """
         from .plotting import plot_panels
 
-        return plot_panels(self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options)
+        return plot_panels(
+            self._array, view=self._view(), nrows=nrows, ncols=ncols, **self._options
+        )
 
     @with_backend
     def viewer(self, *, backend: Backend | None = None):

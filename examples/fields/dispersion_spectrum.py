@@ -24,6 +24,14 @@ for k in (2.0, 3.0, 4.0, 5.0):
     omega = kinetic.bohm_gross(k).real
     wave += np.cos(k * X - omega * T) + np.cos(k * X + omega * T)
 
-phi = xr.DataArray(wave, dims=("t", "eta1"), coords={"t": t, "eta1": x}, name="phi", attrs={"label": r"$\phi$"})
-phi.plasma.plot.dispersion(branches={"Bohm–Gross": kinetic.bohm_gross}, kmax=7, omega_max=12)
+phi = xr.DataArray(
+    wave,
+    dims=("t", "eta1"),
+    coords={"t": t, "eta1": x},
+    name="phi",
+    attrs={"label": r"$\phi$"},
+)
+phi.plasma.plot.dispersion(
+    branches={"Bohm–Gross": kinetic.bohm_gross}, kmax=7, omega_max=12
+)
 plt.show()

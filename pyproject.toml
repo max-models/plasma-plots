@@ -38,6 +38,7 @@ optional-dependencies.desc = [
 optional-dependencies.dev = [
   "griffe",
   "h5py",
+  "pre-commit",
   "pytest",
   "ruff",
   "struphy>=3.4.0",
@@ -88,12 +89,14 @@ maxplotlibx = { git = "https://github.com/max-models/maxplotlib", branch = "deve
 scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }
 
 [tool.ruff]
-line-length = 120
+line-length = 88
+# formatting: `ruff format`; import sorting: the isort rules of `ruff check`
 lint.select = [
   "E4",
   "E7",
   "E9",
   "F",
+  "I",
 ]
 lint.ignore = [
   "E265",

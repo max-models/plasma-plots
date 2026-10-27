@@ -122,7 +122,9 @@ def hull_cutoff(
         raise ValueError("give gap, or both anode_radius and cathode_radius")
     charge = np.abs(np.asarray(charge, dtype=float))
     if field is None:
-        return _out(np.sqrt(2 * mass * np.asarray(voltage, dtype=float) / charge) / factor)
+        return _out(
+            np.sqrt(2 * mass * np.asarray(voltage, dtype=float) / charge) / factor
+        )
     return _out(charge * np.asarray(field, dtype=float) ** 2 * factor**2 / (2 * mass))
 
 
@@ -170,7 +172,9 @@ def brillouin_flow(field, radius=None, mass=electron_mass, charge=elementary_cha
     return result
 
 
-def hall_parameter(field, collision_frequency, mass=electron_mass, charge=elementary_charge):
+def hall_parameter(
+    field, collision_frequency, mass=electron_mass, charge=elementary_charge
+):
     """Compute the Hall parameter ω_c / ν = |q| B / (m ν).
 
     Parameters
@@ -233,7 +237,9 @@ def critical_ionisation_velocity(voltage, mass_number=1.0):
     21899.0 m/s
     """
     mass = np.asarray(mass_number, dtype=float) * proton_mass
-    return _out(np.sqrt(2 * elementary_charge * np.asarray(voltage, dtype=float) / mass))
+    return _out(
+        np.sqrt(2 * elementary_charge * np.asarray(voltage, dtype=float) / mass)
+    )
 
 
 def exb_drift_speed(electric_field, field):
@@ -256,9 +262,13 @@ def exb_drift_speed(electric_field, field):
     >>> print(f"{exb_drift_speed(1e4, 0.05):.4g} m/s")
     2e+05 m/s
     """
-    E, B = np.broadcast_arrays(np.asarray(electric_field, dtype=float), np.asarray(field, dtype=float))
+    E, B = np.broadcast_arrays(
+        np.asarray(electric_field, dtype=float), np.asarray(field, dtype=float)
+    )
     zero = np.zeros_like(E)
-    drift = orbits.exb_drift(np.stack([E, zero, zero], axis=-1), np.stack([zero, zero, B], axis=-1))
+    drift = orbits.exb_drift(
+        np.stack([E, zero, zero], axis=-1), np.stack([zero, zero, B], axis=-1)
+    )
     return _out(np.linalg.norm(drift, axis=-1))
 
 
@@ -331,8 +341,14 @@ def simon_hoh_frequency(
     599.5 m/s, 1.944e+06 1/s
     """
     k = np.asarray(wavenumber, dtype=float)
-    a = _ion_cyclotron(field, mass_number, charge_number) * k * np.asarray(gradient_length, dtype=float)
-    omega_e = k * np.asarray(electric_field, dtype=float) / np.asarray(field, dtype=float)
+    a = (
+        _ion_cyclotron(field, mass_number, charge_number)
+        * k
+        * np.asarray(gradient_length, dtype=float)
+    )
+    omega_e = (
+        k * np.asarray(electric_field, dtype=float) / np.asarray(field, dtype=float)
+    )
     root = np.sqrt((a * a - 4 * a * omega_e).astype(complex))
     first, second = (a + root) / 2, (a - root) / 2
     return np.where(first.imag >= second.imag, first, second)[()]
@@ -362,7 +378,9 @@ def simon_hoh_growth(
     >>> print(simon_hoh_growth(2 * np.pi / 0.05, 1e4, 0.05, -0.01, 39.948))
     0.0
     """
-    omega = simon_hoh_frequency(wavenumber, electric_field, field, gradient_length, mass_number, charge_number)
+    omega = simon_hoh_frequency(
+        wavenumber, electric_field, field, gradient_length, mass_number, charge_number
+    )
     return _out(np.maximum(np.imag(omega), 0.0))
 
 
@@ -426,7 +444,9 @@ def gradient_drift_frequency(
         mass_number,
         collision_frequency,
     )
-    k, E0, B, L, Te, A, nu = np.broadcast_arrays(*(np.asarray(x, dtype=float) for x in args))
+    k, E0, B, L, Te, A, nu = np.broadcast_arrays(
+        *(np.asarray(x, dtype=float) for x in args)
+    )
     te = Te * elementary_charge
     wce = elementary_charge * np.abs(B) / electron_mass
     kappa = k**2 * (te / electron_mass) / wce**2
@@ -599,7 +619,9 @@ def lower_hybrid_drift(
         )
     )
     shape = k.shape
-    k, B, n, Te, Ti, Vi, Ve, A, kz, Vd = (x.ravel() for x in (k, B, n, Te, Ti, Vi, Ve, A, kz, Vd))
+    k, B, n, Te, Ti, Vi, Ve, A, kz, Vd = (
+        x.ravel() for x in (k, B, n, Te, Ti, Vi, Ve, A, kz, Vd)
+    )
     ion_mass = A * proton_mass
     wpe2 = n * elementary_charge**2 / (vacuum_permittivity * electron_mass)
     wpi2 = n * elementary_charge**2 / (vacuum_permittivity * ion_mass)
@@ -627,14 +649,24 @@ def lower_hybrid_drift(
     def slope(omega, kk):
         _, dw = kinetic._response((omega - kk * Vi) / (np.abs(kk) * vti))
         shifted = omega - kk * Ve
-        return ion_scale * dw / (np.abs(kk) * vti) + 2 * parallel / shifted**3 - drive / shifted**2
+        return (
+            ion_scale * dw / (np.abs(kk) * vti)
+            + 2 * parallel / shifted**3
+            - drive / shifted**2
+        )
 
     wlh = np.sqrt(wpi2 / (1 + wpe2 / wce**2))
     scale = np.abs(k * (Ve - Vi)) + np.abs(k * Vd) + wlh
     seeds = [
-        k * Vi + f * k * (Ve - Vi) + 1j * g * scale for f in (0.05, 0.25, 0.5, 0.75, 0.95) for g in (0.02, 0.1, 0.3)
+        k * Vi + f * k * (Ve - Vi) + 1j * g * scale
+        for f in (0.05, 0.25, 0.5, 0.75, 0.95)
+        for g in (0.02, 0.1, 0.3)
     ]
-    seeds += [k * Vi + s * wlh + 1j * g * wlh for s in (-1.0, -0.5, 0.5, 1.0) for g in (0.05, 0.3)]
+    seeds += [
+        k * Vi + s * wlh + 1j * g * wlh
+        for s in (-1.0, -0.5, 0.5, 1.0)
+        for g in (0.05, 0.3)
+    ]
     # the roots of the cold-ion polynomial (the quartic of Eq. (2) with the drive term) as seeds
     cold = np.empty((4, k.size), dtype=complex)
     for i in range(k.size):
@@ -651,7 +683,11 @@ def lower_hybrid_drift(
     seeds += list(cold)
     roots = np.array(
         [
-            np.asarray(kinetic.solve_dispersion(dielectric, k, seed, derivative=slope, continuation=False))
+            np.asarray(
+                kinetic.solve_dispersion(
+                    dielectric, k, seed, derivative=slope, continuation=False
+                )
+            )
             for seed in seeds
         ]
     )

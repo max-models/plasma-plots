@@ -258,7 +258,9 @@ def hydrogen_detachment_cross_section(energy, channel="detachment"):
     1.1947e-15 cm^2
     """
     if channel not in _HH_COEFFICIENTS:
-        raise ValueError(f"channel must be one of {tuple(_HH_COEFFICIENTS)}, got {channel!r}")
+        raise ValueError(
+            f"channel must be one of {tuple(_HH_COEFFICIENTS)}, got {channel!r}"
+        )
     return _out(_polynomial_cross_section(energy, _HH_COEFFICIENTS[channel]))
 
 
@@ -301,7 +303,12 @@ def h2_detachment_cross_section(energy):
         / (energy**0.63 * (1.0 + 2.03e-6 * energy**1.95))
         * (1.0 - np.exp(-0.057 * np.where(above, energy / 2.18 - 1.0, 0.0) ** 0.94))
     )
-    upper = 1.22e3 * 1e-16 / (energy**0.5 * (1.0 + 6.91e-4 * energy**0.40)) * np.exp(-125.0 / energy**0.663)
+    upper = (
+        1.22e3
+        * 1e-16
+        / (energy**0.5 * (1.0 + 6.91e-4 * energy**0.40))
+        * np.exp(-125.0 / energy**0.663)
+    )
     return _out((np.where(above, lower, 0.0) + upper) * _CM2)
 
 
@@ -369,7 +376,10 @@ def maxwellian_rate_coefficient(
     if energy_range is None:
         lo, hi = 1e-4 * t_rel, 60.0 * t_rel
     else:
-        lo, hi = np.full_like(t_rel, energy_range[0]), np.full_like(t_rel, energy_range[1])
+        lo, hi = (
+            np.full_like(t_rel, energy_range[0]),
+            np.full_like(t_rel, energy_range[1]),
+        )
     u = np.linspace(0.0, 1.0, points)
     energy = np.exp(np.log(lo)[..., None] + (np.log(hi) - np.log(lo))[..., None] * u)
     # ∫ f(E) E dE = ∫ f(E) E² d ln E
@@ -379,7 +389,9 @@ def maxwellian_rate_coefficient(
     return _out(rate.reshape(np.shape(t_a)) if np.ndim(t_a) else rate[0])
 
 
-def electron_detachment_rate_coefficient(electron_temperature, negative_ion_temperature=None):
+def electron_detachment_rate_coefficient(
+    electron_temperature, negative_ion_temperature=None
+):
     """Compute the rate coefficient of e + H⁻ → e + H + e for Maxwellian electrons.
 
     <σ v> of :func:`electron_detachment_cross_section`: the relative energy is the electron
@@ -505,7 +517,10 @@ def destruction_frequencies(
     """
     n_pos = electron_density if positive_ion_density is None else positive_ion_density
     rate_hh = maxwellian_rate_coefficient(
-        lambda e: hydrogen_detachment_cross_section(e) + hydrogen_detachment_cross_section(e, "associative"),
+        lambda e: (
+            hydrogen_detachment_cross_section(e)
+            + hydrogen_detachment_cross_section(e, "associative")
+        ),
         ion_temperature,
         mass_a=proton_mass,
         mass_b=proton_mass,
@@ -514,10 +529,14 @@ def destruction_frequencies(
     )
     return {
         "electron detachment": _out(
-            _array(electron_density) * electron_detachment_rate_coefficient(electron_temperature, ion_temperature)
+            _array(electron_density)
+            * electron_detachment_rate_coefficient(
+                electron_temperature, ion_temperature
+            )
         ),
         "mutual neutralization": _out(
-            _array(n_pos) * mutual_neutralization_rate_coefficient(ion_temperature, ion_temperature)
+            _array(n_pos)
+            * mutual_neutralization_rate_coefficient(ion_temperature, ion_temperature)
         ),
         "atom detachment": _out(_array(atom_density) * rate_hh),
     }
@@ -527,7 +546,11 @@ def destruction_frequencies(
 # Electronegative plasma
 # ---------------------------------------------------------------------------------------------
 def debye_length_electronegative(
-    electron_density, electron_temperature, electronegativity, negative_ion_temperature, positive_ion_temperature=None
+    electron_density,
+    electron_temperature,
+    electronegativity,
+    negative_ion_temperature,
+    positive_ion_temperature=None,
 ):
     """Compute the Debye length of an electron–H⁻–H⁺ plasma, 1/λ_D² = Σ_s 1/λ_s².
 
@@ -575,14 +598,23 @@ def debye_length_electronegative(
     alpha = _array(electronegativity)
     inverse_square = 1.0 / debye_length(n_e, electron_temperature) ** 2
     with np.errstate(divide="ignore"):  # alpha = 0: no H-, 1/inf = 0
-        inverse_square = inverse_square + 1.0 / debye_length(alpha * n_e, negative_ion_temperature) ** 2
+        inverse_square = (
+            inverse_square
+            + 1.0 / debye_length(alpha * n_e, negative_ion_temperature) ** 2
+        )
     if positive_ion_temperature is not None:
-        inverse_square = inverse_square + 1.0 / debye_length((1.0 + alpha) * n_e, positive_ion_temperature) ** 2
+        inverse_square = (
+            inverse_square
+            + 1.0 / debye_length((1.0 + alpha) * n_e, positive_ion_temperature) ** 2
+        )
     return _out(inverse_square**-0.5)
 
 
 def sheath_edge_electronegativity(
-    bulk_electronegativity, potential_drop, electron_temperature, negative_ion_temperature
+    bulk_electronegativity,
+    potential_drop,
+    electron_temperature,
+    negative_ion_temperature,
 ):
     """Compute α_s = n₋/n_e at the sheath edge for Boltzmann electrons and negative ions.
 
@@ -615,11 +647,15 @@ def sheath_edge_electronegativity(
     >>> print(f"{sheath_edge_electronegativity(5.0, 2.0, 2.0, 0.5):.4f}")
     0.2489
     """
-    exponent = -_array(potential_drop) * (1.0 / _array(negative_ion_temperature) - 1.0 / _array(electron_temperature))
+    exponent = -_array(potential_drop) * (
+        1.0 / _array(negative_ion_temperature) - 1.0 / _array(electron_temperature)
+    )
     return _out(_array(bulk_electronegativity) * np.exp(exponent))
 
 
-def bohm_speed_electronegative(electron_temperature, electronegativity, negative_ion_temperature, mass_number=1):
+def bohm_speed_electronegative(
+    electron_temperature, electronegativity, negative_ion_temperature, mass_number=1
+):
     """Compute the Bohm speed of an electronegative plasma, u_B = √(T_e (1 + α_s) / (m_i (1 + γ α_s))).
 
     The Braithwaite–Allen criterion for cold positive ions and Boltzmann negative ions, with
@@ -662,12 +698,17 @@ def bohm_speed_electronegative(electron_temperature, electronegativity, negative
     alpha = _array(electronegativity)
     gamma = _array(electron_temperature) / _array(negative_ion_temperature)
     return _out(
-        bohm_speed(electron_temperature, mass_number=mass_number) * np.sqrt((1.0 + alpha) / (1.0 + gamma * alpha))
+        bohm_speed(electron_temperature, mass_number=mass_number)
+        * np.sqrt((1.0 + alpha) / (1.0 + gamma * alpha))
     )
 
 
 def ion_flux_electronegative(
-    electron_density_edge, electronegativity, electron_temperature, negative_ion_temperature, mass_number=1
+    electron_density_edge,
+    electronegativity,
+    electron_temperature,
+    negative_ion_temperature,
+    mass_number=1,
 ):
     """Compute the positive-ion flux Γ₊ = n₊ u_B = (1 + α_s) n_e u_B at the sheath edge.
 
@@ -700,14 +741,18 @@ def ion_flux_electronegative(
     2.527e+21 m^-2 s^-1
     """
     alpha = _array(electronegativity)
-    speed = bohm_speed_electronegative(electron_temperature, alpha, negative_ion_temperature, mass_number)
+    speed = bohm_speed_electronegative(
+        electron_temperature, alpha, negative_ion_temperature, mass_number
+    )
     return _out((1.0 + alpha) * _array(electron_density_edge) * speed)
 
 
 # ---------------------------------------------------------------------------------------------
 # Beams and extraction
 # ---------------------------------------------------------------------------------------------
-def beam_survival_fraction(energy, h2_density=0.0, length=None, atom_density=0.0, positions=None, axis=-1):
+def beam_survival_fraction(
+    energy, h2_density=0.0, length=None, atom_density=0.0, positions=None, axis=-1
+):
     """Compute the fraction of an H⁻ beam that is not stripped by H₂ and H gas on its path.
 
     The product of two :func:`~plasma_plots.theory.beams.neutral_beam_attenuation`: the H₂ loss by
@@ -747,12 +792,17 @@ def beam_survival_fraction(energy, h2_density=0.0, length=None, atom_density=0.0
     """
     energy = _array(energy)
     sigma_h2 = h2_detachment_cross_section(energy)
-    survival = neutral_beam_attenuation(h2_density, sigma_h2, length=length, positions=positions, axis=axis)
-    sigma_h = hydrogen_detachment_cross_section(0.5 * energy) + hydrogen_detachment_cross_section(
-        0.5 * energy, "associative"
+    survival = neutral_beam_attenuation(
+        h2_density, sigma_h2, length=length, positions=positions, axis=axis
     )
+    sigma_h = hydrogen_detachment_cross_section(
+        0.5 * energy
+    ) + hydrogen_detachment_cross_section(0.5 * energy, "associative")
     return _out(
-        survival * neutral_beam_attenuation(atom_density, sigma_h, length=length, positions=positions, axis=axis)
+        survival
+        * neutral_beam_attenuation(
+            atom_density, sigma_h, length=length, positions=positions, axis=axis
+        )
     )
 
 
@@ -784,4 +834,10 @@ def surface_production_current(flux, yield_, survival=1.0, area=1.0):
     >>> print(f"{surface_production_current(1e22, 0.05, 0.7, 1e-4) * 1e3:.4f} mA")
     5.6076 mA
     """
-    return _out(elementary_charge * _array(yield_) * _array(flux) * _array(survival) * _array(area))
+    return _out(
+        elementary_charge
+        * _array(yield_)
+        * _array(flux)
+        * _array(survival)
+        * _array(area)
+    )

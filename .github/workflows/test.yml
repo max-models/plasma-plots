@@ -64,7 +64,11 @@ jobs:
         run: xvfb-run -a pytest -v
 
       - name: Lint
-        run: ruff check src tests scripts
+        run: |
+          pip install ruff ssort
+          ruff check .
+          ruff format --check .
+          ssort --check --diff .
 
   # PyPI rejects direct references (`name @ git+...`): the wheel's metadata must have none.
   no-direct-references:
