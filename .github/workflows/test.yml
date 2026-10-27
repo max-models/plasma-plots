@@ -8,6 +8,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Lint
+        run: uvx ruff check .
+
+      - name: Check formatting
+        run: uvx ruff format --check .
+
+      - name: Check statement order
+        run: uvx ssort --check --diff .
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -62,13 +80,6 @@ jobs:
 
       - name: Run tests
         run: xvfb-run -a pytest -v
-
-      - name: Lint
-        run: |
-          pip install ruff ssort
-          ruff check .
-          ruff format --check .
-          ssort --check --diff .
 
   # PyPI rejects direct references (`name @ git+...`): the wheel's metadata must have none.
   no-direct-references:
