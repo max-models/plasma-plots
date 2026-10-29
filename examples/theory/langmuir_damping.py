@@ -1,6 +1,6 @@
-"""Landau damping of a Langmuir wave
+"""Langmuir wave damping
 
-Frequency and damping rate of a Langmuir wave in a Maxwellian plasma, against the Bohm–Gross fluid result.
+Landau damping of a Langmuir wave: frequency and damping rate of a Langmuir wave in a Maxwellian plasma, against the Bohm–Gross fluid result.
 
 The kinetic dispersion relation $\\epsilon(k, \\omega) = 0$ is solved with the plasma dispersion function.
 For $k\\lambda_D \\ll 1$ the wave is nearly undamped and follows Bohm–Gross; the damping grows

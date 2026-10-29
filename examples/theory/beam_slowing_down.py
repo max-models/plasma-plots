@@ -1,6 +1,6 @@
-"""Slowing down of a fast ion in a plasma
+"""Fast-ion slowing down
 
-Energy loss of a fast deuteron on the electrons and ions of a deuterium plasma, with the critical energy where the two are equal.
+The slowing down of a fast ion in a plasma: energy loss of a fast deuteron on the electrons and ions of a deuterium plasma, with the critical energy where the two are equal.
 
 Above the critical energy $E_c$ the ion heats mainly the electrons; below it, the ions. The energy
 evolves as $dE/dt = -(2E/\\tau_s)[1 + (E_c/E)^{3/2}]$ with the Spitzer time $\\tau_s$, and the ion

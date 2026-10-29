@@ -1,6 +1,6 @@
-"""Trapped particles in a tokamak
+"""Trapped particles
 
-The fraction of trapped particles in a large-aspect-ratio tokamak, and how it grows towards the plasma edge.
+Trapped particles in a tokamak: the fraction of trapped particles in a large-aspect-ratio tokamak, and how it grows towards the plasma edge.
 
 On a flux surface of inverse aspect ratio $\\epsilon = r/R$ the magnetic field varies as
 $B \\propto 1/(1 + \\epsilon\\cos\\theta)$, and particles with small enough parallel velocity bounce between

@@ -1,6 +1,6 @@
-"""Gradient-drift (Simon–Hoh) instability in a magnetron
+"""Gradient-drift instability
 
-Growth rate of the gradient-drift instability of a crossed-field argon plasma, from the cold-electron Simon–Hoh relation and the kinetic-corrected dispersion relation.
+The gradient-drift (Simon–Hoh) instability in a magnetron: growth rate of the instability of a crossed-field argon plasma, from the cold-electron Simon–Hoh relation and the kinetic-corrected dispersion relation.
 
 The instability needs the electric field and the density gradient to point the same way
 ($E_0 L_n > 0$). The Simon–Hoh growth rate rises with $k$ and sets the threshold $E_0/(B\\,\\Omega_i L_n) > 1/4$.
