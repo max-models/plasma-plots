@@ -78,6 +78,11 @@ jobs:
       - name: Install docs dependencies
         run: make docs-install
 
+      # the theme's current 0.x release (the major tag), over the lockfile's
+      - name: Install the theme of the major tag
+        working-directory: docs
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund "@max-models/starlight-theme@github:max-models/starlight-theme#v0"
+
       # the scripts in examples/, run here (not in the docs build) for the Gallery pages
       - name: Run gallery examples
         run: make gallery
