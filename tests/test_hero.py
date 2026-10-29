@@ -37,3 +37,23 @@ def test_errors():
         fig.line([np.nan], [np.nan])
     with pytest.raises(ValueError, match="trajectory"):
         fig.tracer(fig.circle(0, 0, 1), duration=1)
+
+
+def test_log_scale_morph_and_discrete():
+    fig = HeroFigure(xlim=(1, 100), ylim=(0, 1), width=100, height=100, xscale="log")
+    line = fig.line([1, 10, 100, -1], [0, 0, 0, 0])
+    assert line.path == "M0 100 L50 100 L100 100"
+    fig.morph([1, 100], [[0, 1], [1, 0]], duration=4)
+    fig.rect(1, 0, 10, 1, outline="accent", width=3).animate(
+        "opacity", [0, 1], 2, discrete=True
+    )
+    svg = fig.to_svg()
+    assert (
+        'attributeName="d"' in svg
+        and 'calcMode="discrete"' in svg
+        and 'stroke-width="3"' in svg
+    )
+    with pytest.raises(ValueError, match="scale"):
+        HeroFigure(xscale="symlog")
+    with pytest.raises(ValueError, match="same finite"):
+        fig.morph([1, 10], [[0, 1], [0, np.nan]], duration=1)

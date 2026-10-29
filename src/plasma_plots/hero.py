@@ -60,7 +60,7 @@ class Mark:
         self.path = path
         self.children = []
 
-    def animate(self, attribute, values, duration, begin=0.0):
+    def animate(self, attribute, values, duration, begin=0.0, discrete=False):
         """Animate an attribute through a list of values, on a loop.
 
         Parameters
@@ -74,6 +74,8 @@ class Mark:
             Seconds for one pass.
         begin : float
             Seconds into the pass at which the page starts (spreads several marks apart).
+        discrete : bool
+            Jump from value to value instead of blending, for frame-by-frame states.
 
         Returns
         -------
@@ -86,7 +88,9 @@ class Mark:
         )
         self.children.append(
             f'<animate attributeName="{attribute}" values="{text}" dur="{_fmt(duration)}s" '
-            f'begin="-{_fmt(begin)}s" repeatCount="indefinite"/>'
+            f'begin="-{_fmt(begin)}s" repeatCount="indefinite"'
+            + (' calcMode="discrete"' if discrete else "")
+            + "/>"
         )
         return self
 
@@ -115,18 +119,41 @@ class HeroFigure:
         The data range shown across and up the picture.
     width, height : int
         The size of the picture in pixels (the theme scales it to the header).
+    xscale, yscale : {"linear", "log"}
+        The scale of each axis; non-positive values on a log axis are left out.
     """
 
-    def __init__(self, xlim=(0.0, 1.0), ylim=(0.0, 1.0), width=1600, height=600):
-        self.xlim = tuple(float(v) for v in xlim)
-        self.ylim = tuple(float(v) for v in ylim)
+    @staticmethod
+    def _scaled(values, scale):
+        values = np.asarray(values, dtype=float)
+        if scale == "linear":
+            return values
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(values > 0, np.log10(values), np.nan)
+
+    def __init__(
+        self,
+        xlim=(0.0, 1.0),
+        ylim=(0.0, 1.0),
+        width=1600,
+        height=600,
+        xscale="linear",
+        yscale="linear",
+    ):
+        for scale in (xscale, yscale):
+            if scale not in ("linear", "log"):
+                raise ValueError(f"a scale is 'linear' or 'log', not {scale!r}")
+        self.xscale = xscale
+        self.yscale = yscale
+        self.xlim = tuple(float(v) for v in self._scaled(xlim, xscale))
+        self.ylim = tuple(float(v) for v in self._scaled(ylim, yscale))
         self.width = int(width)
         self.height = int(height)
         self.marks = []
 
     def _xy(self, x, y):
-        x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
+        x = self._scaled(x, self.xscale)
+        y = self._scaled(y, self.yscale)
         px = (x - self.xlim[0]) / (self.xlim[1] - self.xlim[0]) * self.width
         py = (self.ylim[1] - y) / (self.ylim[1] - self.ylim[0]) * self.height
         return px, py
@@ -184,7 +211,53 @@ class HeroFigure:
             attrs["stroke-dasharray"] = dash
         return self._add(Mark("path", attrs, path=d), title)
 
-    def polygon(self, x, y, tone="accent", opacity=1.0, outline=None, title=None):
+    def morph(
+        self,
+        x,
+        ys,
+        duration,
+        tone="accent",
+        width=1.5,
+        opacity=1.0,
+        begin=0.0,
+        title=None,
+    ):
+        """Draw a line that changes shape through several profiles, on a loop.
+
+        Parameters
+        ----------
+        x : array_like
+            The common abscissa of the profiles.
+        ys : sequence of array_like
+            The profiles in time order; the line returns to the first at the end of a pass.
+            All must have the same finite points (the shape blends point by point).
+        duration : float
+            Seconds for one pass.
+        tone : str
+            Its colour.
+        width : float
+            The line width in pixels.
+        opacity : float
+            Between 0 and 1.
+        begin : float
+            Seconds into the pass at which the page starts.
+        title : str or None
+            A tooltip shown on hover.
+
+        Returns
+        -------
+        Mark
+            The line.
+        """
+        paths = [self._path(x, y) for y in ys]
+        if len({path.count("L") for path in paths}) > 1:
+            raise ValueError("every profile of a morph needs the same finite points")
+        line = self.line(x, ys[0], tone, width, opacity, title=title)
+        return line.animate("d", [*paths, paths[0]], duration, begin)
+
+    def polygon(
+        self, x, y, tone="accent", opacity=1.0, outline=None, title=None, width=1.5
+    ):
         """Fill a closed shape.
 
         Parameters
@@ -199,6 +272,8 @@ class HeroFigure:
             The tone of an outline, or ``None`` for none.
         title : str or None
             A tooltip shown on hover.
+        width : float
+            The outline width in pixels.
 
         Returns
         -------
@@ -209,12 +284,23 @@ class HeroFigure:
             f" s-{_check_tone(outline)}" if outline else ""
         )
         attrs = {"d": self._path(x, y, closed=True), "class": classes}
+        if outline:
+            attrs["stroke-width"] = _fmt(width)
         if opacity != 1:
             attrs["fill-opacity"] = f"{opacity:.2f}"
         return self._add(Mark("path", attrs), title)
 
     def rect(
-        self, x0, y0, x1, y1, tone="accent", opacity=1.0, outline=None, title=None
+        self,
+        x0,
+        y0,
+        x1,
+        y1,
+        tone="accent",
+        opacity=1.0,
+        outline=None,
+        title=None,
+        width=1.5,
     ):
         """Draw a rectangle between two corners.
 
@@ -230,6 +316,8 @@ class HeroFigure:
             The tone of an outline, or ``None`` for none.
         title : str or None
             A tooltip shown on hover.
+        width : float
+            The outline width in pixels.
 
         Returns
         -------
@@ -237,7 +325,7 @@ class HeroFigure:
             The rectangle.
         """
         return self.polygon(
-            [x0, x1, x1, x0], [y0, y0, y1, y1], tone, opacity, outline, title
+            [x0, x1, x1, x0], [y0, y0, y1, y1], tone, opacity, outline, title, width
         )
 
     def circle(
