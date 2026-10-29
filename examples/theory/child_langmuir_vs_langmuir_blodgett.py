@@ -1,6 +1,6 @@
-"""Child–Langmuir and Langmuir–Blodgett space-charge-limited flow
+"""Space-charge-limited flow
 
-How curvature changes the space-charge-limited current of a diode, against the planar Child–Langmuir law.
+Child–Langmuir and Langmuir–Blodgett space-charge-limited flow: how curvature changes the space-charge-limited current of a diode, against the planar Child–Langmuir law.
 
 The planar law $J = \\frac{4}{9}\\epsilon_0\\sqrt{2e/m}\\,V^{3/2}/d^2$ is exact for parallel plates.
 For coaxial cylinders and concentric spheres the Langmuir–Blodgett series gives the current density at the

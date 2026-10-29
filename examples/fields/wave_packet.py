@@ -1,6 +1,6 @@
-"""A wave packet on the unit square
+"""Wave packet
 
-A synthetic potential on a 2-D grid, drawn with `array.plasma.plot` the way a simulation's output is.
+A wave packet on the unit square: a synthetic potential on a 2-D grid, drawn with `array.plasma.plot` the way a simulation's output is.
 
 The labeled `xarray.DataArray` carries its coordinates, label and units, so `slice`, `panels` and
 `lineout` need nothing more than the names of the dimensions to draw. Dimensions that a plot does not

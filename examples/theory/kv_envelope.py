@@ -1,6 +1,6 @@
-"""KV beam envelope with and without space charge
+"""KV beam envelope
 
-Rms radius of a proton beam in a drift, from the analytic emittance-only hyperbola and from the envelope equation with space charge.
+The KV beam envelope with and without space charge: rms radius of a proton beam in a drift, from the analytic emittance-only hyperbola and from the envelope equation with space charge.
 
 Without space charge the radius follows $x^2 = x_0^2 + (\\epsilon z / x_0)^2$. With the generalized
 perveance $K$ the envelope obeys $x'' = \\epsilon^2/x^3 + K/(4x)$ and the beam is blown up much faster

@@ -1,6 +1,6 @@
-"""Hull cutoff and Brillouin flow in a magnetron
+"""Hull cutoff
 
-Critical magnetic field of a planar and a coaxial magnetron against anode voltage, and the Brillouin density limit of the electron cloud.
+The Hull cutoff and Brillouin flow in a magnetron: critical magnetic field of a planar and a coaxial magnetron against anode voltage, and the Brillouin density limit of the electron cloud.
 
 Electrons leaving the cathode just graze the anode when $B = B_c(V) = \\sqrt{2 m V/e}/G$, with $G = d$
 for a plane and $G = (r_a^2 - r_c^2)/2r_a$ for coaxial cylinders. Above the cutoff the
