@@ -1725,6 +1725,94 @@ ax_d.set(xlabel="x", ylabel="depth", title="Dam break on a dry bed (Ritter)")
 ax_d.legend(fontsize="small")
 save_fig(fig, "theory_exact.png")
 
+# MHD equilibria: Harris sheet, Bennett pinch, a Solov'ev tokamak and the Taylor state
+from plasma_plots.theory import equilibria  # noqa: E402
+from plasma_plots.theory.parameters import vacuum_permeability  # noqa: E402
+
+fig, ((ax_h, ax_bp), (ax_sv, ax_ty)) = plt.subplots(
+    2, 2, figsize=(10, 8), layout="constrained"
+)
+z_h = np.linspace(-4, 4, 400)  # z / L
+harris = equilibria.harris_sheet(
+    z_h, 0.02, 1.0, 3.0, 7.0, background_density=0.1e17
+)
+magnetic_pressure = harris.b_x**2 / (2 * vacuum_permeability)
+total_pressure = harris.pressure + magnetic_pressure
+ax_h.plot(z_h, harris.b_x / 0.02, label=r"$B_x/B_0$")
+ax_h.plot(z_h, harris.pressure / total_pressure, label=r"$p/p_{tot}$")
+ax_h.plot(
+    z_h, magnetic_pressure / total_pressure, label=r"$B^2/2\mu_0 p_{tot}$"
+)
+ax_h.plot(
+    z_h,
+    total_pressure / total_pressure[0],
+    "--",
+    color="gray",
+    label=r"$p_{tot}$, constant",
+)
+ax_h.set(xlabel="z / L", title="Harris current sheet: pressure balance")
+ax_h.legend(fontsize="small")
+r_bp = np.linspace(0, 5, 400)  # r / a
+pinch = equilibria.bennett_pinch(r_bp, 1e20, 1.0, 100.0, 100.0)
+ax_bp.plot(r_bp, pinch.density / 1e20, label=r"$n/n_0$")
+ax_bp.plot(
+    r_bp, pinch.b_theta / pinch.b_theta.max(), label=r"$B_\theta/B_{max}$"
+)
+ax_bp.plot(
+    r_bp, pinch.enclosed_current / pinch.total_current, "--", label=r"$I(r)/I$"
+)
+ax_bp.set(xlabel="r / a", title="Bennett pinch")
+ax_bp.legend(fontsize="small")
+sv_shape = dict(epsilon=0.32, kappa=1.7, delta=0.33, a_param=-0.155)
+r_sv, z_sv = np.meshgrid(
+    np.linspace(1.1, 2.3, 241), np.linspace(-1.0, 1.0, 321), indexing="ij"
+)
+sv = equilibria.solovev(r_sv, z_sv, r0=1.7, **sv_shape, psi0=0.4, b0=2.5)
+sv_pressure = np.where(sv.psi_normalized < 0, sv.pressure / 1e3, np.nan)
+sv_mesh = ax_sv.pcolormesh(
+    r_sv, z_sv, sv_pressure, shading="auto", cmap="magma"
+)
+ax_sv.contour(
+    r_sv,
+    z_sv,
+    sv.psi_normalized,
+    levels=np.linspace(-0.9, -0.1, 9) * -sv.psi_normalized.min(),
+    colors="white",
+    linewidths=0.6,
+    linestyles="solid",
+)
+ax_sv.plot(*equilibria.solovev_boundary(0.32, 1.7, 0.33, r0=1.7), color="C0")
+r_ax = equilibria.solovev_axis(0.32, 1.7, 0.33, -0.155, r0=1.7)
+ax_sv.plot(r_ax, 0.0, "x", color="white")
+fig.colorbar(sv_mesh, ax=ax_sv, label="p [kPa]")
+ax_sv.set(
+    xlabel="R [m]",
+    ylabel="Z [m]",
+    title=r"Solov'ev, $\varepsilon$=0.32, $\kappa$=1.7, $\delta$=0.33",
+    aspect="equal",
+)
+alpha_a = np.linspace(0.01, 3.4, 300)
+taylor = equilibria.taylor_state(alpha_a)
+ax_ty.plot(taylor.pinch, taylor.reversal, label="Taylor state")
+ax_ty.axhline(0.0, color="gray", ls=":")
+ax_ty.axvline(1.202, color="gray", ls=":")
+ax_ty.set(
+    xlabel=r"pinch parameter $\Theta$",
+    ylabel="reversal parameter F",
+    title="Taylor state: F < 0 for Θ > 1.202",
+    ylim=(-2.5, 1.2),
+)
+inset = ax_ty.inset_axes([0.12, 0.12, 0.38, 0.35])
+r_l = np.linspace(0, 1, 200)
+lq = equilibria.lundquist_field(r_l, 3.0)
+inset.plot(r_l, lq.b_z, label=r"$B_z$")
+inset.plot(r_l, lq.b_theta, label=r"$B_\theta$")
+inset.axhline(0.0, color="gray", lw=0.5)
+inset.set_xlabel("r / a, αa = 3", fontsize="x-small")
+inset.tick_params(labelsize="x-small")
+inset.legend(fontsize="xx-small")
+save_fig(fig, "theory_equilibria.png")
+
 # Numerics: phase errors of time integrators, and the dispersion of spline finite elements
 fig, (ax_p, ax_sp) = plt.subplots(
     1, 2, figsize=(10, 3.8), layout="constrained"
