@@ -101,7 +101,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.isosurface(*, values=5, cmap='viridis', opacity=1.0, colors=None, labels=None, clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista contour surfaces of this scalar field in physical space.
   - e.g. `phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0).show()`
   - e.g. `phi.plasma.plot.isosurface(values=[0, 0.2], colors=["tab:blue", "lightgrey"], opacity=[1, 0.3], t=0).show()`
-- `array.plasma.plot.slices_3d(*, cuts=None, cmap='viridis', clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista surfaces of constant logical coordinate in physical space.
+- `array.plasma.plot.slices_3d(*, cuts=None, cmap='viridis', clim=None, show_domain=True, title=None, symmetric=False, robust=False, opacity=1.0, plotter=None, **selection)`: Draw PyVista surfaces of constant logical coordinate in physical space.
   - e.g. `phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0).show()`
 - `array.plasma.plot.glyphs(*, components='cartesian', stride=2, scale=None, cmap='viridis', show_domain=True, title=None, plotter=None, **selection)`: Draw PyVista arrows of this (component, eta1, eta2, eta3) vector field.
   - e.g. `B.plasma.plot.glyphs(stride=3, t=-1).show()`
