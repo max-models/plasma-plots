@@ -81,6 +81,13 @@ out.plot.energies()
 phi.plasma.plot.slice(t=-1, eta3=0, backend="matplotlib")  # one exception
 ```
 
+In a notebook, a Plotly result displays as Plotly's own output (`application/vnd.plotly.v1+json`,
+with an HTML copy that loads plotly.js from its CDN). Docs sites built with the max-models
+starlight theme turn that output into an interactive chart in the site's light/dark theme, so
+`set_backend("plotly")` in the first cell of a docs notebook makes all its figures interactive.
+`plasma_plots.plotly_backend.display_bundle(fig, title=...)` returns the same output for any
+Plotly figure, with a caption.
+
 ## Animations and viewers
 
 An animation becomes a figure with a slider over the sweep and Play/Pause buttons. The
@@ -149,6 +156,8 @@ The guides show many of the plots with Plotly, folded under each Matplotlib figu
 
 - The PyVista 3-D views (`isosurface`, `slices_3d`, `glyphs`, `streamlines`, `volume`,
   `movie`, `orbits_3d`) are already interactive; see [3-D views](/plasma-plots/guides/3d-views/).
+  `plasma_plots.scene(plotter, backend="plotly")` shows one of them as a Plotly 3-D figure
+  instead (surfaces, lines and points, with their colors, opacity and color bar).
 - `frames` and `save_frames` write PNG files for a movie.
 - `ax=`, which draws into a Matplotlib axes you made, cannot be combined with
   `backend="plotly"` (that raises `TypeError`). To compose several plots into one Plotly
@@ -167,5 +176,8 @@ plot_slice(phi.isel(t=-1, eta3=0)).to_plotly().save("phi.html")
 ```
 
 `plasma_plots.plotly_backend.to_plotly(fig)` and `animation_to_plotly(animation)` convert any
-figure or animation of these functions. If you draw something they don't know (e.g. a
-histogram you added to a plot's axes), it is left out with a `ConversionWarning`.
+figure or animation of these functions, including log color scales (drawn in decades, the
+hover showing the value itself), filled contours (`contourf`, one filled band per level) and
+lines in axes coordinates (`transform=ax.transAxes`). If you draw something they don't know
+(e.g. a histogram you added to a plot's axes, or a `symlog` axis), it is left out or drawn
+linearly, with a `ConversionWarning`.

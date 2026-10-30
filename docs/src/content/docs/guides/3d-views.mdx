@@ -292,9 +292,27 @@ plasma_plots.scene(plotter, alt="Isosurfaces of a helical mode in a torus")
 ```
 
 `alt` describes the screenshot and `title` names the scene, and `window_size=(w, h)`
-sets the screenshot's size. The color bar is left out of the interactive scene,
-because vtk.js would label it 0 to 255; the screenshot keeps it. Outside a notebook,
-`.save_html("scene.html")` and `.save_png("scene.png")` write the two files.
+sets the screenshot's size. vtk.js would label its own color bar 0 to 255, so the
+interactive scene carries the plotter's color bars as an overlay with the right values
+instead. Most of a small scene's size (about 1 MB) is the inlined vtk.js viewer;
+`decimate=0.5` drops half of every surface's triangles for large meshes.
+
+`backend="plotly"` shows the scene as a Plotly 3-D figure instead: a few hundred kB,
+themed like the page, with the values on hover, and without the screenshot or trame.
+Surfaces become `Mesh3d` traces, lines and points `Scatter3d`, each with its color or
+color scale and opacity. Very large meshes are decimated to `max_faces` (200 000) triangles;
+for those, and for streamlines with many tubes, the vtk.js scene renders better:
+
+```python
+plasma_plots.scene(plotter, backend="plotly", title="|B| on the last surface")
+# or the figure itself
+from plasma_plots import scene_to_plotly
+
+scene_to_plotly(plotter).write_html("scene.html")
+```
+
+Outside a notebook, `.save_html("scene.html")` and `.save_png("scene.png")` write the
+two files of the vtk.js scene.
 
 The export needs trame-pyvista, which comes with the `scene` extra:
 

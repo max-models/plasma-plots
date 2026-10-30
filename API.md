@@ -476,7 +476,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.mpi_rank()`: Return this process' rank in MPI_COMM_WORLD, without initializing MPI.
   - e.g. `mpi_rank()  # in a serial run`
 - `plasma_plots.is_plotting_rank()`: Tell whether this process draws plots and writes their files.
-- `plasma_plots.scene(plotter, *, alt=None, title=None, window_size=None)`: Show a pyvista.Plotter as an interactive 3-D scene in a notebook.
+- `plasma_plots.scene(plotter, *, alt=None, title=None, window_size=None, backend='vtkjs', decimate=None)`: Show a pyvista.Plotter as an interactive 3-D scene in a notebook.
   - e.g. `plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], t=-1)`
   - e.g. `plasma_plots.scene(plotter, alt="Two isosurfaces of phi")`
 - `plasma_plots.pyvista_plots.Scene.save_html(path)`: Write the scene to a standalone HTML file.
@@ -523,7 +523,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.arrays`: `logical_dims`, `periodicity`, `repeat_periodic`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
-- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene`
+- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene_to_plotly`, `scene`
 
 ## Command line: plasma-plots
 

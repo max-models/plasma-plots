@@ -412,7 +412,10 @@ class PlotResult:
         if self._plotly:
             from IPython.display import display
 
-            display(self.fig)
+            from .plotly_backend import display_bundle
+
+            data, metadata = display_bundle(self.fig)
+            display(data, raw=True, metadata=metadata)
         elif self._tikz:
             self.fig.show(transparent=False)
         else:

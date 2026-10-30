@@ -1981,6 +1981,298 @@ def save_movie(
 SCENE_EXTRA = 'pip install "plasma-plots[scene]"'
 
 
+def _mesh_actors(plotter):
+    """The plotter's actors that draw a dataset, with their pyvista mappers."""
+    for actor in plotter.actors.values():
+        mapper = getattr(actor, "mapper", None)
+        if mapper is not None and getattr(mapper, "dataset", None) is not None:
+            yield actor, mapper
+
+
+def _actor_scalars(mapper, dataset):
+    """The values an actor is colored by, and whether they sit on the points: or ``(None, True)``."""
+    if not mapper.scalar_visibility:
+        return None, True
+    name = mapper.GetArrayName() or dataset.active_scalars_name
+    if not name:
+        return None, True
+    mode = str(getattr(mapper, "scalar_map_mode", "default"))
+    if mode in ("point", "default") and name in dataset.point_data:
+        return np.asarray(dataset.point_data[name]), True
+    if name in dataset.cell_data:
+        return np.asarray(dataset.cell_data[name]), False
+    if name in dataset.point_data:
+        return np.asarray(dataset.point_data[name]), True
+    return None, True
+
+
+def _lut_colorscale(lookup_table, n: int = 32):
+    """A Plotly colorscale sampled from a VTK lookup table."""
+    values = np.asarray(lookup_table.values, dtype=float)
+    index = np.linspace(0, len(values) - 1, n).round().astype(int)
+    return [
+        [float(i / (n - 1)), "rgb({:.0f},{:.0f},{:.0f})".format(*values[k, :3])]
+        for i, k in enumerate(index)
+    ]
+
+
+def _vtk_key(obj):
+    """The identity of the VTK object behind a Python wrapper (wrappers may be recreated)."""
+    return getattr(obj, "__this__", id(obj))
+
+
+def _bar_titles(plotter) -> dict:
+    """The titles of the plotter's visible scalar bars, by the lookup table they show."""
+    titles = {}
+    for title, bar in plotter.scalar_bars.items():
+        if bar.GetVisibility():
+            titles[_vtk_key(bar.GetLookupTable())] = title
+    return titles
+
+
+def _n_faces(surface) -> int:
+    """The number of polygon cells of a surface: neither lines nor vertices."""
+    return int(surface.n_cells - surface.n_lines - surface.n_verts)
+
+
+def _segments(points, cells):
+    """``x, y, z`` of VTK line cells, the lines separated by ``None`` (NaN)."""
+    pieces, i = [], 0
+    while i < len(cells):
+        count = int(cells[i])
+        pieces.append(points[cells[i + 1 : i + 1 + count]])
+        pieces.append(np.full((1, 3), np.nan))
+        i += count + 1
+    return np.concatenate(pieces) if pieces else np.zeros((0, 3))
+
+
+def scene_to_plotly(plotter, *, max_faces: int | None = 200_000):
+    """Convert a ``pyvista.Plotter`` into an interactive Plotly 3-D figure.
+
+    Surfaces become ``Mesh3d`` traces (colored by their scalars on the plotter's color scale, or
+    in their solid color), lines and point sets ``Scatter3d`` traces, each with its opacity. The
+    first colored surface carries a color bar titled like the plotter's scalar bar. The camera
+    follows the plotter's. A Plotly figure is lighter than a vtk.js page (no viewer inlined),
+    follows the page's theme and shows values on hover; prefer the vtk.js scene of :func:`scene`
+    for very large meshes.
+
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        The scene.
+    max_faces : int or None, optional
+        Surfaces with more triangles are decimated to about this many (``None`` keeps them).
+        Default: 200 000.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The figure.
+
+    Examples
+    --------
+    >>> plotter = torus.mod_B.plasma.plot.slices_3d(cuts={"rho": [1.0]})
+    >>> scene_to_plotly(plotter).show()
+    """
+    from .plotly_backend import _hover_label, _plotly, plotly_text
+
+    go = _plotly()
+    titles = _bar_titles(plotter)
+    traces, has_bar = [], False
+    for actor, mapper in _mesh_actors(plotter):
+        if not actor.GetVisibility():
+            continue
+        dataset = mapper.dataset
+        surface = (
+            dataset
+            if dataset.__class__.__name__ == "PolyData"
+            else dataset.extract_surface()
+        )
+        prop = actor.prop
+        opacity = float(prop.opacity)
+        color = prop.color.hex_rgb
+        values, on_points = _actor_scalars(mapper, surface)
+        colored = values is not None and values.ndim == 1
+        clim = [float(v) for v in mapper.scalar_range]
+        colorscale = _lut_colorscale(mapper.lookup_table) if colored else None
+        title = titles.get(_vtk_key(mapper.lookup_table))
+        points = np.asarray(surface.points, dtype=np.float32)
+        style = str(prop.style).lower()
+        if (
+            surface.n_cells == 0
+            or style == "points"
+            or surface.n_verts == surface.n_cells
+        ):
+            marker = {"size": float(prop.point_size), "opacity": opacity}
+            if colored and on_points:
+                marker.update(
+                    color=values, colorscale=colorscale, cmin=clim[0], cmax=clim[1]
+                )
+            else:
+                marker["color"] = color
+            traces.append(
+                go.Scatter3d(
+                    x=points[:, 0],
+                    y=points[:, 1],
+                    z=points[:, 2],
+                    mode="markers",
+                    marker=marker,
+                    showlegend=False,
+                    name="",
+                )
+            )
+            continue
+        if surface.n_lines:
+            xyz = _segments(points, np.asarray(surface.lines))
+            traces.append(
+                go.Scatter3d(
+                    x=xyz[:, 0],
+                    y=xyz[:, 1],
+                    z=xyz[:, 2],
+                    mode="lines",
+                    line={"color": color, "width": float(prop.line_width) * 2},
+                    opacity=opacity,
+                    showlegend=False,
+                    name="",
+                    hoverinfo="skip",
+                )
+            )
+        if _n_faces(surface):
+            triangles = surface.triangulate()
+            if max_faces is not None and triangles.n_cells > max_faces:
+                triangles = triangles.decimate(1.0 - max_faces / triangles.n_cells)
+            values, on_points = _actor_scalars(mapper, triangles)
+            colored = values is not None and values.ndim == 1
+            faces = np.asarray(triangles.faces).reshape(-1, 4)[:, 1:]
+            if faces.size == 0:
+                continue
+            tri_points = np.asarray(triangles.points, dtype=np.float32)
+            mesh = dict(
+                x=tri_points[:, 0],
+                y=tri_points[:, 1],
+                z=tri_points[:, 2],
+                i=faces[:, 0],
+                j=faces[:, 1],
+                k=faces[:, 2],
+                opacity=opacity,
+                flatshading=False,
+                showlegend=False,
+                name="",
+                lighting={"ambient": 0.6, "diffuse": 0.5, "specular": 0.05},
+            )
+            if colored:
+                mesh.update(
+                    intensity=values.astype(np.float32),
+                    intensitymode="vertex" if on_points else "cell",
+                    colorscale=colorscale,
+                    cmin=clim[0],
+                    cmax=clim[1],
+                    showscale=not has_bar,
+                    hovertemplate=f"{_hover_label(title) or 'value'} = %{{intensity:.4g}}<extra></extra>",
+                )
+                if not has_bar:
+                    mesh["colorbar"] = {
+                        "title": {"text": plotly_text(title or ""), "side": "right"},
+                        "thickness": 14,
+                    }
+                has_bar = True
+            else:
+                mesh.update(color=color, hoverinfo="skip")
+            traces.append(go.Mesh3d(**mesh))
+    camera = plotter.camera
+    position, focal = np.asarray(camera.position), np.asarray(camera.focal_point)
+    direction = position - focal
+    norm = float(np.linalg.norm(direction)) or 1.0
+    eye = 1.8 * direction / norm
+    axis = {"visible": False}
+    figure = go.Figure(traces)
+    figure.update_layout(
+        scene={
+            "aspectmode": "data",
+            "xaxis": axis,
+            "yaxis": axis,
+            "zaxis": axis,
+            "camera": {
+                "eye": dict(zip("xyz", map(float, eye))),
+                "up": dict(zip("xyz", map(float, camera.up))),
+            },
+        },
+        margin={"l": 0, "r": 0, "t": 0, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        height=600,
+    )
+    return figure
+
+
+def _colorbar_overlay(plotter) -> str:
+    """HTML color bars for the plotter's visible scalar bars, laid over the exported vtk.js page."""
+    from .plotly_backend import plotly_text
+
+    bars = []
+    for title, bar in plotter.scalar_bars.items():
+        if not bar.GetVisibility():
+            continue
+        table = bar.GetLookupTable()
+        lo, hi = table.GetRange()
+        n = 16
+        stops = []
+        for i in range(n):
+            rgb = [0.0, 0.0, 0.0]
+            table.GetColor(lo + (hi - lo) * i / (n - 1), rgb)
+            stops.append(
+                "rgb({:.0f},{:.0f},{:.0f}) {:.1f}%".format(
+                    *(255 * c for c in rgb), 100 * i / (n - 1)
+                )
+            )
+        ticks = "".join(
+            f"<span>{value:.3g}</span>" for value in (lo, 0.5 * (lo + hi), hi)
+        )
+        bars.append(
+            f'<div class="pp-bar"><div class="pp-title">{plotly_text(title)}</div>'
+            f'<div class="pp-ramp" style="background:linear-gradient(to right,{",".join(stops)})"></div>'
+            f'<div class="pp-ticks">{ticks}</div></div>'
+        )
+    if not bars:
+        return ""
+    style = (
+        "<style>#pp-bars{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:10;"
+        "display:flex;gap:24px;font:12px sans-serif;color:#222;background:rgba(255,255,255,.8);"
+        "padding:6px 10px;border-radius:6px;pointer-events:none}"
+        ".pp-bar{width:220px}.pp-title{text-align:center;margin-bottom:2px}"
+        ".pp-ramp{height:10px;border-radius:2px}"
+        ".pp-ticks{display:flex;justify-content:space-between}</style>"
+    )
+    return style + f'<div id="pp-bars">{"".join(bars)}</div>'
+
+
+class _Decimated:
+    """Swap every surface of a plotter for a decimated copy while the scene is exported."""
+
+    def __init__(self, plotter, fraction: float | None):
+        self.plotter, self.fraction = plotter, fraction
+        self._saved = []
+
+    def __enter__(self):
+        if not self.fraction:
+            return self
+        for _, mapper in _mesh_actors(self.plotter):
+            original = mapper.dataset
+            if original.__class__.__name__ != "PolyData" or not _n_faces(original):
+                continue
+            # decimate_pro keeps the point data, which the colors come from
+            mapper.dataset = original.triangulate().decimate_pro(
+                self.fraction, preserve_topology=True
+            )
+            self._saved.append((mapper, original))
+        return self
+
+    def __exit__(self, *exc):
+        for mapper, original in self._saved:
+            mapper.dataset = original
+        self._saved.clear()
+        return False
+
+
 class Scene:
     """A ``pyvista.Plotter`` displayed as an interactive 3-D scene; see :func:`scene`.
 
@@ -1997,6 +2289,11 @@ class Scene:
         A title for the scene.
     window_size : (int, int), optional
         The screenshot's size in pixels. Default: the plotter's window size.
+    backend : {"vtkjs", "plotly"}, optional
+        How a notebook shows the scene; see :func:`scene`. Default: ``"vtkjs"``.
+    decimate : float, optional
+        Fraction of the triangles to remove from each surface in the vtk.js export (e.g. 0.5).
+        Default: keep them all.
     """
 
     def __init__(
@@ -2006,11 +2303,21 @@ class Scene:
         alt: str | None = None,
         title: str | None = None,
         window_size=None,
+        backend: Literal["vtkjs", "plotly"] = "vtkjs",
+        decimate: float | None = None,
     ):
+        if backend not in ("vtkjs", "plotly"):
+            raise ValueError(
+                f"unknown backend {backend!r}; expected 'vtkjs' or 'plotly'"
+            )
+        if decimate is not None and not 0.0 <= decimate < 1.0:
+            raise ValueError(f"decimate is a fraction in [0, 1), not {decimate}")
         self.plotter = plotter
         self.alt = alt
         self.title = title
         self.window_size = window_size
+        self.backend = backend
+        self.decimate = decimate
         self._png: bytes | None = None
         self._html: str | None = None
 
@@ -2044,8 +2351,10 @@ class Scene:
     def html(self) -> str:
         """The scene as a standalone HTML page, vtk.js inlined (``plotter.trame.export_html``).
 
-        Scalar bars are hidden in the export: vtk.js receives colors already mapped to RGB, so
-        its color bar would read 0-255. The PNG keeps the correct one.
+        vtk.js receives colors already mapped to RGB, so its own color bar would read 0-255: the
+        plotter's scalar bars are hidden in the export and drawn as an HTML overlay with the
+        right values instead. Surfaces are thinned by ``decimate``; most of a small scene's few MB is
+        the inlined vtk.js viewer itself.
 
         Returns
         -------
@@ -2064,6 +2373,7 @@ class Scene:
                 raise ImportError(
                     f"Interactive scenes need the optional extra: {SCENE_EXTRA}"
                 ) from error
+            overlay = _colorbar_overlay(self.plotter)
             bars = [
                 actor
                 for actor in self.plotter.scalar_bars.values()
@@ -2072,10 +2382,18 @@ class Scene:
             for actor in bars:
                 actor.VisibilityOff()
             try:
-                with tempfile.TemporaryDirectory() as folder:
+                with (
+                    tempfile.TemporaryDirectory() as folder,
+                    _Decimated(self.plotter, self.decimate),
+                ):
                     path = Path(folder) / "scene.html"
                     trame.export_html(str(path))
-                    self._html = path.read_text(encoding="utf-8")
+                    page = path.read_text(encoding="utf-8")
+                self._html = (
+                    page.replace("</body>", overlay + "</body>", 1)
+                    if "</body>" in page
+                    else page + overlay
+                )
             except ImportError as error:  # e.g. nest-asyncio2, to start trame's server
                 raise ImportError(
                     f"Interactive scenes need the optional extra: {SCENE_EXTRA} ({error})"
@@ -2117,7 +2435,26 @@ class Scene:
         Path(path).write_text(self.html(), encoding="utf-8")
         return str(path)
 
+    def to_plotly(self, **options):
+        """The scene as a Plotly 3-D figure; see :func:`scene_to_plotly`.
+
+        Parameters
+        ----------
+        **options
+            Passed to :func:`scene_to_plotly`, e.g. ``max_faces``.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            The figure.
+        """
+        return scene_to_plotly(self.plotter, **options)
+
     def _repr_mimebundle_(self, include=None, exclude=None):
+        if self.backend == "plotly":
+            from .plotly_backend import display_bundle
+
+            return display_bundle(self.to_plotly(), title=self.title)
         # the screenshot first: it renders the plotter, which the export then reuses
         png = base64.b64encode(self.png()).decode("ascii")
         data = {"text/html": self.html(), "image/png": png}
@@ -2130,7 +2467,13 @@ class Scene:
 
 
 def scene(
-    plotter, *, alt: str | None = None, title: str | None = None, window_size=None
+    plotter,
+    *,
+    alt: str | None = None,
+    title: str | None = None,
+    window_size=None,
+    backend: Literal["vtkjs", "plotly"] = "vtkjs",
+    decimate: float | None = None,
 ) -> Scene:
     """Show a ``pyvista.Plotter`` as an interactive 3-D scene in a notebook.
 
@@ -2143,6 +2486,10 @@ def scene(
     script set ``pyvista.OFF_SCREEN = True`` (or pass ``off_screen=True``) before creating
     one. The export needs trame-pyvista: ``pip install "plasma-plots[scene]"``.
 
+    With ``backend="plotly"`` the scene displays as a Plotly 3-D figure instead
+    (:func:`scene_to_plotly`): lighter, themed like the page and with values on hover, but
+    without vtk.js' rendering of large meshes. It needs neither a screenshot nor trame.
+
     Parameters
     ----------
     plotter : pyvista.Plotter
@@ -2153,6 +2500,10 @@ def scene(
         A title for the scene, e.g. of the frame it is shown in.
     window_size : (int, int), optional
         The screenshot's size in pixels. Default: the plotter's window size.
+    backend : {"vtkjs", "plotly"}, optional
+        A vtk.js page with a screenshot, or a Plotly figure. Default: ``"vtkjs"``.
+    decimate : float, optional
+        Fraction of each surface's triangles to drop in the vtk.js export. Default: none.
 
     Returns
     -------
@@ -2165,4 +2516,11 @@ def scene(
     >>> plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], t=-1)
     >>> plasma_plots.scene(plotter, alt="Two isosurfaces of phi")
     """
-    return Scene(plotter, alt=alt, title=title, window_size=window_size)
+    return Scene(
+        plotter,
+        alt=alt,
+        title=title,
+        window_size=window_size,
+        backend=backend,
+        decimate=decimate,
+    )
