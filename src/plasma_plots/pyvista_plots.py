@@ -659,6 +659,7 @@ def pyvista_slices(
     title: str | None = None,
     symmetric: bool = False,
     robust: bool = False,
+    opacity: float = 1.0,
     plotter=None,
 ):
     """Surfaces of constant logical coordinate through a scalar field, drawn in physical space.
@@ -691,6 +692,9 @@ def pyvista_slices(
     robust : bool, optional
         Color limits from percentiles instead of the extremes, so outliers don't wash out the
         colors. Default: ``False``.
+    opacity : float, optional
+        Opacity of the cuts, from 0 (invisible) to 1, e.g. to see what is drawn inside a flux
+        surface. Default: ``1.0``.
     plotter : pyvista.Plotter, optional
         Draw into this scene instead of a new one, to combine several views. The camera is only
         aimed at the field when this function creates the plotter.
@@ -715,6 +719,7 @@ def pyvista_slices(
     --------
     >>> pyvista_slices(phi.isel(t=-1), cuts={"eta3": [0, 0.25]}).show()
     >>> pyvista_slices(phi.isel(t=-1), cuts={"eta1": 0.8}, symmetric=True).show()
+    >>> pyvista_slices(phi.isel(t=-1), cuts={"eta1": 1.0}, opacity=0.35).show()
     """
     data = _spatial(data)
     pieces = prepare_slices_3d(data, cuts=cuts)
@@ -739,6 +744,7 @@ def pyvista_slices(
             ambient=0.6,  # keep colors readable on cuts seen at grazing angles
             diffuse=0.45,
             specular=0.0,
+            opacity=opacity,
             scalar_bar_args=_bar(value_label(data)),
             name=f"slice{i}",
         )

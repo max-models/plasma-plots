@@ -282,6 +282,16 @@ def test_slices_default_to_midplanes_in_3d_and_the_whole_plane_in_2d():
     assert len(field.plasma.data.slices_3d(cuts={"eta1": 0.5})) == 1
 
 
+def test_slices_take_an_opacity():
+    field = scalar(torus_coords())
+    plotter = field.plasma.plot.slices_3d(cuts={"eta1": -1}, opacity=0.35)
+    assert plotter.actors["slice0"].prop.opacity == pytest.approx(0.35)
+    plotter.close()
+    plotter = p3.pyvista_slices(field, cuts={"eta1": -1})
+    assert plotter.actors["slice0"].prop.opacity == pytest.approx(1.0)
+    plotter.close()
+
+
 def test_glyphs_and_streamlines_for_a_2d_vector_field():
     flow = vortex(plane_coords())
     plotter = flow.plasma.plot.glyphs(stride=2)

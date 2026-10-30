@@ -369,6 +369,9 @@ torus.mod_B.plasma.plot.slices_3d(cuts={"rho": [1.0]}).show()
 
 <PyVistaScene src="/pyvista/gvec_3d_surface.html" image={fig_surface} alt="|B| on the last flux surface of the three-period stellarator" />
 
+`opacity=0.35` makes the surface translucent, to show what is drawn inside it, such as beam
+lines or particles added to the same plotter.
+
 An inner surface and three poloidal cuts, inside the translucent outer surface:
 
 ```python
