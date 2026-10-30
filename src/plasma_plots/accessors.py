@@ -672,6 +672,7 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         symmetric: bool = False,
         robust: bool = False,
+        opacity: float = 1.0,
         plotter=None,
         **selection,
     ):
@@ -682,6 +683,8 @@ class ArrayPlots(_ArrayAccessor):
 
         Parameters
         ----------
+        opacity : float, optional
+            Opacity of the cuts, from 0 to 1. Default: ``1.0``.
         **selection
             Every dimension but ``eta1``, ``eta2``, ``eta3``, e.g. ``t=0``: an integer is a
             position, a float the nearest coordinate value.
@@ -714,6 +717,7 @@ class ArrayPlots(_ArrayAccessor):
             plotter=plotter,
             symmetric=symmetric,
             robust=robust,
+            opacity=opacity,
         )
 
     def glyphs(
