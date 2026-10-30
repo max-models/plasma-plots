@@ -174,6 +174,46 @@ def _plotly_result(figure, result):
     )
 
 
+PLOTLY_MIME = "application/vnd.plotly.v1+json"
+
+
+def display_bundle(figure, *, title: str | None = None):
+    """The notebook output of a Plotly figure: its JSON, an HTML copy and a text line.
+
+    ``application/vnd.plotly.v1+json`` is what JupyterLab renders and what docs sites built from
+    the notebook embed as an interactive chart (the output's metadata has the key
+    ``"plotly-figure"``); ``text/html`` loads plotly.js from its CDN for other front ends.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure.
+    title : str, optional
+        A caption, in the output's ``"plotly-figure"`` metadata.
+
+    Returns
+    -------
+    tuple of dict
+        The MIME bundle and its metadata, as for ``IPython.display.display(..., raw=True)``.
+    """
+    import json
+
+    import plotly.io as pio
+
+    data = {
+        PLOTLY_MIME: json.loads(pio.to_json(figure, validate=False)),
+        "text/html": pio.to_html(
+            figure,
+            full_html=False,
+            include_plotlyjs="cdn",
+            config={"responsive": True},
+        ),
+        "text/plain": f"<Plotly figure: {len(figure.data)} traces>",
+    }
+    info = {} if title is None else {"title": title}
+    return data, {"plotly-figure": info}
+
+
 def _is_plotly(figure) -> bool:
     return type(figure).__module__.startswith("plotly")
 
@@ -769,12 +809,27 @@ class _FigureConverter:
         self.coloraxes.append((name, mappable, colorbar, key))
         return name
 
+    @staticmethod
+    def _is_log(mappable) -> bool:
+        from matplotlib.colors import LogNorm
+
+        return isinstance(getattr(mappable, "norm", None), LogNorm)
+
+    def _color_values(self, mappable, values):
+        """The values on the color scale: their logarithm for a ``LogNorm``, which Plotly lacks."""
+        values = np.asarray(values, dtype=float)
+        if not self._is_log(mappable):
+            return values
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(values > 0, np.log10(values), np.nan)
+
     def _coloraxis_layout(self):
         from matplotlib.colors import Normalize
 
         for position, (name, mappable, colorbar, _) in enumerate(self.coloraxes):
             norm = mappable.norm
-            if type(norm) is not Normalize:
+            log = self._is_log(mappable)
+            if type(norm) is not Normalize and not log:
                 warnings.warn(
                     f"a {type(norm).__name__} color scale is drawn linear",
                     ConversionWarning,
@@ -784,10 +839,19 @@ class _FigureConverter:
                 "colorscale": _colorscale(mappable.get_cmap()),
                 "showscale": colorbar is not None,
             }
-            if norm.vmin is not None and np.isfinite(norm.vmin):
-                axis["cmin"] = float(norm.vmin)
-            if norm.vmax is not None and np.isfinite(norm.vmax):
-                axis["cmax"] = float(norm.vmax)
+            scale = np.log10 if log else float
+            if (
+                norm.vmin is not None
+                and np.isfinite(norm.vmin)
+                and norm.vmin > (0 if log else -np.inf)
+            ):
+                axis["cmin"] = float(scale(norm.vmin))
+            if (
+                norm.vmax is not None
+                and np.isfinite(norm.vmax)
+                and norm.vmax > (0 if log else -np.inf)
+            ):
+                axis["cmax"] = float(scale(norm.vmax))
             if colorbar is not None:
                 horizontal = colorbar.orientation == "horizontal"
                 label = (
@@ -798,6 +862,20 @@ class _FigureConverter:
                     "thickness": 14,
                     "exponentformat": "power",
                 }
+                if log and "cmin" in axis and "cmax" in axis:
+                    # a log scale: the colors are drawn in log10, the ticks name the decades
+                    decades = np.arange(
+                        np.ceil(axis["cmin"] - 1e-9), np.floor(axis["cmax"] + 1e-9) + 1
+                    )
+                    if len(decades) < 2:
+                        decades = np.linspace(axis["cmin"], axis["cmax"], 3)
+                    bar["tickvals"] = [float(d) for d in decades]
+                    bar["ticktext"] = [
+                        plotly_text(f"$10^{{{int(d)}}}$")
+                        if float(d).is_integer()
+                        else f"{10**d:.3g}"
+                        for d in decades
+                    ]
                 if not self.native:
                     xs, ys = self._paper(colorbar.ax.get_position().bounds)
                     bar.update(
@@ -942,10 +1020,28 @@ class _FigureConverter:
         shown = self._shown(axes, line.get_label())
         if not (x_data and y_data):
             if not (x_data or y_data):
-                warnings.warn(
-                    "a line in axes coordinates is not converted",
-                    ConversionWarning,
-                    stacklevel=4,
+                # wholly in axes coordinates (transform=ax.transAxes): a path in the axes' domain
+                points = line.get_transform().transform(
+                    np.column_stack([line.get_xdata(), line.get_ydata()]).astype(float)
+                )
+                inside = axes.ax.transAxes.inverted().transform(points)
+                if len(inside) < 2 or not np.all(np.isfinite(inside)):
+                    warnings.warn(
+                        "a line in axes coordinates is not converted",
+                        ConversionWarning,
+                        stacklevel=4,
+                    )
+                    return
+                path = "M " + " L ".join(f"{x:.5g},{y:.5g}" for x, y in inside)
+                self.shapes.append(
+                    dict(
+                        type="path",
+                        path=path,
+                        xref=f"{axes.xref} domain",
+                        yref=f"{axes.yref} domain",
+                        line={"color": color, "width": width, "dash": dash},
+                        layer="above",
+                    )
                 )
                 return
             # axhline / axvline: a shape spanning the axes, whatever the zoom
@@ -1068,13 +1164,14 @@ class _FigureConverter:
                 x=cx[keep],
                 y=cy[keep],
                 marker={
-                    "color": values[keep].astype(np.float32),
+                    "color": self._color_values(mesh, values[keep]).astype(np.float32),
                     "coloraxis": coloraxis,
                     "opacity": 0,
                     "size": 6,
                 },
+                customdata=values[keep].astype(np.float32),
                 hovertemplate=self._hover_template(
-                    axes, coloraxis, value="%{marker.color:.4g}"
+                    axes, coloraxis, value="%{customdata:.4g}"
                 ),
                 showlegend=False,
                 name="",
@@ -1113,7 +1210,10 @@ class _FigureConverter:
             self._colorbar_holder(axes, coloraxis)
             return
         X, Y = coordinates[..., 0], coordinates[..., 1]
-        hover = self._hover_template(axes, coloraxis, value="%{z:.4g}")
+        log = self._is_log(mesh)
+        hover = self._hover_template(
+            axes, coloraxis, value="%{customdata:.4g}" if log else "%{z:.4g}"
+        )
         if np.allclose(X, X[:, :1]) and np.allclose(
             Y, Y[:1, :]
         ):  # x along rows: the "ij" grids of plot_slice
@@ -1127,21 +1227,57 @@ class _FigureConverter:
             type="heatmap",
             x=x_edges,
             y=y_edges,
-            z=z,
+            z=self._color_values(mesh, z),
             coloraxis=coloraxis,
             hovertemplate=hover,
             zsmooth=False,
             **self._refs(axes),
         )
+        if log:
+            trace["customdata"] = np.asarray(z, dtype=float)
         if alpha is not None and alpha < 1:
             trace["opacity"] = float(alpha)
         self.data.append(trace)
 
+    def _filled_contours(self, axes, contours):
+        """Filled contours: one filled polygon trace per band, in the band's color.
+
+        Each band's path is split into its rings; Plotly fills every ring of a trace on its own
+        (``fill="toself"``), so a hole is drawn over by the band inside it, which comes later.
+        """
+        colors = contours.get_facecolor()
+        coloraxis = self._coloraxis(contours)
+        levels = np.asarray(contours.levels, dtype=float)
+        for i, path in enumerate(contours.get_paths()):
+            if not len(path.vertices):
+                continue
+            rings = path.to_polygons(closed_only=True)
+            if not rings:
+                continue
+            low, high = levels[i], levels[min(i + 1, len(levels) - 1)]
+            self.data.append(
+                dict(
+                    type="scatter",
+                    mode="lines",
+                    x=_nan_joined([r[:, 0] for r in rings]).astype(np.float32),
+                    y=_nan_joined([r[:, 1] for r in rings]).astype(np.float32),
+                    fill="toself",
+                    fillcolor=_rgba(colors[i % len(colors)], contours.get_alpha())
+                    if len(colors)
+                    else None,
+                    line={"width": 0},
+                    hoveron="fills",
+                    showlegend=False,
+                    name=f"{low:.4g} to {high:.4g}",
+                    hovertemplate=f"{low:.4g} to {high:.4g}<extra></extra>",
+                    **self._refs(axes),
+                )
+            )
+        self._colorbar_holder(axes, coloraxis)
+
     def _contours(self, axes, contours):
         if contours.filled:
-            warnings.warn(
-                "filled contours are not converted", ConversionWarning, stacklevel=4
-            )
+            self._filled_contours(axes, contours)
             return
         colors = contours.get_edgecolor()
         widths = np.atleast_1d(contours.get_linewidth())
@@ -1191,7 +1327,8 @@ class _FigureConverter:
         edges = collection.get_edgecolors()
         if array is not None:
             marker.update(
-                color=_values(array).ravel(), coloraxis=self._coloraxis(collection)
+                color=self._color_values(collection, _values(array).ravel()),
+                coloraxis=self._coloraxis(collection),
             )
             if alpha is not None:
                 marker["opacity"] = float(alpha)
