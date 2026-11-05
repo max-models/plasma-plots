@@ -102,6 +102,7 @@ class ArrayPlots(_ArrayAccessor):
         title: str | None = None,
         ax=None,
         reference=None,
+        label=None,
         backend: Backend | None = None,
     ):
         """Plot this time series, and any others given, in one axes.
@@ -159,6 +160,7 @@ class ArrayPlots(_ArrayAccessor):
             fit=growth,
             title=title,
             reference=reference,
+            label=label,
         )
 
     @with_backend
@@ -175,6 +177,11 @@ class ArrayPlots(_ArrayAccessor):
         nfp: int | None = None,
         rank_boundaries=None,
         rank_boundary_color="red",
+        label: str | None = None,
+        color=None,
+        step: Literal["pre", "mid", "post"] | None = None,
+        logx: bool = False,
+        logy: bool = False,
         backend: Backend | None = None,
         **selection,
     ):
@@ -248,6 +255,11 @@ class ArrayPlots(_ArrayAccessor):
             xlabel=xlabel,
             rationals=rationals,
             nfp=nfp,
+            label=label,
+            color=color,
+            step=step,
+            logx=logx,
+            logy=logy,
         )
 
     @with_backend
@@ -1789,7 +1801,10 @@ class ArrayPlots(_ArrayAccessor):
             ``contour_color``), ``boundary=True`` (the grid's outline), ``grid_lines=n`` (every
             n-th grid line), ``lines`` (label to ``(x, y)`` or a function ``y(x)``, e.g.
             characteristics on a space-time map) and ``points`` (label to ``(x, y)``), in
-            ``line_color`` and ``point_color`` (white by default, for dark colormaps).
+            ``line_color`` and ``point_color`` (white by default, for dark colormaps);
+            ``contour_labels=True`` writes the values on the contour lines, and ``geometry``
+            draws shapes such as electrodes or walls on top (in ``geometry_color``, see
+            :mod:`plasma_plots.geometry`).
         xlabel : str, optional
             The horizontal axis label. Default: the coordinate's name and units.
         ylabel : str, optional
@@ -2622,6 +2637,456 @@ class ArrayPlots(_ArrayAccessor):
             title=title,
         )
 
+    @with_backend
+    def scan(
+        self,
+        *,
+        x: str | None = None,
+        error=None,
+        samples: str | None = None,
+        band: bool = False,
+        ax=None,
+        label: str | None = None,
+        color=None,
+        reference=None,
+        logx: bool = False,
+        logy: bool = False,
+        title: str | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot this quantity over a scanned parameter, with error bars or a shaded band.
+
+        Parameters
+        ----------
+        **selection
+            The dimensions other than ``x`` and ``samples``: an integer is a position, a float
+            the nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the drawn artists and ``data["scan"]``.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_scan : The function behind this method.
+        ArrayData.scan : The values and errors, without plotting them.
+
+        Examples
+        --------
+        >>> divergence.plasma.plot.scan(samples="seed", band=True)
+        >>> rate.plasma.plot.scan(error=rate_error, reference=theory, logx=True)
+        """
+        from .charts import plot_scan
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return plot_scan(
+            _select(self._array, view),
+            x=x,
+            error=error,
+            samples=samples,
+            band=band,
+            ax=ax,
+            label=label,
+            color=color,
+            reference=reference,
+            logx=logx,
+            logy=logy,
+            title=title,
+            xlabel=xlabel,
+            ylabel=ylabel,
+        )
+
+    @with_backend
+    def breakdown(
+        self,
+        *,
+        dim: str | None = None,
+        ax=None,
+        sort: bool = False,
+        total: bool = False,
+        annotate: bool = True,
+        scale: float = 1.0,
+        color=None,
+        title: str | None = None,
+        xlabel: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Draw this array's values over a category dimension as horizontal bars.
+
+        Parameters
+        ----------
+        **selection
+            The dimensions other than the categories: an integer is a position, a float the
+            nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the bars and ``data["values"]``.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_breakdown : The function behind this method.
+        ArrayData.breakdown : The parts, without plotting them.
+
+        Examples
+        --------
+        >>> power.plasma.plot.breakdown(
+        ...     sort=True, total=True, scale=1e-6, xlabel="P (MW)"
+        ... )
+        """
+        from .charts import plot_breakdown
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return plot_breakdown(
+            _select(self._array, view),
+            dim=dim,
+            ax=ax,
+            sort=sort,
+            total=total,
+            annotate=annotate,
+            scale=scale,
+            color=color,
+            title=title,
+            xlabel=xlabel,
+        )
+
+    @with_backend
+    def twin(
+        self,
+        right: xr.DataArray,
+        *,
+        ax=None,
+        step: Literal["pre", "mid", "post"] | None = None,
+        logy=(False, False),
+        colors=("C0", "C3"),
+        title: str | None = None,
+        xlabel: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot this profile and another over the same coordinate, with a value axis each.
+
+        Parameters
+        ----------
+        right : xarray.DataArray
+            The profile on the right axis; ``selection`` applies to it too, for the dimensions
+            it has.
+        **selection
+            The dimensions other than the profiles' coordinate: an integer is a position, a
+            float the nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the two axes and the two lines.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_twin : The function behind this method.
+
+        Examples
+        --------
+        >>> n.plasma.plot.twin(T, t=-1)
+        """
+        from .charts import plot_twin
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        other = right.plasma.plot._view(
+            None,
+            None,
+            "t",
+            "logical",
+            "XY",
+            {k: v for k, v in selection.items() if k in right.dims},
+        )
+        return plot_twin(
+            _select(self._array, view),
+            _select(right, other),
+            ax=ax,
+            step=step,
+            logy=logy,
+            colors=colors,
+            title=title,
+            xlabel=xlabel,
+        )
+
+    @with_backend
+    def stacked(
+        self,
+        *others,
+        sharex: bool = True,
+        height_ratios=None,
+        step: Literal["pre", "mid", "post"] | None = None,
+        logy: bool = False,
+        title: str | None = None,
+        figsize=None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot this profile and others in panels stacked over a shared horizontal axis.
+
+        Parameters
+        ----------
+        *others
+            Further rows: 1-D arrays, or lists or dicts of them drawn together in a row;
+            ``selection`` applies to every array for the dimensions it has.
+        **selection
+            The dimensions other than the profiles' coordinate: an integer is a position, a
+            float the nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the array of axes and the drawn lines.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_stacked : The function behind this method.
+
+        Examples
+        --------
+        >>> n.plasma.plot.stacked({"T_e": Te, "T_i": Ti}, phi, t=-1)
+        """
+        from .charts import plot_stacked
+        from .plotting import _select
+
+        def selected(array):
+            view = array.plasma.plot._view(
+                None,
+                None,
+                "t",
+                "logical",
+                "XY",
+                {k: v for k, v in selection.items() if k in array.dims},
+            )
+            return _select(array, view)
+
+        def row(item):
+            if isinstance(item, dict):
+                return {label: selected(array) for label, array in item.items()}
+            if isinstance(item, (list, tuple)):
+                return [selected(array) for array in item]
+            return selected(item)
+
+        return plot_stacked(
+            [row(self._array), *(row(item) for item in others)],
+            sharex=sharex,
+            height_ratios=height_ratios,
+            step=step,
+            logy=logy,
+            title=title,
+            figsize=figsize,
+        )
+
+    @with_backend
+    def cross_sections(
+        self,
+        *,
+        ax=None,
+        reference=None,
+        markers: bool = True,
+        logx: bool = True,
+        logy: bool = True,
+        title: str | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot these cross sections (or rate coefficients) over energy on log-log axes.
+
+        Parameters
+        ----------
+        **selection
+            Dimensions to select first, leaving the energy (and optionally a process dimension):
+            an integer is a position, a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the drawn lines.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_cross_sections : The function behind this method.
+
+        Examples
+        --------
+        >>> sigma.plasma.plot.cross_sections(reference={"fit": fit})
+        """
+        from .charts import plot_cross_sections
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return plot_cross_sections(
+            _select(self._array, view),
+            ax=ax,
+            reference=reference,
+            markers=markers,
+            logx=logx,
+            logy=logy,
+            title=title,
+            xlabel=xlabel,
+            ylabel=ylabel,
+        )
+
+    @with_backend
+    def matrix(
+        self,
+        *,
+        kind: Literal["pattern", "values"] = "pattern",
+        ax=None,
+        markersize: float | None = None,
+        cmap=None,
+        rank_boundaries=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot this two-dimensional array as a matrix: its non-zero pattern or its values.
+
+        Parameters
+        ----------
+        **selection
+            Dimensions to select first, leaving two: an integer is a position, a float the
+            nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the drawn artists, ``data["shape"]`` and ``data["nnz"]``.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_matrix : The function behind this method.
+
+        Examples
+        --------
+        >>> jacobian.plasma.plot.matrix(kind="values")
+        """
+        from .charts import plot_matrix
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return plot_matrix(
+            _select(self._array, view).values,
+            kind=kind,
+            ax=ax,
+            markersize=markersize,
+            cmap=cmap,
+            rank_boundaries=rank_boundaries,
+            title=title,
+        )
+
+    @with_backend
+    def child_langmuir(
+        self,
+        *others,
+        gap=None,
+        voltage=None,
+        mass=None,
+        charge=None,
+        initial_velocity: float = 0.0,
+        show_error: bool = True,
+        logx: bool = False,
+        logy: bool = False,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot this current density against the Child–Langmuir law of a planar diode.
+
+        Parameters
+        ----------
+        *others
+            Further measured current densities over the same parameter, e.g. of other codes,
+            labeled by their ``name`` or ``label``.
+        **selection
+            Dimensions to select first, leaving the voltage or the gap: an integer is a
+            position, a float the nearest coordinate value.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            As :func:`plasma_plots.plotting.plot_measured_vs_theory`.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_child_langmuir : The function behind this method.
+
+        Examples
+        --------
+        >>> J.plasma.plot.child_langmuir(J_other_code, gap=0.01, mass=1.67e-27)
+        """
+        from .charts import _label, plot_child_langmuir
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        arrays = [_select(self._array, view), *others]
+        measured = (
+            arrays[0]
+            if len(arrays) == 1
+            else {
+                _label(array) or f"run {i + 1}": array for i, array in enumerate(arrays)
+            }
+        )
+        return plot_child_langmuir(
+            measured,
+            gap=gap,
+            voltage=voltage,
+            mass=mass,
+            charge=charge,
+            initial_velocity=initial_velocity,
+            show_error=show_error,
+            logx=logx,
+            logy=logy,
+            title=title,
+        )
+
 
 class ArrayData(_ArrayAccessor):
     """The data behind each plot in :class:`ArrayPlots`, without rendering it.
@@ -3081,6 +3546,73 @@ class ArrayData(_ArrayAccessor):
 
         view = self._view(None, None, "t", "logical", "XY", selection)
         return critical_points(_select(self._array, view), refine=refine)
+
+    def scan(
+        self,
+        *,
+        x: str | None = None,
+        error=None,
+        samples: str | None = None,
+        **selection,
+    ) -> xr.Dataset:
+        """Return the values and errors :meth:`ArrayPlots.scan` would draw.
+
+        Parameters
+        ----------
+        **selection
+            The dimensions other than ``x`` and ``samples``: an integer is a position, a float
+            the nearest coordinate value.
+
+        Returns
+        -------
+        xarray.Dataset
+            ``value``, ``lower`` and ``upper`` over the scanned parameter.
+
+        See Also
+        --------
+        plasma_plots.charts.prepare_scan : The function behind this method.
+        ArrayPlots.scan : The plot of these values.
+
+        Examples
+        --------
+        >>> divergence.plasma.data.scan(samples="seed").value
+        """
+        from .charts import prepare_scan
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return prepare_scan(
+            _select(self._array, view), x=x, error=error, samples=samples
+        )
+
+    def breakdown(self, *, dim: str | None = None, **selection) -> xr.DataArray:
+        """Return the parts :meth:`ArrayPlots.breakdown` would draw.
+
+        Parameters
+        ----------
+        **selection
+            The dimensions other than the categories: an integer is a position, a float the
+            nearest coordinate value.
+
+        Returns
+        -------
+        xarray.DataArray
+            The parts over the category dimension.
+
+        See Also
+        --------
+        plasma_plots.charts.prepare_breakdown : The function behind this method.
+        ArrayPlots.breakdown : The plot of these parts.
+
+        Examples
+        --------
+        >>> power.plasma.data.breakdown(t=-1)
+        """
+        from .charts import prepare_breakdown
+        from .plotting import _select
+
+        view = self._view(None, None, "t", "logical", "XY", selection)
+        return prepare_breakdown(_select(self._array, view), dim=dim)
 
 
 class ArrayAnalysis(_ArrayAccessor):
@@ -5546,6 +6078,229 @@ class DatasetPlots:
             self._dataset, x=x, y=y, t=t, absB=absB, ax=ax, s=s, cmap=cmap, title=title
         )
 
+    @with_backend
+    def phase_space(
+        self,
+        *,
+        x: str,
+        v: str,
+        kind: Literal["scatter", "histogram"] = "scatter",
+        species: str | None = None,
+        color: str | None = None,
+        weight: str | None = None,
+        bins=64,
+        log: bool = False,
+        ax=None,
+        s: float = 4,
+        alpha: float = 0.6,
+        max_markers: int | None = 20_000,
+        cmap=None,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot the markers in phase space, a position against a velocity.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the points or mesh, and for a histogram
+            ``data["histogram"]``.
+
+        See Also
+        --------
+        plasma_plots.phase_space.plot_phase_space : The function behind this method.
+        DatasetData.phase_space : The histogram, without plotting it.
+        DatasetPlots.scatter : Any two variables, colored by a third.
+
+        Examples
+        --------
+        >>> markers.plasma.plot.phase_space(x="x", v="vx", species="species", t=-1)
+        >>> markers.plasma.plot.phase_space(
+        ...     x="x", v="vx", kind="histogram", log=True, t=0
+        ... )
+        """
+        from .phase_space import plot_phase_space
+
+        return plot_phase_space(
+            self._dataset,
+            x=x,
+            v=v,
+            kind=kind,
+            species=species,
+            color=color,
+            weight=weight,
+            bins=bins,
+            log=log,
+            ax=ax,
+            s=s,
+            alpha=alpha,
+            max_markers=max_markers,
+            cmap=cmap,
+            title=title,
+            **selection,
+        )
+
+    @with_backend
+    def variables(
+        self,
+        names=None,
+        *,
+        cols: int | None = None,
+        x: str | None = None,
+        y: str | None = None,
+        logy: bool = False,
+        title: str | None = None,
+        backend: Backend | None = None,
+        **selection,
+    ):
+        """Plot every variable of this Dataset in a grid of panels, as a profile or a slice each.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the array of axes and ``data["results"]``, the result of each panel.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_variables : The function behind this method.
+
+        Examples
+        --------
+        >>> state.plasma.plot.variables(t=-1)
+        >>> state.plasma.plot.variables(["n", "T"], cols=1, t=0.5)
+        """
+        from .charts import plot_variables
+
+        return plot_variables(
+            self._dataset,
+            names,
+            cols=cols,
+            x=x,
+            y=y,
+            logy=logy,
+            title=title,
+            **selection,
+        )
+
+    @with_backend
+    def breakdown(
+        self,
+        *,
+        ax=None,
+        sort: bool = False,
+        total: bool = False,
+        annotate: bool = True,
+        scale: float = 1.0,
+        color=None,
+        title: str | None = None,
+        xlabel: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Draw this Dataset's scalar variables as horizontal bars, e.g. the power per component.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, the bars and ``data["values"]``.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_breakdown : The function behind this method.
+
+        Examples
+        --------
+        >>> deposited.plasma.plot.breakdown(sort=True, total=True)
+        """
+        from .charts import plot_breakdown
+
+        return plot_breakdown(
+            self._dataset,
+            ax=ax,
+            sort=sort,
+            total=total,
+            annotate=annotate,
+            scale=scale,
+            color=color,
+            title=title,
+            xlabel=xlabel,
+        )
+
+    @with_backend
+    def cross_sections(
+        self,
+        *,
+        ax=None,
+        reference=None,
+        markers: bool = True,
+        logx: bool = True,
+        logy: bool = True,
+        title: str | None = None,
+        xlabel: str | None = None,
+        ylabel: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot this Dataset's cross sections over energy, one line per variable.
+
+        Parameters
+        ----------
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes and the drawn lines.
+
+        See Also
+        --------
+        plasma_plots.charts.plot_cross_sections : The function behind this method.
+
+        Examples
+        --------
+        >>> catalogue.plasma.plot.cross_sections()
+        """
+        from .charts import plot_cross_sections
+
+        return plot_cross_sections(
+            self._dataset,
+            ax=ax,
+            reference=reference,
+            markers=markers,
+            logx=logx,
+            logy=logy,
+            title=title,
+            xlabel=xlabel,
+            ylabel=ylabel,
+        )
+
 
 class DatasetData:
     """The data behind each plot in :class:`DatasetPlots`, without rendering it.
@@ -5705,6 +6460,46 @@ class DatasetData:
         from .analysis import loss_map
 
         return loss_map(self._dataset, x=x, y=y, t=t, absB=absB)
+
+    def phase_space(
+        self,
+        *,
+        x: str,
+        v: str,
+        weight: str | None = None,
+        bins=64,
+        limits=None,
+        density: bool = False,
+        **selection,
+    ) -> xr.DataArray:
+        """Return the 2-D histogram :meth:`DatasetPlots.phase_space` draws with ``kind="histogram"``.
+
+        Returns
+        -------
+        xarray.DataArray
+            The summed weights over ``x`` and ``v``.
+
+        See Also
+        --------
+        plasma_plots.phase_space.phase_space_histogram : The function behind this method.
+        DatasetPlots.phase_space : The plot of this histogram.
+
+        Examples
+        --------
+        >>> f = markers.plasma.data.phase_space(x="x", v="vx", bins=(128, 64), t=-1)
+        """
+        from .phase_space import phase_space_histogram
+
+        return phase_space_histogram(
+            self._dataset,
+            x=x,
+            v=v,
+            weight=weight,
+            bins=bins,
+            limits=limits,
+            density=density,
+            **selection,
+        )
 
 
 @xr.register_dataset_accessor("plasma")
