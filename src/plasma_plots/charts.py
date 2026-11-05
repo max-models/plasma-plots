@@ -640,9 +640,11 @@ def plot_stacked(
                 artists += plot_lineout(
                     item, ax=ax, label=label, step=step, logy=log, title=""
                 ).artists
-            if len(lines) == 1:
-                ax.set_title(
-                    _label(next(iter(lines.values()))), fontsize="small", loc="left"
+            if len(lines) > 1:
+                # several quantities share the axis: label it with their common units only
+                units = {item.attrs.get("units") for item in lines.values()}
+                ax.set_ylabel(
+                    f"[{units.pop()}]" if len(units) == 1 and None not in units else ""
                 )
         if sharex:
             for ax in axes[:-1]:

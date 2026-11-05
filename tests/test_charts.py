@@ -202,6 +202,7 @@ def test_stacked_panels_share_x_and_take_several_lines_per_row():
         "T_i",
     ]
     assert result.ax[0].get_xlabel() == ""
+    assert result.ax[1].get_ylabel() == ""  # no common units
     result = n.plasma.plot.stacked({"T_e": Te}, [Ti], title="profiles")
     assert result.fig._suptitle.get_text() == "profiles"
     with pytest.raises(ValueError, match="at least one"):

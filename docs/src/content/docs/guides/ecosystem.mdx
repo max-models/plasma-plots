@@ -1,0 +1,115 @@
+---
+title: Ecosystem recipes
+description: The plots the other max-models packages need, from picnic, beamtracer, freeofcharge and OpenCR output, in plasma-plots calls instead of raw Matplotlib.
+---
+
+The max-models codes return their results as labeled xarray data, so the same
+plots serve all of them. These recipes are what their notebooks and examples
+need most often; each replaces a block of raw Matplotlib. Run
+`import plasma_plots` first, and compose several of them into one figure with
+`with plasma_plots.figure(rows, cols) as fig:` and `ax=fig[i]`.
+
+## picnic
+
+A particle-in-cell run gives fields on a grid and markers per species.
+
+```python
+# the potential on a plane of a 3-D run, with the electrodes on top
+phi.plasma.plot.slice(
+    x="x", y="y", z=0.5, t=-1, overlays={"geometry": outlines}
+)
+# a 1-D potential with the ranks' blocks marked
+phi.plasma.plot.lineout(x="x", t=-1, rank_boundaries=layout)
+# electrons and ions in phase space
+markers.plasma.plot.phase_space(x="x", v="vx", species="species", t=-1)
+# the system matrix of the field solver, split by ownership ranges
+plot_matrix(matrix_dict, rank_boundaries=matrix_dict["ownership_ranges"])
+# collision cross sections of the catalogue, one line per process
+catalogue.plasma.plot.cross_sections()
+```
+
+picnic's own post-processing plotters map onto these:
+
+| picnic | plasma-plots |
+| --- | --- |
+| `plot_potential_3d` | `phi.plasma.plot.slice(..., overlays={"geometry": ...})`, or `plot.volume_slices` |
+| `plot_potential_1d` | `phi.plasma.plot.lineout(rank_boundaries=...)` |
+| `plot_markers_trace_1d`, `plot_trace_1d` | `markers.plasma.plot.paths`, `plot.trajectories`, `plot.timeseries` |
+| `plot_matrix` | `plasma_plots.charts.plot_matrix` |
+
+Growth and damping rates of the instability benchmarks come from
+`energy.plasma.analysis.growth_rate(window=(t0, t1))` and
+`energy.plasma.plot.timeseries(fit=(t0, t1))` (see
+[Time series](/plasma-plots/guides/timeseries/)).
+
+## beamtracer
+
+Beamlet optics are fields between electrodes, scans over the extraction
+parameters and the power along a beamline.
+
+```python
+# the potential in mm, with the electrode outlines from the geometry, in m
+phi.plasma.plot.slice(
+    x="x",
+    y="y",
+    levels=12,
+    overlays={"geometry": geometry, "contour_labels": True},
+)
+# divergence over the extraction voltage, mean and spread of the seeds
+divergence.plasma.plot.scan(samples="seed", band=True, reference=theory)
+# the deposited power per beamline component
+power.plasma.plot.breakdown(sort=True, total=True, scale=1e-6, xlabel="P (MW)")
+# the space-charge limit of the extraction gap
+J.plasma.plot.child_langmuir(gap=d, mass=proton_mass)
+```
+
+For the outlines in another unit than the plot, draw them yourself with
+`draw_geometry(ax, geometry, scale=1e3)` from
+[`plasma_plots.geometry`](/plasma-plots/api/plasma_plots/geometry/). Walls and
+ducts are shape dicts: `{"rectangle": (0.0, y0, length, wall)}`.
+
+## freeofcharge
+
+Fast-ion results are profiles over the minor radius and quantities along an
+injector chain.
+
+```python
+# the deposition and the current drive over the radius, two value axes
+deposition.plasma.plot.twin(current_density)
+# a binned profile as steps, on a log axis
+birth.plasma.plot.lineout(x="rho", step="mid", logy=True)
+# the slowing-down share to ions and electrons over the energy ratio
+share_ions.plasma.plot.lineout(label="to the ions", logx=True)
+# several profiles over the same radius, one panel each
+density.plasma.plot.stacked({"$T_e$": T_e, "$T_i$": T_i}, q)
+```
+
+## OpenCR
+
+Collisional-radiative results are populations, emission and rate coefficients
+over density or temperature, often several in one axes.
+
+```python
+with plasma_plots.figure() as fig:
+    for level, population in populations.items():
+        population.plasma.plot.lineout(
+            x="n_e", label=level, logx=True, logy=True, ax=fig[0]
+        )
+# effective rate coefficients over temperature, against a reference set
+rates.plasma.plot.cross_sections(reference={"ADAS": adas}, ylabel="K (m³/s)")
+# a whole result Dataset at a glance
+result.plasma.plot.variables(t=-1)
+```
+
+## mpiarray, mpifield and mpiparticles
+
+Distributed arrays are gathered to xarray before plotting; the
+[MPI runs](/plasma-plots/guides/mpi/) guide shows how to mark the ranks' blocks
+on profiles, slices and matrices, and how the plots run on rank 0 only.
+
+## Figures for papers and pages
+
+The same calls give LaTeX figures with `backend="tikz"` (see
+[LaTeX figures](/plasma-plots/guides/latex/)), the colour-blind-safe or paper
+style with `plasma_plots.set_style(...)`, and stripped Plotly JSON or animated
+SVG for a docs front page (see [Charts and styles](/plasma-plots/guides/charts/#styles)).

@@ -48,6 +48,13 @@ energy.plasma.plot.timeseries(other_run_energy, logy=True)
 
 Passing further arrays plots them together; if they come from different runs
 (different `attrs["run_name"]`), each line is labeled by its run.
+`label=` names the series yourself, one label per series:
+
+```python
+energy.plasma.plot.timeseries(
+    other_run_energy, label=["Δt = 0.01", "Δt = 0.005"]
+)
+```
 
 ## Several plots in one figure
 
