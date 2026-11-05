@@ -647,7 +647,7 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `lower_hybrid_frequency(density, field, mass_number=1, charge_number=1)`: Compute the lower hybrid frequency, 1/ω_LH² = 1/(Ω_i² + ω_pi²) + 1/(|Ω_e| Ω_i).
 - `upper_hybrid_frequency(density, field)`: Compute the upper hybrid frequency ω_UH = √(ω_pe² + Ω_e²).
 - `struphy_units(x=1.0, B=1.0, n=1.0, kBT=None, velocity_scale='light', mass_number=None, charge_number=None)`: Compute the units of Struphy's normalization from its base units.
-- `struphy_equation_parameters(units, charge_number=1, mass_number=1)`: Compute the equation parameters α, ε and κ of one Struphy species.
+- `struphy_equation_parameters(units, charge_number=1, mass_number=1)`: Compute the equation parameters α, ε, λ and κ of one Struphy species.
 
 ### plasma_plots.theory.orbits
 
