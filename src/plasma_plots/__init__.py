@@ -102,6 +102,22 @@ What is where
 * DESC equilibria: ``plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64,
   zeta=40)`` evaluates them into the same flux-coordinate Datasets (``sfl="pest"`` for the PEST
   angle ``theta_P``); DESC's names stay, ``ev["|B|"].plasma.plot...``.
+* Charts of any labeled data: ``plot.scan`` (a parameter scan with error bars or a band,
+  ``samples=`` averages repeated runs), ``plot.breakdown`` (horizontal bars of parts of a total),
+  ``plot.twin`` (two value axes), ``plot.stacked`` (panels over a shared axis),
+  ``plot.cross_sections`` (log-log over energy), ``plot.matrix`` (a non-zero pattern) and
+  ``plot.child_langmuir`` (a current density against the space-charge limit);
+  ``dataset.plasma.plot.variables`` (every variable in a grid),
+  ``dataset.plasma.plot.phase_space`` (markers, position against velocity, by species or as a
+  weighted histogram), ``dataset.plasma.plot.breakdown`` and
+  ``dataset.plasma.plot.cross_sections``.
+  Profiles take ``label=``, ``step=``, ``logx=``, ``logy=``; slices take
+  ``overlays={"geometry": electrodes, "contour_labels": True}`` (see
+  :mod:`plasma_plots.geometry`).
+* Styles: ``plasma_plots.set_style("colorblind")`` (or ``"paper"``, ``"dark"``, ``"bare"``),
+  ``with plasma_plots.style("dark"):`` for one block; ``result.to_plotly(bare=True)``,
+  ``result.to_json()``, ``result.to_html()`` and ``plasma_plots.hero.from_array`` for front
+  pages.
 * Analytic theory to compare with (plain functions, not accessors): ``plasma_plots.theory.kinetic``
   (Landau damping, beam instabilities, Weibel), ``.waves`` (MHD, Hall-MHD and cold-plasma waves,
   drift waves, continua), ``.parameters`` (plasma parameters, Struphy's units), ``.orbits``,
@@ -128,8 +144,9 @@ ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchang
 in parallel. Analysis runs on every rank. See :mod:`plasma_plots.mpi`.
 
 The functions behind the accessors, for plain ``xarray.DataArray`` input, are in
-``plasma_plots.plotting``, ``.analysis``, ``.spectral``, ``.spectral_plots``, ``.fieldlines``,
-``.fieldline_plots``, ``.pyvista_plots`` and ``.arrays``.
+``plasma_plots.plotting``, ``.charts``, ``.phase_space``, ``.geometry``, ``.analysis``,
+``.spectral``, ``.spectral_plots``, ``.fieldlines``, ``.fieldline_plots``, ``.pyvista_plots`` and
+``.arrays``.
 
 Guides and the full reference: https://max-models.github.io/plasma-plots (for language models:
 https://max-models.github.io/plasma-plots/llms.txt).
@@ -173,6 +190,7 @@ from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .plotly_backend import get_backend, set_backend
 from .plotting import save_figure
 from .pyvista_plots import scene, scene_to_plotly
+from .styles import get_style, set_style, style
 
 __all__ = [
     "SkippedPlot",
@@ -181,6 +199,7 @@ __all__ = [
     "from_desc",
     "from_gvec",
     "get_backend",
+    "get_style",
     "is_plotting_rank",
     "mpi_rank",
     "save_figure",
@@ -188,4 +207,6 @@ __all__ = [
     "scene_to_plotly",
     "repeat_periodic",
     "set_backend",
+    "set_style",
+    "style",
 ]

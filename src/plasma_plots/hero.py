@@ -469,3 +469,92 @@ class HeroFigure:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.to_svg())
         return path
+
+
+def from_array(
+    data,
+    *,
+    sweep: str = "t",
+    duration: float = 8.0,
+    max_frames: int = 24,
+    tone: str = "accent",
+    width: float = 2.0,
+    opacity: float = 0.9,
+    pad: float = 0.08,
+    tracer: bool = False,
+    picture=(1600, 600),
+) -> HeroFigure:
+    """Turn a profile that changes over a sweep (usually time) into an animated header picture.
+
+    The profile's shape morphs through evenly spaced frames of the sweep and back to the first,
+    on a loop, in the bare look of a header: no axes, the site's colours. It is the animated SVG
+    counterpart of the ``"bare"`` style (see :mod:`plasma_plots.styles`).
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        A profile over one dimension and ``sweep``, e.g. a potential over ``x`` and ``t``.
+    sweep : str, optional
+        The dimension the animation runs over. Default: ``"t"``.
+    duration : float, optional
+        Seconds for one pass through the frames. Default: 8.
+    max_frames : int, optional
+        At most this many frames, evenly spaced, the first and last included. Default: 24.
+    tone : {"accent", "high", "low", "muted", "bg"}, optional
+        The line's colour in the site's palette. Default: ``"accent"``.
+    width : float, optional
+        The line width in pixels. Default: 2.
+    opacity : float, optional
+        Between 0 and 1. Default: 0.9.
+    pad : float, optional
+        Space above and below the profile, as a fraction of its range. Default: 0.08.
+    tracer : bool, optional
+        Add a dot drifting along the line. Default: ``False``.
+    picture : (int, int), optional
+        The picture's width and height in pixels. Default: ``(1600, 600)``.
+
+    Returns
+    -------
+    HeroFigure
+        The picture; ``.save("docs/src/assets/hero.svg")`` writes it.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``sweep`` and one more, or no finite values.
+
+    Examples
+    --------
+    >>> from plasma_plots.hero import from_array
+    >>> from_array(phi.isel(y=0)).save("docs/src/assets/hero.svg")
+    """
+    if sweep not in data.dims or data.ndim != 2:
+        raise ValueError(
+            f"a hero animation needs a profile over one dimension and {sweep!r}; got {data.dims}"
+        )
+    (dim,) = (d for d in data.dims if d != sweep)
+    data = data.transpose(sweep, dim)
+    picks = np.unique(
+        np.linspace(0, data.sizes[sweep] - 1, max(1, int(max_frames)))
+        .round()
+        .astype(int)
+    )
+    x = np.asarray(data[dim], dtype=float)
+    frames = np.asarray(data.isel({sweep: picks}), dtype=float)
+    finite = frames[np.isfinite(frames)]
+    if not finite.size:
+        raise ValueError("the profile has no finite values")
+    lo, hi = float(finite.min()), float(finite.max())
+    margin = pad * (hi - lo or 1.0)
+    figure = HeroFigure(
+        xlim=(float(x.min()), float(x.max())),
+        ylim=(lo - margin, hi + margin),
+        width=picture[0],
+        height=picture[1],
+    )
+    line = figure.morph(
+        x, list(frames), duration, tone=tone, width=width, opacity=opacity
+    )
+    if tracer:
+        figure.tracer(line, duration=duration * 0.75)
+    return figure

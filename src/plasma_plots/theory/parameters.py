@@ -642,10 +642,12 @@ def struphy_units(
 
 
 def struphy_equation_parameters(units, charge_number=1, mass_number=1):
-    """Compute the equation parameters α, ε and κ of one Struphy species.
+    """Compute the equation parameters α, ε, λ and κ of one Struphy species.
 
-    Mirrors ``struphy.models.species.Species.EquationParameters``, with ω_p and Ω_c of the
-    species at the unit density and unit field: α = ω_p/Ω_c, ε = 1/(Ω_c t) and κ = ω_p t.
+    Mirrors ``struphy.models.species.Species.EquationParameters`` (Struphy 3.6), with ω_p and Ω_c
+    of the species at the unit density and unit field: α = ω_p/Ω_c, ε = 1/(Ω_c t), and the
+    coefficients of the displacement and plasma currents in Ampère's law λ = Ω_c x/c and
+    κ = ω_p x/c (so κ = α λ).
 
     Parameters
     ----------
@@ -659,7 +661,7 @@ def struphy_equation_parameters(units, charge_number=1, mass_number=1):
     Returns
     -------
     dict
-        ``alpha``, ``epsilon`` and ``kappa``.
+        ``alpha``, ``epsilon``, ``lam`` and ``kappa``.
 
     References
     ----------
@@ -670,7 +672,7 @@ def struphy_equation_parameters(units, charge_number=1, mass_number=1):
     >>> units = struphy_units(velocity_scale="alfvén", mass_number=1)
     >>> params = struphy_equation_parameters(units)
     >>> print({key: f"{value:.4g}" for key, value in params.items()})
-    {'alpha': '137.4', 'epsilon': '0.02277', 'kappa': '6036'}
+    {'alpha': '137.4', 'epsilon': '0.02277', 'lam': '0.3195', 'kappa': '43.92'}
     """
     mass = mass_number * proton_mass
     charge = charge_number * _e
@@ -679,5 +681,6 @@ def struphy_equation_parameters(units, charge_number=1, mass_number=1):
     return {
         "alpha": omega_p / omega_c,
         "epsilon": 1 / (omega_c * units["t"]),
-        "kappa": omega_p * units["t"],
+        "lam": omega_c * units["x"] / speed_of_light,
+        "kappa": omega_p * units["x"] / speed_of_light,
     }

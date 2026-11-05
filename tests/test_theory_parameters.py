@@ -184,11 +184,9 @@ def test_struphy_units_definitions():
         velocity_scale="alfven", mass_number=1
     ) == par.struphy_units(velocity_scale="alfvén", mass_number=1)
     assert set(light) == set(par.STRUPHY_UNIT_SYMBOLS)
-    # equation parameters: α = ω_p/Ω_c, ε = 1/(Ω_c t), κ = ω_p t
+    # equation parameters: α = ω_p/Ω_c, ε = 1/(Ω_c t), λ = Ω_c x/c, κ = ω_p x/c = α λ
     eq = par.struphy_equation_parameters(units, charge_number=1, mass_number=2)
-    assert eq["alpha"] * eq["epsilon"] == pytest.approx(
-        eq["kappa"] * eq["epsilon"] ** 2
-    )
+    assert eq["kappa"] == pytest.approx(eq["alpha"] * eq["lam"])
 
 
 @pytest.mark.parametrize(
@@ -233,5 +231,5 @@ def test_struphy_units_match_struphy(scale, base, bulk):
             SimpleNamespace(charge_number=z, mass_number=a), units=reference
         )
         mine = par.struphy_equation_parameters(ours, charge_number=z, mass_number=a)
-        for key in ("alpha", "epsilon", "kappa"):
+        for key in ("alpha", "epsilon", "lam", "kappa"):
             assert mine[key] == pytest.approx(float(getattr(eq, key)), rel=1e-13), key

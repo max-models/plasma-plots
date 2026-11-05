@@ -48,23 +48,17 @@ from .arrays import (
     value_label,
 )
 from .mpi import rank_zero
+from .styles import DEFAULT as DEFAULT_STYLE
+from .styles import style_params
 
 logger = logging.getLogger("plasma_plots")
 
-PLOT_STYLE = {
-    "figure.figsize": (8.0, 5.0),
-    "figure.dpi": 110,
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-    "axes.titlesize": "medium",
-    "legend.frameon": False,
-    "image.cmap": "viridis",
-}
+PLOT_STYLE = DEFAULT_STYLE
 
 
 @contextmanager
 def _plot_style():
-    """Draw with :data:`PLOT_STYLE`, like ``plt.rc_context(PLOT_STYLE)``.
+    """Draw with the current style (see :mod:`plasma_plots.styles`), like ``plt.rc_context``.
 
     Unlike a bare ``rc_context``, the interactive state set while drawing is kept on exit:
     IPython switches interactive mode on when a kernel's first figure is created. When that
@@ -73,7 +67,7 @@ def _plot_style():
     """
     interactive = None
     try:
-        with plt.rc_context(PLOT_STYLE):
+        with plt.rc_context(style_params()):
             try:
                 yield
             finally:
@@ -324,7 +318,7 @@ class PlotResult:
         self._shown = True
         return self
 
-    def to_plotly(self, *, close: bool = False) -> "PlotResult":
+    def to_plotly(self, *, close: bool = False, bare: bool = False) -> "PlotResult":
         """The same result with the figure converted to an interactive Plotly figure.
 
         For the plotting functions, whose results are Matplotlib figures; the accessor methods
@@ -334,6 +328,9 @@ class PlotResult:
         ----------
         close : bool, optional
             Close the Matplotlib figure afterwards. Default: ``False``.
+        bare : bool, optional
+            Strip the figure to its data, for a header picture (see
+            :func:`plasma_plots.plotly_backend.bare`). Default: ``False``.
 
         Returns
         -------
@@ -352,17 +349,83 @@ class PlotResult:
         ... ).to_plotly().save("energy.html")
         """
         from .plotly_backend import _plotly_result, to_plotly
+        from .plotly_backend import bare as strip
 
         if self._plotly:
+            if bare:
+                strip(self.fig)
             return self
         if self._tikz:
             raise TypeError(
                 "a TikZ figure cannot be converted to Plotly; draw it again"
             )
-        result = _plotly_result(to_plotly(self.fig), self)
+        converted = to_plotly(self.fig)
+        result = _plotly_result(strip(converted) if bare else converted, self)
         if close:
             plt.close(self.fig)
         return result
+
+    def to_json(self, *, bare: bool = False) -> str:
+        """Return the figure as Plotly figure JSON, e.g. for a docs page's ``<PlotlyChart>``.
+
+        A Matplotlib figure is converted first (see :meth:`to_plotly`); it stays open.
+
+        Parameters
+        ----------
+        bare : bool, optional
+            Strip the figure to its data, for a header picture (see
+            :func:`plasma_plots.plotly_backend.bare`). Default: ``False``.
+
+        Returns
+        -------
+        str
+            The JSON text.
+
+        Raises
+        ------
+        TypeError
+            If the figure is a TikZ figure.
+
+        Examples
+        --------
+        >>> Path("energy.json").write_text(energy.plasma.plot.timeseries().to_json())
+        """
+        return self.to_plotly(bare=bare).fig.to_json()
+
+    def to_html(self, *, full_html: bool = False, bare: bool = False) -> str:
+        """Return the figure as interactive HTML, loading Plotly's JavaScript from its CDN.
+
+        A Matplotlib figure is converted first (see :meth:`to_plotly`); it stays open.
+
+        Parameters
+        ----------
+        full_html : bool, optional
+            A whole page; ``False`` gives a ``<div>`` to embed in a page of your own. Default:
+            ``False``.
+        bare : bool, optional
+            Strip the figure to its data, for a header picture (see
+            :func:`plasma_plots.plotly_backend.bare`). Default: ``False``.
+
+        Returns
+        -------
+        str
+            The HTML text.
+
+        Raises
+        ------
+        TypeError
+            If the figure is a TikZ figure.
+
+        Examples
+        --------
+        >>> html = phi.plasma.plot.slice(t=-1, eta3=0).to_html()
+        """
+        return self.to_plotly(bare=bare).fig.to_html(
+            full_html=full_html,
+            include_plotlyjs="cdn",
+            auto_play=False,
+            config={"responsive": True},
+        )
 
     def to_tikz(self, *, close: bool = False, **options) -> "PlotResult":
         """The same result with the figure converted to TikZ/pgfplots code for LaTeX.
@@ -825,6 +888,7 @@ def plot_timeseries(
     title=None,
     run_label=None,
     reference=None,
+    label=None,
 ):
     """Plot one or more time series, each on its own time grid.
 
@@ -852,6 +916,10 @@ def plot_timeseries(
         ``xarray.DataArray`` over ``t``, a ``(t, values)`` pair, or a dict of labels to these, e.g.
         ``{"exact": lambda t: A * np.exp(-gamma * t)}`` or an envelope
         ``{"+e^(-γt)": ..., "−e^(-γt)": ...}``.
+    label : str or sequence of str, optional
+        The legend label of the series, or one per series, e.g. to tell runs apart when drawing
+        into the same axes several times. Default: each series' label (and its run, when the
+        series come from several runs).
 
     Returns
     -------
@@ -862,7 +930,8 @@ def plot_timeseries(
     Raises
     ------
     ValueError
-        If there is no series, or a series has dimensions other than ``t``.
+        If there is no series, a series has dimensions other than ``t``, or the number of
+        labels differs from the number of series.
 
     Examples
     --------
@@ -892,6 +961,15 @@ def plot_timeseries(
                     ),
                 )
             )
+
+    if label is not None:
+        labels = [label] if isinstance(label, str) else list(label)
+        if len(labels) != len(series):
+            raise ValueError(f"got {len(labels)} labels for {len(series)} time series")
+        given = dict(zip(map(id, series), labels))
+
+        def label_of(item):
+            return given[id(item)]
 
     run_label = shared_run_label(series) if run_label is None else run_label
     own_figure = ax is None
@@ -979,6 +1057,11 @@ def plot_lineout(
     nfp: int | None = None,
     rank_boundaries=None,
     rank_boundary_color="red",
+    label=None,
+    color=None,
+    step=None,
+    logx: bool = False,
+    logy: bool = False,
 ):
     """Plot a one-dimensional profile along its one remaining coordinate.
 
@@ -1013,6 +1096,20 @@ def plot_lineout(
         units (``x_of`` is not applied to them). Default: none drawn.
     rank_boundary_color : optional
         Their color. Default: red.
+    label : str, optional
+        The profile's legend label. With a label, the axes get a legend of every labeled line
+        in them, so several profiles drawn into the same ``ax`` are told apart. Default: the
+        array's label, shown only together with ``reference``.
+    color : str, optional
+        The line color. Default: the next color of the style.
+    step : {"pre", "mid", "post"}, optional
+        Draw a step line, e.g. for a binned profile or a histogram: the value holds from each
+        point to the next (``"post"``), from the previous one (``"pre"``), or around it
+        (``"mid"``). Default: a straight line between the points.
+    logx : bool, optional
+        Use a logarithmic horizontal axis. Default: ``False``.
+    logy : bool, optional
+        Use a logarithmic value axis. Default: ``False``.
 
     Returns
     -------
@@ -1022,7 +1119,8 @@ def plot_lineout(
     Raises
     ------
     ValueError
-        If more or fewer than one dimension remains, or ``x`` is not the remaining one.
+        If more or fewer than one dimension remains, ``x`` is not the remaining one, or ``step``
+        is not one of the three.
 
     See Also
     --------
@@ -1042,9 +1140,17 @@ def plot_lineout(
     plotted = (
         np.asarray(x_of(coordinate), dtype=float) if x_of is not None else coordinate
     )
+    if step not in (None, "pre", "mid", "post"):
+        raise ValueError(f"step must be 'pre', 'mid' or 'post', not {step!r}")
     fig, ax = plt.subplots() if ax is None else (ax.figure, ax)
     (line,) = ax.plot(
-        plotted, data, label=_label(data) if reference is not None else None
+        plotted,
+        data,
+        label=label
+        if label is not None
+        else (_label(data) if reference is not None else None),
+        color=color,
+        drawstyle="default" if step is None else f"steps-{step}",
     )
     artists = [line]
     references = _references(reference)
@@ -1090,6 +1196,12 @@ def plot_lineout(
             artists.append(
                 ax.axvline(value, color=rank_boundary_color, lw=0.8, ls="--", alpha=0.9)
             )
+    if label is not None and not references:
+        ax.legend(fontsize="small")
+    if logx:
+        ax.set_xscale("log")
+    if logy:
+        ax.set_yscale("log")
     ax.set(
         xlabel=xlabel or (axis_label(data, x) if x_of is None else "x"),
         ylabel=value_label(data),
@@ -1612,6 +1724,9 @@ OVERLAY_KEYS = {
     "line_color",
     "points",
     "point_color",
+    "contour_labels",
+    "geometry",
+    "geometry_color",
 }
 
 
@@ -1887,17 +2002,18 @@ class _SliceRenderer:
             )
             values, (ox, oy, _, _) = _slice_data(other, self.view)
             levels = overlays.get("contour_levels", 10)
-            artists.append(
-                ax.contour(
-                    ox,
-                    oy,
-                    np.asarray(values),
-                    levels=levels,
-                    negative_linestyles="solid",
-                    colors=overlays.get("contour_color", "k"),
-                    linewidths=0.9,
-                )
+            contours = ax.contour(
+                ox,
+                oy,
+                np.asarray(values),
+                levels=levels,
+                negative_linestyles="solid",
+                colors=overlays.get("contour_color", "k"),
+                linewidths=0.9,
             )
+            artists.append(contours)
+            if overlays.get("contour_labels"):
+                artists += ax.clabel(contours, fontsize="small", fmt="%.3g")
         if overlays.get("boundary"):
             for edge in _grid_edges(xg, yg):
                 artists += ax.plot(
@@ -1910,6 +2026,12 @@ class _SliceRenderer:
             for j in range(0, xg.shape[1], stride):
                 artists += ax.plot(xg[:, j], yg[:, j], color="0.5", lw=0.4, alpha=0.6)
         limits = ax.get_xlim(), ax.get_ylim()
+        if overlays.get("geometry") is not None:
+            from .geometry import draw_geometry
+
+            artists += draw_geometry(
+                ax, overlays["geometry"], color=overlays.get("geometry_color", "0.6")
+            )
         for i, (label, line) in enumerate((overlays.get("lines") or {}).items()):
             if callable(line):
                 xs = np.linspace(np.nanmin(xg), np.nanmax(xg), 200)
@@ -1980,9 +2102,12 @@ class _SliceRenderer:
                     if self.fill
                     else dict(cmap=self.cmap, vmin=lo, vmax=hi, linewidths=1.5)
                 )
-                extras.append(
-                    ax.contour(xg, yg, np.asarray(values), levels=levels, **style)
+                contours = ax.contour(
+                    xg, yg, np.asarray(values), levels=levels, **style
                 )
+                extras.append(contours)
+                if self.overlays.get("contour_labels"):
+                    extras += ax.clabel(contours, fontsize="small", fmt="%.3g")
         extras += self._draw_overlays(ax, data, xg, yg, values)
         ax.set(
             xlabel=xlabel if self.xlabel is None else self.xlabel,
@@ -2106,9 +2231,15 @@ def plot_slice(
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
         - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
-        - ``"point_color"``: their color (default white).
+        - ``"point_color"``: their color (default white);
+        - ``"contour_labels"``: ``True`` writes the values on the contour lines of ``levels``
+          and ``"contours_of"``;
+        - ``"geometry"``: shapes drawn on top, e.g. electrodes, walls or apertures (outlines,
+          objects with ``outlines()``, shape dicts or patches, see
+          :mod:`plasma_plots.geometry`);
+        - ``"geometry_color"``: their fill color (default grey).
 
-        Lines and points do not widen the axes and are listed in a legend.
+        Lines, points and shapes do not widen the axes; lines and points are listed in a legend.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate's name and units.
     ylabel : str, optional
@@ -2268,9 +2399,15 @@ def plot_panels(
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
         - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
-        - ``"point_color"``: their color (default white).
+        - ``"point_color"``: their color (default white);
+        - ``"contour_labels"``: ``True`` writes the values on the contour lines of ``levels``
+          and ``"contours_of"``;
+        - ``"geometry"``: shapes drawn on top, e.g. electrodes, walls or apertures (outlines,
+          objects with ``outlines()``, shape dicts or patches, see
+          :mod:`plasma_plots.geometry`);
+        - ``"geometry_color"``: their fill color (default grey).
 
-        Lines and points do not widen the axes and are listed in a legend.
+        Lines, points and shapes do not widen the axes; lines and points are listed in a legend.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate's name and units.
     ylabel : str, optional
@@ -2420,9 +2557,15 @@ class InteractiveSliceViewer:
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
         - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
-        - ``"point_color"``: their color (default white).
+        - ``"point_color"``: their color (default white);
+        - ``"contour_labels"``: ``True`` writes the values on the contour lines of ``levels``
+          and ``"contours_of"``;
+        - ``"geometry"``: shapes drawn on top, e.g. electrodes, walls or apertures (outlines,
+          objects with ``outlines()``, shape dicts or patches, see
+          :mod:`plasma_plots.geometry`);
+        - ``"geometry_color"``: their fill color (default grey).
 
-        Lines and points do not widen the axes and are listed in a legend.
+        Lines, points and shapes do not widen the axes; lines and points are listed in a legend.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate's name and units.
     ylabel : str, optional
@@ -2670,9 +2813,15 @@ def animate_slices(
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
         - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
-        - ``"point_color"``: their color (default white).
+        - ``"point_color"``: their color (default white);
+        - ``"contour_labels"``: ``True`` writes the values on the contour lines of ``levels``
+          and ``"contours_of"``;
+        - ``"geometry"``: shapes drawn on top, e.g. electrodes, walls or apertures (outlines,
+          objects with ``outlines()``, shape dicts or patches, see
+          :mod:`plasma_plots.geometry`);
+        - ``"geometry_color"``: their fill color (default grey).
 
-        Lines and points do not widen the axes and are listed in a legend.
+        Lines, points and shapes do not widen the axes; lines and points are listed in a legend.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate's name and units.
     ylabel : str, optional
@@ -2960,9 +3109,15 @@ def save_frames(
           pair, drawn in dashed styles;
         - ``"line_color"``: their color (default white);
         - ``"points"``: a dict of labels to ``(x, y)`` points, marked with crosses;
-        - ``"point_color"``: their color (default white).
+        - ``"point_color"``: their color (default white);
+        - ``"contour_labels"``: ``True`` writes the values on the contour lines of ``levels``
+          and ``"contours_of"``;
+        - ``"geometry"``: shapes drawn on top, e.g. electrodes, walls or apertures (outlines,
+          objects with ``outlines()``, shape dicts or patches, see
+          :mod:`plasma_plots.geometry`);
+        - ``"geometry_color"``: their fill color (default grey).
 
-        Lines and points do not widen the axes and are listed in a legend.
+        Lines, points and shapes do not widen the axes; lines and points are listed in a legend.
     xlabel : str, optional
         The horizontal axis label. Default: the coordinate's name and units.
     ylabel : str, optional

@@ -1,0 +1,79 @@
+---
+title: MPI runs
+description: Post-processing scripts that run unchanged under mpirun, with plots on rank 0, and MPI rank boundaries drawn on profiles, slices and matrices.
+---
+
+A post-processing script started with `mpirun -n 4 python script.py` runs every
+line on every rank. Without care, four processes would draw the same figure and
+write the same file at once. plasma-plots draws and saves on rank 0 only, so
+the same script runs in serial and under MPI:
+
+```python
+out = Output("sim_1")  # on every rank
+rate = energy.plasma.analysis.growth_rate(window=(5.0, 20.0))  # on every rank
+out.plot.scalars().save("scalars.png")  # drawn and written once, by rank 0
+```
+
+Analysis runs on every rank, so every rank has the numbers. On the other ranks
+a plot returns a `SkippedPlot`, whose methods (`save`, `show`, `to_plotly`, ...)
+do nothing, so chained calls need no checks.
+
+## Which rank plots
+
+The rank is read without importing `mpi4py`, which would initialize MPI in a
+serial run: from `mpi4py.MPI.COMM_WORLD` when the application has already
+initialized MPI, otherwise from the variables the MPI launchers export (Open MPI,
+MPICH, Intel MPI, Slurm, PMIx, Cray). `STRUPHY_MPI=0` turns the detection off,
+and every process plots.
+
+```python
+import plasma_plots
+
+plasma_plots.mpi_rank()  # 0 in a serial run
+if plasma_plots.is_plotting_rank():
+    print(f"growth rate {rate.rate:.3e}")
+```
+
+Nothing waits for rank 0. A rank that reads a file rank 0 writes must
+synchronize first, e.g. with `MPI.COMM_WORLD.Barrier()`.
+
+## Plot functions of your own
+
+[`rank_zero`](/plasma-plots/api/plasma_plots/mpi/) makes a function of your own
+behave the same way: it runs on rank 0 and returns a `SkippedPlot` elsewhere.
+
+```python
+from plasma_plots.mpi import rank_zero
+
+
+@rank_zero
+def plot_beam(markers):
+    return markers.plasma.plot.phase_space(x="x", v="vx", t=-1)
+
+
+plot_beam(markers).save("beam.png")  # safe on every rank
+```
+
+## Where the ranks meet
+
+A distributed array is split into blocks, one per rank. Drawing the block
+boundaries shows where a jump or a noise pattern sits on a rank boundary:
+
+```python
+# profiles: dashed lines at explicit values, or from an mpiarray Layout
+phi.plasma.plot.lineout(x="x", t=-1, rank_boundaries=layout)
+# slices: the boundaries of the blocks as grid lines
+phi.plasma.plot.slice(x="x", y="y", t=-1, overlays={"rank_boundaries": layout})
+# matrices: where each rank's rows begin, e.g. PETSc's ownership ranges
+plot_matrix(matrix, rank_boundaries=matrix["ownership_ranges"])
+```
+
+A `Layout` of mpiarray is used duck-typed, through its `boundary_values`, so
+plasma-plots does not import mpiarray.
+
+## Profiling
+
+Timing summaries and profiling plots of
+[scope-profiler](https://github.com/max-models/scope-profiler) output, including
+one row per rank in the Gantt chart, are in the
+[Profiling](/plasma-plots/guides/profiling/) guide.

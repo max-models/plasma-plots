@@ -2507,8 +2507,11 @@ except Exception as exc:  # pragma: no cover - optional, environment-dependent
 
 
 # =============================================================================
-# Whole-run: profiling (optional scope-profiler)
+# Whole-run: profiling (optional scope-profiler). Its plots render through maxplotlib, which
+# sets Matplotlib's global rcParams (serif fonts, ticks inside); they are restored afterwards
+# so the figures below keep the plots' own style.
 # =============================================================================
+_rc_before_profiling = plt.rcParams.copy()
 try:
     import tempfile as _tempfile
     import time as _time
@@ -2561,6 +2564,7 @@ try:
         print("skipped plotly_profile_gantt.json (plotly unavailable)")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped profile_*.png (scope-profiler unavailable): {exc}")
+plt.rcParams.update(_rc_before_profiling)
 
 
 # =============================================================================
@@ -2781,7 +2785,10 @@ plt.close("all")
 # =============================================================================
 # backend="tikz": the same plots as TikZ/pgfplots code, converted by maxplotlib (needs
 # `pip install maxplotlibx` and pdflatex); the "LaTeX figures" guide shows them compiled.
+# maxplotlib sets Matplotlib's global rcParams (serif fonts, ticks inside), so they are restored
+# afterwards for the figures below.
 # =============================================================================
+_rc_before_tikz = plt.rcParams.copy()
 try:
     import shutil
 
@@ -2816,6 +2823,7 @@ try:
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped tikz_*.png (maxplotlib or pdflatex unavailable): {exc}")
 plt.close("all")
+plt.rcParams.update(_rc_before_tikz)
 
 # =============================================================================
 # Field lines: an analytic tokamak with q = 1 + 2 r² and a resonant perturbation that opens an
@@ -3053,5 +3061,279 @@ try:
     )
 except ImportError:
     print("skipped plotly_poincare.json (plotly unavailable)")
+
+# ---------------------------------------------------------------------------------------------
+# Charts and styles (guides/charts), phase space (guides/particles), geometry (guides/field-plots)
+# ---------------------------------------------------------------------------------------------
+from plasma_plots.charts import plot_breakdown, plot_matrix, plot_stacked  # noqa: E402
+from plasma_plots.hero import from_array  # noqa: E402
+from plasma_plots.theory.negative_ions import (  # noqa: E402
+    electron_detachment_cross_section,
+    mutual_neutralization_cross_section,
+)
+from plasma_plots.theory.parameters import proton_mass  # noqa: E402
+from plasma_plots.theory.sheaths import child_langmuir  # noqa: E402
+
+rng_ch = np.random.default_rng(7)
+
+# a parameter scan: beamlet divergence over the extraction voltage, five seeds each
+voltage_ch = np.linspace(4.0, 12.0, 9)
+optimum_ch = 8.0
+divergence_ch = xr.DataArray(
+    6.0
+    + 0.35 * (voltage_ch[:, None] - optimum_ch) ** 2
+    + rng_ch.normal(0.0, 0.4, (9, 5)),
+    dims=("voltage", "seed"),
+    coords={
+        "voltage": ("voltage", voltage_ch, {"label": "U_ex", "units": "kV"}),
+        "seed": np.arange(5),
+    },
+    name="divergence",
+    attrs={"label": "beamlet divergence", "units": "mrad"},
+)
+save(
+    divergence_ch.plasma.plot.scan(
+        samples="seed",
+        band=True,
+        label="PIC, 5 seeds",
+        reference={
+            "perveance match": lambda u: 6.0 + 0.35 * (u - optimum_ch) ** 2
+        },
+    ),
+    "charts_scan.png",
+)
+try:
+    import plotly  # noqa: F401
+
+    divergence_ch.plasma.plot.scan(samples="seed").to_plotly().save(
+        PLOTLY_OUT / "plotly_scan.json"
+    )
+    print(f"wrote {PLOTLY_OUT / 'plotly_scan.json'}")
+except ImportError:
+    print("skipped plotly_scan.json (plotly unavailable)")
+
+# a breakdown: the power deposited along a beamline
+power_ch = xr.DataArray(
+    [0.4e6, 1.9e6, 0.7e6, 3.6e6, 0.2e6],
+    dims="component",
+    coords={
+        "component": [
+            "grids",
+            "neutralizer",
+            "residual-ion dump",
+            "calorimeter",
+            "duct",
+        ]
+    },
+    name="P",
+    attrs={"label": "deposited power", "units": "W"},
+)
+save(
+    power_ch.plasma.plot.breakdown(
+        sort=True, total=True, scale=1e-6, xlabel="deposited power (MW)"
+    ),
+    "charts_breakdown.png",
+)
+
+# twin and stacked profiles
+r_ch = np.linspace(0.0, 1.0, 80)
+n_ch = field_array(
+    "n",
+    "$n_e$",
+    "m$^{-3}$",
+    1e19 * (1 - r_ch**2) ** 1.5 + 1e17,
+    "r",
+    {"r": r_ch},
+)
+Te_ch = field_array(
+    "T_e", "$T_e$", "eV", 20 * (1 - r_ch**2) + 1, "r", {"r": r_ch}
+)
+Ti_ch = field_array(
+    "T_i", "$T_i$", "eV", 8 * (1 - r_ch**2) ** 2 + 1, "r", {"r": r_ch}
+)
+phi_ch = field_array(
+    "phi", r"$\phi$", "V", 3.0 * Te_ch.values, "r", {"r": r_ch}
+)
+save(n_ch.plasma.plot.twin(Te_ch, logy=(True, False)), "charts_twin.png")
+save(
+    plot_stacked(
+        [n_ch, {"$T_e$": Te_ch, "$T_i$": Ti_ch}, phi_ch],
+        height_ratios=[1, 1.4, 1],
+    ),
+    "charts_stacked.png",
+)
+
+# cross sections: tabulated points against the analytic fits of the theory module
+energy_ch = np.geomspace(0.5, 300.0, 14)
+catalogue_ch = xr.Dataset(
+    {
+        "electron detachment": (
+            "energy",
+            electron_detachment_cross_section(energy_ch)
+            * (1 + 0.08 * rng_ch.normal(size=14)),
+        ),
+        "mutual neutralization": (
+            "energy",
+            mutual_neutralization_cross_section(energy_ch)
+            * (1 + 0.08 * rng_ch.normal(size=14)),
+        ),
+    },
+    coords={"energy": ("energy", energy_ch, {"label": "E", "units": "eV"})},
+)
+for name in catalogue_ch.data_vars:
+    catalogue_ch[name].attrs["units"] = "m$^2$"
+save(
+    catalogue_ch.plasma.plot.cross_sections(
+        reference={
+            "detachment fit": electron_detachment_cross_section,
+            "neutralization fit": mutual_neutralization_cross_section,
+        },
+        ylabel=r"$\sigma$ [m$^2$]",
+    ),
+    "charts_cross_sections.png",
+)
+
+# a matrix: the 5-point Laplacian on an 8 x 8 grid, split over four ranks
+nx_ch = 8
+eye_ch = np.eye(nx_ch)
+second_ch = -2 * eye_ch + np.eye(nx_ch, k=1) + np.eye(nx_ch, k=-1)
+laplace_ch = np.kron(eye_ch, second_ch) + np.kron(second_ch, eye_ch)
+save(
+    plot_matrix(laplace_ch, rank_boundaries=[16, 32, 48]), "charts_matrix.png"
+)
+
+# the Child-Langmuir law: a "measured" current density of a 1 cm proton diode
+voltage_cl = np.linspace(2e3, 2e4, 10)
+J_cl = xr.DataArray(
+    child_langmuir(voltage_cl, 0.01, proton_mass)
+    * (1 + 0.03 * rng_ch.normal(size=10)),
+    dims="V",
+    coords={"V": ("V", voltage_cl, {"label": "V", "units": "V"})},
+    name="J",
+    attrs={"label": "J (PIC)", "units": "A/m$^2$"},
+)
+save(
+    J_cl.plasma.plot.child_langmuir(gap=0.01, mass=proton_mass),
+    "charts_child_langmuir.png",
+)
+
+# a Dataset overview: profiles and a slice of one state
+x_v = np.linspace(0.0, 1.0, 64)
+y_v = np.linspace(0.0, 0.5, 32)
+state_v = xr.Dataset(
+    {
+        "n": ("x", 1 + 0.5 * np.sin(2 * np.pi * x_v), {"label": "$n$"}),
+        "u": ("x", 0.2 * np.cos(2 * np.pi * x_v), {"label": "$u$"}),
+        "phi": (
+            ("x", "y"),
+            np.sin(2 * np.pi * x_v)[:, None] * np.cos(2 * np.pi * y_v)[None],
+            {"label": r"$\phi$"},
+        ),
+    },
+    coords={"x": x_v, "y": y_v},
+)
+save(state_v.plasma.plot.variables(), "variables.png")
+
+# phase space of a two-stream instability: two species, and the weighted histogram
+n_ps = 6000
+x_ps = rng_ch.random(n_ps)
+beam_ps = np.where(np.arange(n_ps) < n_ps // 2, 1.0, -1.0)
+v_ps = beam_ps * (1 + 0.25 * np.sin(4 * np.pi * x_ps)) + rng_ch.normal(
+    0, 0.12, n_ps
+)
+markers_ps = xr.Dataset(
+    {
+        "x": (("t", "marker"), x_ps[None], {"label": "$x$"}),
+        "vx": (("t", "marker"), v_ps[None], {"label": "$v_x$"}),
+        "w": (("t", "marker"), np.ones((1, n_ps))),
+    },
+    coords={
+        "t": [12.0],
+        "marker": np.arange(n_ps),
+        "beam": ("marker", np.where(beam_ps > 0, "beam +", "beam -")),
+    },
+)
+with plasma_plots.figure(1, 2, figsize=(11, 4)) as fig_ps:
+    markers_ps.plasma.plot.phase_space(
+        x="x", v="vx", species="beam", t=-1, ax=fig_ps[0]
+    )
+    markers_ps.plasma.plot.phase_space(
+        x="x",
+        v="vx",
+        kind="histogram",
+        weight="w",
+        bins=(64, 48),
+        t=-1,
+        ax=fig_ps[1],
+    )
+save(fig_ps, "phase_space_markers.png")
+
+# electrodes over a potential, with labeled contour lines
+x_g = np.linspace(0.0, 10.0, 121)
+y_g = np.linspace(-4.0, 4.0, 97)
+X_g, Y_g = np.meshgrid(x_g, y_g, indexing="ij")
+phi_g = xr.DataArray(
+    10.0
+    * np.tanh((X_g - 5.0) / 2.0)
+    * np.exp(-((Y_g / 3.5) ** 2) * (X_g > 3) * 0.3),
+    dims=("x", "y"),
+    coords={
+        "x": ("x", x_g, {"units": "mm"}),
+        "y": ("y", y_g, {"units": "mm"}),
+    },
+    name="phi",
+    attrs={"label": r"$\phi$", "units": "kV"},
+)
+electrodes_g = [
+    {"rectangle": (2.5, 1.5, 1.0, 2.5)},
+    {"rectangle": (2.5, -4.0, 1.0, 2.5)},
+    {"rectangle": (6.5, 1.0, 1.0, 3.0)},
+    {"rectangle": (6.5, -4.0, 1.0, 3.0)},
+]
+save(
+    phi_g.plasma.plot.slice(
+        x="x",
+        y="y",
+        levels=8,
+        symmetric=True,
+        cmap="RdBu_r",
+        overlays={"geometry": electrodes_g, "contour_labels": True},
+    ),
+    "slice_geometry.png",
+)
+
+# the styles: one plot in three of them
+t_st = np.linspace(0.0, 10.0, 200)
+series_st = [
+    xr.DataArray(
+        np.cos(t_st * (1 + 0.2 * k)) * np.exp(-0.1 * k * t_st),
+        dims="t",
+        coords={"t": t_st},
+        name=f"mode {k}",
+    )
+    for k in range(4)
+]
+for name in ("colorblind", "dark", "paper"):
+    with plasma_plots.style(name):
+        save(
+            series_st[0].plasma.plot.timeseries(
+                *series_st[1:], logy=False, title=name
+            ),
+            f"style_{name}.png",
+        )
+
+# an animated header picture from a travelling wave
+t_h = np.linspace(0.0, 1.0, 40)
+x_h = np.linspace(0.0, 4.0, 200)
+wave_h = xr.DataArray(
+    np.sin(np.pi * (x_h[None] - 2 * t_h[:, None]))
+    * np.exp(-((x_h[None] - 2.6) ** 2) / 2.0),
+    dims=("t", "x"),
+    coords={"t": t_h, "x": x_h},
+)
+print(
+    f"wrote {from_array(wave_h, tracer=True).save(OUT / 'hero_from_array.svg')}"
+)
+
 plt.close("all")
 print("done")

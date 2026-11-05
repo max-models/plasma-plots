@@ -77,10 +77,10 @@ at https://max-models.github.io/plasma-plots.
 
 Plots of one array, as array.plasma.plot.<kind>(...).
 
-- `array.plasma.plot.timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None, reference=None, backend=None)`: Plot this time series, and any others given, in one axes.
+- `array.plasma.plot.timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None, reference=None, label=None, backend=None)`: Plot this time series, and any others given, in one axes.
   - e.g. `energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)`
   - e.g. `energy.plasma.plot.timeseries(other_run_energy)`
-- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, rank_boundaries=None, rank_boundary_color='red', backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
+- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, rank_boundaries=None, rank_boundary_color='red', label=None, color=None, step=None, logx=False, logy=False, backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
   - e.g. `phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)`
   - e.g. `T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)`
 - `array.plasma.plot.line_animation(*, x=None, sweep='t', reference=None, x_of=None, xlabel=None, ylim=None, step=1, max_frames=None, interval=100, title=None, alongside=None, alongside_logy=False, backend=None, **selection)`: Animate a one-dimensional profile over sweep.
@@ -169,6 +169,21 @@ Plots of one array, as array.plasma.plot.<kind>(...).
   - e.g. `A.plasma.plot.critical_points(t=-1, eta3=0)`
 - `array.plasma.plot.boozer_spectrum(*, top=8, helicity=None, log=True, angles='boozer', x_of=None, xlabel=None, title=None, backend=None, **selection)`: Plot the strongest Boozer harmonics of this |B| over the radius, and the quasi-symmetry error.
   - e.g. `boozer.mod_B.plasma.plot.boozer_spectrum(top=8, helicity="QA")`
+- `array.plasma.plot.scan(*, x=None, error=None, samples=None, band=False, ax=None, label=None, color=None, reference=None, logx=False, logy=False, title=None, xlabel=None, ylabel=None, backend=None, **selection)`: Plot this quantity over a scanned parameter, with error bars or a shaded band.
+  - e.g. `divergence.plasma.plot.scan(samples="seed", band=True)`
+  - e.g. `rate.plasma.plot.scan(error=rate_error, reference=theory, logx=True)`
+- `array.plasma.plot.breakdown(*, dim=None, ax=None, sort=False, total=False, annotate=True, scale=1.0, color=None, title=None, xlabel=None, backend=None, **selection)`: Draw this array's values over a category dimension as horizontal bars.
+  - e.g. `power.plasma.plot.breakdown(sort=True, total=True, scale=1e-6, xlabel="P (MW)")`
+- `array.plasma.plot.twin(right, *, ax=None, step=None, logy=(False, False), colors=('C0', 'C3'), title=None, xlabel=None, backend=None, **selection)`: Plot this profile and another over the same coordinate, with a value axis each.
+  - e.g. `n.plasma.plot.twin(T, t=-1)`
+- `array.plasma.plot.stacked(*others, sharex=True, height_ratios=None, step=None, logy=False, title=None, figsize=None, backend=None, **selection)`: Plot this profile and others in panels stacked over a shared horizontal axis.
+  - e.g. `n.plasma.plot.stacked({"T_e": Te, "T_i": Ti}, phi, t=-1)`
+- `array.plasma.plot.cross_sections(*, ax=None, reference=None, markers=True, logx=True, logy=True, title=None, xlabel=None, ylabel=None, backend=None, **selection)`: Plot these cross sections (or rate coefficients) over energy on log-log axes.
+  - e.g. `sigma.plasma.plot.cross_sections(reference={"fit": fit})`
+- `array.plasma.plot.matrix(*, kind='pattern', ax=None, markersize=None, cmap=None, rank_boundaries=None, title=None, backend=None, **selection)`: Plot this two-dimensional array as a matrix: its non-zero pattern or its values.
+  - e.g. `jacobian.plasma.plot.matrix(kind="values")`
+- `array.plasma.plot.child_langmuir(*others, gap=None, voltage=None, mass=None, charge=None, initial_velocity=0.0, show_error=True, logx=False, logy=False, title=None, backend=None, **selection)`: Plot this current density against the Child–Langmuir law of a planar diode.
+  - e.g. `J.plasma.plot.child_langmuir(J_other_code, gap=0.01, mass=1.67e-27)`
 
 ### array.plasma.plot.view(...)
 
@@ -309,6 +324,10 @@ The data behind each plot in ArrayPlots, without rendering it.
   - e.g. `B.plasma.data.poincare(seeds=12, turns=100, t=-1)`
 - `array.plasma.data.critical_points(*, refine=True, **selection)`: Return the O- and X-points ArrayPlots.critical_points would mark.
   - e.g. `A.plasma.data.critical_points(t=-1)`
+- `array.plasma.data.scan(*, x=None, error=None, samples=None, **selection)`: Return the values and errors ArrayPlots.scan would draw.
+  - e.g. `divergence.plasma.data.scan(samples="seed").value`
+- `array.plasma.data.breakdown(*, dim=None, **selection)`: Return the parts ArrayPlots.breakdown would draw.
+  - e.g. `power.plasma.data.breakdown(t=-1)`
 
 ### dataset.plasma.plot
 
@@ -358,6 +377,16 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
   - e.g. `orbits.plasma.plot.lost_fraction(weight="weight")`
 - `dataset.plasma.plot.loss_map(*, x='v_par', y=None, t=0, absB=None, ax=None, s=10, cmap=None, title=None, backend=None)`: Plot which markers are lost, over their initial phase-space position, colored by when.
   - e.g. `orbits.plasma.plot.loss_map(x="energy", y="pitch", absB=absB)`
+- `dataset.plasma.plot.phase_space(*, x, v, kind='scatter', species=None, color=None, weight=None, bins=64, log=False, ax=None, s=4, alpha=0.6, max_markers=20000, cmap=None, title=None, backend=None, **selection)`: Plot the markers in phase space, a position against a velocity.
+  - e.g. `markers.plasma.plot.phase_space(x="x", v="vx", species="species", t=-1)`
+  - e.g. `markers.plasma.plot.phase_space(x="x", v="vx", kind="histogram", log=True, t=0)`
+- `dataset.plasma.plot.variables(names=None, *, cols=None, x=None, y=None, logy=False, title=None, backend=None, **selection)`: Plot every variable of this Dataset in a grid of panels, as a profile or a slice each.
+  - e.g. `state.plasma.plot.variables(t=-1)`
+  - e.g. `state.plasma.plot.variables(["n", "T"], cols=1, t=0.5)`
+- `dataset.plasma.plot.breakdown(*, ax=None, sort=False, total=False, annotate=True, scale=1.0, color=None, title=None, xlabel=None, backend=None)`: Draw this Dataset's scalar variables as horizontal bars, e.g. the power per component.
+  - e.g. `deposited.plasma.plot.breakdown(sort=True, total=True)`
+- `dataset.plasma.plot.cross_sections(*, ax=None, reference=None, markers=True, logx=True, logy=True, title=None, xlabel=None, ylabel=None, backend=None)`: Plot this Dataset's cross sections over energy, one line per variable.
+  - e.g. `catalogue.plasma.plot.cross_sections()`
 
 ### dataset.plasma.analysis
 
@@ -409,6 +438,8 @@ The data behind each plot in DatasetPlots, without rendering it.
   - e.g. `edge.plasma.data.footprint()`
 - `dataset.plasma.data.loss_map(*, x='v_par', y=None, t=0, absB=None)`: Return the per-marker values DatasetPlots.loss_map would plot.
   - e.g. `orbits.plasma.data.loss_map(x="energy", y="pitch", absB=absB)`
+- `dataset.plasma.data.phase_space(*, x, v, weight=None, bins=64, limits=None, density=False, **selection)`: Return the 2-D histogram DatasetPlots.phase_space draws with kind="histogram".
+  - e.g. `f = markers.plasma.data.phase_space(x="x", v="vx", bins=(128, 64), t=-1)`
 
 ### out.plot (a Struphy Output)
 
@@ -473,6 +504,12 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
   - e.g. `previous = plasma_plots.set_backend("plotly")`
   - e.g. `phi.plasma.plot.slice(t=-1, eta3=0)  # a Plotly figure`
 - `plasma_plots.get_backend()`: Return the backend of plots that do not pass backend= themselves.
+- `plasma_plots.set_style(name='default', **overrides)`: Set the style of every later plot.
+  - e.g. `plasma_plots.set_style("colorblind")`
+  - e.g. `plasma_plots.set_style("paper", figure_figsize=(3.4, 3.0))`
+- `plasma_plots.style(name, **overrides)`: Draw with a style inside a with block.
+  - e.g. `with plasma_plots.style("dark"): energy.plasma.plot.timeseries().save("energy_dark.png")`
+- `plasma_plots.get_style()`: Return the name of the current style.
 - `plasma_plots.mpi_rank()`: Return this process' rank in MPI_COMM_WORLD, without initializing MPI.
   - e.g. `mpi_rank()  # in a serial run`
 - `plasma_plots.is_plotting_rank()`: Tell whether this process draws plots and writes their files.
@@ -483,8 +520,17 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.pyvista_plots.Scene.save_png(path)`: Write the screenshot to a PNG file.
 - `plasma_plots.plotting.PlotResult.save(path, *, close=False, frame=None, **kwargs)`: Save the figure to a file, as drawn.
 - `plasma_plots.plotting.PlotResult.show()`: Show the figure with matplotlib.pyplot.show, or a Plotly or TikZ figure with its show.
-- `plasma_plots.plotting.PlotResult.to_plotly(*, close=False)`: The same result with the figure converted to an interactive Plotly figure.
+- `plasma_plots.plotting.PlotResult.to_plotly(*, close=False, bare=False)`: The same result with the figure converted to an interactive Plotly figure.
   - e.g. `plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")`
+- `plasma_plots.plotting.PlotResult.to_json(*, bare=False)`: Return the figure as Plotly figure JSON, e.g. for a docs page's <PlotlyChart>.
+  - e.g. `Path("energy.json").write_text(energy.plasma.plot.timeseries().to_json())`
+- `plasma_plots.plotting.PlotResult.to_html(*, full_html=False, bare=False)`: Return the figure as interactive HTML, loading Plotly's JavaScript from its CDN.
+  - e.g. `html = phi.plasma.plot.slice(t=-1, eta3=0).to_html()`
+- `plasma_plots.plotly_backend.bare(figure)`: Strip a Plotly figure to its data, for a header picture or a front page.
+  - e.g. `result = phi.plasma.plot.animation(x="x", y="y", backend="plotly")`
+  - e.g. `bare(result.fig).write_json("docs/public/plotly/hero.json")`
+- `plasma_plots.hero.from_array(data, *, sweep='t', duration=8.0, max_frames=24, tone='accent', width=2.0, opacity=0.9, pad=0.08, tracer=False, picture=(1600, 600))`: Turn a profile that changes over a sweep (usually time) into an animated header picture.
+  - e.g. `from_array(phi.isel(y=0)).save("docs/src/assets/hero.svg")`
 - `plasma_plots.plotly_backend.to_plotly(figure, *, strict=False)`: Convert a drawn Matplotlib figure into an interactive Plotly figure.
   - e.g. `result = plot_slice(phi.isel(t=-1, eta3=0))`
   - e.g. `to_plotly(result.fig).write_html("phi.html")`
@@ -515,6 +561,9 @@ What the methods return, with their fields (`help()` on the class explains each)
 The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel(t=-1))`; each accessor method names its function first under See Also, and `help()` shows the parameters.
 
 - `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `energy_names`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`, `plot_critical_points`, `plot_weight_histogram`, `plot_marker_density`, `plot_lost_fraction`, `plot_loss_map`
+- `plasma_plots.charts`: `prepare_scan`, `plot_scan`, `prepare_breakdown`, `plot_breakdown`, `plot_twin`, `plot_stacked`, `plot_cross_sections`, `matrix_entries`, `plot_matrix`, `plot_child_langmuir`, `plot_variables`
+- `plasma_plots.phase_space`: `phase_space_histogram`, `plot_phase_space`
+- `plasma_plots.geometry`: `shapes`, `draw_geometry`
 - `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`, `plot_boozer_spectrum`
 - `plasma_plots.fieldline_plots`: `plot_poincare`, `plot_field_lines`, `plot_footprint`, `plot_connection_length`, `plot_along_field_lines`, `plot_surface_map`
 - `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
@@ -598,7 +647,7 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `lower_hybrid_frequency(density, field, mass_number=1, charge_number=1)`: Compute the lower hybrid frequency, 1/ω_LH² = 1/(Ω_i² + ω_pi²) + 1/(|Ω_e| Ω_i).
 - `upper_hybrid_frequency(density, field)`: Compute the upper hybrid frequency ω_UH = √(ω_pe² + Ω_e²).
 - `struphy_units(x=1.0, B=1.0, n=1.0, kBT=None, velocity_scale='light', mass_number=None, charge_number=None)`: Compute the units of Struphy's normalization from its base units.
-- `struphy_equation_parameters(units, charge_number=1, mass_number=1)`: Compute the equation parameters α, ε and κ of one Struphy species.
+- `struphy_equation_parameters(units, charge_number=1, mass_number=1)`: Compute the equation parameters α, ε, λ and κ of one Struphy species.
 
 ### plasma_plots.theory.orbits
 

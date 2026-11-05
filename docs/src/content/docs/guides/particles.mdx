@@ -275,6 +275,27 @@ markers.plasma.plot.scatter(
 
 </details>
 
+## Phase space of markers
+
+```python
+markers.plasma.plot.phase_space(x="x", v="vx", species="beam", t=-1)
+markers.plasma.plot.phase_space(
+    x="x", v="vx", kind="histogram", weight="w", bins=(64, 48), t=-1
+)
+```
+
+Draws one position against one velocity at a selected time. `species=` names a
+variable or coordinate along `marker` that tells the species apart, one color
+each; a dict of Datasets, e.g. `{"electrons": e, "ions": i}`, works the same
+with the plain function
+[`plot_phase_space`](/plasma-plots/api/plasma_plots/phase_space/).
+`color="energy"` colors the points by a variable instead. Large runs are
+thinned to `max_markers` points per species. `kind="histogram"` bins the
+markers, summing their `weight`, with `log=True` for a logarithmic color scale;
+`markers.plasma.data.phase_space(...)` returns that histogram as a DataArray.
+
+![Two counter-streaming beams in phase space, as points by beam and as a weighted histogram](../../../assets/figures/phase_space_markers.png)
+
 ## Markers over a field
 
 `scatter()` draws a field behind the markers, at the same time

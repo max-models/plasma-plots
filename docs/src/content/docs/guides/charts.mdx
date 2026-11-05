@@ -1,0 +1,197 @@
+---
+title: Charts and styles
+description: Parameter scans, breakdowns, twin and stacked profiles, cross sections, matrices, the Child–Langmuir law, Dataset overviews, and the named styles.
+---
+
+import PlotlyChart from '../../../components/PlotlyChart.astro';
+
+:::note[Where the accessors come from]
+For xarray data that doesn't come from a Struphy `Output`, run
+`import plasma_plots` first (see
+[Getting started](/plasma-plots/guides/getting-started/#loading-plasma-plots)).
+:::
+
+These plots are not tied to a simulation grid. They take 1-D arrays over a
+parameter or a category, Datasets of them, or plain dicts, and draw the charts
+that otherwise end up as raw Matplotlib in notebooks: scans, budgets, profiles
+with two axes, cross sections and system matrices. The functions behind them are
+in [`plasma_plots.charts`](/plasma-plots/api/plasma_plots/charts/).
+
+## Parameter scans
+
+```python
+# divergence over (voltage, seed): the mean and spread of the seeds
+divergence.plasma.plot.scan(
+    samples="seed",
+    band=True,
+    label="PIC, 5 seeds",
+    reference={"perveance match": lambda u: 6.0 + 0.35 * (u - 8.0) ** 2},
+)
+```
+
+`samples=` names a dimension of repeated runs. The plot shows their mean, with
+the standard deviation as error bars, or as a shaded band with `band=True`.
+Without repeated runs, pass the errors yourself: `error=` takes a symmetric
+error or a `(lower, upper)` pair. `reference=` adds expected curves, and
+`logx=`, `logy=` and `label=` work as for the other plots, so several scans
+share one axes with `ax=`.
+
+![Beamlet divergence over the extraction voltage, five seeds as a band, against a perveance-match curve](../../../assets/figures/charts_scan.png)
+
+`divergence.plasma.data.scan(samples="seed")` returns the values and errors as a
+Dataset.
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+```python
+divergence.plasma.plot.scan(samples="seed", backend="plotly")
+```
+
+<PlotlyChart src="/plotly/plotly_scan.json" />
+
+</details>
+
+## Breakdowns
+
+```python
+power.plasma.plot.breakdown(
+    sort=True, total=True, scale=1e-6, xlabel="deposited power (MW)"
+)
+```
+
+Horizontal bars of the parts of a total, e.g. the power deposited on each
+component of a beamline. The array runs over a category dimension, whose
+coordinate names the bars. A Dataset of scalar variables works too
+(`deposited.plasma.plot.breakdown()`), and so does a plain dict with
+`plasma_plots.charts.plot_breakdown({"duct": 0.2, "dump": 3.6})`. Each bar is
+annotated with its value and its share; `sort=True` puts the largest on top and
+`total=True` adds the sum.
+
+![The power deposited along a beamline, per component, with the total](../../../assets/figures/charts_breakdown.png)
+
+## Two value axes and stacked panels
+
+```python
+n.plasma.plot.twin(T_e, logy=(True, False))
+```
+
+Two profiles over the same coordinate, one value axis each, colored to match
+their lines.
+
+![Density on a log axis and temperature on a linear axis over the radius](../../../assets/figures/charts_twin.png)
+
+For more profiles, stack them in panels over a shared axis. A dict or list in a
+row draws several profiles together:
+
+```python
+n.plasma.plot.stacked({"$T_e$": T_e, "$T_i$": T_i}, phi, t=-1)
+```
+
+![Density, the two temperatures and the potential in three stacked panels](../../../assets/figures/charts_stacked.png)
+
+## Every variable of a Dataset
+
+```python
+state.plasma.plot.variables(t=-1)
+```
+
+One panel per variable, in a grid: a profile for a variable with one dimension
+left after the selection, a slice for one with two. `names=` picks and orders
+the variables, `cols=` sets the columns.
+
+![A Dataset with two profiles and one 2-D field drawn in one grid](../../../assets/figures/variables.png)
+
+## Cross sections
+
+```python
+catalogue.plasma.plot.cross_sections(
+    reference={
+        "detachment fit": theory.negative_ions.electron_detachment_cross_section,
+        "neutralization fit": theory.negative_ions.mutual_neutralization_cross_section,
+    }
+)
+```
+
+Tabulated cross sections, or rate coefficients, over energy on log-log axes:
+one line per Dataset variable, per entry of a process dimension, or per dict
+entry. Non-positive values are left out on a log axis. `reference=` draws fits
+or theory over the tabulated range.
+
+![Tabulated detachment and neutralization cross sections against their analytic fits](../../../assets/figures/charts_cross_sections.png)
+
+## Matrices
+
+```python
+from plasma_plots.charts import plot_matrix
+
+plot_matrix(A, rank_boundaries=[16, 32, 48])
+```
+
+The non-zero pattern of a matrix, colored by sign, or with `kind="values"` its
+entries on a symmetric color scale. It takes a dense array, a SciPy sparse
+matrix, `(rows, cols, values)`, or the dict picnic writes for a PETSc matrix
+(`row_indices`, `col_indices`, `values`). `rank_boundaries=` marks where each
+MPI rank's rows begin. A 2-D DataArray has `array.plasma.plot.matrix()`.
+
+![The 5-point Laplacian on an 8 by 8 grid, split over four ranks](../../../assets/figures/charts_matrix.png)
+
+## The Child–Langmuir law
+
+```python
+J.plasma.plot.child_langmuir(gap=0.01, mass=proton_mass)
+```
+
+A current density over voltage, with `gap=`, or over the gap width, with
+`voltage=`, against the space-charge limit of a planar diode, in SI units (see
+[`child_langmuir`](/plasma-plots/api/plasma_plots/theory/sheaths/)). Further
+arrays, e.g. from other codes, are compared in the same figure. The lower panel
+shows the relative difference.
+
+![A PIC current density over voltage against the Child–Langmuir law, with the relative error](../../../assets/figures/charts_child_langmuir.png)
+
+## Styles
+
+```python
+plasma_plots.set_style("colorblind")
+with plasma_plots.style("dark"):
+    energy.plasma.plot.timeseries().save("energy_dark.png")
+```
+
+Every Matplotlib plot draws with the current style. `set_style` changes it for
+every later plot, `style` for a `with` block, where it also applies to plain
+Matplotlib figures. Keyword overrides change single `rcParams`, with
+underscores for dots: `set_style("paper", figure_dpi=300)`.
+
+| Style | For |
+| --- | --- |
+| `"default"` | the usual look |
+| `"colorblind"` | the default with the Okabe–Ito colors, which colour-blind readers tell apart |
+| `"paper"` | small figures with small text for a journal column, same colors |
+| `"dark"` | slides and dark pages |
+| `"bare"` | header pictures: no axes, labels or titles, transparent, the accent color first |
+
+![The same plot in the colorblind style](../../../assets/figures/style_colorblind.png)
+
+![The same plot in the dark style](../../../assets/figures/style_dark.png)
+
+### Front pages and embedding
+
+For a docs front page, three exports strip a plot to its data:
+
+```python
+from plasma_plots.hero import from_array
+
+# an animated SVG header picture of a profile that changes over t
+from_array(phi.isel(y=0), tracer=True).save("docs/src/assets/hero.svg")
+# Plotly JSON or an HTML <div>, without axes, background or controls
+result = phi.plasma.plot.animation(x="x", y="y", eta3=0, backend="plotly")
+Path("hero.json").write_text(result.to_json(bare=True))
+html = energy.plasma.plot.timeseries().to_html()
+```
+
+`to_json()` and `to_html()` convert a Matplotlib result to Plotly first.
+[`plotly_backend.bare`](/plasma-plots/api/plasma_plots/plotly_backend/) does the
+same stripping to any Plotly figure.
+
+![An animated header picture: a wave packet travelling to the right](../../../assets/figures/hero_from_array.svg)

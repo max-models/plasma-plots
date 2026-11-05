@@ -27,6 +27,19 @@ remaining 1-D profile.
 
 ![Lineout of a scalar field along one axis](../../../assets/figures/lineout.png)
 
+A lineout draws into an existing axes with `ax=`. Give each one a `label=`, and
+the axes get a legend of every labeled line, so several runs or species are told
+apart without touching Matplotlib:
+
+```python
+with plasma_plots.figure() as fig:
+    n_e.plasma.plot.lineout(t=-1, label="electrons", ax=fig[0])
+    n_i.plasma.plot.lineout(t=-1, label="ions", ax=fig[0], color="k")
+```
+
+`step="mid"` (or `"pre"`, `"post"`) draws a binned profile or a histogram as
+steps, and `logx=True`, `logy=True` switch the axes to a logarithmic scale.
+
 Several profiles in one axes, e.g. at a few times, against the minor radius:
 
 ```python
@@ -289,6 +302,41 @@ phi.plasma.plot.slice(
 ```
 
 ![A wave packet on a space-time map with its group-velocity line](../../../assets/figures/overlay_spacetime.png)
+
+### Electrodes, walls and contour labels
+
+`overlays={"geometry": ...}` draws shapes on top of the field: electrodes,
+walls, apertures. A shape is an outline (a `(2, N)` or `(N, 2)` array, or an
+`(x, y)` pair), an object with an `outlines()` method or a shapely `exterior`, a
+dict such as `{"rectangle": (x0, y0, width, height)}` or
+`{"circle": (x, y, radius)}`, or a Matplotlib patch.
+`"contour_labels": True` writes the values on the contour lines of `levels=`
+and of `"contours_of"`. The field may have any two dimensions, here plain `x`
+and `y` in mm:
+
+```python
+electrodes = [
+    {"rectangle": (2.5, 1.5, 1.0, 2.5)},
+    {"rectangle": (2.5, -4.0, 1.0, 2.5)},
+    {"rectangle": (6.5, 1.0, 1.0, 3.0)},
+    {"rectangle": (6.5, -4.0, 1.0, 3.0)},
+]
+phi.plasma.plot.slice(
+    x="x",
+    y="y",
+    levels=8,
+    symmetric=True,
+    cmap="RdBu_r",
+    overlays={"geometry": electrodes, "contour_labels": True},
+)
+```
+
+![A potential with four electrodes drawn on top and labeled contour lines](../../../assets/figures/slice_geometry.png)
+
+The shapes do not widen the axes. `"geometry_color"` sets their fill. To draw the
+same shapes into an axes of your own, use
+[`draw_geometry`](/plasma-plots/api/plasma_plots/geometry/), which also scales
+them, e.g. `scale=1e3` for shapes in m over a plot in mm.
 
 ### Several fields side by side
 

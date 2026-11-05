@@ -1776,6 +1776,49 @@ class _FigureConverter:
 # ---------------------------------------------------------------------------------------------
 # Converting one figure
 # ---------------------------------------------------------------------------------------------
+def bare(figure):
+    """Strip a Plotly figure to its data, for a header picture or a front page.
+
+    The axes, ticks, grid, titles, legend, color bars, sliders and buttons go, the background
+    becomes transparent and the margins zero: the counterpart of the ``"bare"`` Matplotlib style
+    (see :mod:`plasma_plots.styles`). An animation keeps its frames.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure; changed in place.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The same figure.
+
+    Examples
+    --------
+    >>> result = phi.plasma.plot.animation(x="x", y="y", backend="plotly")
+    >>> bare(result.fig).write_json("docs/public/plotly/hero.json")
+    """
+    hidden = dict(visible=False, showgrid=False, zeroline=False)
+    figure.update_layout(
+        title=None,
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, t=0, b=0),
+        sliders=[],
+        updatemenus=[],
+        annotations=[],
+    )
+    figure.update_xaxes(**hidden)
+    figure.update_yaxes(**hidden)
+    for trace in figure.data:
+        if "showscale" in trace:
+            trace.showscale = False
+    figure.update_coloraxes(showscale=False)
+    figure.update_scenes(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False)
+    return figure
+
+
 def to_plotly(figure, *, strict: bool = False):
     """Convert a drawn Matplotlib figure into an interactive Plotly figure.
 
