@@ -669,13 +669,18 @@ def _simplified(loop, tolerance):
     return np.ascontiguousarray(points[keep].T)
 
 
+ROUND = ("circle", "sphere")
+
+
 def _plane_objects(objects, axis, value, *, resolution):
-    """``{name: (loops, box, inverted)}`` of every object the plane cuts, in plane coordinates."""
+    """``{name: (loops, box, inverted, round)}`` of every object the plane cuts, in plane
+    coordinates; ``round`` for a circle or a sphere, whose measure is a diameter."""
     import warnings
 
     drawn = {}
     for name, shape in objects.items():
         inverted = bool(getattr(shape, "inverted", False))
+        is_round = getattr(shape, "kind", type(shape).__name__).lower() in ROUND
         if axis is None:  # 2-D: the exact outlines and bounds
             if not hasattr(shape, "outlines"):
                 warnings.warn(
@@ -710,7 +715,7 @@ def _plane_objects(objects, axis, value, *, resolution):
             spacing = 1.1 * extent / resolution
             box = _refine_box(section, loops, spacing)
             loops = [_simplified(loop, 0.25 * float(spacing.min())) for loop in loops]
-        drawn[name] = (loops, [float(v) for v in box], inverted)
+        drawn[name] = (loops, [float(v) for v in box], inverted, is_round)
     return drawn
 
 
@@ -746,12 +751,15 @@ def _neighbour(chain, index, side):
     return chain[k][2] if 0 <= k < len(chain) else None
 
 
-def _draw_chain(ax, chain, axis, position, boxes, lower, *, label_width, text, **style):
+def _draw_chain(
+    ax, chain, axis, position, boxes, lower, *, label_width, text, prefixes, **style
+):
     """Draw one row of measurements along ``axis``, at ``position`` across the other axis.
 
     ``position`` lies outside the domain, below it (axis 0) or to its left (axis 1): the labels
     go on the far side, except that a label wider than its segment goes on the near side (and
     the next such label on the far side again) so that neighbouring labels do not overlap.
+    ``prefixes`` go before the labels of the objects they name (the diameter sign).
     """
     other = 1 - axis
     outside = -1 if axis == 0 else 1  # the label's side: right of +x, left of +y
@@ -768,7 +776,7 @@ def _draw_chain(ax, chain, axis, position, boxes, lower, *, label_width, text, *
             # the extension line starts at the domain's corner or the object's nearest side
             anchor[other] = lower[other] if owner is None else boxes[owner][2 * other]
             anchors.append(anchor)
-        label = text(end - start)
+        label = prefixes.get(name, "") + text(end - start)
         # a label wider than its segment goes inside, the next one outside again
         short = (end - start) < label_width * len(label)
         side = -outside if short and not alternate else outside
@@ -816,7 +824,8 @@ def plot_domain(
     lines with arrows, found from the geometry itself: the extent of the domain along each axis,
     and for the objects a chain along each axis of their sizes and the gaps between them and to
     the boundary (objects that overlap along an axis get rows of their own). The values are in
-    the plotted units, so ``scale=1e3, unit="mm"`` labels a domain built in metres in mm.
+    the plotted units, so ``scale=1e3, unit="mm"`` labels a domain built in metres in mm; the
+    size of a circle or a sphere is its diameter, marked ``⌀``.
 
     Parameters
     ----------
@@ -914,7 +923,7 @@ def plot_domain(
     upper = tuple(float(bounds[1][i]) * scale for i in plane)
     extent = (upper[0] - lower[0], upper[1] - lower[1])
     axis_names = tuple(AXES[i] for i in plane)
-    boxes = {name: [v * scale for v in box] for name, (_, box, _) in drawn.items()}
+    boxes = {name: [v * scale for v in box] for name, (_, box, _, _) in drawn.items()}
 
     own_figure = ax is None
     if own_figure:
@@ -932,7 +941,7 @@ def plot_domain(
             else [c["color"] for c in rcParams["axes.prop_cycle"]]
         )
         fills = {name: cycle[i % len(cycle)] for i, name in enumerate(drawn)}
-    for name, (loops, _, inverted) in drawn.items():
+    for name, (loops, _, inverted, _) in drawn.items():
         style = styles.get(name, {})
         color = style.get("color", style.get("facecolor", fills.get(name, "0.6")))
         label = name
@@ -988,6 +997,9 @@ def plot_domain(
             "fontsize": fontsize,
             "label_width": 0.5 * fontsize * max(per_point),
             "text": lambda length: _format(length, 1.0, unit, fmt),
+            "prefixes": {
+                name: "⌀ " for name, (*_, is_round) in drawn.items() if is_round
+            },
         }
         for k, name in enumerate(("x", "y")):
             other = 1 - k
