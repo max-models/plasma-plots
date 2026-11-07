@@ -71,6 +71,11 @@ optional-dependencies.scene = [
 optional-dependencies.tikz = [
   "maxplotlibx>=0.2",
 ]
+# web figures (`save("x.plotly.json")`) for the max-models docs sites, written by maxplotlib.web
+optional-dependencies.web = [
+  "maxplotlibx>=0.2",
+  "plotly",
+]
 urls.Documentation = "https://max-models.github.io/plasma-plots"
 urls.Homepage = "https://github.com/max-models/plasma-plots"
 urls.Issues = "https://github.com/max-models/plasma-plots/issues"

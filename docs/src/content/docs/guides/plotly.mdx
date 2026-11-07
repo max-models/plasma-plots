@@ -42,8 +42,17 @@ result.fig  # a plotly.graph_objects.Figure
 result.fig.update_layout(height=600)
 result.save("energy.html")  # a standalone page
 result.save("energy.png")  # through kaleido; also .svg, .pdf
-result.save("energy.json")  # the figure JSON, e.g. for a website
+result.save("energy.json")  # the figure JSON as it is
+# a web figure for a page of a max-models docs site (needs plasma-plots[web])
+result.save("energy.plotly.json", alt="Field energy over time")
 ```
+
+A `.plotly.json` is a web figure: Plotly JSON without plotly.js and without a look of its own
+(no template, no fixed size, transparent backgrounds), with hints for the page such as a text
+alternative. The `PlotlyFigure` component of the max-models docs theme embeds it in the site's
+light or dark colours, its default-coloured traces in the site's data palette, and loads
+plotly.js only when the figure scrolls into view. A Matplotlib result is converted first;
+`result.to_json(web=True)` returns the same text.
 
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
 that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`
@@ -86,7 +95,8 @@ with an HTML copy that loads plotly.js from its CDN). Docs sites built with the 
 starlight theme turn that output into an interactive chart in the site's light/dark theme, so
 `set_backend("plotly")` in the first cell of a docs notebook makes all its figures interactive.
 `plasma_plots.plotly_backend.display_bundle(fig, title=...)` returns the same output for any
-Plotly figure, with a caption.
+Plotly figure, with a caption. With maxplotlib installed the output carries the palette
+positions and hints of a web figure, so the site draws it as it draws a saved `.plotly.json`.
 
 ## Animations and viewers
 
