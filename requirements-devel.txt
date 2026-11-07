@@ -2,8 +2,8 @@
 # them over plasma-plots' dependencies on every run that does not target main (after the
 # project, because struphy caps scope-profiler); main and the release use PyPI only.
 #   pip install -r requirements-devel.txt
-# simgeometry (the geometry extra) is not here: the docs image's struphy 3.4 pins cunumpy 0.2,
-# which simgeometry cannot use; the test workflow installs its devel branch on its own.
+# simgeometry (the geometry extra) is not here: its devel branch needs a newer cunumpy than
+# struphy allows, so CI tests against the released simgeometry (the 3-D slicing tests skip).
 maxplotlibx @ git+https://github.com/max-models/maxplotlib@devel
 scope-profiler @ git+https://github.com/max-models/scope-profiler@devel
 tikzfigure @ git+https://github.com/max-models/tikzfigure@devel

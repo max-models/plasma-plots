@@ -395,13 +395,14 @@ def test_other_mpi_ranks_skip_the_drawing(monkeypatch, electrodes):
 
 
 def test_a_simgeometry_domain_in_3d():
-    simgeometry = pytest.importorskip("simgeometry")
     pytest.importorskip("skimage")
+    # an installed simgeometry may not fit the installed cunumpy (struphy pins it)
+    operations = pytest.importorskip("simgeometry.operations")
     from simgeometry.collection import GeometryCollection
     from simgeometry.objects import Cuboid, Sphere
     from simgeometry.simulation_domain import SimulationDomain
 
-    if not hasattr(simgeometry.operations.Section, "outlines"):
+    if not hasattr(operations.Section, "outlines"):
         pytest.skip("simgeometry without Section.outlines")
     plate = Cuboid((0.030, 0.0, 0.0), (0.004, 0.040, 0.040))
     ball = Sphere((0.040, 0.010, 0.002), 0.004)
@@ -433,7 +434,7 @@ def test_a_simgeometry_domain_in_3d():
 
 
 def test_a_simgeometry_domain_in_2d():
-    pytest.importorskip("simgeometry")
+    pytest.importorskip("simgeometry.collection")
     from simgeometry.collection import GeometryCollection
     from simgeometry.objects import Circle, Rectangle
 

@@ -66,7 +66,6 @@ jobs:
         run: |
           pip uninstall -y -r requirements-devel.txt
           pip install -r requirements-devel.txt
-          pip install "simgeometry[plot] @ git+https://github.com/max-models/simgeometry@devel"
 
       # plasma_plots.scene exports with trame-pyvista (the scene extra). struphy pins an older
       # trame-vtk than VTK 9.7 needs, so install it separately, as the docs workflow does.
