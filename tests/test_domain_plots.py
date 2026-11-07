@@ -372,6 +372,9 @@ def test_the_modules_own_shapes_draw_without_simgeometry():
     result = plot_domain(shapes, unit="mm")
     objects = result.data["objects"]
     assert list(objects) == ["anode", "circle 1", "polygon 1", "polygon 2"]
+    labels = [a.get_text() for a in result.artists if isinstance(a, Annotation)]
+    assert "⌀ 1.6 mm" in labels and labels.count("⌀ 1.6 mm") == 2  # a diameter, twice
+    assert "1 mm" in labels  # the anode's width, no sign
     assert objects["circle 1"]["x"] == pytest.approx((0.7, 2.3))
     assert objects["polygon 1"] == {"x": (0.0, 1.0), "y": (-4.0, -3.0)}
     assert result.data["extent"] == pytest.approx((7.0, 7.0))
@@ -448,14 +451,21 @@ def test_a_simgeometry_domain_in_2d():
     result = plot_domain(collection)
     assert result.data["objects"]["cathode"]["x"] == pytest.approx((0.7, 2.3))
     assert result.data["chains"]["y"]["rows"][0][1][2] == "anode"
+    labels = [a.get_text() for a in result.artists if isinstance(a, Annotation)]
+    assert labels.count("⌀ 1.6") == 2  # the circle's diameter along x and y
 
 
 def test_the_drawing_converts_to_tikz(electrodes):
     pytest.importorskip("maxplotlib.backends.tikzfigure")
     from tikzfigure import TikzFigure
 
-    result = plot_domain(electrodes, backend="tikz", unit="mm")
+    result = plot_domain(
+        {**electrodes, "hole": {"circle": (3.5, 0.0, 0.5)}}, backend="tikz", unit="mm"
+    )
     assert isinstance(result.fig, TikzFigure) and result.ax is None
+    code = result.fig.generate_tikz()
+    assert "1 mm" in code and ("⌀ 1 mm" in code or "$\\varnothing$ 1 mm" in code)
+    result = plot_domain(electrodes, backend="tikz", unit="mm")
     assert result.data["extent"] == (5.0, 6.0)
     code = result.fig.generate_tikz()
     assert "hide axis" in code
