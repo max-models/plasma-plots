@@ -367,7 +367,8 @@ result.data["objects"]["cathode"]["x"]  # (0.7, 2.3)
 
 The shapes of the overlay above draw the same way without simgeometry:
 `plasma_plots.plot_domain(electrodes, unit="mm")` with the list of dicts, named by a `"label"`
-key. A circle or a sphere is measured by its diameter, marked `⌀`.
+key. A circle or a sphere is measured by its diameter, marked `⌀` (in TikZ, `$\varnothing$` with
+maxplotlib 0.2.1 or newer).
 `scale=1e3, unit="mm"` labels a domain built in metres in mm, `dimensions="extents"` keeps only
 the extent of the domain, `grid=True` adds the grid lines, `ax=` draws over a field drawn with
 `plot.slice` (its limits are widened for the measurements), and `backend="tikz"` makes it TikZ

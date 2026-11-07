@@ -2848,10 +2848,11 @@ try:
         )
     except (ImportError, TypeError) as exc:
         print(f"tikz_domain.png shows a 2-D domain of plain shapes: {exc}")
+        # no circle: its diameter sign needs maxplotlib's mapping of U+2300 in LaTeX
         source_tikz = plasma_plots.plot_domain(
             [
                 {"rectangle": (4.5, -3.0, 1.0, 6.0), "label": "anode"},
-                {"circle": (1.5, 0.0, 0.8), "label": "cathode"},
+                {"rectangle": (1.0, -1.0, 1.0, 2.0), "label": "cathode"},
             ],
             unit="mm",
             colors=["0.45", "C1"],
