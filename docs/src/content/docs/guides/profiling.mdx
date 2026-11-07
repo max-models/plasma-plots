@@ -3,7 +3,7 @@ title: Profiling
 description: Gantt charts, flame charts, and call graphs of a run's timing regions.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -46,7 +46,7 @@ the time go":
 out.plot.profile.gantt(backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_profile_gantt.json" />
+<PlotlyFigure src="/plotly/plotly_profile_gantt.plotly.json" />
 
 </details>
 

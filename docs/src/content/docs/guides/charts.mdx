@@ -3,7 +3,7 @@ title: Charts and styles
 description: Parameter scans, breakdowns, twin and stacked profiles, cross sections, matrices, the Child–Langmuir law, Dataset overviews, and the named styles.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 For xarray data that doesn't come from a Struphy `Output`, run
@@ -48,7 +48,7 @@ Dataset.
 divergence.plasma.plot.scan(samples="seed", backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_scan.json" />
+<PlotlyFigure src="/plotly/plotly_scan.plotly.json" />
 
 </details>
 

@@ -3,7 +3,7 @@ title: Time series & comparisons
 description: Growth-rate fits and comparing scalars between runs.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -36,7 +36,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_timeseries.json" />
+<PlotlyFigure src="/plotly/plotly_timeseries.plotly.json" />
 
 </details>
 
@@ -91,7 +91,7 @@ with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig:
 fig.save("energies.html")
 ```
 
-<PlotlyChart src="/plotly/plotly_composed_energies.json" height="560px" />
+<PlotlyFigure src="/plotly/plotly_composed_energies.plotly.json" />
 
 </details>
 
@@ -172,6 +172,6 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 field.plasma.plot.compare(reference_field, mode="ratio", backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_compare.json" />
+<PlotlyFigure src="/plotly/plotly_compare.plotly.json" />
 
 </details>

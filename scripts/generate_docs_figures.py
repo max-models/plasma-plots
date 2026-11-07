@@ -48,7 +48,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # GIFs to a single static frame. Files under public/ are served as-is.
 PUBLIC_OUT = DOCS / "public" / "figures"
 PUBLIC_OUT.mkdir(parents=True, exist_ok=True)
-# Plotly figure JSON, fetched client-side by <PlotlyChart>; also served as-is from public/.
+# Web figures (<name>.plotly.json) for the theme's <PlotlyFigure>, served as-is from public/.
 PLOTLY_OUT = DOCS / "public" / "plotly"
 PLOTLY_OUT.mkdir(parents=True, exist_ok=True)
 # Standalone interactive PyVista scenes (vtk.js inlined), loaded in an iframe by <PyVistaScene>.
@@ -539,19 +539,19 @@ save(
 
 # =============================================================================
 # A Plotly figure built by hand from .plasma.data (the Selecting data guide; needs
-# `pip install plotly`): figure JSON for the docs' <PlotlyChart> component
-# (docs/src/components/PlotlyChart.astro), which loads Plotly.js from a CDN. The
+# `pip install plotly`): figure JSON for the docs' <PlotlyFigure> component
+# of the starlight theme, which loads plotly.js when the figure scrolls into view. The
 # backend="plotly" versions of the plots are written at the end of this script.
 # =============================================================================
 try:
     import plotly.express as px
 
     def save_plotly(fig, filename, *, width=560, height=440):
-        # Only the JSON is used (fetched client-side by <PlotlyChart>, which sets its own
-        # size); width/height here are just so the figure looks reasonable if opened directly.
+        # a web figure for the theme's <PlotlyFigure>; width/height give its aspect ratio
         fig.update_layout(width=width, height=height)
-        fig.write_json(PLOTLY_OUT / f"{filename}.json")
-        print(f"wrote {PLOTLY_OUT / f'{filename}.json'}")
+        print(
+            f"wrote {PlotResult(fig).save(PLOTLY_OUT / f'{filename}.plotly.json')}"
+        )
 
     selected = field.plasma.data.slice(x="eta1", y="eta2", t=-1)
     fig = px.imshow(
@@ -2558,8 +2558,9 @@ try:
         import plotly  # noqa: F401
 
         fig = profile_plots.gantt(backend="plotly")
-        fig.write_json(PLOTLY_OUT / "plotly_profile_gantt.json")
-        print(f"wrote {PLOTLY_OUT / 'plotly_profile_gantt.json'}")
+        print(
+            f"wrote {PlotResult(fig).save(PLOTLY_OUT / 'plotly_profile_gantt.plotly.json')}"
+        )
     except ImportError:
         print("skipped plotly_profile_gantt.json (plotly unavailable)")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
@@ -2569,14 +2570,14 @@ plt.rcParams.update(_rc_before_profiling)
 
 # =============================================================================
 # backend="plotly": the same plots as interactive Plotly figures (needs `pip install plotly`),
-# as figure JSON for the docs' <PlotlyChart> component. The folds "The same plot with Plotly"
+# as web figures (<name>.plotly.json) for the theme's <PlotlyFigure> component. The folds "The same plot with Plotly"
 # in the guides show these, with the same arguments as the Matplotlib figures above.
 # =============================================================================
 try:
     import plotly  # noqa: F401
 
     def save_plotly(result, filename):
-        path = result.save(PLOTLY_OUT / f"{filename}.json")
+        path = result.save(PLOTLY_OUT / f"{filename}.plotly.json")
         print(f"wrote {path}")
 
     save_plotly(
@@ -3095,7 +3096,7 @@ try:
     import plotly  # noqa: F401
 
     print(
-        f"wrote {lines_fl.plasma.plot.poincare(backend='plotly').save(PLOTLY_OUT / 'plotly_poincare.json')}"
+        f"wrote {lines_fl.plasma.plot.poincare(backend='plotly').save(PLOTLY_OUT / 'plotly_poincare.plotly.json')}"
     )
 except ImportError:
     print("skipped plotly_poincare.json (plotly unavailable)")
@@ -3144,9 +3145,9 @@ try:
     import plotly  # noqa: F401
 
     divergence_ch.plasma.plot.scan(samples="seed").to_plotly().save(
-        PLOTLY_OUT / "plotly_scan.json"
+        PLOTLY_OUT / "plotly_scan.plotly.json"
     )
-    print(f"wrote {PLOTLY_OUT / 'plotly_scan.json'}")
+    print(f"wrote {PLOTLY_OUT / 'plotly_scan.plotly.json'}")
 except ImportError:
     print("skipped plotly_scan.json (plotly unavailable)")
 

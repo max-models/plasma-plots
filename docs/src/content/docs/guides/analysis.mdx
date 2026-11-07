@@ -3,7 +3,7 @@ title: Diagnostics
 description: Growth/damping rates, envelopes, norms, drift, and error.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -351,7 +351,7 @@ field.plasma.plot.dispersion(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_dispersion.json" />
+<PlotlyFigure src="/plotly/plotly_dispersion.plotly.json" />
 
 </details>
 
@@ -425,6 +425,6 @@ spectrum.plasma.plot.dispersion(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_dispersion_fits.json" />
+<PlotlyFigure src="/plotly/plotly_dispersion_fits.plotly.json" />
 
 </details>
