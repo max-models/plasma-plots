@@ -13,6 +13,7 @@ two to draw and whether in logical or physical coordinates. The slice functions
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -231,8 +232,11 @@ class PlotResult:
         path : str or pathlib.Path
             The file to write; its extension picks the format. A Plotly figure is written as a
             standalone page (``.html``, loading Plotly's JavaScript from its CDN, responsive, an
-            animation not playing until asked), as figure JSON (``.json``), or as an image through
-            kaleido (``.png``, ``.svg``, ``.pdf``, ...). A TikZ figure is written as its
+            animation not playing until asked), as a web figure for a docs page (``.plotly.json``,
+            see :func:`~plasma_plots.plotly_backend.web_figure`; needs maxplotlib; a Matplotlib
+            figure is converted to Plotly first), as plain
+            figure JSON (other ``.json``), or as an image through kaleido (``.png``, ``.svg``,
+            ``.pdf``, ...). A TikZ figure is written as its
             ``tikzpicture`` (``.tikz``, to ``\\input`` in a document loading ``pgfplots``) or as
             a standalone document (``.tex``), with the images it refers to next to the file, or
             compiled with ``pdflatex`` (``.pdf``, ``.png``).
@@ -244,8 +248,9 @@ class PlotResult:
             and the JSON keep the whole animation. Default: the first frame.
         **kwargs
             Passed to ``matplotlib.figure.Figure.savefig`` (e.g. ``dpi``;
-            ``bbox_inches="tight"`` unless given), or to Plotly's ``write_html``, ``write_json``
-            or ``write_image`` (e.g. ``width``, ``height``, ``scale``; ``dpi`` sets the
+            ``bbox_inches="tight"`` unless given), to ``maxplotlib.web.write_web_figure`` for a
+            ``.plotly.json`` (``title``, ``alt``, ``aspect``, ``white_plot``), or to Plotly's
+            ``write_html``, ``write_json`` or ``write_image`` (e.g. ``width``, ``height``, ``scale``; ``dpi`` sets the
             ``scale``, 100 dpi per unit), or to ``tikzfigure.TikzFigure.savefig`` (e.g. ``dpi``
             of a ``.png``).
 
@@ -277,6 +282,12 @@ class PlotResult:
                     **kwargs,
                 }
                 self.fig.write_html(path, **kwargs)
+            elif str(path).lower().endswith(".plotly.json"):
+                from .plotly_backend import web_figure
+
+                web = web_figure(self.fig, **kwargs)  # ImportError before any file
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+                Path(path).write_text(json.dumps(web, separators=(",", ":")))
             elif suffix == ".json":
                 self.fig.write_json(path, **kwargs)
             else:
@@ -287,6 +298,13 @@ class PlotResult:
                     path, **kwargs
                 )
             return str(path)
+        if (
+            str(path).lower().endswith(".plotly.json")
+        ):  # a web figure is a Plotly figure
+            written = self.to_plotly().save(path, **kwargs)
+            if close:
+                plt.close(self.fig)
+            return written
         kwargs.setdefault("bbox_inches", "tight")
         self.fig.savefig(path, **kwargs)
         if close:
@@ -365,8 +383,8 @@ class PlotResult:
             plt.close(self.fig)
         return result
 
-    def to_json(self, *, bare: bool = False) -> str:
-        """Return the figure as Plotly figure JSON, e.g. for a docs page's ``<PlotlyChart>``.
+    def to_json(self, *, bare: bool = False, web: bool = False, **hints) -> str:
+        """Return the figure as Plotly figure JSON, e.g. for a docs page.
 
         A Matplotlib figure is converted first (see :meth:`to_plotly`); it stays open.
 
@@ -375,6 +393,13 @@ class PlotResult:
         bare : bool, optional
             Strip the figure to its data, for a header picture (see
             :func:`plasma_plots.plotly_backend.bare`). Default: ``False``.
+        web : bool, optional
+            Return a web figure, which the docs theme's ``PlotlyFigure`` embeds in the site's
+            colours (see :func:`plasma_plots.plotly_backend.web_figure`; needs maxplotlib), as
+            ``save("x.plotly.json")`` writes it. Default: ``False``, the plain figure JSON.
+        **hints
+            With ``web=True``: ``title``, ``alt``, ``aspect`` and ``white_plot`` of the web
+            figure.
 
         Returns
         -------
@@ -389,8 +414,16 @@ class PlotResult:
         Examples
         --------
         >>> Path("energy.json").write_text(energy.plasma.plot.timeseries().to_json())
+        >>> text = result.to_json(web=True, alt="Field energy over time")
         """
-        return self.to_plotly(bare=bare).fig.to_json()
+        figure = self.to_plotly(bare=bare).fig
+        if web:
+            from .plotly_backend import web_figure
+
+            return json.dumps(web_figure(figure, **hints), separators=(",", ":"))
+        if hints:
+            raise TypeError(f"{', '.join(hints)}: hints of a web figure need web=True")
+        return figure.to_json()
 
     def to_html(self, *, full_html: bool = False, bare: bool = False) -> str:
         """Return the figure as interactive HTML, loading Plotly's JavaScript from its CDN.
