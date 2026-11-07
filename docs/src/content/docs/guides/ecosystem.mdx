@@ -66,7 +66,10 @@ J.plasma.plot.child_langmuir(gap=d, mass=proton_mass)
 For the outlines in another unit than the plot, draw them yourself with
 `draw_geometry(ax, geometry, scale=1e3)` from
 [`plasma_plots.geometry`](/plasma-plots/api/plasma_plots/geometry/). Walls and
-ducts are shape dicts: `{"rectangle": (0.0, y0, length, wall)}`.
+ducts are shape dicts: `{"rectangle": (0.0, y0, length, wall)}`. The geometry itself, as a
+technical drawing with every distance measured, is
+`plasma_plots.plot_domain(geometry, z=0.0, scale=1e3, unit="mm", backend="tikz")` (see
+[Field plots](/plasma-plots/guides/field-plots/#domains-with-their-dimensions)).
 
 ## freeofcharge
 

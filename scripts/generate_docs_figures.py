@@ -2820,6 +2820,47 @@ try:
             logy=False, ax=composed_tikz[1]
         )
     save_tikz(composed_tikz, "tikz_composed_energies.png")
+
+    # a sliced 3-D domain with its dimensions (needs simgeometry's devel branch for the
+    # sections' outlines); a 2-D domain when that is missing
+    from simgeometry.collection import GeometryCollection
+    from simgeometry.objects import Circle, Cuboid, Cylinder, Rectangle, Sphere
+
+    try:
+        source_tikz = plasma_plots.plot_domain(
+            GeometryCollection(
+                {
+                    "plasma grid": Cuboid(
+                        (0.030, 0.0, 0.0), (0.004, 0.040, 0.040)
+                    ),
+                    "pipe": Cylinder(
+                        (0.006, 0.0, 0.0), (0.014, 0.0, 0.0), 0.006
+                    ),
+                    "probe": Sphere((0.040, 0.010, 0.002), 0.004),
+                },
+                bounds=((0.0, -0.025, -0.025), (0.05, 0.025, 0.025)),
+                voltages={"plasma grid": -20.0},
+            ),
+            z=0.0,
+            scale=1e3,
+            unit="mm",
+            backend="tikz",
+        )
+    except TypeError as exc:
+        print(f"tikz_domain.png shows a 2-D domain: {exc}")
+        source_tikz = plasma_plots.plot_domain(
+            GeometryCollection(
+                {
+                    "anode": Rectangle((5.0, 0.0), (1.0, 6.0)),
+                    "cathode": Circle((1.5, 0.0), 0.8),
+                },
+                bounds=((0.0, -4.0), (8.0, 4.0)),
+                voltages={"anode": 1e3},
+            ),
+            unit="mm",
+            backend="tikz",
+        )
+    save_tikz(source_tikz, "tikz_domain.png")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped tikz_*.png (maxplotlib or pdflatex unavailable): {exc}")
 plt.close("all")
@@ -3301,6 +3342,26 @@ save(
     ),
     "slice_geometry.png",
 )
+
+# a simgeometry domain as a technical drawing with its measurements (guides/field-plots)
+try:
+    from simgeometry.collection import GeometryCollection
+    from simgeometry.objects import Circle, Rectangle
+
+    electrodes_d = GeometryCollection(
+        {
+            "anode": Rectangle((5.0, 0.0), (1.0, 6.0)),
+            "cathode": Circle((1.5, 0.0), 0.8),
+        },
+        bounds=((0.0, -4.0), (8.0, 4.0)),
+        voltages={"anode": 1e3, "cathode": 0.0},
+    )
+    save(
+        plasma_plots.plot_domain(electrodes_d, unit="mm"),
+        "domain_dimensions.png",
+    )
+except Exception as exc:  # pragma: no cover - optional, environment-dependent
+    print(f"skipped domain_dimensions.png (simgeometry unavailable): {exc}")
 
 # the styles: one plot in three of them
 t_st = np.linspace(0.0, 10.0, 200)

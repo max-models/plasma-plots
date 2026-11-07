@@ -74,6 +74,48 @@ Saving as `.tikz` or `.tex` writes the images next to the file (as `tikzfigure-<
 the code refers to them by name. Keep them in the folder you compile from, or in a folder of
 `\graphicspath`. `result.fig.files()` lists them.
 
+## Domains with their dimensions
+
+A simulation domain of [simgeometry](https://github.com/max-models/simgeometry) (a
+`SimulationDomain`, a `GeometryCollection`, or named shapes) becomes a technical drawing with
+`plasma_plots.plot_domain`: a slice through it with every object filled and named, the boundary,
+and the measurements as dimension lines with arrows, read off the geometry itself. Along each
+axis there is a chain of the objects' sizes and the gaps between them and to the boundary
+(objects that overlap along an axis get rows of their own), and the extent of the domain
+outermost. A domain built in metres is labelled in mm with `scale=1e3, unit="mm"`:
+
+```python
+from simgeometry.collection import GeometryCollection
+from simgeometry.objects import Cuboid, Cylinder, Sphere
+
+source = GeometryCollection(
+    {
+        "plasma grid": Cuboid((0.030, 0.0, 0.0), (0.004, 0.040, 0.040)),
+        "pipe": Cylinder((0.006, 0.0, 0.0), (0.014, 0.0, 0.0), 0.006),
+        "probe": Sphere((0.040, 0.010, 0.002), 0.004),
+    },
+    bounds=((0.0, -0.025, -0.025), (0.05, 0.025, 0.025)),
+    voltages={"plasma grid": -20.0},
+)
+result = plasma_plots.plot_domain(
+    source, z=0.0, scale=1e3, unit="mm", backend="tikz"
+)
+result.save("source.tikz")
+result.data["objects"]["probe"]["x"]  # the measured extent, (36.54, 43.46)
+```
+
+![A slice through a domain with its objects, named in the legend, and every distance as a dimension line](../../../assets/figures/tikz_domain.png)
+
+The arrows, extension lines and labels are TikZ paths and nodes, so they can be edited in the
+source; a sliced object's outline is traced on the plane (a sphere cut off its centre gives the
+circle the plane sees), its extent sharpened to the exact boundary. `dimensions="extents"` keeps
+only the extent of the domain, `dimensions=False` none, `grid=True` draws the grid lines, and
+`axes=True` keeps the ticks. For a measurement of your own, draw it with
+`plasma_plots.geometry.dimension_line(ax, start, end, offset=..., label=...)` into a Matplotlib
+drawing (`backend="matplotlib"`) and convert it with `.to_tikz()`; the [Field
+plots](/plasma-plots/guides/field-plots/#domains-with-their-dimensions) guide shows the same
+drawing with Matplotlib and over a field.
+
 ## In your paper
 
 The `.tikz` file is a `tikzpicture`. Load pgfplots in the preamble and `\input` it:

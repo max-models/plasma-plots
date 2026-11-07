@@ -4,4 +4,5 @@
 #   pip install -r requirements-devel.txt
 maxplotlibx @ git+https://github.com/max-models/maxplotlib@devel
 scope-profiler @ git+https://github.com/max-models/scope-profiler@devel
+simgeometry[plot] @ git+https://github.com/max-models/simgeometry@devel
 tikzfigure @ git+https://github.com/max-models/tikzfigure@devel
