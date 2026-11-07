@@ -2820,6 +2820,44 @@ try:
             logy=False, ax=composed_tikz[1]
         )
     save_tikz(composed_tikz, "tikz_composed_energies.png")
+
+    # a sliced 3-D domain with its dimensions (needs simgeometry's devel branch for the
+    # sections' outlines); the 2-D domain of plain shapes when simgeometry is missing
+    try:
+        from simgeometry.collection import GeometryCollection
+        from simgeometry.objects import Cuboid, Cylinder, Sphere
+
+        source_tikz = plasma_plots.plot_domain(
+            GeometryCollection(
+                {
+                    "plasma grid": Cuboid(
+                        (0.030, 0.0, 0.0), (0.004, 0.040, 0.040)
+                    ),
+                    "pipe": Cylinder(
+                        (0.006, 0.0, 0.0), (0.014, 0.0, 0.0), 0.006
+                    ),
+                    "probe": Sphere((0.040, 0.010, 0.002), 0.004),
+                },
+                bounds=((0.0, -0.025, -0.025), (0.05, 0.025, 0.025)),
+                voltages={"plasma grid": -20.0},
+            ),
+            z=0.0,
+            scale=1e3,
+            unit="mm",
+            backend="tikz",
+        )
+    except (ImportError, TypeError) as exc:
+        print(f"tikz_domain.png shows a 2-D domain of plain shapes: {exc}")
+        source_tikz = plasma_plots.plot_domain(
+            [
+                {"rectangle": (4.5, -3.0, 1.0, 6.0), "label": "anode"},
+                {"circle": (1.5, 0.0, 0.8), "label": "cathode"},
+            ],
+            unit="mm",
+            colors=["0.45", "C1"],
+            backend="tikz",
+        )
+    save_tikz(source_tikz, "tikz_domain.png")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
     print(f"skipped tikz_*.png (maxplotlib or pdflatex unavailable): {exc}")
 plt.close("all")
@@ -3300,6 +3338,17 @@ save(
         overlays={"geometry": electrodes_g, "contour_labels": True},
     ),
     "slice_geometry.png",
+)
+
+# a domain as a technical drawing with its measurements (guides/field-plots); the shapes of
+# plasma_plots.geometry draw like simgeometry's, without it
+electrodes_d = [
+    {"rectangle": (4.5, -3.0, 1.0, 6.0), "label": "anode"},
+    {"circle": (1.5, 0.0, 0.8), "label": "cathode"},
+]
+save(
+    plasma_plots.plot_domain(electrodes_d, unit="mm", colors=["0.45", "C1"]),
+    "domain_dimensions.png",
 )
 
 # the styles: one plot in three of them

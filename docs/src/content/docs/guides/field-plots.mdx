@@ -338,6 +338,43 @@ same shapes into an axes of your own, use
 [`draw_geometry`](/plasma-plots/api/plasma_plots/geometry/), which also scales
 them, e.g. `scale=1e3` for shapes in m over a plot in mm.
 
+### Domains with their dimensions
+
+A whole simulation domain of [simgeometry](https://github.com/max-models/simgeometry), with its
+objects, is drawn by `plasma_plots.plot_domain` as a technical drawing: the objects filled and
+named (with their voltage when they are conductors), the boundary, and every distance as a
+dimension line with arrows, read off the geometry: the extent of the domain, and along each axis
+a chain of the objects' sizes and the gaps between them and to the boundary. A 3-D domain is
+sliced at `x=`, `y=` or `z=`; a 2-D one is drawn as it is.
+
+```python
+from simgeometry.collection import GeometryCollection
+from simgeometry.objects import Circle, Rectangle
+
+electrodes = GeometryCollection(
+    {
+        "anode": Rectangle((5.0, 0.0), (1.0, 6.0)),
+        "cathode": Circle((1.5, 0.0), 0.8),
+    },
+    bounds=((0.0, -4.0), (8.0, 4.0)),
+    voltages={"anode": 1e3, "cathode": 0.0},
+)
+result = plasma_plots.plot_domain(electrodes, unit="mm")
+result.data["objects"]["cathode"]["x"]  # (0.7, 2.3)
+```
+
+![A 2-D domain with two electrodes and the dimension lines of their sizes and distances](../../../assets/figures/domain_dimensions.png)
+
+The shapes of the overlay above draw the same way without simgeometry:
+`plasma_plots.plot_domain(electrodes, unit="mm")` with the list of dicts, named by a `"label"`
+key. `scale=1e3, unit="mm"` labels a domain built in metres in mm, `dimensions="extents"` keeps only
+the extent of the domain, `grid=True` adds the grid lines, `ax=` draws over a field drawn with
+`plot.slice` (its limits are widened for the measurements), and `backend="tikz"` makes it TikZ
+code for a paper (see [LaTeX figures](/plasma-plots/guides/latex/#domains-with-their-dimensions)).
+The measurements are in `result.data`, and `dimension_chains` computes them without drawing. One
+measurement of your own is `dimension_line(ax, start, end, offset=-0.5, label="2 mm")`: a
+double-headed arrow displaced from the measured points, with extension lines and its label.
+
 ### Several fields side by side
 
 `animation(alongside=[...])` animates further fields next to the first one,

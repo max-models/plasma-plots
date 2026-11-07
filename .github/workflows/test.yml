@@ -56,7 +56,7 @@ jobs:
       # Editable, with its `plasma-plots` console script on the PATH (tests/test_cli.py runs it).
       # plotly for backend="plotly" and the command's .html output; without it those tests skip.
       - name: Install plasma-plots with dev dependencies
-        run: pip install -e ".[dev,profiling,pyvista,desc,plotly,netcdf]"
+        run: pip install -e ".[dev,profiling,pyvista,desc,plotly,netcdf,geometry]"
 
       # Runs that do not target main replace the max-models dependencies with their devel
       # branches; PRs to main and the release use PyPI only. Uninstall first: pip keeps an

@@ -43,6 +43,10 @@ optional-dependencies.dev = [
   "ruff",
   "struphy>=3.4.0",
 ]
+# plasma_plots.geometry.plot_domain: simgeometry domains as drawings with their measurements
+optional-dependencies.geometry = [
+  "simgeometry[plot]>=0.1.1",
+]
 optional-dependencies.gallery = [
   "kaleido",
   "plotly",
@@ -92,6 +96,7 @@ packages.find.where = [
 [tool.uv.sources]
 maxplotlibx = { git = "https://github.com/max-models/maxplotlib", branch = "devel" }
 scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }
+simgeometry = { git = "https://github.com/max-models/simgeometry", branch = "devel" }
 
 [tool.ruff]
 line-length = 88

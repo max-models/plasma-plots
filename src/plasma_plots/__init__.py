@@ -185,6 +185,7 @@ from .accessors import PlasmaAccessor
 from .arrays import repeat_periodic
 from .desc import from_desc
 from .figures import figure
+from .geometry import plot_domain
 from .gvec import from_gvec
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
 from .plotly_backend import get_backend, set_backend
@@ -202,6 +203,7 @@ __all__ = [
     "get_style",
     "is_plotting_rank",
     "mpi_rank",
+    "plot_domain",
     "save_figure",
     "scene",
     "scene_to_plotly",
