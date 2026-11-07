@@ -19,6 +19,11 @@ Plots return a :class:`~plasma_plots.plotting.PlotResult` with either backend (`
 and ``data`` included); animations and viewers return one too, whose figure has a slider. Plotly
 is optional: ``pip install "plasma-plots[plotly]"``.
 
+For a web page, ``result.save("phi.plotly.json")`` writes a web figure (:func:`web_figure`):
+Plotly JSON without plotly.js and without a look of its own, which the ``PlotlyFigure``
+component of the max-models docs theme embeds in the site's colours, animations included
+(``pip install "plasma-plots[web]"``).
+
 The conversion itself is also available for any Matplotlib figure drawn with the plotting
 functions: :func:`to_plotly`, :func:`animation_to_plotly` and
 :meth:`~plasma_plots.plotting.PlotResult.to_plotly`.
@@ -177,12 +182,92 @@ def _plotly_result(figure, result):
 PLOTLY_MIME = "application/vnd.plotly.v1+json"
 
 
+def web_figure(figure, **hints) -> dict:
+    """A Plotly figure as a web figure, the format of ``maxplotlib.web``.
+
+    Plotly JSON for a page of a max-models docs site: no template, no fixed size, transparent
+    backgrounds, the palette position of each trace in a default colour
+    (``trace.meta["color_slot"]``) and hints for the page in ``layout.meta["web"]``. The theme's
+    ``PlotlyFigure`` component gives it the site's colours in light and dark mode.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure or dict
+        The figure.
+    **hints
+        ``title``, ``alt`` (a text alternative), ``aspect`` (width over height) and
+        ``white_plot`` (keep a white plot area in dark mode), as for
+        ``maxplotlib.web.web_figure``.
+
+    Returns
+    -------
+    dict
+        ``data``, ``layout`` and, for an animation, ``frames``.
+
+    Raises
+    ------
+    ImportError
+        If maxplotlib (with ``maxplotlib.web``) is not installed.
+
+    Examples
+    --------
+    >>> web = web_figure(result.fig, alt="Field energy over time")
+    """
+    try:
+        from maxplotlib.web import web_figure as convert
+    except ImportError as error:
+        raise ImportError(
+            "web figures need maxplotlib (with maxplotlib.web): "
+            'pip install "plasma-plots[web]"'
+        ) from error
+    return convert(figure, **hints)
+
+
+def _notebook_figure(figure, title):
+    """The figure's JSON for a notebook, with the palette slots and hints of a web figure.
+
+    It keeps its own look (template, size, backgrounds) for Jupyter; a docs site built from the
+    notebook draws it in the site's colours anyway. Without maxplotlib it is the plain JSON.
+    """
+    import json
+
+    import plotly.io as pio
+
+    plain = json.loads(pio.to_json(figure, validate=False))
+    try:
+        web = web_figure(plain, title=title)
+    except ImportError:
+        return plain
+    layout = web["layout"]
+    for key in (
+        "template",
+        "width",
+        "height",
+        "autosize",
+        "paper_bgcolor",
+        "plot_bgcolor",
+    ):
+        if key in plain.get("layout", {}):
+            layout[key] = plain["layout"][key]
+        else:
+            layout.pop(key, None)
+    for key, axis in layout.items():  # automargin only where the figure set it
+        own = plain.get("layout", {}).get(key)
+        if re.fullmatch(r"[xy]axis\d*", key) and isinstance(axis, dict):
+            if not (isinstance(own, dict) and "automargin" in own):
+                axis.pop("automargin", None)
+    layout["meta"]["web"].pop("aspect", None)  # the size is the figure's own
+    return web
+
+
 def display_bundle(figure, *, title: str | None = None):
     """The notebook output of a Plotly figure: its JSON, an HTML copy and a text line.
 
     ``application/vnd.plotly.v1+json`` is what JupyterLab renders and what docs sites built from
     the notebook embed as an interactive chart (the output's metadata has the key
-    ``"plotly-figure"``); ``text/html`` loads plotly.js from its CDN for other front ends.
+    ``"plotly-figure"``); ``text/html`` loads plotly.js from its CDN for other front ends. With
+    maxplotlib installed the JSON also carries the palette slots and hints of a web figure
+    (:func:`web_figure`), so the docs site recolours it as it does a saved ``.plotly.json``.
 
     Parameters
     ----------
@@ -196,12 +281,10 @@ def display_bundle(figure, *, title: str | None = None):
     tuple of dict
         The MIME bundle and its metadata, as for ``IPython.display.display(..., raw=True)``.
     """
-    import json
-
     import plotly.io as pio
 
     data = {
-        PLOTLY_MIME: json.loads(pio.to_json(figure, validate=False)),
+        PLOTLY_MIME: _notebook_figure(figure, title),
         "text/html": pio.to_html(
             figure,
             full_html=False,

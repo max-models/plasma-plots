@@ -522,13 +522,16 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.plotting.PlotResult.show()`: Show the figure with matplotlib.pyplot.show, or a Plotly or TikZ figure with its show.
 - `plasma_plots.plotting.PlotResult.to_plotly(*, close=False, bare=False)`: The same result with the figure converted to an interactive Plotly figure.
   - e.g. `plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")`
-- `plasma_plots.plotting.PlotResult.to_json(*, bare=False)`: Return the figure as Plotly figure JSON, e.g. for a docs page's <PlotlyChart>.
+- `plasma_plots.plotting.PlotResult.to_json(*, bare=False, web=False, **hints)`: Return the figure as Plotly figure JSON, e.g. for a docs page.
   - e.g. `Path("energy.json").write_text(energy.plasma.plot.timeseries().to_json())`
+  - e.g. `text = result.to_json(web=True, alt="Field energy over time")`
 - `plasma_plots.plotting.PlotResult.to_html(*, full_html=False, bare=False)`: Return the figure as interactive HTML, loading Plotly's JavaScript from its CDN.
   - e.g. `html = phi.plasma.plot.slice(t=-1, eta3=0).to_html()`
 - `plasma_plots.plotly_backend.bare(figure)`: Strip a Plotly figure to its data, for a header picture or a front page.
   - e.g. `result = phi.plasma.plot.animation(x="x", y="y", backend="plotly")`
   - e.g. `bare(result.fig).write_json("docs/public/plotly/hero.json")`
+- `plasma_plots.plotly_backend.web_figure(figure, **hints)`: A Plotly figure as a web figure, the format of maxplotlib.web.
+  - e.g. `web = web_figure(result.fig, alt="Field energy over time")`
 - `plasma_plots.hero.from_array(data, *, sweep='t', duration=8.0, max_frames=24, tone='accent', width=2.0, opacity=0.9, pad=0.08, tracer=False, picture=(1600, 600))`: Turn a profile that changes over a sweep (usually time) into an animated header picture.
   - e.g. `from_array(phi.isel(y=0)).save("docs/src/assets/hero.svg")`
 - `plasma_plots.plotly_backend.to_plotly(figure, *, strict=False)`: Convert a drawn Matplotlib figure into an interactive Plotly figure.
