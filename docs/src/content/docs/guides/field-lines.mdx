@@ -3,7 +3,7 @@ title: Field lines
 description: Tracing magnetic field lines through the mapped grid, Poincaré sections with island detection, connection lengths and footprints of open field lines, a field sampled along the lines, and flux surfaces unfolded with their field lines.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -103,7 +103,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 lines.plasma.plot.poincare(backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_poincare.json" />
+<PlotlyFigure src="/plotly/plotly_poincare.plotly.json" />
 
 </details>
 

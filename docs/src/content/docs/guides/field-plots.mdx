@@ -3,7 +3,7 @@ title: Field plots
 description: Slices, panels, animations, vector fields, and 3-D volumes.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -142,7 +142,7 @@ T.plasma.plot.line_animation(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_line_animation_companions.json" height="620px" />
+<PlotlyFigure src="/plotly/plotly_line_animation_companions.plotly.json" />
 
 </details>
 
@@ -183,7 +183,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 view.slice(t=-1, backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_view_slice.json" />
+<PlotlyFigure src="/plotly/plotly_view_slice.plotly.json" />
 
 </details>
 
@@ -417,7 +417,7 @@ b_field.plasma.plot.vector(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_vector.json" />
+<PlotlyFigure src="/plotly/plotly_vector.plotly.json" />
 
 </details>
 
@@ -443,7 +443,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 density.plasma.plot.volume_slices(backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_volume_slices.json" height="340px" />
+<PlotlyFigure src="/plotly/plotly_volume_slices.plotly.json" />
 
 </details>
 

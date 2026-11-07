@@ -3,7 +3,7 @@ title: Particles & distributions
 description: Phase-space slices, velocity moments, spatial averages, marker trajectories, scatter, and orbit overlays.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -36,7 +36,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 distribution.plasma.plot.slice(x="eta1", y="v1", t=-1, backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_phase_space.json" />
+<PlotlyFigure src="/plotly/plotly_phase_space.plotly.json" />
 
 </details>
 
@@ -89,7 +89,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 markers.plasma.plot.trajectories(max_markers=200, backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_trajectories.json" height="520px" />
+<PlotlyFigure src="/plotly/plotly_trajectories.plotly.json" />
 
 </details>
 
@@ -271,7 +271,7 @@ markers.plasma.plot.scatter(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_scatter.json" />
+<PlotlyFigure src="/plotly/plotly_scatter.plotly.json" />
 
 </details>
 
@@ -383,7 +383,7 @@ orbits.plasma.plot.animation(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_orbits_animation.json" height="560px" />
+<PlotlyFigure src="/plotly/plotly_orbits_animation.plotly.json" />
 
 </details>
 
@@ -433,6 +433,6 @@ field.plasma.plot.overlay_orbits(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_overlay_orbits.json" />
+<PlotlyFigure src="/plotly/plotly_overlay_orbits.plotly.json" />
 
 </details>

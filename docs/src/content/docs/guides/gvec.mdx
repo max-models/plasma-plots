@@ -4,7 +4,7 @@ description: Poloidal planes, Boozer surfaces, mode spectra, rational surfaces, 
 ---
 
 import { Code } from 'astro:components';
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 import PyVistaScene from '@max-models/starlight-theme/components/PyVistaScene.astro';
 import numbers from '../../../assets/gvec/numbers.txt?raw';
 import script from '../../../../../scripts/generate_gvec_figures.py?raw';
@@ -108,7 +108,7 @@ ev.mod_B.plasma.plot.slice(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_gvec_poloidal_plane.json" />
+<PlotlyFigure src="/plotly/plotly_gvec_poloidal_plane.plotly.json" />
 
 </details>
 
@@ -181,7 +181,7 @@ boozer.mod_B.plasma.plot.slice(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_gvec_boozer_surface.json" />
+<PlotlyFigure src="/plotly/plotly_gvec_boozer_surface.plotly.json" />
 
 </details>
 
@@ -282,7 +282,7 @@ The data behind these plots: `ev.iota.plasma.data.lineout()`, the `surface_avera
 ev.iota.plasma.plot.lineout(rationals=4, backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_gvec_iota.json" />
+<PlotlyFigure src="/plotly/plotly_gvec_iota.plotly.json" />
 
 </details>
 

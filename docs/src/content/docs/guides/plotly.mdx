@@ -3,7 +3,7 @@ title: Interactive plots with Plotly
 description: Every Matplotlib plot as an interactive Plotly figure, with backend="plotly".
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 Every plot that plasma-plots draws with Matplotlib can also be an interactive
 [Plotly](https://plotly.com/python/) figure: pass `backend="plotly"`. You get hover values,
@@ -23,7 +23,7 @@ n.plasma.plot.slice(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_ring_slice.json" height="480px" />
+<PlotlyFigure src="/plotly/plotly_ring_slice.plotly.json" />
 
 The Plotly version is the Matplotlib plot converted, not a second implementation. The plot is
 drawn with Matplotlib as usual, off screen, and the finished figure is translated into Plotly:
@@ -54,6 +54,20 @@ light or dark colours, its default-coloured traces in the site's data palette, a
 plotly.js only when the figure scrolls into view. A Matplotlib result is converted first;
 `result.to_json(web=True)` returns the same text.
 
+To embed one, put it under `docs/public/` and use the component in an MDX page; the path is
+relative to the site root, and the component adds the base path. The interactive figures of
+these guides are embedded this way:
+
+```mdx
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
+
+<PlotlyFigure src="/figures/energy.plotly.json" />
+```
+
+A figure converted from Matplotlib keeps a white plot area and its own colours in dark mode
+(the hint `white_plot`), since its colours were chosen for a white axes; pass
+`white_plot=False` to `save` to give it the site's colours instead.
+
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
 that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`
 saves the same way, with the same defaults and only on rank 0: `PlotResult(figure).save("page.html")`
@@ -76,7 +90,7 @@ A space-time map of a `(t, z)` field is
 a slice with time as one of its axes:
 `e_x.plasma.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
 
-<PlotlyChart src="/plotly/plotly_timeseries.json" />
+<PlotlyFigure src="/plotly/plotly_timeseries.plotly.json" />
 
 ## For every plot at once
 
@@ -117,7 +131,7 @@ n.plasma.plot.animation(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
+<PlotlyFigure src="/plotly/plotly_ring_animation.plotly.json" />
 
 Every frame stores only what changes: parts that are the same in every frame (static contour
 lines, the domain's boundary, a fixed background, a mesh's grid) are stored once. A contour level
@@ -158,7 +172,7 @@ phi.plasma.plot.power_spectrum(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_spectral_power.json" />
+<PlotlyFigure src="/plotly/plotly_spectral_power.plotly.json" />
 
 The guides show many of the plots with Plotly, folded under each Matplotlib figure.
 

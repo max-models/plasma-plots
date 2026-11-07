@@ -52,7 +52,7 @@ def save(result, filename):
 
 
 def save_plotly(result, filename):
-    print(f"wrote {result.save(PLOTLY_OUT / f'{filename}.json')}")
+    print(f"wrote {result.save(PLOTLY_OUT / f'{filename}.plotly.json')}")
 
 
 def example(name):

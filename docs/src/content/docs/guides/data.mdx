@@ -3,7 +3,7 @@ title: Selecting data
 description: array.plasma.data returns the data behind every plot, for your own analysis, plots and exports.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -139,4 +139,4 @@ px.imshow(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_slice.json" />
+<PlotlyFigure src="/plotly/plotly_slice.plotly.json" />
