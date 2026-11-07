@@ -21,8 +21,9 @@ or named shapes) as a technical drawing: a slice through it (``z=0.0`` for a 3-D
 every object filled and named, the domain's boundary, optionally its grid, and the measurements
 drawn as dimension lines with arrows, found from the geometry itself: the extent of the domain,
 and along each axis a chain of the objects' sizes and the gaps between them and to the boundary.
-With ``backend="tikz"`` the drawing is TikZ code for a paper. :func:`dimension_line` draws one
-such measurement anywhere, and :func:`dimension_chains` computes them without drawing.
+With ``backend="tikz"`` the drawing is TikZ code for a paper. It also takes the shapes above,
+without simgeometry. :func:`dimension_line` draws one such measurement anywhere, and
+:func:`dimension_chains` computes them without drawing.
 
 Examples
 --------
@@ -461,19 +462,88 @@ def dimension_line(
     return artists
 
 
+class _PlainShape:
+    """A 2-D shape of :mod:`plasma_plots.geometry` (a shape dict or an outline) as an object
+    with the outline, bounds and membership test that :func:`plot_domain` draws."""
+
+    inverted = False
+
+    def __init__(self, shape):
+        from matplotlib.path import Path
+
+        if isinstance(shape, dict):
+            self.kind = next(key for key in SHAPE_KEYS if key in shape)
+            self.label = shape.get("label")
+            if self.kind == "rectangle":
+                x0, y0, width, height = (float(v) for v in shape["rectangle"])
+                loop = np.array(
+                    [
+                        [x0, x0 + width, x0 + width, x0],
+                        [y0, y0, y0 + height, y0 + height],
+                    ]
+                )
+            elif self.kind == "circle":
+                x, y, radius = (float(v) for v in shape["circle"])
+                angle = np.linspace(0.0, 2.0 * np.pi, 180, endpoint=False)
+                loop = np.array(
+                    [x + radius * np.cos(angle), y + radius * np.sin(angle)]
+                )
+                self.bounds = ((x - radius, y - radius), (x + radius, y + radius))
+            else:
+                loop = _outline(shape["polygon"])
+        else:
+            self.kind, self.label = "polygon", None
+            loop = _outline(shape)
+        self._loop = np.asarray(loop, float)
+        self._path = Path(self._loop.T, closed=True)
+        if not hasattr(self, "bounds"):
+            self.bounds = (tuple(self._loop.min(axis=1)), tuple(self._loop.max(axis=1)))
+
+    @property
+    def lower_bound(self):
+        return self.bounds[0]
+
+    @property
+    def upper_bound(self):
+        return self.bounds[1]
+
+    def outlines(self):
+        return [self._loop]
+
+    def contains_points(self, points):
+        return self._path.contains_points(np.asarray(points, float).T)
+
+
+def _is_plain(shape) -> bool:
+    """Whether ``shape`` is a shape dict or an outline of :mod:`plasma_plots.geometry`."""
+    if isinstance(shape, dict):
+        return any(key in shape for key in SHAPE_KEYS)
+    return isinstance(shape, np.ndarray) or _is_xy_pair(shape)
+
+
 def _named_objects(domain):
     """``(objects, bounds, grid, voltages, styles)`` of a domain, a collection or shapes."""
     grid = getattr(domain, "grid", None)
     collection = getattr(domain, "geometry", domain)  # a SimulationDomain's collection
+    if _is_plain(collection):
+        collection = [collection]
     if isinstance(collection, dict):
-        objects = dict(collection)
+        objects = {
+            name: _PlainShape(shape) if _is_plain(shape) else shape
+            for name, shape in collection.items()
+        }
     elif hasattr(collection, "named_objects"):  # a GeometryCollection
         objects = dict(collection.named_objects)
     elif isinstance(collection, (list, tuple)):
         objects = {}
         for shape in collection:
-            kind = type(shape).__name__.lower()
-            objects[f"{kind} {sum(k.startswith(kind) for k in objects) + 1}"] = shape
+            if _is_plain(shape):
+                shape = _PlainShape(shape)
+                kind, label = shape.kind, shape.label
+            else:
+                kind, label = type(shape).__name__.lower(), None
+            name = label or f"{kind} {sum(k.startswith(kind) for k in objects) + 1}"
+            objects[name] = shape
     elif hasattr(collection, "contains_points") and hasattr(collection, "lower_bound"):
         objects = {type(collection).__name__.lower(): collection}
     else:
@@ -753,7 +823,10 @@ def plot_domain(
     domain : simgeometry.SimulationDomain, GeometryCollection, shape, dict or list
         The domain: a ``SimulationDomain`` (its objects, bounds and grid), a
         ``GeometryCollection`` (named objects and bounds), a single shape, or a dict of names to
-        shapes or a list of shapes (the bounds are then the shapes' extent).
+        shapes or a list of shapes (the bounds are then the shapes' extent). A shape is a
+        simgeometry shape, or one of this module's: ``{"rectangle": (x0, y0, width, height)}``,
+        ``{"circle": (x, y, radius)}``, ``{"polygon": outline}`` (named by their ``"label"``
+        in a list) or an outline array; these need no simgeometry.
     x, y, z : float, optional
         The position of the slice through a 3-D domain; exactly one of them.
     dimensions : bool or "extents", optional
@@ -823,6 +896,10 @@ def plot_domain(
     ... )
     >>> # a 2-D collection
     >>> plot_domain(electrodes, dimensions="extents", grid=True)
+    >>> # without simgeometry
+    >>> plot_domain(
+    ...     [{"rectangle": (4.5, -3.0, 1.0, 6.0), "label": "anode"}], unit="mm"
+    ... )
     """
     import matplotlib.pyplot as plt
     from matplotlib import rcParams

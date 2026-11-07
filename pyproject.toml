@@ -41,7 +41,6 @@ optional-dependencies.dev = [
   "pre-commit",
   "pytest",
   "ruff",
-  "simgeometry[plot]>=0.1.1",
   "struphy>=3.4.0",
 ]
 # plasma_plots.geometry.plot_domain: simgeometry domains as drawings with their measurements

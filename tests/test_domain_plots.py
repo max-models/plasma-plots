@@ -362,6 +362,30 @@ def test_an_inverted_shape_is_outlined_not_filled(electrodes):
     assert anode[0].get_edgecolor()[:3] == (1.0, 0.0, 0.0)
 
 
+def test_the_modules_own_shapes_draw_without_simgeometry():
+    shapes = [
+        {"rectangle": (4.5, -3.0, 1.0, 6.0), "label": "anode"},
+        {"circle": (1.5, 0.0, 0.8)},
+        {"polygon": [[0.0, 1.0, 1.0], [-4.0, -4.0, -3.0]]},
+        np.array([[6.0, 7.0, 7.0, 6.0], [2.0, 2.0, 3.0, 3.0]]),
+    ]
+    result = plot_domain(shapes, unit="mm")
+    objects = result.data["objects"]
+    assert list(objects) == ["anode", "circle 1", "polygon 1", "polygon 2"]
+    assert objects["circle 1"]["x"] == pytest.approx((0.7, 2.3))
+    assert objects["polygon 1"] == {"x": (0.0, 1.0), "y": (-4.0, -3.0)}
+    assert result.data["extent"] == pytest.approx((7.0, 7.0))
+    # a dict of named shapes, and a single shape
+    named = plot_domain(
+        {"wall": {"rectangle": (0, 0, 2, 1)}, "hole": {"circle": (1, 0.5, 0.2)}}
+    )
+    assert named.data["chains"]["x"]["rows"] == [
+        [(0.0, 0.8, None), (0.8, 1.2, "hole"), (1.2, 2.0, None)]
+    ]
+    single = plot_domain({"rectangle": (0, 0, 2, 1)}, dimensions="extents")
+    assert list(single.data["objects"]) == ["rectangle 1"]
+
+
 def test_other_mpi_ranks_skip_the_drawing(monkeypatch, electrodes):
     monkeypatch.setattr("plasma_plots.mpi.mpi_rank", lambda: 1)
     assert isinstance(plot_domain(electrodes), plasma_plots.SkippedPlot)
