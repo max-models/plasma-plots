@@ -276,7 +276,7 @@ def time_fft(
     )
     power.attrs = {"label": "Mean-square power per frequency bin"}
     if data.attrs.get("units"):
-        power.attrs["units"] = f"({data.attrs['units']})^2"
+        power.attrs["units"] = f"({data.attrs['units']})²"
     return xr.Dataset(
         {"coefficients": coefficients, "power": power}, attrs=dict(coefficients.attrs)
     )

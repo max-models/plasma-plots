@@ -33,6 +33,7 @@ from .arrays import (
     validate_array,
     value_label,
 )
+from .labels import format_number
 from .mpi import rank_zero
 
 ORBIT_CLASS_COLORS = {"passing": "tab:blue", "trapped": "tab:orange", "lost": "grey"}
@@ -1961,7 +1962,7 @@ def save_movie(
     try:
         for frame, index in enumerate(range(0, data.sizes[sweep], step)):
             snapshot = data.isel({sweep: index})
-            label = f"{title} at {sweep} = {float(data[sweep][index]):.3e}"
+            label = f"{title} at {sweep} = {format_number(float(data[sweep][index]))}"
             if frame:
                 plotter.clear_actors()
             render(snapshot, plotter=plotter, title=label, **options)

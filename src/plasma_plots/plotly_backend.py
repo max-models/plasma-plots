@@ -196,8 +196,9 @@ def web_figure(figure, **hints) -> dict:
         The figure.
     **hints
         ``title``, ``alt`` (a text alternative), ``aspect`` (width over height) and
-        ``white_plot`` (keep a white plot area in dark mode), as for
-        ``maxplotlib.web.web_figure``.
+        ``white_plot`` (keep a white plot area and the figure's own colours in dark mode), as
+        for ``maxplotlib.web.web_figure``. ``white_plot`` is off by default, also for a figure
+        converted from Matplotlib: the theme draws its black and white in the page's colours.
 
     Returns
     -------
@@ -220,6 +221,7 @@ def web_figure(figure, **hints) -> dict:
             "web figures need maxplotlib (with maxplotlib.web): "
             'pip install "plasma-plots[web]"'
         ) from error
+    hints.setdefault("white_plot", False)
     return convert(figure, **hints)
 
 

@@ -126,6 +126,7 @@ TOP_LEVEL = [
     "plasma_plots.plotting.PlotResult.to_html",
     "plasma_plots.plotly_backend.bare",
     "plasma_plots.plotly_backend.web_figure",
+    "plasma_plots.labels.format_number",
     "plasma_plots.hero.from_array",
     "plasma_plots.plotly_backend.to_plotly",
     "plasma_plots.plotly_backend.animation_to_plotly",
