@@ -43,7 +43,7 @@ def test_normalization_and_inverse_for_odd_even_records(n):
     assert spectrum.coefficients.dims == ("omega", "eta1")
     assert "X" in spectrum.coords and "moving" not in spectrum.coords
     assert spectrum.attrs["run"] == "synthetic"
-    assert spectrum.power.attrs["units"] == "(m/s)^2"
+    assert spectrum.power.attrs["units"] == "(m/s)²"
     np.testing.assert_allclose(
         spectrum.power.sum("omega"), (data**2).mean("t"), rtol=1e-12
     )

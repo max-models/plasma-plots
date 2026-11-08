@@ -64,9 +64,10 @@ import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.as
 <PlotlyFigure src="/figures/energy.plotly.json" />
 ```
 
-A figure converted from Matplotlib keeps a white plot area and its own colours in dark mode
-(the hint `white_plot`), since its colours were chosen for a white axes; pass
-`white_plot=False` to `save` to give it the site's colours instead.
+A figure converted from Matplotlib follows the site's theme too: its black lines and labels
+take the text colour and its white ones the background, and its default colours take the
+site's palette. To keep the white plot area and the figure's own colours instead, e.g. for
+colours chosen for a white background, pass `white_plot=True` to `save`.
 
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
 that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`

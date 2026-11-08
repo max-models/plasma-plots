@@ -189,7 +189,10 @@ def plot_power_spectrum(
             ax.set_ylim(top * 10.0**-dynamic_range, top * 3)
     ax.set(
         xlabel=OMEGA,
-        ylabel=value_label(power) if power.attrs.get("units") else "power per bin",
+        # the title names the quantity; the axis keeps short ("power [(m/s)²]")
+        ylabel=f"power [{power.attrs['units']}]"
+        if power.attrs.get("units")
+        else "power per bin",
         title=(
             title if title is not None else power.attrs.get("label", "Power spectrum")
         ),

@@ -48,6 +48,7 @@ from .arrays import (
     validate_array,
     value_label,
 )
+from .labels import format_number
 from .mpi import rank_zero
 from .styles import DEFAULT as DEFAULT_STYLE
 from .styles import style_params
@@ -1020,7 +1021,7 @@ def plot_timeseries(
                     result.fitted,
                     "--",
                     color=line.get_color(),
-                    label=rf"fit: $\gamma$ = {result.rate:.4e}",
+                    label=rf"fit: $\gamma$ = {format_number(result.rate)}",
                 )
                 ax.axvspan(result.time[0], result.time[-1], alpha=0.12, color="grey")
                 artists.append(fitted)
@@ -2160,7 +2161,7 @@ class _SliceRenderer:
         return ScalarMappable(norm=mesh.norm, cmap=mesh.get_cmap())
 
     def frame_title(self, index):
-        return f"{self.title} at {self.view.sweep} = {float(self.data[self.view.sweep][index]):.3e}"
+        return f"{self.title} at {self.view.sweep} = {format_number(float(self.data[self.view.sweep][index]))}"
 
     def indices(self, step, max_frames=None):
         if not isinstance(step, (int, np.integer)) or step < 1:
@@ -2506,7 +2507,9 @@ def plot_panels(
         for ax, index in zip(axes.ravel(), indices):
             mesh = renderer.draw(ax, renderer.data.isel({sweep: int(index)}))
             meshes.append(mesh)
-            ax.set_title(f"{sweep} = {float(renderer.data[sweep][index]):.3e}")
+            ax.set_title(
+                f"{sweep} = {format_number(float(renderer.data[sweep][index]))}"
+            )
             if not shared_clim:
                 fig.colorbar(renderer.shown(mesh), ax=ax, label=renderer.colorbar_label)
         if shared_clim:
@@ -2721,7 +2724,7 @@ class InteractiveSliceViewer:
                 self.result.artists[:] = [mesh]
                 colorbar.update_normal(renderer.shown(mesh))
                 values = ", ".join(
-                    f"{dim}={float(base[dim][index]):.3e}"
+                    f"{dim}={format_number(float(base[dim][index]))}"
                     for dim, index in indices.items()
                 )
                 ax.set_title(" at ".join(filter(None, (renderer.title, values))))
@@ -3031,7 +3034,7 @@ def animate_fields(
             ax.set_title(titles[i])
         value = float(renderers[0].data[sweep][index])
         heading.set_text(
-            " — ".join(filter(None, (f"{sweep} = {value:.3e}", run_label)))
+            " — ".join(filter(None, (f"{sweep} = {format_number(value)}", run_label)))
         )
         return tuple(meshes)
 
@@ -4312,7 +4315,7 @@ def animate_markers(
         if colors is not None and colors.ndim == 2:
             scatter.set_array(colors[index])
         ax.set_title(
-            f"{markers.attrs.get('label', '') or 'Markers'} at t = {times[index]:.3e}"
+            f"{markers.attrs.get('label', '') or 'Markers'} at t = {format_number(times[index])}"
         )
         return (scatter,)
 
@@ -5625,7 +5628,7 @@ def animate_lines(
         line.set_ydata(np.asarray(data.isel({sweep: index})))
         for curve, (_, spec) in zip(curves, references):
             curve.set_data(*_reference_curve(spec, fine, sweeps[index]))
-        ax.set_title(f"{name} at {sweep} = {sweeps[index]:.3e}")
+        ax.set_title(f"{name} at {sweep} = {format_number(sweeps[index])}")
         moved = [artist for move in movers for artist in move(sweeps[index])]
         return (line, *curves, *moved)
 
