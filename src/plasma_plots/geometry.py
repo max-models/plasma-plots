@@ -1612,7 +1612,7 @@ def plot_domain(
         The opacity of the fills. Default: 0.7.
     hatch : bool or str, optional
         Hatch the objects as the section faces of a technical drawing: ``True`` for ``"///"``,
-        or any Matplotlib hatch; with ``backend="tikz"`` a TikZ pattern (maxplotlib 0.3).
+        or any Matplotlib hatch; with ``backend="tikz"`` a TikZ pattern.
         Default: none.
     resolution : int, optional
         Samples per axis when tracing the outline of a sliced 3-D object. Default: 256.
