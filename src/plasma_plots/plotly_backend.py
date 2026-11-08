@@ -225,6 +225,48 @@ def web_figure(figure, **hints) -> dict:
     return convert(figure, **hints)
 
 
+def save_posters(figure, stem, *, width: int = 800) -> list[str]:
+    """Write pictures of a Plotly figure for a docs page, for light and dark mode.
+
+    A page shows them until plotly.js has drawn the figure, and in its place without JavaScript
+    (the ``poster`` and ``posterDark`` of the docs theme's ``PlotlyFigure``). Both have a
+    transparent background and the theme's text colours; an animation shows its first frame. Written by
+    ``maxplotlib.web.write_posters``; needs kaleido.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure.
+    stem : str or pathlib.Path
+        The files' path without the extension: ``<stem>.png`` and ``<stem>.dark.png``.
+    width : int, optional
+        Width in pixels; the height follows the figure's aspect ratio. Default: 800.
+
+    Returns
+    -------
+    list of str
+        The paths written.
+
+    Raises
+    ------
+    ImportError
+        If maxplotlib (with ``maxplotlib.web.write_posters``) is not installed.
+
+    Examples
+    --------
+    >>> save_posters(result.fig, "docs/public/plotly/energy")
+    """
+    try:
+        from maxplotlib.web import write_posters
+    except ImportError as error:
+        raise ImportError(
+            "posters need maxplotlib (with maxplotlib.web.write_posters): "
+            'pip install "plasma-plots[web]"'
+        ) from error
+    # like the web figure: the theme draws a converted figure's black and white in its colours
+    return write_posters(figure, stem, width=width, white_plot=False)
+
+
 def _notebook_figure(figure, title):
     """The figure's JSON for a notebook, with the palette slots and hints of a web figure.
 

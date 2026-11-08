@@ -127,6 +127,8 @@ TOP_LEVEL = [
     "plasma_plots.plotly_backend.bare",
     "plasma_plots.plotly_backend.web_figure",
     "plasma_plots.labels.format_number",
+    "plasma_plots.plotly_backend.save_posters",
+    "plasma_plots.styles.to_dark",
     "plasma_plots.hero.from_array",
     "plasma_plots.plotly_backend.to_plotly",
     "plasma_plots.plotly_backend.animation_to_plotly",

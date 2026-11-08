@@ -256,3 +256,114 @@ def style(name: str, **overrides):
         # IPython may switch interactive mode on inside the block; keep it (see _plot_style)
         if interactive is not None:
             matplotlib.interactive(interactive)
+
+
+def _luminance(color) -> float | None:
+    """The relative luminance of a colour, or None for no colour (``"none"``, fully transparent)."""
+    from matplotlib.colors import to_rgba
+
+    try:
+        r, g, b, a = to_rgba(color)
+    except (ValueError, TypeError):
+        return None
+    if a == 0:
+        return None
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _swap(color, ink, paper):
+    """Black and dark grey as ``ink``, white as ``paper``, keeping the alpha.
+
+    Dark colours with a hue (e.g. the dark end of viridis) stay: they belong to a colour scale.
+    """
+    from matplotlib.colors import to_rgba
+
+    lum = _luminance(color)
+    if lum is None:
+        return color
+    r, g, b, alpha = to_rgba(color)
+    if lum < 0.2 and max(r, g, b) - min(r, g, b) < 0.1:
+        return to_rgba(ink, alpha)
+    if lum > 0.97:
+        return to_rgba(paper, alpha)
+    return color
+
+
+def to_dark(
+    fig,
+    *,
+    text: str = _DARK_TEXT,
+    axes: str = "#8a8d96",
+    background: str = _DARK_BACKGROUND,
+):
+    """Recolour a drawn Matplotlib figure for a dark page, in place.
+
+    For a dark variant of a figure that was drawn for a white page (e.g. ``x.dark.png`` next to
+    ``x.png``), without drawing it again: black and dark grey text, lines, markers, edges and
+    hatches become ``text``, the spines and ticks ``axes``, white becomes ``background``, and the
+    figure and axes backgrounds become transparent. Colormapped artists (images, meshes,
+    scatters coloured by a value) and other colours stay as they are. Save it with
+    ``transparent=True`` to show the page behind it.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        The figure; it is changed.
+    text : str, optional
+        The colour of text and of black lines. Default: the ``"dark"`` style's text colour.
+    axes : str, optional
+        The colour of spines and ticks. Default: a mid grey.
+    background : str, optional
+        The colour for white (e.g. white markers or masks). Default: the ``"dark"`` style's
+        background.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The same figure.
+
+    Examples
+    --------
+    >>> result = energy.plasma.plot.timeseries()
+    >>> result.fig.savefig("energy.png")
+    >>> to_dark(result.fig).savefig("energy.dark.png", transparent=True)
+    """
+    from matplotlib.collections import Collection
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    from matplotlib.text import Text
+
+    fig.patch.set_facecolor("none")
+    for ax in fig.axes:
+        ax.patch.set_facecolor("none")
+        for spine in ax.spines.values():
+            spine.set_edgecolor(axes)
+        ax.tick_params(which="both", colors=axes, labelcolor=text)
+    backgrounds = {fig.patch, *(ax.patch for ax in fig.axes)}
+    for artist in fig.findobj():
+        if isinstance(artist, Text):
+            artist.set_color(_swap(artist.get_color(), text, background))
+            box = artist.get_bbox_patch()
+            if box is not None:
+                box.set_facecolor(_swap(box.get_facecolor(), text, background))
+                box.set_edgecolor(_swap(box.get_edgecolor(), axes, background))
+        elif isinstance(artist, Line2D):
+            artist.set_color(_swap(artist.get_color(), text, background))
+            artist.set_markerfacecolor(
+                _swap(artist.get_markerfacecolor(), text, background)
+            )
+            artist.set_markeredgecolor(
+                _swap(artist.get_markeredgecolor(), text, background)
+            )
+        elif isinstance(artist, Patch) and artist not in backgrounds:
+            # legend frames and boxes: white as the page; black outlines as the axes
+            artist.set_facecolor(_swap(artist.get_facecolor(), text, background))
+            artist.set_edgecolor(_swap(artist.get_edgecolor(), axes, background))
+        elif isinstance(artist, Collection) and artist.get_array() is None:
+            # single-coloured collections (contour lines, scatters, quivers); colormapped ones stay
+            faces, edges = artist.get_facecolors(), artist.get_edgecolors()
+            if len(faces):
+                artist.set_facecolors([_swap(c, text, background) for c in faces])
+            if len(edges):
+                artist.set_edgecolors([_swap(c, text, background) for c in edges])
+    return fig

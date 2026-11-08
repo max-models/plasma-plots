@@ -64,3 +64,57 @@ def test_a_converted_figure_follows_the_theme(energy, tmp_path):
     result.save(tmp_path / "white.plotly.json", white_plot=True)
     white = json.loads((tmp_path / "white.plotly.json").read_text())["layout"]
     assert white["meta"]["web"]["white_plot"] is True
+
+
+def test_to_dark_recolours_ink_and_paper(energy):
+    from matplotlib.colors import to_hex
+
+    from plasma_plots.styles import to_dark
+
+    result = energy.plasma.plot.timeseries(fit=(0.0, 2.0))
+    ax = result.ax
+    marker = ax.plot([0.5], [1.5], "o", color="white")[0]
+    purple = ax.plot([0.5], [1.2], color="#440154")[0]  # the dark end of viridis
+    ax.set_title("energy")
+    to_dark(result.fig, text="#eeeeee", axes="#888888", background="#001122")
+    assert to_hex(ax.title.get_color()) == "#eeeeee"
+    assert to_hex(marker.get_color()) == "#001122"
+    assert to_hex(purple.get_color()) == "#440154"  # a colour of a scale stays
+    assert to_hex(next(iter(ax.spines.values())).get_edgecolor()) == "#888888"
+    assert result.fig.patch.get_facecolor()[3] == 0  # transparent
+    assert (
+        to_hex(ax.get_lines()[0].get_color()) == "#1f77b4"
+    )  # the cycle's colours stay
+
+
+def test_save_posters(tmp_path, monkeypatch):
+    go = pytest.importorskip("plotly.graph_objects")
+    pytest.importorskip("maxplotlib.web")
+    from plasma_plots.plotly_backend import save_posters
+
+    written = []
+    monkeypatch.setattr(
+        go.Figure,
+        "write_image",
+        lambda self, path, **kw: written.append(
+            (path, kw, self.layout.font.color, self.layout.plot_bgcolor)
+        ),
+    )
+    figure = go.Figure(go.Scatter(y=[1, 2]), layout={"width": 800, "height": 400})
+    paths = save_posters(figure, tmp_path / "energy")
+    assert paths == [str(tmp_path / "energy.png"), str(tmp_path / "energy.dark.png")]
+    assert written[0][1] == {"width": 800, "height": 400, "scale": 1}
+    assert written[0][2] == "#10222d" and written[1][2] == "#eeeadd"
+    assert written[0][3] == "rgba(0,0,0,0)"  # no white plot area, also when converted
+
+
+def test_save_figure_writes_a_dark_variant(energy, tmp_path):
+    from plasma_plots.plotting import save_figure
+
+    result = energy.plasma.plot.timeseries()
+    paths = save_figure(result, tmp_path / "energy", formats=("png",), dark=True)
+    assert [p.rsplit("/", 1)[-1] for p in paths] == ["energy.png", "energy.dark.png"]
+    assert (tmp_path / "energy.dark.png").stat().st_size > 0
+    # a Plotly figure has no dark variant, and posters only on request
+    go = pytest.importorskip("plotly.graph_objects")
+    assert save_figure(go.Figure(), tmp_path / "plain", formats=(), dark=True) == []

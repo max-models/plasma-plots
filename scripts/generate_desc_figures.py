@@ -32,6 +32,7 @@ from desc.grid import LinearGrid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import plasma_plots
 from plasma_plots.analysis import surface_average, volume_integral
+from plasma_plots.plotting import save_figure  # noqa: E402
 
 # DESC's notes on JAX, grids and resolutions
 warnings.filterwarnings("ignore", module="desc")
@@ -47,12 +48,25 @@ for folder in (OUT, NUMBERS.parent, PLOTLY_OUT, PYVISTA_OUT):
 
 
 def save(result, filename):
-    result.save(OUT / filename, close=True)
-    print(f"wrote {OUT / filename}")
+    """Save a figure with a dark variant ``<stem>.dark.<ext>`` for the theme's dark mode."""
+    stem, ext = str(filename).rsplit(".", 1)
+    for path in save_figure(result, OUT / stem, formats=(ext,), dark=True):
+        print(f"wrote {path}")
+    plt.close(result.fig)
 
 
 def save_plotly(result, filename):
+    """A web figure and its posters for light and dark mode (kaleido)."""
     print(f"wrote {result.save(PLOTLY_OUT / f'{filename}.plotly.json')}")
+    try:
+        for poster in save_figure(
+            result, PLOTLY_OUT / filename, formats=(), posters=True
+        ):
+            print(f"wrote {poster}")
+    except (
+        Exception
+    ) as error:  # no kaleido or no browser for it: the page shows no poster
+        print(f"skipped the posters of {filename}: {error}")
 
 
 def example(name):
