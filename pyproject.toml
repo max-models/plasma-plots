@@ -73,11 +73,11 @@ optional-dependencies.scene = [
   "trame-pyvista",
 ]
 optional-dependencies.tikz = [
-  "maxplotlibx>=0.2",
+  "maxplotlibx>=0.3",
 ]
 # web figures (`save("x.plotly.json")`) for the max-models docs sites, written by maxplotlib.web
 optional-dependencies.web = [
-  "maxplotlibx>=0.2",
+  "maxplotlibx>=0.3",
   "plotly",
 ]
 urls.Documentation = "https://max-models.github.io/plasma-plots"
