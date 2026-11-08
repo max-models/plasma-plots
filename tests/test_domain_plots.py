@@ -815,3 +815,48 @@ def test_bounds_set_the_domain_around_plain_shapes():
         plot_domain(shapes, bounds=((0, 0, 0), (1, 1, 1)))
     with pytest.raises(ValueError, match="must lie above"):
         plot_domain(shapes, bounds=((0, 0), (0, 1)))
+
+
+class Plate2D:
+    """A square plate with a square hole: an outer loop and a clockwise inner one."""
+
+    inverted = False
+    lower_bound, upper_bound = (0.0, 0.0), (4.0, 4.0)
+
+    def outlines(self):
+        outer = np.array([[0.0, 4.0, 4.0, 0.0], [0.0, 0.0, 4.0, 4.0]])
+        hole = np.array([[1.0, 1.0, 3.0, 3.0], [1.0, 3.0, 3.0, 1.0]])
+        return [outer, hole]
+
+
+def test_an_object_with_a_hole_keeps_it_empty():
+    from matplotlib.patches import PathPatch
+
+    result = plot_domain(
+        {"plate": Plate2D()},
+        bounds=((-1.0, -1.0), (5.0, 5.0)),
+        dimensions=False,
+        names=False,
+        opacity=1.0,
+        colors=["#ff0000"],
+    )
+    (patch,) = [a for a in result.artists if isinstance(a, PathPatch)]
+    assert (
+        len(patch.get_path().to_polygons()) == 2
+    )  # the outline and the hole, one path
+    fig = result.fig
+    fig.canvas.draw()
+    image = np.asarray(fig.canvas.buffer_rgba())
+
+    def color_at(x, y):
+        px, py = result.ax.transData.transform((x, y))
+        return image[image.shape[0] - int(py), int(px), :3]
+
+    assert tuple(color_at(0.5, 0.5)) == (255, 0, 0)  # the plate is filled
+    assert tuple(color_at(2.0, 2.0)) == (255, 255, 255)  # its hole is not
+    assert result.data["objects"]["plate"] == {"x": (0.0, 4.0), "y": (0.0, 4.0)}
+    fig, ax = plt.subplots()
+    from plasma_plots.geometry import _with_holes
+
+    (drawn,) = draw_geometry(ax, _with_holes(Plate2D().outlines()), scale=2.0)
+    assert drawn.get_path().get_extents().x1 == pytest.approx(8.0)
