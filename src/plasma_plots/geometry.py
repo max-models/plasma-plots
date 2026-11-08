@@ -11,7 +11,9 @@ A shape is any of these:
   geometries) or with an ``exterior`` (a shapely polygon);
 - ``{"rectangle": (x0, y0, width, height)}``, ``{"circle": (x, y, radius)}`` or
   ``{"polygon": outline}``, optionally with ``"color"``, ``"fill"`` and ``"label"`` keys of its own;
-- a ``matplotlib.patches.Patch``, added as it is.
+- a ``matplotlib.patches.Patch``, added as it is;
+- a ``matplotlib.path.Path`` of several loops, e.g. a section with holes (clockwise loops), filled
+  by the non-zero rule.
 
 Several shapes are given as a list of these.
 
@@ -98,10 +100,11 @@ def shapes(geometry) -> list:
     2
     """
     from matplotlib.patches import Patch
+    from matplotlib.path import Path as MplPath
 
     if geometry is None:
         return []
-    if isinstance(geometry, Patch):
+    if isinstance(geometry, (Patch, MplPath)):
         return [geometry]
     if isinstance(geometry, dict):
         known = [key for key in SHAPE_KEYS if key in geometry]
@@ -189,12 +192,16 @@ def draw_geometry(
     >>> draw_geometry(ax, {"rectangle": (0.0, 0.4, 1.0, 0.1)}, fill=False)
     """
     from matplotlib import patches
+    from matplotlib.path import Path as MplPath
+    from matplotlib.transforms import Affine2D
 
     drawn = []
     for shape in shapes(geometry):
         own = {}
         if isinstance(shape, patches.Patch):
             patch = shape
+        elif isinstance(shape, MplPath):  # several loops, e.g. a section with holes
+            patch = patches.PathPatch(shape.transformed(Affine2D().scale(scale)))
         elif isinstance(shape, dict):
             own = shape
             if "rectangle" in shape:
@@ -746,6 +753,29 @@ def _simplified(loop, tolerance):
 ROUND = ("circle", "sphere")
 
 
+def _signed_area(loop) -> float:
+    """The shoelace area of a ``(2, n)`` loop: positive counter-clockwise, negative for a hole."""
+    x, y = np.asarray(loop, float)
+    return 0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+
+
+def _with_holes(loops):
+    """One ``matplotlib.path.Path`` of closed loops, the clockwise ones holes.
+
+    simgeometry's outlines run counter-clockwise around a region and clockwise around a hole,
+    so the non-zero fill rule leaves the holes empty (maxplotlib draws such a path with the
+    even-odd rule).
+    """
+    from matplotlib.path import Path
+
+    vertices, codes = [], []
+    for loop in loops:
+        points = np.asarray(loop, float).T
+        vertices += [*points, points[0]]
+        codes += [Path.MOVETO] + [Path.LINETO] * (len(points) - 1) + [Path.CLOSEPOLY]
+    return Path(np.asarray(vertices), codes)
+
+
 def _plane_objects(objects, axis, value, *, resolution):
     """``{name: (loops, box, inverted, round)}`` of every object the plane cuts, in plane
     coordinates; ``round`` for a circle or a sphere, whose measure is a diameter."""
@@ -1230,9 +1260,13 @@ def _render(ax, plan, spacing, options, fills):
         voltage = voltages.get(name)
         if isinstance(voltage, (int, float)):
             label = f"{name} ({voltage:g} V)"
+        loops = [loop * scale for loop in loops]
+        if len(loops) > 1 and any(_signed_area(loop) < 0 for loop in loops):
+            # a section with holes (clockwise loops): one path, so the holes stay empty
+            loops = [_with_holes(loops)]
         artists += draw_geometry(
             ax,
-            [loop * scale for loop in loops],
+            loops,
             color=color,
             fill=not inverted,
             edgecolor=None if not inverted else color,
