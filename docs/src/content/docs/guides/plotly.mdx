@@ -23,7 +23,7 @@ n.plasma.plot.slice(
 )
 ```
 
-<PlotlyFigure src="/plotly/plotly_ring_slice.plotly.json" />
+<PlotlyFigure src="/plotly/plotly_ring_slice.plotly.json" poster="/plotly/plotly_ring_slice.png" posterDark="/plotly/plotly_ring_slice.dark.png" />
 
 The Plotly version is the Matplotlib plot converted, not a second implementation. The plot is
 drawn with Matplotlib as usual, off screen, and the finished figure is translated into Plotly:
@@ -91,7 +91,7 @@ A space-time map of a `(t, z)` field is
 a slice with time as one of its axes:
 `e_x.plasma.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
 
-<PlotlyFigure src="/plotly/plotly_timeseries.plotly.json" />
+<PlotlyFigure src="/plotly/plotly_timeseries.plotly.json" poster="/plotly/plotly_timeseries.png" posterDark="/plotly/plotly_timeseries.dark.png" />
 
 ## For every plot at once
 
@@ -132,7 +132,7 @@ n.plasma.plot.animation(
 )
 ```
 
-<PlotlyFigure src="/plotly/plotly_ring_animation.plotly.json" />
+<PlotlyFigure src="/plotly/plotly_ring_animation.plotly.json" poster="/plotly/plotly_ring_animation.png" posterDark="/plotly/plotly_ring_animation.dark.png" />
 
 Every frame stores only what changes: parts that are the same in every frame (static contour
 lines, the domain's boundary, a fixed background, a mesh's grid) are stored once. A contour level
@@ -173,7 +173,7 @@ phi.plasma.plot.power_spectrum(
 )
 ```
 
-<PlotlyFigure src="/plotly/plotly_spectral_power.plotly.json" />
+<PlotlyFigure src="/plotly/plotly_spectral_power.plotly.json" poster="/plotly/plotly_spectral_power.png" posterDark="/plotly/plotly_spectral_power.dark.png" />
 
 The guides show many of the plots with Plotly, folded under each Matplotlib figure.
 

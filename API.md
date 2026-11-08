@@ -538,6 +538,11 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.labels.format_number(value, digits=3)`: Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
   - e.g. `format_number(5.7825e-01)`
   - e.g. `format_number(2.0e6)`
+- `plasma_plots.plotly_backend.save_posters(figure, stem, *, width=800)`: Write pictures of a Plotly figure for a docs page, for light and dark mode.
+  - e.g. `save_posters(result.fig, "docs/public/plotly/energy")`
+- `plasma_plots.styles.to_dark(fig, *, text='#e6e6e6', axes='#8a8d96', background='#17181c')`: Recolour a drawn Matplotlib figure for a dark page, in place.
+  - e.g. `result = energy.plasma.plot.timeseries()`
+  - e.g. `result.fig.savefig("energy.png")`
 - `plasma_plots.hero.from_array(data, *, sweep='t', duration=8.0, max_frames=24, tone='accent', width=2.0, opacity=0.9, pad=0.08, tracer=False, picture=(1600, 600))`: Turn a profile that changes over a sweep (usually time) into an animated header picture.
   - e.g. `from_array(phi.isel(y=0)).save("docs/src/assets/hero.svg")`
 - `plasma_plots.plotly_backend.to_plotly(figure, *, strict=False)`: Convert a drawn Matplotlib figure into an interactive Plotly figure.

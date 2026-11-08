@@ -539,6 +539,8 @@ def save_figure(
     width: int = 1100,
     height: int = 650,
     scale: float = 2.0,
+    dark: bool = False,
+    posters: bool = False,
 ) -> list[str]:
     """Save a figure in several formats at once, as ``<name>.<format>``.
 
@@ -570,6 +572,14 @@ def save_figure(
         Height of an image of a Plotly figure, in layout pixels. Default: 650.
     scale : float, optional
         Resolution factor of an image of a Plotly figure. Default: 2.
+    dark : bool, optional
+        For a Matplotlib figure, also write each image as ``<name>.dark.<format>``, recoloured
+        for a dark page with a transparent background (:func:`plasma_plots.styles.to_dark`); the
+        docs theme shows it in dark mode. Default: ``False``.
+    posters : bool, optional
+        For a Plotly figure, also write ``<name>.png`` and ``<name>.dark.png``, pictures for a
+        docs page in light and dark mode (:func:`plasma_plots.plotly_backend.save_posters`;
+        needs kaleido). Default: ``False``.
 
     Returns
     -------
@@ -615,6 +625,25 @@ def save_figure(
             written.append(
                 result.save(path, frame=frame, **_image_options(result, image))
             )
+    fig = getattr(result, "fig", None)
+    if dark and isinstance(fig, matplotlib.figure.Figure):
+        from .styles import to_dark
+
+        to_dark(fig)
+        for fmt in formats:
+            if fmt.rsplit(".", 1)[-1].lower() in (
+                "png",
+                "svg",
+                "jpg",
+                "jpeg",
+                "webp",
+                "pdf",
+            ):
+                written.append(result.save(f"{name}.dark.{fmt}", transparent=True))
+    if posters and type(fig).__module__.startswith("plotly"):
+        from .plotly_backend import save_posters
+
+        written.extend(save_posters(fig, name))
     return [str(path) for path in written]
 
 

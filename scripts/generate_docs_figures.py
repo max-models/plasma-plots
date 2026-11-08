@@ -38,6 +38,7 @@ from plasma_plots.plotting import (
     plot_convergence,
     plot_dispersion,
     plot_scalars,
+    save_figure,
 )
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
@@ -67,16 +68,38 @@ def field_array(name, label, unit, values, dims, coords):
 
 
 def save(result, filename):
-    path = OUT / filename
-    result.save(path, close=True)
-    print(f"wrote {path}")
+    """Save a figure as ``filename``, with a dark variant ``<stem>.dark.<ext>`` for the theme's dark
+    mode (an image only: a GIF is written as it is)."""
+    stem, ext = str(filename).rsplit(".", 1)
+    if ext == "gif":
+        result.save(OUT / filename, close=True)
+        print(f"wrote {OUT / filename}")
+        return
+    for path in save_figure(result, OUT / stem, formats=(ext,), dark=True):
+        print(f"wrote {path}")
+    fig = getattr(result, "fig", result)
+    if isinstance(fig, matplotlib.figure.Figure):
+        plt.close(fig)
 
 
 def save_fig(fig, filename):
-    path = OUT / filename
-    fig.savefig(path, bbox_inches="tight")
-    plt.close(fig)
+    save(PlotResult(fig), filename)
+
+
+def save_interactive(result, name):
+    """A web figure for the theme's <PlotlyFigure>, ``public/plotly/<name>.plotly.json``, and its
+    posters for light and dark mode, ``<name>.png`` and ``<name>.dark.png`` (kaleido)."""
+    path = result.save(PLOTLY_OUT / f"{name}.plotly.json")
     print(f"wrote {path}")
+    try:
+        for poster in save_figure(
+            result, PLOTLY_OUT / name, formats=(), posters=True
+        ):
+            print(f"wrote {poster}")
+    except (
+        Exception
+    ) as error:  # no kaleido or no browser for it: the page shows no poster
+        print(f"skipped the posters of {name}: {error}")
 
 
 # =============================================================================
@@ -549,9 +572,7 @@ try:
     def save_plotly(fig, filename, *, width=560, height=440):
         # a web figure for the theme's <PlotlyFigure>; width/height give its aspect ratio
         fig.update_layout(width=width, height=height)
-        print(
-            f"wrote {PlotResult(fig).save(PLOTLY_OUT / f'{filename}.plotly.json')}"
-        )
+        save_interactive(PlotResult(fig), filename)
 
     selected = field.plasma.data.slice(x="eta1", y="eta2", t=-1)
     fig = px.imshow(
@@ -2558,9 +2579,7 @@ try:
         import plotly  # noqa: F401
 
         fig = profile_plots.gantt(backend="plotly")
-        print(
-            f"wrote {PlotResult(fig).save(PLOTLY_OUT / 'plotly_profile_gantt.plotly.json')}"
-        )
+        save_interactive(PlotResult(fig), "plotly_profile_gantt")
     except ImportError:
         print("skipped plotly_profile_gantt.json (plotly unavailable)")
 except Exception as exc:  # pragma: no cover - optional, environment-dependent
@@ -2577,8 +2596,7 @@ try:
     import plotly  # noqa: F401
 
     def save_plotly(result, filename):
-        path = result.save(PLOTLY_OUT / f"{filename}.plotly.json")
-        print(f"wrote {path}")
+        save_interactive(result, filename)
 
     save_plotly(
         field.plasma.plot.slice(x="eta1", y="eta2", t=-1, backend="plotly"),
@@ -3096,8 +3114,8 @@ save(fig_df, "losses.png")
 try:
     import plotly  # noqa: F401
 
-    print(
-        f"wrote {lines_fl.plasma.plot.poincare(backend='plotly').save(PLOTLY_OUT / 'plotly_poincare.plotly.json')}"
+    save_interactive(
+        lines_fl.plasma.plot.poincare(backend="plotly"), "plotly_poincare"
     )
 except ImportError:
     print("skipped plotly_poincare.json (plotly unavailable)")
@@ -3145,10 +3163,10 @@ save(
 try:
     import plotly  # noqa: F401
 
-    divergence_ch.plasma.plot.scan(samples="seed").to_plotly().save(
-        PLOTLY_OUT / "plotly_scan.plotly.json"
+    save_interactive(
+        divergence_ch.plasma.plot.scan(samples="seed").to_plotly(),
+        "plotly_scan",
     )
-    print(f"wrote {PLOTLY_OUT / 'plotly_scan.plotly.json'}")
 except ImportError:
     print("skipped plotly_scan.json (plotly unavailable)")
 
