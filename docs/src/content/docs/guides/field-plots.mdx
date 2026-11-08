@@ -377,6 +377,68 @@ The measurements are in `result.data`, and `dimension_chains` computes them with
 measurement of your own is `dimension_line(ax, start, end, offset=-0.5, label="2 mm")`: a
 double-headed arrow displaced from the measured points, with extension lines and its label.
 
+The drawing states more than the geometry when you ask it to:
+
+```python
+electrodes = [
+    {
+        "polygon": [[4.5, 5.5, 6.1, 4.9], [-3.0, -3.0, 3.0, 3.0]],
+        "label": "anode",
+    },
+    {"circle": (1.5, 0.0, 0.8), "label": "cathode"},
+]
+plasma_plots.plot_domain(
+    electrodes,
+    bounds=((0.0, -4.0), (8.0, 4.0)),  # the domain around the shapes
+    unit="mm",
+    boundaries={
+        "xmin": "cathode, 0 V",
+        "xmax": "anode, 1 kV",
+        "ymin": "periodic",
+        "ymax": "periodic",
+    },
+    circles="radius",  # the centre in the chains, the radius drawn
+    angles=True,  # the angle of every inclined edge
+    hatch=True,  # section faces, as in a technical drawing
+    extra_dimensions=[((1.5, 0.0), (4.5, -3.0))],  # a distance of your own
+)
+```
+
+![A domain with its boundary conditions on the sides, a radius, an angle, hatched objects and an extra distance](../../../assets/figures/domain_features.png)
+
+- `boundaries=True` writes the boundary conditions of a simgeometry `SimulationDomain` on its
+  sides, as picnic sets them (`φ = 5 kV, particles: kill`, `periodic`); a dict such as
+  `{"xmin": "cathode"}` adds or replaces labels, `None` removes one.
+- `cells=True` (on with `grid=True`) measures the first cell along each axis beyond the top and
+  the right side, with the number of cells: the resolution next to the geometry.
+- `dimensions="baseline"` measures every edge from the lower boundary, one row per edge, instead
+  of chains; `measure=["anode"]` measures only the named objects.
+- `circles="radius"` measures a circle's or a sphere's centre and draws its radius, `R 0.8 mm`;
+  by default the chains give its diameter, `⌀ 1.6 mm`.
+- `angles=True` marks the angle of every straight edge inclined to the axes, against the nearest
+  axis: a cone, a slanted tube, a polygon's side.
+- `hatch=True` (or any Matplotlib hatch, e.g. `"xx"`) hatches the objects; in TikZ the hatch is a
+  pattern (maxplotlib 0.3 or newer; a `.tikz` file needs `\usetikzlibrary{patterns}`).
+- `extra_dimensions` adds measurements of your own, `(start, end)`, `(start, end, label)` or a
+  dict with an `offset`, in the domain's coordinates.
+
+A 3-D domain can be drawn in several views side by side, at one scale and with their lower sides
+aligned, such as a front and a side view; `result.data["views"]` has the measurements of each:
+
+```python
+plasma_plots.plot_domain(
+    domain,
+    views=["y=0", "x=0.03"],
+    scale=1e3,
+    unit="mm",
+    boundaries=True,
+    cells=True,
+)
+```
+
+A new figure is as wide as `figsize` (or Matplotlib's default, wider when the views need it) and
+as high as its content, so the text has the size of the document around it.
+
 ### Several fields side by side
 
 `animation(alongside=[...])` animates further fields next to the first one,

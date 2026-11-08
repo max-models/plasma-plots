@@ -3352,6 +3352,32 @@ save(
     plasma_plots.plot_domain(electrodes_d, unit="mm", colors=["0.45", "C1"]),
     "domain_dimensions.png",
 )
+# the same electrodes with boundary conditions, a radius, an angle, hatches and an extra distance
+save(
+    plasma_plots.plot_domain(
+        [
+            {
+                "polygon": [[4.5, 5.5, 6.1, 4.9], [-3.0, -3.0, 3.0, 3.0]],
+                "label": "anode",
+            },
+            {"circle": (1.5, 0.0, 0.8), "label": "cathode"},
+        ],
+        bounds=((0.0, -4.0), (8.0, 4.0)),
+        unit="mm",
+        colors=["0.45", "C1"],
+        boundaries={
+            "xmin": "cathode, 0 V",
+            "xmax": "anode, 1 kV",
+            "ymin": "periodic",
+            "ymax": "periodic",
+        },
+        circles="radius",
+        angles=True,
+        hatch=True,
+        extra_dimensions=[((1.5, 0.0), (4.5, -3.0))],
+    ),
+    "domain_features.png",
+)
 
 # the styles: one plot in three of them
 t_st = np.linspace(0.0, 10.0, 200)

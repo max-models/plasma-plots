@@ -500,7 +500,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.figure(nrows=1, ncols=1, *, backend=None, sharex=False, sharey=False, figsize=None, title=None, **options)`: Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
   - e.g. `with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig: energy.plasma.plot.timeseries(fit=(0.0, 5.0), ax=fig[0]) drift.plasma.plot.timeseries(logy=True, ax=fig[1])`
   - e.g. `fig.save("energies.html")`
-- `plasma_plots.plot_domain(domain, *, x=None, y=None, z=None, dimensions=True, scale=1.0, unit=None, fmt='{:.4g}', grid=False, names=True, axes=None, colors=None, opacity=0.7, resolution=256, ax=None, figsize=None, title=None, backend=None)`: Draw a simulation domain with its objects and their measurements, as a technical drawing.
+- `plasma_plots.plot_domain(domain, *, x=None, y=None, z=None, views=None, bounds=None, dimensions=True, measure=None, extra_dimensions=None, circles='diameter', angles=False, boundaries=False, scale=1.0, unit=None, fmt='{:.4g}', grid=False, cells=None, names=True, axes=None, colors=None, opacity=0.7, hatch=None, resolution=256, ax=None, figsize=None, title=None, backend=None)`: Draw a simulation domain with its objects and their measurements, as a technical drawing.
   - e.g. `result = plot_domain(domain, z=0.0, scale=1e3, unit="mm")`
   - e.g. `result.data["objects"]["plasma grid"]["x"]`
 - `plasma_plots.set_backend(backend)`: Set the backend of every plot that does not pass backend= itself.
