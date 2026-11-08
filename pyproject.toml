@@ -45,7 +45,7 @@ optional-dependencies.dev = [
 ]
 # plasma_plots.geometry.plot_domain: simgeometry domains as drawings with their measurements
 optional-dependencies.geometry = [
-  "simgeometry[plot]>=0.1.1",
+  "simgeometry[plot]>=0.2.1",
 ]
 optional-dependencies.gallery = [
   "kaleido",
