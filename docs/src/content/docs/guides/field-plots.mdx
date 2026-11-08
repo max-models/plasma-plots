@@ -367,8 +367,7 @@ result.data["objects"]["cathode"]["x"]  # (0.7, 2.3)
 
 The shapes of the overlay above draw the same way without simgeometry:
 `plasma_plots.plot_domain(electrodes, unit="mm")` with the list of dicts, named by a `"label"`
-key. A circle or a sphere is measured by its diameter, marked `⌀` (in TikZ, `$\varnothing$` with
-maxplotlib 0.2.1 or newer).
+key. A circle or a sphere is measured by its diameter, marked `⌀` (`$\varnothing$` in TikZ).
 `scale=1e3, unit="mm"` labels a domain built in metres in mm, `dimensions="extents"` keeps only
 the extent of the domain, `grid=True` adds the grid lines, `ax=` draws over a field drawn with
 `plot.slice` (its limits are widened for the measurements), and `backend="tikz"` makes it TikZ
@@ -418,7 +417,7 @@ plasma_plots.plot_domain(
 - `angles=True` marks the angle of every straight edge inclined to the axes, against the nearest
   axis: a cone, a slanted tube, a polygon's side.
 - `hatch=True` (or any Matplotlib hatch, e.g. `"xx"`) hatches the objects; in TikZ the hatch is a
-  pattern (maxplotlib 0.3 or newer; a `.tikz` file needs `\usetikzlibrary{patterns}`).
+  pattern (a `.tikz` file needs `\usetikzlibrary{patterns}` in the paper).
 - `extra_dimensions` adds measurements of your own, `(start, end)`, `(start, end, label)` or a
   dict with an `offset`, in the domain's coordinates.
 
