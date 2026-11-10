@@ -97,3 +97,23 @@ def test_repeat_periodic_drops_closed_sector_endpoints():
     repeated = repeat_periodic(field, poloidal_period=2, toroidal_period=3)
 
     assert repeated.sizes == {"eta2": 8, "eta3": 12}
+
+
+def test_unit_exponents_are_superscripts_in_labels():
+    import numpy as np
+    import xarray as xr
+
+    from plasma_plots.arrays import axis_label, unit_label, value_label
+
+    assert unit_label("W/m^3") == "W/m$^{3}$"
+    assert unit_label("1/(m^3 s)") == "1/(m$^{3}$ s)"
+    assert unit_label("s^(-1)") == "s$^{-1}$" and unit_label("keV") == "keV"
+    assert unit_label("m$^2$") == "m$^2$"  # mathtext already
+    density = xr.DataArray(
+        np.ones(2),
+        dims="rho",
+        coords={"rho": ("rho", [0.0, 1.0], {"long_name": "r", "units": "m^-1"})},
+        attrs={"long_name": "n", "units": "m^-3"},
+    )
+    assert value_label(density) == "n [m$^{-3}$]"
+    assert axis_label(density, "rho") == "r [m$^{-1}$]"
