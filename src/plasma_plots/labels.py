@@ -19,7 +19,7 @@ def _strip(text: str) -> str:
     return text.rstrip("0").rstrip(".") if "." in text else text
 
 
-def format_number(value: float, digits: int = 3) -> str:
+def format_number(value: float, digits: int = 3, *, mathtext: bool = False) -> str:
     """Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
 
     Parameters
@@ -28,6 +28,9 @@ def format_number(value: float, digits: int = 3) -> str:
         The number.
     digits : int, optional
         Significant digits. Default: 3.
+    mathtext : bool, optional
+        Write a power of ten as mathtext, ``"$2\\times10^{19}$"``, which Matplotlib draws and
+        Plotly typesets (see :func:`plasma_plots.set_math`), instead of Unicode. Default: ``False``.
 
     Returns
     -------
@@ -41,6 +44,8 @@ def format_number(value: float, digits: int = 3) -> str:
     '0.578'
     >>> format_number(2.0e6)
     '2×10⁶'
+    >>> format_number(2.0e19, mathtext=True)
+    '$2\\times10^{19}$'
     """
     value = float(value)
     if not math.isfinite(value):
@@ -54,6 +59,13 @@ def format_number(value: float, digits: int = 3) -> str:
     mantissa = _strip(f"{value / 10**exponent:.{digits - 1}f}")
     if mantissa in ("10", "-10"):  # rounding up to the next power
         mantissa, exponent = mantissa[:-1], exponent + 1
+    if mathtext:
+        power = f"10^{{{exponent}}}"
+        sign = "-" if mantissa.startswith("-") else ""
+        digits_ = mantissa.lstrip("-")
+        return (
+            f"${sign}{power}$" if digits_ == "1" else f"${sign}{digits_}\\times{power}$"
+        )
     power = f"10{str(exponent).translate(_SUPERSCRIPT)}"
     return (
         power

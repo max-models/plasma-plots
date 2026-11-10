@@ -535,7 +535,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
   - e.g. `bare(result.fig).write_json("docs/public/plotly/hero.json")`
 - `plasma_plots.plotly_backend.web_figure(figure, **hints)`: A Plotly figure as a web figure, the format of maxplotlib.web.
   - e.g. `web = web_figure(result.fig, alt="Field energy over time")`
-- `plasma_plots.labels.format_number(value, digits=3)`: Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
+- `plasma_plots.labels.format_number(value, digits=3, *, mathtext=False)`: Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
   - e.g. `format_number(5.7825e-01)`
   - e.g. `format_number(2.0e6)`
 - `plasma_plots.plotly_backend.save_posters(figure, stem, *, width=800)`: Write pictures of a Plotly figure for a docs page, for light and dark mode.

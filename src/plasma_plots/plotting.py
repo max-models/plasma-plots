@@ -45,6 +45,7 @@ from .arrays import (
     logical_dims,
     save_scalars,
     scalar_names,
+    unit_label,
     validate_array,
     value_label,
 )
@@ -5169,7 +5170,9 @@ def plot_profiles(
             # the coordinate's name and unit when it has them: "n_e0 = 2e+19 m^-3"
             name = data[over].attrs.get("long_name") or over
             units = data[over].attrs.get("units")
-            label = f"{name} = {value:.3g}" + (f" {units}" if units else "")
+            label = f"{name} = {format_number(value, mathtext=True)}" + (
+                f" {unit_label(units)}" if units else ""
+            )
         artists += ax.plot(
             xs,
             np.asarray(profile.transpose(x)),

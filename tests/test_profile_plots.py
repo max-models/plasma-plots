@@ -93,7 +93,10 @@ def test_profile_labels_use_the_coordinate_name_and_unit():
     )
     result = plot_profiles(density, x="rho", over="ne0")
     labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
-    assert labels == ["n_e0 = 2e+19 m^-3", "n_e0 = 1e+20 m^-3"]
+    assert labels == [
+        r"n_e0 = $2\times10^{19}$ m$^{-3}$",
+        r"n_e0 = $10^{20}$ m$^{-3}$",
+    ]
     plain = plot_profiles(density.drop_attrs(), x="rho", over="ne0")
     labels = [text.get_text() for text in plain.ax.get_legend().get_texts()]
-    assert labels == ["ne0 = 2e+19", "ne0 = 1e+20"]
+    assert labels == [r"ne0 = $2\times10^{19}$", r"ne0 = $10^{20}$"]
