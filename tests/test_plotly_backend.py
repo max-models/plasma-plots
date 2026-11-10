@@ -1,6 +1,7 @@
 """backend="plotly": every Matplotlib accessor plot converts to Plotly, showing the same data."""
 
 import inspect
+import re
 import warnings
 
 import matplotlib
@@ -792,5 +793,8 @@ def test_html_of_a_latex_figure_loads_mathjax(tmp_path):
     assert mathjax_source(latex) == "cdn" and mathjax_source(plain) is False
     PlotResult(latex).save(tmp_path / "latex.html")
     PlotResult(plain).save(tmp_path / "plain.html")
-    assert "mathjax/3.2.2/es5/tex-svg" in (tmp_path / "latex.html").read_text()
-    assert "tex-svg" not in (tmp_path / "plain.html").read_text()
+    # a script that loads MathJax: the version plotly.py pairs with its plotly.js (3.2.2 for
+    # plotly.js 4, 2.7.5 for older ones)
+    loads_mathjax = re.compile(r"<script[^>]*src=\"[^\"]*mathjax", re.IGNORECASE)
+    assert loads_mathjax.search((tmp_path / "latex.html").read_text())
+    assert not loads_mathjax.search((tmp_path / "plain.html").read_text())
