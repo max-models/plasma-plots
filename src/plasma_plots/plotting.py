@@ -45,6 +45,7 @@ from .arrays import (
     logical_dims,
     save_scalars,
     scalar_names,
+    unit_label,
     validate_array,
     value_label,
 )
@@ -283,8 +284,11 @@ class PlotResult:
         if self._plotly:
             suffix = Path(path).suffix.lower()
             if suffix in (".html", ".htm"):
+                from .plotly_backend import mathjax_source
+
                 kwargs = {
                     "include_plotlyjs": "cdn",
+                    "include_mathjax": mathjax_source(self.fig),
                     "auto_play": False,
                     "config": {"responsive": True},
                     **kwargs,
@@ -486,9 +490,13 @@ class PlotResult:
         --------
         >>> html = phi.plasma.plot.slice(t=-1, eta3=0).to_html()
         """
-        return self.to_plotly(bare=bare).fig.to_html(
+        from .plotly_backend import mathjax_source
+
+        figure = self.to_plotly(bare=bare).fig
+        return figure.to_html(
             full_html=full_html,
             include_plotlyjs="cdn",
+            include_mathjax=mathjax_source(figure),
             auto_play=False,
             config={"responsive": True},
         )
@@ -5162,7 +5170,9 @@ def plot_profiles(
             # the coordinate's name and unit when it has them: "n_e0 = 2e+19 m^-3"
             name = data[over].attrs.get("long_name") or over
             units = data[over].attrs.get("units")
-            label = f"{name} = {value:.3g}" + (f" {units}" if units else "")
+            label = f"{name} = {format_number(value, mathtext=True)}" + (
+                f" {unit_label(units)}" if units else ""
+            )
         artists += ax.plot(
             xs,
             np.asarray(profile.transpose(x)),

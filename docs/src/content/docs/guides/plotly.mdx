@@ -113,6 +113,25 @@ starlight theme turn that output into an interactive chart in the site's light/d
 Plotly figure, with a caption. With maxplotlib installed the output carries the palette
 positions and hints of a web figure, so the site draws it as it draws a saved `.plotly.json`.
 
+### Formulas as LaTeX
+
+Labels with Matplotlib's mathtext (`$\sigma_s$ [m$^2$]`) become Unicode text in Plotly by
+default (σ<sub>s</sub> [m<sup>2</sup>]), which every front end shows. For a docs site, keep them
+as LaTeX:
+
+```python
+plasma_plots.set_backend("plotly")
+plasma_plots.set_math("latex")  # e.g. in the first cell of a docs notebook
+```
+
+Each label with a formula then becomes one LaTeX formula, the text around it in `\text{...}`
+(`$\sigma_s\text{ [m}^2\text{]}$`), which plotly.js typesets with MathJax: titles, axis
+titles, legends, annotations and colour bars. The max-models docs theme loads MathJax for the
+figures that have a formula, with the site's KaTeX macros, so the figures and the text of a page
+match. The pictures kaleido draws (`.png`, posters) and the pages `save("x.html")` writes typeset
+them too; hover labels, which plotly.js does not typeset, keep the Unicode form. JupyterLab may
+show the LaTeX as written, which is why it is not the default.
+
 ## Animations and viewers
 
 An animation becomes a figure with a slider over the sweep and Play/Pause buttons. The

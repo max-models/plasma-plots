@@ -7,6 +7,7 @@ operate on labeled xarray data from any producer.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 
 import numpy as np
@@ -328,6 +329,38 @@ def validate_array(
     return data
 
 
+_UNIT_POWER = re.compile(r"\^\s*(\{[^{}]*\}|\([-+]?\d+(?:\.\d+)?\)|[-+]?\d+(?:\.\d+)?)")
+
+
+def unit_label(units: str) -> str:
+    """Units for a label: their exponents as superscripts, in mathtext.
+
+    ``units`` stay a plain string that unit libraries read (``"W/m^3"``, ``"m^-3"``); a label shows
+    ``W/m³``: Matplotlib, and Plotly through :func:`plasma_plots.plotly_backend.plotly_text`, draw
+    the mathtext. Units that already have mathtext (a ``$``) are kept as they are.
+
+    Parameters
+    ----------
+    units : str
+        The units, e.g. ``"1/(m^3 s)"``.
+
+    Returns
+    -------
+    str
+        The label of the units, e.g. ``"1/(m$^{3}$ s)"``.
+
+    Examples
+    --------
+    >>> unit_label("W/m^3")
+    'W/m$^{3}$'
+    >>> unit_label("m^-3")
+    'm$^{-3}$'
+    """
+    if not units or "$" in units:
+        return units
+    return _UNIT_POWER.sub(lambda m: "$^{" + m.group(1).strip("{}()") + "}$", units)
+
+
 def axis_label(data: xr.DataArray, dim: str) -> str:
     """The axis label of a dimension, with its units.
 
@@ -357,7 +390,7 @@ def axis_label(data: xr.DataArray, dim: str) -> str:
     coord = data.coords.get(dim)
     attrs = {} if coord is None else coord.attrs
     label = attrs.get("label") or attrs.get("long_name") or DIM_LABELS.get(dim, dim)
-    unit = "" if coord is None else coord.attrs.get("units", "")
+    unit = "" if coord is None else unit_label(coord.attrs.get("units", ""))
     return f"{label} [{unit}]" if unit else label
 
 
@@ -448,7 +481,7 @@ def value_label(data: xr.DataArray) -> str:
     label = data.attrs.get("label") or data.attrs.get("long_name") or data.name or ""
     if data.attrs.get("units") in DIMENSIONLESS and label:
         return label  # a ratio or a fraction: no unit to show
-    unit = data.attrs.get("units", "") or "a.u."
+    unit = unit_label(data.attrs.get("units", "")) or "a.u."
     return f"{label} [{unit}]" if label else f"[{unit}]"
 
 

@@ -535,7 +535,7 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
   - e.g. `bare(result.fig).write_json("docs/public/plotly/hero.json")`
 - `plasma_plots.plotly_backend.web_figure(figure, **hints)`: A Plotly figure as a web figure, the format of maxplotlib.web.
   - e.g. `web = web_figure(result.fig, alt="Field energy over time")`
-- `plasma_plots.labels.format_number(value, digits=3)`: Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
+- `plasma_plots.labels.format_number(value, digits=3, *, mathtext=False)`: Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
   - e.g. `format_number(5.7825e-01)`
   - e.g. `format_number(2.0e6)`
 - `plasma_plots.plotly_backend.save_posters(figure, stem, *, width=800)`: Write pictures of a Plotly figure for a docs page, for light and dark mode.
@@ -583,7 +583,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
 - `plasma_plots.fieldlines`: `trace_field_lines`, `poincare_section`, `rotational_transform`, `classify_field_lines`, `islands`, `footprint`, `seed_grid`, `sample_along`, `parallel_wavenumber`
-- `plasma_plots.arrays`: `logical_dims`, `periodicity`, `repeat_periodic`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
+- `plasma_plots.arrays`: `logical_dims`, `periodicity`, `repeat_periodic`, `angle_period`, `validate_array`, `unit_label`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
 - `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene_to_plotly`, `scene`

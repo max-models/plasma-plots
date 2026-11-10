@@ -118,3 +118,12 @@ def test_save_figure_writes_a_dark_variant(energy, tmp_path):
     # a Plotly figure has no dark variant, and posters only on request
     go = pytest.importorskip("plotly.graph_objects")
     assert save_figure(go.Figure(), tmp_path / "plain", formats=(), dark=True) == []
+
+
+def test_format_number_as_mathtext():
+    from plasma_plots.labels import format_number
+
+    assert format_number(2.0e19, mathtext=True) == r"$2\times10^{19}$"
+    assert format_number(1.0e20, mathtext=True) == r"$10^{20}$"
+    assert format_number(-1.0e-5, mathtext=True) == r"$-10^{-5}$"
+    assert format_number(0.578, mathtext=True) == "0.578"  # plain numbers stay plain

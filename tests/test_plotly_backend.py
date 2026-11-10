@@ -1,6 +1,7 @@
 """backend="plotly": every Matplotlib accessor plot converts to Plotly, showing the same data."""
 
 import inspect
+import re
 import warnings
 
 import matplotlib
@@ -739,3 +740,61 @@ def test_panels_with_titles_get_a_top_margin():
     assert to_plotly(fig).layout.margin.t == 8
     axes[0].set_title("left panel")
     assert to_plotly(fig).layout.margin.t == 30
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (r"$\sigma_s$ [m$^2$]", r"$\sigma_s\text{ [m}^2\text{]}$"),
+        (r"fit: $\gamma$ = 0.1", r"$\text{fit: }\gamma\text{ = 0.1}$"),
+        (r"$\rho = \sqrt{\psi_n}$", r"$\rho = \sqrt{\psi_n}$"),
+        (r"$\mathdefault{10^{2}}$", r"${10^{2}}$"),
+        (r"a {b} & 5% <c>", "a {b} &amp; 5% &lt;c&gt;"),  # no formula: as before
+        (
+            r"50% of $x$ & {y}",
+            r"$\text{50}\%\text{ of }x\text{ }\&\text{ }\{\text{y}\}$",
+        ),
+        ("two\nlines $x$", "two<br>lines x"),  # a formula is one line
+    ],
+)
+def test_latex_labels_are_one_formula(text, expected):
+    assert plotly_text(text, math="latex") == expected
+
+
+def test_set_math_writes_the_labels_as_latex():
+    previous = plasma_plots.set_math("latex")
+    try:
+        assert previous == "unicode" and plasma_plots.get_math() == "latex"
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label=r"$n_e$ profile")
+        ax.plot([0, 1], [1, 0], label="plain")
+        ax.set_xlabel(r"$\rho$")
+        ax.set_title(r"$\sigma_s$ [m$^2$]")
+        ax.legend()
+        figure = to_plotly(fig)
+    finally:
+        plasma_plots.set_math(previous)
+    latex, plain = figure.data
+    assert figure.layout.xaxis.title.text == r"$\rho$"
+    assert figure.layout.title.text == r"$\sigma_s\text{ [m}^2\text{]}$"
+    assert latex.name == r"$n_e\text{ profile}$"
+    # plotly.js does not typeset hover labels: the Unicode form there
+    assert latex.hovertemplate == "(%{x}, %{y})<extra>n<sub>e</sub> profile</extra>"
+    assert plain.name == "plain" and plain.hovertemplate is None
+    with pytest.raises(ValueError, match="unknown math mode"):
+        plasma_plots.set_math("mathml")
+
+
+def test_html_of_a_latex_figure_loads_mathjax(tmp_path):
+    from plasma_plots.plotly_backend import mathjax_source
+
+    latex = go.Figure(go.Scatter(x=[0, 1], y=[0, 1]), layout={"title": {"text": "$x$"}})
+    plain = go.Figure(go.Scatter(x=[0, 1], y=[0, 1]), layout={"title": {"text": "x"}})
+    assert mathjax_source(latex) == "cdn" and mathjax_source(plain) is False
+    PlotResult(latex).save(tmp_path / "latex.html")
+    PlotResult(plain).save(tmp_path / "plain.html")
+    # a script that loads MathJax: the version plotly.py pairs with its plotly.js (3.2.2 for
+    # plotly.js 4, 2.7.5 for older ones)
+    loads_mathjax = re.compile(r"<script[^>]*src=\"[^\"]*mathjax", re.IGNORECASE)
+    assert loads_mathjax.search((tmp_path / "latex.html").read_text())
+    assert not loads_mathjax.search((tmp_path / "plain.html").read_text())

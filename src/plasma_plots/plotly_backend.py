@@ -58,6 +58,9 @@ PX_PER_PT = PX_PER_INCH / 72.0
 IMAGE_PIXELS = 1200
 
 _default = "matplotlib"
+MATH_MODES = ("unicode", "latex")
+# how formulas in labels reach Plotly: as Unicode text, or as LaTeX for MathJax (see set_math)
+_math_mode = "unicode"
 # inside a plot method: nested accessor calls draw with Matplotlib (the outermost call converts)
 _drawing = contextvars.ContextVar("plasma_plots_drawing", default=False)
 # how many plot methods are running, one inside the other
@@ -110,6 +113,65 @@ def set_backend(backend: str) -> str:
     global _default
     previous, _default = _default, _check(backend)
     return previous
+
+
+def set_math(mode: str) -> str:
+    """Set how the formulas of labels (Matplotlib's ``$...$`` mathtext) reach Plotly figures.
+
+    With ``"unicode"`` (the default) a formula becomes Unicode text with sub- and superscripts,
+    which every Plotly front end shows. With ``"latex"`` a label with a formula is kept as LaTeX,
+    one ``$...$`` formula per label (the text around it in ``\\text{...}``), which plotly.js
+    typesets with MathJax: on the max-models docs sites (the theme's ``PlotlyFigure`` loads
+    MathJax for such figures), in the pictures kaleido draws, and in the HTML pages
+    :meth:`~plasma_plots.plotting.PlotResult.save` writes (which load MathJax from a CDN). Hover
+    labels, which plotly.js does not typeset, keep the Unicode form. JupyterLab may show the LaTeX
+    as written. The mode applies when a figure is converted, so set it before plotting.
+
+    Parameters
+    ----------
+    mode : {"unicode", "latex"}
+        The new mode.
+
+    Returns
+    -------
+    str
+        The previous mode, e.g. to restore it afterwards.
+
+    Raises
+    ------
+    ValueError
+        If ``mode`` is not ``"unicode"`` or ``"latex"``.
+
+    See Also
+    --------
+    get_math : The current mode.
+    plotly_text : The conversion of one label.
+
+    Examples
+    --------
+    >>> plasma_plots.set_backend("plotly")
+    >>> plasma_plots.set_math("latex")  # e.g. in the first cell of a docs notebook
+    """
+    global _math_mode
+    if mode not in MATH_MODES:
+        raise ValueError(f"unknown math mode {mode!r}; expected one of {MATH_MODES}")
+    previous, _math_mode = _math_mode, mode
+    return previous
+
+
+def get_math() -> str:
+    """Return how the formulas of labels reach Plotly figures.
+
+    Returns
+    -------
+    str
+        ``"unicode"`` (the default) or ``"latex"``.
+
+    See Also
+    --------
+    set_math : Changes it.
+    """
+    return _math_mode
 
 
 def get_backend() -> str:
@@ -349,6 +411,27 @@ def _notebook_figure(figure, title):
     return web
 
 
+def mathjax_source(figure) -> str | bool:
+    """``"cdn"`` for a figure with a LaTeX label (see :func:`set_math`), else ``False``.
+
+    The ``include_mathjax`` of Plotly's HTML export: a page of the figure loads MathJax from a CDN
+    only when the figure has a formula to typeset.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure.
+
+    Returns
+    -------
+    str or bool
+        ``"cdn"`` or ``False``.
+    """
+    import plotly.io as pio
+
+    return "cdn" if '"$' in pio.to_json(figure, validate=False) else False
+
+
 def display_bundle(figure, *, title: str | None = None):
     """The notebook output of a Plotly figure: its JSON, an HTML copy and a text line.
 
@@ -378,6 +461,7 @@ def display_bundle(figure, *, title: str | None = None):
             figure,
             full_html=False,
             include_plotlyjs="cdn",
+            include_mathjax=mathjax_source(figure),
             config={"responsive": True},
         ),
         "text/plain": f"<Plotly figure: {len(figure.data)} traces>",
@@ -549,16 +633,71 @@ def _math(math: str) -> str:
     return "".join(out)
 
 
-def plotly_text(text) -> str:
+# Characters of plain text that cannot go in \\text{...}, as math: braces, dollars and TeX's
+# special characters, and < and > (which plotly.js would turn into \\lt and \\gt inside the text)
+_LATEX_SPECIAL = {
+    "{": r"\{",
+    "}": r"\}",
+    "$": r"\$",
+    "%": r"\%",
+    "#": r"\#",
+    "&": r"\&",
+    "<": r"\lt ",
+    ">": r"\gt ",
+    "\\": r"\backslash ",
+}
+
+
+def _latex_plain(text: str) -> str:
+    """Plain text as LaTeX math: runs in \\text{...}, the special characters as math symbols."""
+    out, run = [], []
+    for char in text:
+        if char in _LATEX_SPECIAL:
+            if run:
+                out.append(r"\text{" + "".join(run) + "}")
+                run = []
+            out.append(_LATEX_SPECIAL[char])
+        else:
+            run.append(char)
+    if run:
+        out.append(r"\text{" + "".join(run) + "}")
+    return "".join(out)
+
+
+def _latex_label(text: str) -> str | None:
+    """A label with mathtext as one LaTeX formula, ``$...$``; None for a label without a formula."""
+    if "\n" in text:
+        return None  # a formula is one line; such a label stays Unicode
+    parts = re.split(r"(?<!\\)\$", text)
+    if len(parts) % 2 == 0 or len(parts) < 3:
+        return None
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2:
+            # Matplotlib's own font commands: the regular font, as in LaTeX
+            part = part.replace(r"\mathdefault{", "{").replace(
+                r"\mathregular{", r"\mathrm{"
+            )
+            out.append(part)
+        elif part:
+            out.append(_latex_plain(part.replace(r"\$", "$")))
+    return "$" + "".join(out) + "$"
+
+
+def plotly_text(text, *, math: str | None = None) -> str:
     """Turn a Matplotlib label into Plotly text.
 
     Mathtext (``$\\omega$``, ``$p_0$``) becomes Unicode and <sub>/<sup>; other ``<``, ``>`` and
-    ``&`` are escaped, newlines become <br>.
+    ``&`` are escaped, newlines become <br>. In the ``"latex"`` mode of :func:`set_math` a label
+    with a formula becomes one LaTeX formula instead, the text around it in ``\\text{...}``, for
+    plotly.js to typeset with MathJax.
 
     Parameters
     ----------
     text : str or None
         The label.
+    math : {"unicode", "latex"}, optional
+        How formulas are written. Default: the mode of :func:`set_math`.
 
     Returns
     -------
@@ -571,9 +710,15 @@ def plotly_text(text) -> str:
     'fit: γ = 0.1'
     >>> plotly_text("$p_0$")
     'p<sub>0</sub>'
+    >>> plotly_text(r"$\\sigma_s$ [m$^2$]", math="latex")
+    '$\\\\sigma_s\\\\text{ [m}^2\\\\text{]}$'
     """
     if not text:
         return ""
+    if (math or _math_mode) == "latex":
+        latex = _latex_label(str(text))
+        if latex is not None:
+            return latex
     parts = re.split(r"(?<!\\)\$", str(text))
     if len(parts) % 2 == 0:  # an unmatched $: not mathtext
         parts = [str(text)]
@@ -586,7 +731,9 @@ def plotly_text(text) -> str:
 
 def _hover_label(text) -> str:
     """A label for hover templates: without tags, and without braces a template would read."""
-    return re.sub(r"<[^>]+>", "", plotly_text(text)).replace("%{", "% {")
+    return re.sub(r"<[^>]+>", "", plotly_text(text, math="unicode")).replace(
+        "%{", "% {"
+    )
 
 
 def _rgba(color, alpha=None) -> str:
@@ -761,6 +908,7 @@ class _FigureConverter:
         self.data, self.shapes, self.annotations, self.images = [], [], [], []
         self.layout = {}
         self.coloraxes = []  # (key, mappable, colorbar or None)
+        self._plain_names = {}  # LaTeX legend name -> its Unicode form, for the hover labels
 
     # --- the layout ---------------------------------------------------------------------------
     def _classify(self):
@@ -1112,10 +1260,12 @@ class _FigureConverter:
         visible = (
             bool(label) and not label.startswith("_") and label in self._legend_labels
         )
-        out = {
-            "name": plotly_text(label) if label and not label.startswith("_") else "",
-            "showlegend": visible,
-        }
+        name = plotly_text(label) if label and not label.startswith("_") else ""
+        if name.startswith(
+            "$"
+        ):  # LaTeX (set_math("latex")): hover labels are not typeset
+            self._plain_names[name] = plotly_text(label, math="unicode")
+        out = {"name": name, "showlegend": visible}
         if visible and axes.legend not in (None, "legend"):
             out["legend"] = axes.legend
         return out
@@ -1981,6 +2131,19 @@ class _FigureConverter:
                 )
         self._flush_bins(axes)
 
+    def _plain_hover_names(self):
+        """Hover labels with the Unicode form of a LaTeX legend name, which plotly.js shows as written."""
+        for trace in self.data:
+            plain = self._plain_names.get(trace.get("name"))
+            if plain is None or trace.get("hovertemplate") is not None:
+                continue
+            if trace.get("hoverinfo") in ("skip", "none"):
+                continue
+            if trace.get("type") in ("scatter", "bar"):
+                trace["hovertemplate"] = f"(%{{x}}, %{{y}})<extra>{plain}</extra>"
+            else:
+                trace["hoverlabel"] = {**trace.get("hoverlabel", {}), "namelength": 0}
+
     def convert(self):
         self.axes, colorbars = self._classify()
         self.native = (
@@ -2033,6 +2196,7 @@ class _FigureConverter:
             layout["annotations"] = self.annotations
         if self.images:
             layout["images"] = self.images
+        self._plain_hover_names()
         return {"data": self.data, "layout": layout}
 
 
