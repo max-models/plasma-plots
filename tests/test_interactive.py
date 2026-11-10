@@ -14,6 +14,9 @@ from matplotlib.colors import LogNorm  # noqa: E402
 
 go = pytest.importorskip("plotly.graph_objects")
 
+from plot_cases import energy  # noqa: E402
+
+import plasma_plots  # noqa: E402
 from plasma_plots.plotly_backend import (  # noqa: E402
     PLOTLY_MIME,
     ConversionWarning,
@@ -211,3 +214,47 @@ def test_the_vtkjs_page_carries_a_color_bar_and_can_be_decimated(plotter):
     assert len(light) < len(full)
     sphere = next(iter(plotter.actors.values())).mapper.dataset
     assert sphere.n_points == 40 * 38 + 2  # restored after the export
+
+
+def test_show_in_a_notebook_displays_the_bundle_once(monkeypatch):
+    import IPython.display
+
+    shown = []
+    monkeypatch.setattr(
+        matplotlib, "get_backend", lambda: "module://matplotlib_inline.backend_inline"
+    )
+    monkeypatch.setattr(
+        IPython.display, "display", lambda *a, **k: shown.append((a, k))
+    )
+    figure = go.Figure(go.Scatter(x=[0], y=[0]))
+    monkeypatch.setattr(go.Figure, "show", lambda self, *a, **k: shown.append("own"))
+    result = PlotResult(figure, None, [], [], {})
+    assert result.show() is result
+    result._ipython_display_()  # the cell result: not again
+    ((args, kwargs),) = shown
+    assert PLOTLY_MIME in args[0] and "plotly-figure" in kwargs["metadata"]
+
+
+def test_a_figure_block_displays_itself_in_a_notebook(monkeypatch):
+    import IPython.display
+
+    shown = []
+    monkeypatch.setattr(
+        matplotlib, "get_backend", lambda: "module://matplotlib_inline.backend_inline"
+    )
+    monkeypatch.setattr(
+        IPython.display, "display", lambda *a, **k: shown.append((a, k))
+    )
+    with plasma_plots.figure(1, 2, backend="plotly") as fig:
+        energy().plasma.plot.timeseries(ax=fig[0])
+        energy().plasma.plot.timeseries(logy=True, ax=fig[1])
+    fig._ipython_display_()  # as the cell result: not again
+    ((args, kwargs),) = shown
+    assert PLOTLY_MIME in args[0] and kwargs["raw"] is True
+    with plasma_plots.figure(backend="plotly") as fig:
+        pass  # nothing drawn: nothing shown
+    assert len(shown) == 1
+    monkeypatch.setattr(matplotlib, "get_backend", lambda: "agg")
+    with plasma_plots.figure(backend="plotly") as fig:
+        energy().plasma.plot.timeseries(ax=fig[0])
+    assert len(shown) == 1, "outside a notebook the block shows nothing"

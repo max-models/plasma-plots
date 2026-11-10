@@ -73,3 +73,27 @@ def test_wrappers_default_to_quiet_output(results, capsys):
 def test_wrappers_forward_keyword_arguments(results):
     fig, axes = OutputPlots(FakeOutput(results)).profile.gantt(include="solve")
     assert fig is not None
+
+
+def test_profile_labels_use_the_coordinate_name_and_unit():
+    import numpy as np
+    import xarray as xr
+
+    from plasma_plots.plotting import plot_profiles
+
+    rho = np.linspace(0.0, 1.0, 5)
+    density = xr.DataArray(
+        np.outer([1.0, 2.0], 1 - rho**2),
+        dims=("ne0", "rho"),
+        coords={
+            "ne0": ("ne0", [2e19, 1e20], {"long_name": "n_e0", "units": "m^-3"}),
+            "rho": rho,
+        },
+        name="n",
+    )
+    result = plot_profiles(density, x="rho", over="ne0")
+    labels = [text.get_text() for text in result.ax.get_legend().get_texts()]
+    assert labels == ["n_e0 = 2e+19 m^-3", "n_e0 = 1e+20 m^-3"]
+    plain = plot_profiles(density.drop_attrs(), x="rho", over="ne0")
+    labels = [text.get_text() for text in plain.ax.get_legend().get_texts()]
+    assert labels == ["ne0 = 2e+19", "ne0 = 1e+20"]

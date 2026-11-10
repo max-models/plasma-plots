@@ -28,7 +28,8 @@ The conversion itself is also available for any Matplotlib figure drawn with the
 functions: :func:`to_plotly`, :func:`animation_to_plotly` and
 :meth:`~plasma_plots.plotting.PlotResult.to_plotly`.
 
-What converts: lines, markers and scatters (also colored by a value), meshes (heatmaps on
+What converts: lines, markers and scatters (also colored by a value), bars (``ax.bar``,
+``ax.barh`` and histograms), meshes (heatmaps on
 rectilinear grids; on mapped, curvilinear grids an image of the mesh with the values under the
 cursor), contour lines, quivers, colored line collections, horizontal and vertical lines and
 bands, annotations, colorbars, legends, log axes, twin axes, 3-D lines and scatters, shared and
@@ -182,6 +183,55 @@ def _plotly_result(figure, result):
 PLOTLY_MIME = "application/vnd.plotly.v1+json"
 
 
+#: The width, in pixels, at which a docs page shows a figure, roughly. A figure laid out wider
+#: than this (e.g. a row of three Matplotlib panels, 13 inches at 100 px per inch) is shrunk to
+#: the page, so :func:`web_figure` shrinks its text with it, as an image of the figure would be.
+PAGE_PIXELS = 800
+
+
+def _scale_fonts(node, factor: float) -> None:
+    """Scale every explicit font size (``font``, ``tickfont``, ...) in a layout, in place."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key.endswith("font") and isinstance(value, dict) and "size" in value:
+                value["size"] = round(value["size"] * factor, 1)
+            else:
+                _scale_fonts(value, factor)
+    elif isinstance(node, list):
+        for item in node:
+            _scale_fonts(item, factor)
+
+
+def _page_font(figure) -> dict:
+    """The figure as a dict, its text scaled down when it is laid out wider than a page.
+
+    The theme draws every figure at the page's width with its own font size (12 px at most), so
+    a wide multi-panel figure, whose panels were laid out for its own width, has its axis titles
+    and tick labels run into the neighbouring panels. Its font is scaled by the ratio of the page
+    to the figure, not below 9 px, unless the figure sets a font size itself.
+    """
+    import copy
+    import json
+
+    import plotly.io as pio
+
+    spec = (
+        copy.deepcopy(figure)
+        if isinstance(figure, dict)
+        else json.loads(pio.to_json(figure, validate=False))
+    )
+    layout = spec.setdefault("layout", {})
+    width = layout.get("width")
+    font = layout.get("font") or {}
+    if width and width > PAGE_PIXELS and "size" not in font:
+        size = max(9.0, round(12 * PAGE_PIXELS / width, 1))
+        _scale_fonts(
+            layout, size / 12
+        )  # the panel titles and other text with a size of its own
+        layout["font"] = {**font, "size": size}
+    return spec
+
+
 def web_figure(figure, **hints) -> dict:
     """A Plotly figure as a web figure, the format of ``maxplotlib.web``.
 
@@ -222,7 +272,7 @@ def web_figure(figure, **hints) -> dict:
             'pip install "plasma-plots[web]"'
         ) from error
     hints.setdefault("white_plot", False)
-    return convert(figure, **hints)
+    return convert(_page_font(figure), **hints)
 
 
 def save_posters(figure, stem, *, width: int = 800) -> list[str]:
@@ -263,15 +313,18 @@ def save_posters(figure, stem, *, width: int = 800) -> list[str]:
             "posters need maxplotlib (with maxplotlib.web.write_posters): "
             'pip install "plasma-plots[web]"'
         ) from error
-    # like the web figure: the theme draws a converted figure's black and white in its colours
-    return write_posters(figure, stem, width=width, white_plot=False)
+    # like the web figure: the theme draws a converted figure's black and white in its colours,
+    # and a figure wider than a page gets the smaller text
+    return write_posters(_page_font(figure), stem, width=width, white_plot=False)
 
 
 def _notebook_figure(figure, title):
     """The figure's JSON for a notebook, with the palette slots and hints of a web figure.
 
-    It keeps its own look (template, size, backgrounds) for Jupyter; a docs site built from the
-    notebook draws it in the site's colours anyway. Without maxplotlib it is the plain JSON.
+    It keeps its own look (template, backgrounds) for Jupyter, but not a fixed size: the figure
+    fills the notebook cell, and the docs page built from the notebook, which draws it in the
+    site's colours, sizes it by the ``aspect`` hint (a fixed width would overflow the page).
+    Without maxplotlib it is the plain JSON.
     """
     import json
 
@@ -283,14 +336,7 @@ def _notebook_figure(figure, title):
     except ImportError:
         return plain
     layout = web["layout"]
-    for key in (
-        "template",
-        "width",
-        "height",
-        "autosize",
-        "paper_bgcolor",
-        "plot_bgcolor",
-    ):
+    for key in ("template", "paper_bgcolor", "plot_bgcolor"):
         if key in plain.get("layout", {}):
             layout[key] = plain["layout"][key]
         else:
@@ -300,7 +346,6 @@ def _notebook_figure(figure, title):
         if re.fullmatch(r"[xy]axis\d*", key) and isinstance(axis, dict):
             if not (isinstance(own, dict) and "automargin" in own):
                 axis.pop("automargin", None)
-    layout["meta"]["web"].pop("aspect", None)  # the size is the figure's own
     return web
 
 
@@ -1625,6 +1670,65 @@ class _FigureConverter:
             )
         )
 
+    def _bars(self, axes) -> set:
+        """Bar traces for the bar containers of the axes (``ax.bar``, ``ax.barh``, histograms).
+
+        Returns the rectangles drawn this way, so that they are not converted as patches too.
+        """
+        from matplotlib.container import BarContainer
+
+        drawn = set()
+        for container in axes.ax.containers:
+            if not isinstance(container, BarContainer) or not len(container):
+                continue
+            rectangles = [patch for patch in container if patch.get_visible()]
+            if not rectangles:
+                continue
+            vertical = getattr(container, "orientation", "vertical") != "horizontal"
+            first = rectangles[0]
+            if vertical:  # position along x, length along y
+                positions = [r.get_x() + 0.5 * r.get_width() for r in rectangles]
+                lengths = [r.get_height() for r in rectangles]
+                thickness = [r.get_width() for r in rectangles]
+                bases = [r.get_y() for r in rectangles]
+            else:
+                positions = [r.get_y() + 0.5 * r.get_height() for r in rectangles]
+                lengths = [r.get_width() for r in rectangles]
+                thickness = [r.get_height() for r in rectangles]
+                bases = [r.get_x() for r in rectangles]
+            colors = {tuple(np.round(r.get_facecolor(), 3)) for r in rectangles}
+            marker = {
+                "color": (
+                    _rgba(first.get_facecolor(), first.get_alpha())
+                    if len(colors) == 1
+                    else [_rgba(r.get_facecolor(), r.get_alpha()) for r in rectangles]
+                )
+            }
+            if first.get_linewidth() > 0 and first.get_edgecolor()[3] > 0:
+                marker["line"] = {
+                    "color": _rgba(first.get_edgecolor()),
+                    "width": first.get_linewidth() * PX_PER_PT,
+                }
+            trace = dict(
+                type="bar",
+                orientation="v" if vertical else "h",
+                x=_values(positions) if vertical else _values(lengths),
+                y=_values(lengths) if vertical else _values(positions),
+                width=_values(thickness),
+                marker=marker,
+                **self._shown(axes, container.get_label()),
+                **self._refs(axes),
+            )
+            if any(base != 0 for base in bases):
+                trace["base"] = _values(bases)
+            self.data.append(trace)
+            drawn |= set(container)
+        if drawn:
+            # Matplotlib draws bars edge to edge, with no gap, in overlapping groups
+            self.layout["bargap"] = 0
+            self.layout["barmode"] = "overlay"
+        return drawn
+
     def _patch(self, axes, patch):
         from matplotlib.patches import Polygon, Rectangle
 
@@ -1656,15 +1760,33 @@ class _FigureConverter:
             return
         if isinstance(patch, Polygon) and x_data and y_data:
             xy = np.asarray(patch.get_xy(), dtype=float)
+            edge = patch.get_edgecolor()
+            filled = patch.get_fill() and face[3] > 0
+            # an outline where it shows: a step histogram (not filled), or an edge in another
+            # colour than the face (a filled polygon's default edge is its own colour)
+            outlined = (
+                patch.get_linewidth() > 0
+                and edge[3] > 0
+                and (not filled or tuple(edge) != tuple(face))
+            )
+            line = (
+                {
+                    "color": _rgba(edge, patch.get_alpha()),
+                    "width": patch.get_linewidth() * PX_PER_PT,
+                    "dash": _line_dash(patch),
+                }
+                if outlined
+                else {"width": 0}
+            )
             self.data.append(
                 dict(
                     type="scatter",
                     mode="lines",
                     x=xy[:, 0],
                     y=xy[:, 1],
-                    fill="toself",
+                    fill="toself" if filled else "none",
                     fillcolor=fill,
-                    line={"width": 0},
+                    line=line,
                     **shown,
                     **self._refs(axes),
                 )
@@ -1818,6 +1940,10 @@ class _FigureConverter:
         }
         if axes.kind == "3d":
             skip |= {ax.zaxis}
+        if axes.kind != "3d":
+            skip |= self._bars(
+                axes
+            )  # the rectangles of ax.bar/barh, drawn as bar traces
         children = [c for c in ax.get_children() if c not in skip and c.get_visible()]
         children.sort(
             key=lambda c: c.get_zorder()
@@ -1868,6 +1994,16 @@ class _FigureConverter:
             if self.native
             else {"l": 8, "r": 8, "t": 8, "b": 8}
         )
+        if not self.native and any(
+            a.parent is None
+            and (a.ax.get_title() or a.ax.get_title("left"))
+            and a.ax.get_position().y1 > 0.8
+            for a in self.axes
+        ):
+            # room for the titles of the top row of panels, whatever the figure's height on the
+            # page (Matplotlib's room above them is a fraction of the height, Plotly's margin is
+            # in pixels)
+            self.margin["t"] = 30
         # left to right, as Matplotlib placed them (Plotly stacks a lone axes' colorbars in this order)
         for colorbar in sorted(colorbars, key=lambda c: c.ax.get_position().x0):
             self._coloraxis(colorbar.mappable, colorbar)

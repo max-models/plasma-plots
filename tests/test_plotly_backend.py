@@ -693,3 +693,49 @@ def test_a_slice_of_contour_lines_only_has_a_colorbar_of_its_colormap(backend):
         for trace in result.fig.data
         if trace.type == "scatter"
     )
+
+
+def test_bars_become_bar_traces():
+    """ax.bar and ax.barh become bar traces (not rectangle shapes), histograms too."""
+    fig, (left, right) = plt.subplots(1, 2)
+    rho = np.array([0.25, 0.5, 0.75])
+    left.bar(rho, [1.0, 2.0, 3.0], width=0.25, edgecolor="k", label="volume")
+    left.legend()
+    right.barh([0, 1], [2.0, 4.0], left=[1.0, 1.0], color="C1")
+    right.hist([0.1, 0.2, 0.2, 0.7], bins=[0.0, 0.5, 1.0])
+    figure = to_plotly(fig)
+    bars = [trace for trace in figure.data if trace.type == "bar"]
+    assert len(bars) == 3 and not figure.layout.shapes
+    vertical, horizontal, histogram = bars
+    assert vertical.orientation == "v"
+    assert np.allclose(vertical.x, rho) and np.allclose(vertical.y, [1.0, 2.0, 3.0])
+    assert np.allclose(vertical.width, 0.25) and vertical.marker.line.width > 0
+    assert vertical.name == "volume" and vertical.showlegend
+    assert horizontal.orientation == "h"
+    assert np.allclose(horizontal.x, [2.0, 4.0]) and np.allclose(horizontal.y, [0, 1])
+    assert np.allclose(horizontal.base, [1.0, 1.0])
+    assert np.allclose(histogram.y, [3, 1]) and np.allclose(histogram.x, [0.25, 0.75])
+    assert figure.layout.bargap == 0 and figure.layout.barmode == "overlay"
+
+
+def test_an_unfilled_polygon_keeps_its_outline():
+    """A step histogram is an unfilled polygon: its outline is the line, not a transparent fill."""
+    fig, ax = plt.subplots()
+    ax.hist([0.1, 0.2, 0.7, 0.8, 0.9], bins=[0.0, 0.5, 1.0], histtype="step", label="h")
+    ax.fill([0, 1, 1], [0, 0, 1], color="C1", alpha=0.25, label="area")
+    ax.legend()
+    figure = to_plotly(fig)
+    area, outline = sorted(figure.data, key=lambda trace: trace.name)
+    assert outline.fill == "none" and outline.line.width > 0
+    assert outline.line.color == "rgba(31, 119, 180, 1)" and outline.name == "h"
+    assert area.fill == "toself" and area.line.width == 0
+
+
+def test_panels_with_titles_get_a_top_margin():
+    """The titles of the top row of panels need room in pixels, whatever the figure's height."""
+    fig, axes = plt.subplots(1, 2)
+    for ax in axes:
+        ax.plot([0, 1], [0, 1])
+    assert to_plotly(fig).layout.margin.t == 8
+    axes[0].set_title("left panel")
+    assert to_plotly(fig).layout.margin.t == 30
