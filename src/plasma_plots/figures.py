@@ -214,10 +214,22 @@ class Figure:
         return self
 
     def __exit__(self, *exc):
+        from .plotting import _in_notebook
+
         _collecting.remove(self.results)
         _drawing.reset(self._token)
         if exc[0] is None:
             self._finish()
+            # In a notebook the inline backend shows a Matplotlib figure at the end of the cell;
+            # a Plotly figure is shown here, at the end of the block, so a notebook reads the
+            # same with either backend (and not again as the cell result).
+            if (
+                self._finish_as == "plotly"
+                and self.axes is not None
+                and any(ax.has_data() for ax in self.axes.ravel())
+                and _in_notebook()
+            ):
+                self._result.show()
         return False
 
     def __repr__(self):
@@ -240,7 +252,8 @@ def figure(
 
     Use it as a ``with`` block: every plot method given ``ax=fig[i]`` draws into panel ``i``;
     at the end of the block the figure is finished, and with ``backend="plotly"`` or
-    ``backend="tikz"`` converted once.
+    ``backend="tikz"`` converted once. In a notebook a Plotly figure is shown at the end of the
+    block, as the inline backend shows a Matplotlib figure at the end of the cell.
 
     Parameters
     ----------

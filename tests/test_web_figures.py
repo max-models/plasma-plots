@@ -87,8 +87,8 @@ def test_the_notebook_output_keeps_its_look_and_gets_the_slots():
     layout = shown["layout"]
     assert shown["data"][0]["meta"] == {"color_slot": 1}
     assert layout["meta"]["web"]["title"] == "A line"
-    assert "aspect" not in layout["meta"]["web"]
-    assert (layout["width"], layout["height"]) == (600, 300)
+    assert layout["meta"]["web"]["aspect"] == 2.0  # the page sizes it by this
+    assert "width" not in layout and "height" not in layout  # not by a fixed size
     assert layout["plot_bgcolor"] == "#eeeeee" and "template" in layout
     assert "paper_bgcolor" not in layout
     assert "automargin" not in layout.get("xaxis", {})
@@ -110,3 +110,35 @@ def test_without_maxplotlib(monkeypatch, tmp_path):
     with pytest.raises(ImportError, match=r"plasma-plots\[web\]"):
         PlotResult(figure).save(tmp_path / "x.plotly.json")
     assert not (tmp_path / "x.plotly.json").exists()
+
+
+def test_a_figure_wider_than_a_page_gets_smaller_text():
+    """A row of panels laid out for 13 inches is shown at a page's width: its text shrinks too."""
+    from plasma_plots.plotly_backend import PAGE_PIXELS, _page_font
+
+    wide = go.Figure(go.Scatter(x=[0, 1], y=[0, 1]), layout={"width": 1300})
+    assert _page_font(wide)["layout"]["font"]["size"] == 9.0  # not below 9 px
+    assert web_figure(wide)["layout"]["font"]["size"] == 9.0
+    assert wide.layout.font.size is None, "the figure itself is left alone"
+    assert _page_font({"layout": {"width": 1000}})["layout"]["font"]["size"] == 9.6
+    titled = {
+        "layout": {
+            "width": 1600,
+            "annotations": [{"text": "panel", "font": {"size": 13}}, {"text": "plain"}],
+            "xaxis": {
+                "title": {"text": "x", "font": {"size": 12}},
+                "tickfont": {"size": 10},
+            },
+        }
+    }
+    scaled = _page_font(titled)["layout"]
+    assert scaled["font"]["size"] == 9.0  # 6 px, clipped to 9
+    assert scaled["annotations"][0]["font"]["size"] == 9.8  # 13 * 9 / 12, rounded
+    assert "font" not in scaled["annotations"][1]
+    assert scaled["xaxis"]["title"]["font"]["size"] == 9.0
+    assert scaled["xaxis"]["tickfont"]["size"] == 7.5
+    narrow = {"layout": {"width": PAGE_PIXELS}}
+    assert "font" not in _page_font(narrow)["layout"]
+    own = {"layout": {"width": 1300, "font": {"size": 14}}}
+    assert _page_font(own)["layout"]["font"] == {"size": 14}
+    assert "font" not in _page_font({"data": []})["layout"]

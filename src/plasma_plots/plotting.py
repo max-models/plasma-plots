@@ -130,6 +130,13 @@ class View:
     plane: Literal["XY", "XZ", "YZ", "RZ"] = "XY"
 
 
+def _in_notebook() -> bool:
+    """Whether the plots are drawn for a notebook (Matplotlib's inline backend is active)."""
+    import matplotlib
+
+    return "inline" in matplotlib.get_backend()
+
+
 def _display_figure(fig):
     """Display a figure as a notebook cell result, exactly once.
 
@@ -312,10 +319,28 @@ class PlotResult:
             plt.close(self.fig)
         return str(path)
 
+    def _ipython_display_(self):
+        if self._shown:
+            return
+        if self._plotly:
+            from IPython.display import display
+
+            from .plotly_backend import display_bundle
+
+            data, metadata = display_bundle(self.fig)
+            display(data, raw=True, metadata=metadata)
+        elif self._tikz:
+            self.fig.show(transparent=False)
+        else:
+            _display_figure(self.fig)
+
     def show(self):
         """Show the figure with ``matplotlib.pyplot.show``, or a Plotly or TikZ figure with its ``show``.
 
-        A TikZ figure is compiled with ``pdflatex`` to be shown.
+        In a notebook a Plotly figure is displayed as the cell result would be (the output a docs
+        site embeds, see :func:`~plasma_plots.plotly_backend.display_bundle`), so ``show()``
+        ends a plotting cell with either backend. A TikZ figure is compiled with ``pdflatex`` to
+        be shown.
 
         Afterwards a notebook no longer displays the result again as a cell result.
 
@@ -329,7 +354,14 @@ class PlotResult:
         if not is_plotting_rank():
             return self
         if self._plotly:
-            self.fig.show()
+            if self._shown:
+                return self
+            if (
+                _in_notebook()
+            ):  # the same output as a cell result: slots, title, HTML copy
+                self._ipython_display_()
+            else:
+                self.fig.show()
         elif self._tikz:
             self.fig.show(transparent=False)
         else:
@@ -502,21 +534,6 @@ class PlotResult:
         if close:
             plt.close(self.fig)
         return result
-
-    def _ipython_display_(self):
-        if self._shown:
-            return
-        if self._plotly:
-            from IPython.display import display
-
-            from .plotly_backend import display_bundle
-
-            data, metadata = display_bundle(self.fig)
-            display(data, raw=True, metadata=metadata)
-        elif self._tikz:
-            self.fig.show(transparent=False)
-        else:
-            _display_figure(self.fig)
 
     def __repr__(self):
         return f"{type(self).__name__}(fig={self.fig!r})"
@@ -5142,7 +5159,10 @@ def plot_profiles(
         else:
             value = float(profile[over])
             color = colors(i / max(len(at) - 1, 1))
-            label = f"{over} = {value:.3g}"
+            # the coordinate's name and unit when it has them: "n_e0 = 2e+19 m^-3"
+            name = data[over].attrs.get("long_name") or over
+            units = data[over].attrs.get("units")
+            label = f"{name} = {value:.3g}" + (f" {units}" if units else "")
         artists += ax.plot(
             xs,
             np.asarray(profile.transpose(x)),
