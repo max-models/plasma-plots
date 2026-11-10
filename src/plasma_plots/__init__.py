@@ -188,7 +188,7 @@ from .figures import figure
 from .geometry import plot_domain
 from .gvec import from_gvec
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
-from .plotly_backend import get_backend, set_backend
+from .plotly_backend import get_backend, get_math, set_backend, set_math
 from .plotting import save_figure
 from .pyvista_plots import scene, scene_to_plotly
 from .styles import get_style, set_style, style
@@ -200,6 +200,7 @@ __all__ = [
     "from_desc",
     "from_gvec",
     "get_backend",
+    "get_math",
     "get_style",
     "is_plotting_rank",
     "mpi_rank",
@@ -209,6 +210,7 @@ __all__ = [
     "scene_to_plotly",
     "repeat_periodic",
     "set_backend",
+    "set_math",
     "set_style",
     "style",
 ]

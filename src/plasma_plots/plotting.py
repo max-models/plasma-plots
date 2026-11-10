@@ -283,8 +283,11 @@ class PlotResult:
         if self._plotly:
             suffix = Path(path).suffix.lower()
             if suffix in (".html", ".htm"):
+                from .plotly_backend import mathjax_source
+
                 kwargs = {
                     "include_plotlyjs": "cdn",
+                    "include_mathjax": mathjax_source(self.fig),
                     "auto_play": False,
                     "config": {"responsive": True},
                     **kwargs,
@@ -486,9 +489,13 @@ class PlotResult:
         --------
         >>> html = phi.plasma.plot.slice(t=-1, eta3=0).to_html()
         """
-        return self.to_plotly(bare=bare).fig.to_html(
+        from .plotly_backend import mathjax_source
+
+        figure = self.to_plotly(bare=bare).fig
+        return figure.to_html(
             full_html=full_html,
             include_plotlyjs="cdn",
+            include_mathjax=mathjax_source(figure),
             auto_play=False,
             config={"responsive": True},
         )

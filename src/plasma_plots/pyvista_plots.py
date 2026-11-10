@@ -2229,7 +2229,7 @@ def _colorbar_overlay(plotter) -> str:
             f"<span>{value:.3g}</span>" for value in (lo, 0.5 * (lo + hi), hi)
         )
         bars.append(
-            f'<div class="pp-bar"><div class="pp-title">{plotly_text(title)}</div>'
+            f'<div class="pp-bar"><div class="pp-title">{plotly_text(title, math="unicode")}</div>'
             f'<div class="pp-ramp" style="background:linear-gradient(to right,{",".join(stops)})"></div>'
             f'<div class="pp-ticks">{ticks}</div></div>'
         )
