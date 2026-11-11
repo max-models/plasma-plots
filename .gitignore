@@ -19,6 +19,7 @@ docs/.astro/
 docs/src/assets/figures/
 docs/src/assets/gvec/
 docs/src/assets/desc/
+docs/src/assets/coils/
 docs/public/figures/
 docs/public/plotly/
 docs/public/pyvista/
