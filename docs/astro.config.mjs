@@ -56,6 +56,7 @@ export default defineDocs({
 				{ label: 'MHD slab waves', slug: 'guides/real-example' },
 				{ label: 'GVEC equilibria', slug: 'guides/gvec' },
 				{ label: 'DESC equilibria', slug: 'guides/desc' },
+				{ label: 'Stellarator coils', slug: 'guides/coils' },
 				{ label: 'Theory toolbox', slug: 'guides/theory' },
 			],
 		},

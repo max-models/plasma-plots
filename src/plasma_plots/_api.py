@@ -44,6 +44,12 @@ at https://max-models.github.io/plasma-plots.
   DESC equilibrium into a Dataset over `rho`, `theta`/`theta_P`, `zeta` with `X`, `Y`, `Z`
   coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
   the Jacobian.
+- **Coils.** `plasma_plots.from_coilset(coilset, n_points=128)` expands a CoilStellaration
+  coilset (dict, JSON, `Coilset`) or a DESC `CoilSet` of `FourierXYZCoil` into every coil, a Dataset
+  over `coil`, `s` with `X`, `Y`, `Z`, `current`, `length`, `curvature`;
+  `plasma_plots.from_boundary(boundary)` evaluates a ConStellaration `SurfaceRZFourier` over
+  `rho=[1]`, `theta`, `zeta` (attrs `minor_radius`, `major_radius`);
+  `coils.plasma.plot.coils_3d(color_by=, surface=)` draws them.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`, `.to_tikz()`); Matplotlib animations a
   `FuncAnimation`;
@@ -159,6 +165,7 @@ MODULES = [
     "arrays",
     "gvec",
     "desc",
+    "coils",
     "pyvista_plots",
 ]
 THEORY = ["kinetic", "waves", "parameters", "orbits", "exact", "numerics", "special"]

@@ -5694,6 +5694,56 @@ class DatasetPlots:
             plotter=plotter,
         )
 
+    def coils_3d(
+        self,
+        *,
+        color_by: str | None = None,
+        color="#b87333",
+        tube_radius: float | None = None,
+        cmap=None,
+        clim=None,
+        surface=None,
+        surface_opacity: float = 1.0,
+        surface_cmap=None,
+        title: str | None = None,
+        plotter=None,
+    ):
+        """Draw stellarator coils as PyVista tubes, optionally around the plasma surface.
+
+        For coils from :func:`plasma_plots.from_coilset`; ``color_by`` is a variable over
+        ``coil`` or ``(coil, s)`` such as ``"current"`` or ``"curvature"``, ``surface`` the plasma
+        (:func:`plasma_plots.from_boundary`, or a field on the last surface of
+        :func:`plasma_plots.from_desc`).
+
+        Returns
+        -------
+        pyvista.Plotter
+            The plotter with the coils, not yet shown.
+
+        See Also
+        --------
+        plasma_plots.pyvista_plots.pyvista_coils : The function behind this method.
+
+        Examples
+        --------
+        >>> coils.plasma.plot.coils_3d(color_by="curvature", surface=plasma).show()
+        """
+        from .pyvista_plots import pyvista_coils
+
+        return pyvista_coils(
+            self._dataset,
+            color_by=color_by,
+            color=color,
+            tube_radius=tube_radius,
+            cmap=cmap,
+            clim=clim,
+            surface=surface,
+            surface_opacity=surface_opacity,
+            surface_cmap=surface_cmap,
+            title=title,
+            plotter=plotter,
+        )
+
     @with_backend
     def poincare(
         self,

@@ -1,0 +1,210 @@
+---
+title: Stellarator coils
+description: Coilsets from the CoilStellaration dataset and plasma boundaries from ConStellaration as Datasets, their distances and curvatures, and coils drawn around the plasma in 3-D.
+---
+
+import { Code } from 'astro:components';
+import PyVistaScene from '@max-models/starlight-theme/components/PyVistaScene.astro';
+import numbers from '../../../assets/coils/numbers.txt?raw';
+import script from '../../../../../scripts/generate_coil_figures.py?raw';
+import fig_field_error from '../../../assets/figures/coils_3d_field_error.png';
+import fig_distance from '../../../assets/figures/coils_3d_distance.png';
+
+[CoilStellaration](https://huggingface.co/datasets/proxima-fusion/coilstellaration) is a dataset of
+optimized stellarator coilsets for the plasma boundaries of
+[ConStellaration](https://huggingface.co/datasets/proxima-fusion/constellaration). A coilset is
+stored by its unique coils: closed curves given by the Fourier coefficients of `x`, `y` and `z`
+(the layout of DESC's `FourierXYZCoil`), one current per coil, the number of field periods and
+whether it is stellarator symmetric. A boundary is a Fourier series of `R` and `Z`
+(`SurfaceRZFourier`). plasma-plots reads both from the plain JSON the datasets store, without DESC
+or the `coilstellaration` package:
+
+```python
+import plasma_plots
+from plasma_plots.coils import coil_to_coil_distance, distance_to_surface
+
+# every coil of the device, over (coil, s)
+coils = plasma_plots.from_coilset(coilset)
+# the plasma surface, with its minor radius
+plasma = plasma_plots.from_boundary(boundary)
+a = plasma.attrs["minor_radius"]
+
+coils["plasma_distance"] = distance_to_surface(coils, plasma) / a
+coils.plasma.plot.coils_3d(color_by="plasma_distance", surface=plasma).show()
+```
+
+## From the datasets
+
+The dataset card fetches single objects by ID. The `json` column of a coilset row is what
+`from_coilset` reads, and ConStellaration's `boundary.json` is what `from_boundary` reads (this
+block downloads from Hugging Face, so it is not run when the docs are built):
+
+```python
+import json
+
+import datasets
+import pandas as pd
+
+repo = "hf://datasets/proxima-fusion/coilstellaration"
+
+
+def load_json_by_id(subset, object_id):
+    id_to_file = pd.read_parquet(
+        f"{repo}/{subset}/id_to_file_map.parquet",
+        filters=[("id", "==", object_id)],
+    )
+    path = id_to_file["path"].iloc[0]
+    row = pd.read_parquet(
+        f"{repo}/{path}", filters=[("id", "==", object_id)]
+    ).iloc[0]
+    return json.loads(row["json"])
+
+
+results = datasets.load_dataset(
+    "proxima-fusion/coilstellaration", split="eval"
+)
+sample = results[0]
+coilset = load_json_by_id("coilsets", sample["desc_coilset_id"])
+boundaries = (
+    datasets.load_dataset(
+        "proxima-fusion/constellaration",
+        columns=["plasma_config_id", "boundary.json"],
+        split="train",
+    )
+    .to_pandas()
+    .set_index("plasma_config_id")
+)
+boundary = boundaries.loc[
+    sample["constellaration_boundary_id"], "boundary.json"
+]
+
+coils = plasma_plots.from_coilset(coilset)
+plasma = plasma_plots.from_boundary(boundary)
+```
+
+`from_coilset` also takes the `coilstellaration` library's `Coilset` and a DESC `CoilSet` of
+`FourierXYZCoil` (`coilset.to_FourierXYZ()` converts other DESC coils); `from_boundary` also takes
+ConStellaration's `SurfaceRZFourier`.
+
+## Reading a coilset
+
+`from_coilset(coilset, n_points=128)` expands the unique coils into every coil of the device as
+DESC's `CoilSet` does: for a stellarator-symmetric coilset their mirror images in the second half
+of the field period, then all of these rotated into every field period. Coil `i` of the Dataset is
+coil `i` of DESC's expanded coilset (checked point by point in the tests).
+
+| In the Dataset | What it is |
+|---|---|
+| dims `coil`, `s` | every coil of the device; the curve parameter `s` in `[0, 2π)` |
+| coordinates `X`, `Y`, `Z` (m) | the points along each coil |
+| coordinates `unique_coil`, `mirrored`, `field_period` | which stored coil each one copies, and how |
+| `current` (A) | per coil, the current of the coil it copies |
+| `length` (m) | per coil |
+| `curvature` (1/m) | along each coil, exact from the Fourier series: `|r' × r''| / |r'|³` |
+| attributes `nfp`, `stellarator_symmetric`, `fourier_order` | from the coilset |
+
+## The plasma boundary
+
+`from_boundary(boundary, theta=64, zeta=None)` evaluates
+`R = Σ r_cos[m, n] cos(m θ − nfp n φ)`, `Z = Σ z_sin[m, n] sin(m θ − nfp n φ)` on a grid of `θ`
+and the cylindrical angle `φ` (by default over the whole torus) and returns one surface in the
+layout of [DESC's Datasets](/plasma-plots/guides/desc/): dims `rho` (the single value 1), `theta`,
+`zeta`, coordinates `X`, `Y`, `Z` and the variable `R`. Its attributes hold the major radius and
+the **minor radius** `a = sqrt(A / π)` of the mean cross-section area `A`, the length that
+CoilStellaration's `normalized_*` metrics divide by.
+
+`plasma_plots.coils.boundary_from_desc(eq)` goes the other way: it writes the last surface of any
+stellarator-symmetric DESC equilibrium as a ConStellaration `boundary.json`, exact to round-off.
+The figures below use it on DESC's W7-X example.
+
+## Distances, curvature and field error
+
+The benchmark scores a coilset by four metrics. Three of them are geometry, and plasma-plots gives
+them at every point of every coil, so they can be plotted where they are reached:
+
+```python
+a = plasma.attrs["minor_radius"]
+coils["plasma_distance"] = distance_to_surface(coils, plasma) / a
+coils["coil_distance"] = coil_to_coil_distance(coils) / a
+
+float(coils.curvature.max()) * a  # normalized_coil_curvatures/max
+# normalized_coil_to_plasma_min_distances/min
+float(coils.plasma_distance.min())
+float(coils.coil_distance.min())  # normalized_coil_to_coil_min_distances/min
+```
+
+Both distances are taken between sampled points, so they converge from above as the grids are
+refined (`n_points` of the coils, `theta` and `zeta` of the surface). The fourth metric, the field
+error `|B·n| / |B|` on the plasma, needs the field of the coils; DESC computes it:
+
+```python
+import numpy as np
+import xarray as xr
+from desc.grid import LinearGrid
+
+surface = plasma_plots.from_desc(
+    eq,
+    "n_rho",
+    rho=[1.0],
+    theta=64,
+    zeta=np.linspace(0, 2 * np.pi, 240, endpoint=False),
+)
+points = np.stack([surface[axis].values.ravel() for axis in "XYZ"], axis=-1)
+B = desc_coils.compute_magnetic_field(
+    points, basis="xyz", source_grid=LinearGrid(N=64)
+)
+n = surface.n_rho  # the unit normal, Cartesian components along "component"
+B = xr.DataArray(
+    np.asarray(B).T.reshape(n.shape), dims=n.dims, coords=n.coords
+)
+field_error = abs((B * n).sum("component")) / np.sqrt((B**2).sum("component"))
+```
+
+The figures on this page use coils that DESC places around its W7-X example
+(`desc.coils.initialize_modular_coils`, five per half period): planar coils, the kind of start a
+coil optimization begins from, so their field error is large. CoilStellaration's coilsets are what
+REGCOIL and DESC make of such a start. The numbers, from the script at the end of the page:
+
+<Code code={numbers} lang="text" title="docs/src/assets/coils/numbers.txt (written by the script)" />
+
+## In 3-D
+
+`coils.plasma.plot.coils_3d()` (or `plasma_plots.pyvista_plots.pyvista_coils`) draws the coils as
+tubes. `color_by` takes any variable over `coil` or `(coil, s)`, and `surface` the plasma: a
+Dataset such as `from_boundary`'s is drawn in grey, a DataArray colored by its values. The field
+error of the starting coils on W7-X's last surface:
+
+```python
+coils.plasma.plot.coils_3d(surface=field_error, surface_cmap="magma").show()
+```
+
+<PyVistaScene src="/pyvista/coils_3d_field_error.html" image={fig_field_error} alt="Fifty planar coils around W7-X's last flux surface, colored by the normal field error" />
+
+The coils colored by their distance to the plasma, in minor radii:
+
+```python
+coils.plasma.plot.coils_3d(color_by="plasma_distance", surface=plasma).show()
+```
+
+<PyVistaScene src="/pyvista/coils_3d_distance.html" image={fig_distance} alt="The coils colored by their distance to the plasma, around the grey plasma surface" />
+
+The same along the five unique coils, as a map over `s`:
+
+```python
+unique = coils.isel(coil=slice(0, 5))
+unique.plasma_distance.plasma.plot.slice(x="s", y="coil")
+```
+
+![Distance to the plasma along the five unique coils, in minor radii, over the curve parameter s](../../../assets/figures/coils_plasma_distance_map.png)
+
+## The script behind this page
+
+It builds the coilset and the boundary, computes the metrics and writes every figure above, in
+about half a minute.
+
+<details>
+<summary>`scripts/generate_coil_figures.py`, unedited</summary>
+
+<Code code={script} lang="python" title="scripts/generate_coil_figures.py" />
+
+</details>
