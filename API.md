@@ -213,6 +213,12 @@ Quantitative diagnostics of one array, as array.plasma.analysis.<quantity>(...).
   - e.g. `energy.plasma.analysis.growth_rate(window=(0.0, 5.0), amplitude=True).rate`
 - `array.plasma.analysis.damping_rate(*, window=(None, None), amplitude=False)`: Fit exponential decay to the envelope of this oscillating time series.
   - e.g. `energy.plasma.analysis.damping_rate(amplitude=True).rate`
+- `array.plasma.analysis.growth_phase(*, noise=None, min_efolds=2.0, min_r2=0.95, amplitude=False, peaks_only=False)`: Find and fit the exponential growth phase of this time series, without a window.
+  - e.g. `mode.plasma.analysis.growth_phase().rate`
+- `array.plasma.analysis.dominant_mode(*, dim=None, min_periods=2.0)`: Find the strongest wave of this (t, dim) signal: k, omega and phase velocity.
+  - e.g. `phi.plasma.analysis.dominant_mode(dim="x").phase_velocity`
+- `array.plasma.analysis.penrose(*, dim=None, prominence=0.05)`: Test this one-dimensional velocity distribution with the Penrose criterion.
+  - e.g. `f.plasma.analysis.penrose().unstable`
 - `array.plasma.analysis.oscillation_frequency(*, window=(None, None), method='zero_crossings', detrend=True)`: Measure the frequency of this oscillating time series from its zero crossings or peaks.
   - e.g. `probe.plasma.analysis.oscillation_frequency(window=(5.0, 40.0)).omega`
 - `array.plasma.analysis.map_coordinate(dim, mapping, *, name=None, units=None, label=None)`: Replace a coordinate by a function of it, e.g. eta1 by the minor radius in meters.
@@ -574,6 +580,9 @@ What the methods return, with their fields (`help()` on the class explains each)
 - `OscillationFit(omega, period, times, method)`: The frequency of an oscillating time series, from oscillation_frequency.
 - `ConvergenceFit(order, constant, sizes, fitted)`: A power law error = constant * size**order, from convergence_order.
 - `BranchFit(velocity, k, omega)`: A dispersion branch fitted as omega = velocity * k, from fit_dispersion_branches.
+- `GrowthPhase(rate, intercept, start, stop, efolds, r2, noise, peak, time, fitted)`: The exponential growth phase of a time series, from detect_growth.
+- `ModeFit(k, omega, phase_velocity, wavelength, power_fraction, min_omega)`: The strongest travelling or standing wave of a (t, x) signal, from dominant_mode.
+- `PenroseResult(unstable, velocity, integral, minima, integrals)`: The Penrose criterion of a one-dimensional distribution, from penrose_criterion.
 - `TimeFilterResult(filtered, spectrum)`: The result of filter_time: filtered field and reduced spectrum with the band.
 - `GrowthFit(window, amplitude_from_quadratic)`: Configuration for an exponential growth-rate fit.
 - `View(x, y, sweep, select, isel, coordinates, plane)`: A reusable selection and rendering recipe for an N-dimensional product.
@@ -588,7 +597,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.geometry`: `shapes`, `draw_geometry`, `dimension_chains`, `dimension_line`, `plot_domain`
 - `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`, `plot_boozer_spectrum`
 - `plasma_plots.fieldline_plots`: `plot_poincare`, `plot_field_lines`, `plot_footprint`, `plot_connection_length`, `plot_along_field_lines`, `plot_surface_map`
-- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
+- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `detect_growth`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `penrose_criterion`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `dominant_mode`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
 - `plasma_plots.fieldlines`: `trace_field_lines`, `poincare_section`, `rotational_transform`, `classify_field_lines`, `islands`, `footprint`, `seed_grid`, `sample_along`, `parallel_wavenumber`
 - `plasma_plots.arrays`: `logical_dims`, `periodicity`, `repeat_periodic`, `angle_period`, `validate_array`, `unit_label`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
@@ -627,6 +636,7 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `two_stream(k, beam_speed, thermal_speed, beam_density=0.5)`: Compute the kinetic purely growing root of two warm counter-streaming electron beams.
 - `bump_on_tail(k, beam_density=0.1, beam_speed=4.5, beam_thermal_speed=0.5, bulk_density=None)`: Compute the most unstable kinetic root of a bump-on-tail distribution.
 - `maximum_growth(function, k_range, samples=64, tol=1e-08)`: Find the wavenumber of maximum growth rate of a dispersion relation.
+- `electrostatic_growth(k, species, guesses=None)`: Compute the most unstable electrostatic root of any set of drifting Maxwellians.
 - `weibel(k, anisotropy, parallel_thermal_speed)`: Compute the purely growing (or damped) root of the electron Weibel instability.
 - `electron_cyclotron_drift(k, drift_speed, cyclotron_frequency, temperature_ratio=50.0, mass_ratio=241073.992952645, harmonics=None, bernstein=2)`: Compute the electron cyclotron drift instability (ECDI) of magnetized electrons, unmagnetized ions.
 

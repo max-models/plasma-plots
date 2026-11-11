@@ -1,6 +1,6 @@
 """Kinetic dispersion relations of unmagnetized plasmas: Langmuir waves and Landau damping,
-ion-acoustic waves, beam-plasma, two-stream and bump-on-tail instabilities, and the Weibel
-instability.
+ion-acoustic waves, beam-plasma, two-stream and bump-on-tail instabilities, the most unstable
+root of any set of drifting Maxwellians, and the Weibel instability.
 
 Units
 -----
@@ -1069,6 +1069,86 @@ def maximum_growth(function, k_range, samples=64, tol=1e-8):
             f2 = rate(x2)
     k_best = float((lo + hi) / 2)
     return k_best, complex(np.asarray(function(np.array([k_best])))[0])
+
+
+def electrostatic_growth(k, species, guesses=None):
+    """Compute the most unstable electrostatic root of any set of drifting Maxwellians.
+
+    The general counterpart of :func:`two_stream`, :func:`bump_on_tail` and the Buneman
+    relation: the zeros of ε(ω, k) = 1 + Σ_s χ_s for the species as given, e.g. drifting
+    Maxwellians fitted to the moments of a simulation. Newton is started from the Langmuir
+    frequency of the whole plasma, from phase speeds across every species (``k (u_s + c v_th,s)``
+    for ``c`` from −3 to 3), from the beam modes ``k u_s ± ω_ps`` and from the ion-acoustic
+    speed, each slightly above the real axis, and the root with the largest imaginary part is
+    kept. A positive imaginary part is a growing mode; where none grows, the least damped root
+    found is returned. Roots are not guaranteed to be found for every distribution: check the
+    result against the dielectric (:func:`electrostatic_dielectric`) when in doubt.
+
+    Parameters
+    ----------
+    k : float or array_like
+        The wavenumber in units of 1/λ_De, nonzero (along the drifts).
+    species : sequence of Maxwellian
+        The mobile species, with scalar fields.
+    guesses : array_like of complex, optional
+        Extra starting frequencies, the same for every k.
+
+    Returns
+    -------
+    complex or numpy.ndarray
+        ω in units of ω_pe; ``nan`` where no guess converged.
+
+    See Also
+    --------
+    maximum_growth : The fastest-growing wavenumber, e.g.
+        ``maximum_growth(lambda k: electrostatic_growth(k, species), (0.05, 1.5))``.
+
+    Examples
+    --------
+    The two-stream root of :func:`two_stream`:
+
+    >>> beams = (
+    ...     Maxwellian(0.5, thermal_speed=0.3, drift=3.0),
+    ...     Maxwellian(0.5, thermal_speed=0.3, drift=-3.0),
+    ... )
+    >>> round(electrostatic_growth(0.2, beams).imag, 4)
+    0.3491
+    """
+    if isinstance(species, Maxwellian):
+        species = (species,)
+    species = tuple(species)
+    (k,) = _floats(k)
+    kk = k[..., None]
+    total = sum(s.plasma_frequency**2 for s in species)
+    seeds = [np.sign(kk) * np.sqrt(total + 3 * kk**2)]
+    for s in species:
+        for c in np.linspace(-3.0, 3.0, 7):
+            seeds.append(kk * (s.drift + c * s.thermal_speed))
+        for sign in (-1.0, 1.0):
+            seeds.append(kk * s.drift + sign * s.plasma_frequency)
+    electrons = [s for s in species if s.mass < 10]
+    ions = [s for s in species if s.mass >= 10]
+    if electrons and ions:
+        temperature = max(s.mass * s.thermal_speed**2 for s in electrons)
+        for s in ions:
+            sound = np.sqrt(temperature / s.mass)
+            seeds += [kk * (s.drift + sound), kk * (s.drift - sound)]
+            # Buneman: ω ≈ (m_e / m_i)^(1/3) ω_pe near k u = ω_pe
+            seeds.append((1 / s.mass) ** (1 / 3) * (0.5 + 0.8j))
+    seeds = np.concatenate([np.broadcast_to(g, kk.shape) for g in seeds], axis=-1)
+    scale = np.maximum(np.abs(seeds), 1e-3)
+    seeds = np.concatenate([seeds + 0.01j * scale, seeds + 0.3j * scale], axis=-1)
+    if guesses is not None:
+        extra = np.asarray(guesses, dtype=complex).ravel()
+        seeds = np.concatenate(
+            [seeds, np.broadcast_to(extra, kk.shape[:-1] + extra.shape)], axis=-1
+        )
+    omega = _most_unstable(
+        lambda w: electrostatic_dielectric(w, kk, species),
+        lambda w: electrostatic_dielectric(w, kk, species, derivative=1),
+        seeds,
+    )
+    return _out(omega)
 
 
 # ---------------------------------------------------------------------------------------------

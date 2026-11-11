@@ -110,6 +110,16 @@ For other velocity distributions, describe each species as a
 `kinetic.Maxwellian(density, charge, mass, thermal_speed, drift)`, and solve
 `kinetic.electrostatic_dielectric(ω, k, species) = 0` with
 `kinetic.solve_dispersion`.
+`kinetic.electrostatic_growth(k, species)` returns the most unstable root for
+any such set, e.g. drifting Maxwellians fitted to the moments of a simulation;
+here electrons drifting through protons (the Buneman instability):
+
+```python
+species = (kinetic.Maxwellian(drift=20.0), kinetic.Maxwellian.ions())
+kinetic.maximum_growth(
+    lambda k: kinetic.electrostatic_growth(k, species), (0.02, 0.06)
+)
+```
 
 ![Langmuir frequency and Landau damping rate against Bohm–Gross and the weak-damping formula](../../../assets/figures/theory_landau.png)
 
@@ -396,6 +406,7 @@ analytic results to compare them with:
 | --- | --- |
 | Langmuir wave dispersion, weak and strong Landau damping | `kinetic.langmuir`, `bohm_gross`, `landau_damping_weak` |
 | Two-stream and bump-on-tail instabilities | `kinetic.two_stream`, `two_stream_cold`, `bump_on_tail`, `maximum_growth` |
+| Any set of drifting Maxwellians | `kinetic.electrostatic_growth` |
 | Weibel instability | `kinetic.weibel` |
 | Electron cyclotron drift instability (MHz spoke-related modes) | `kinetic.electron_cyclotron_drift` |
 | Maxwell light-wave dispersion, cavity resonances | `waves.light_wave`, `cavity_modes` |

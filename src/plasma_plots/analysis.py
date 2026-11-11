@@ -256,6 +256,171 @@ def damping_rate(data: xr.DataArray, fit: GrowthFit | None = None) -> FitResult 
 
 
 @dataclass(frozen=True)
+class GrowthPhase:
+    """The exponential growth phase of a time series, from :func:`detect_growth`.
+
+    Attributes
+    ----------
+    rate : float
+        The fitted growth rate, positive (of the amplitude with ``amplitude_from_quadratic``).
+    intercept : float
+        The fitted intercept of the logarithm of the amplitude.
+    start : float
+        The time of the first fitted sample.
+    stop : float
+        The time of the last fitted sample.
+    efolds : float
+        The number of e-foldings of the amplitude over the fit, ``rate * (stop - start)``.
+    r2 : float
+        The coefficient of determination of the straight line through the logarithm.
+    noise : float
+        The noise floor the growth starts from, in the units of the series.
+    peak : float
+        The largest value of the series, the saturation level.
+    time : numpy.ndarray
+        The times of the fitted samples.
+    fitted : numpy.ndarray
+        The fitted curve at ``time``, in the units of the series, ready to plot over the data.
+    """
+
+    rate: float
+    intercept: float
+    start: float
+    stop: float
+    efolds: float
+    r2: float
+    noise: float
+    peak: float
+    time: np.ndarray
+    fitted: np.ndarray
+
+
+def detect_growth(
+    data: xr.DataArray,
+    *,
+    noise: float | None = None,
+    start: float = 3.0,
+    stop: float = 0.1,
+    min_efolds: float = 2.0,
+    min_r2: float = 0.95,
+    amplitude_from_quadratic: bool = False,
+    peaks_only: bool = False,
+) -> GrowthPhase | None:
+    """Find and fit the exponential growth phase of a time series, without a given window.
+
+    The automatic counterpart of :func:`growth_rate`, for telling whether something grows at all
+    (e.g. one Fourier mode of a field in a simulation that may be unstable). The fit window starts
+    where the amplitude last rises from below ``start`` times the noise floor (or from its
+    minimum, after an initial decay) and ends where it first reaches ``stop`` of its peak, before
+    saturation. The noise floor is taken out of the amplitude in quadrature (noise of random
+    phase adds in power) before a straight line is fitted to the logarithm. The phase counts only
+    if it is at least ``min_efolds`` e-foldings long and the logarithm is a straight line,
+    ``r2 >= min_r2``.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The time series, with ``t`` as its only dimension, e.g. a mode amplitude or an energy.
+    noise : float, optional
+        The noise floor, in the units of the series. Default: the median of the first 5 % of
+        the samples (at least three), i.e. the initial level.
+    start : float, optional
+        The window starts above ``start`` times the noise floor. Default: ``3.0``.
+    stop : float, optional
+        The window ends at ``stop`` times the peak amplitude, before the growth slows down.
+        Default: ``0.1``.
+    min_efolds : float, optional
+        The shortest growth phase that counts, in e-foldings of the amplitude. Default: ``2.0``.
+    min_r2 : float, optional
+        The smallest coefficient of determination that counts. Default: ``0.95``.
+    amplitude_from_quadratic : bool, optional
+        The series is quadratic in an amplitude (e.g. an energy): fit its square root. Default:
+        ``False``.
+    peaks_only : bool, optional
+        Fit the local maxima only (:func:`envelope`), for an amplitude that oscillates, such as
+        a standing wave. Default: ``False``.
+
+    Returns
+    -------
+    GrowthPhase or None
+        The fit, or ``None`` when nothing grows: too few valid samples, no rise above the noise,
+        a phase shorter than ``min_efolds`` or not exponential enough.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` has dimensions other than ``t``.
+
+    See Also
+    --------
+    growth_rate : The fit within a given window.
+
+    Examples
+    --------
+    >>> t = np.linspace(0.0, 40.0, 401)
+    >>> amplitude = xr.DataArray(
+    ...     1e-6 * np.exp(0.5 * t) / (1 + 1e-6 * np.exp(0.5 * t)), coords={"t": t}
+    ... )
+    >>> round(detect_growth(amplitude + 1e-5).rate, 1)
+    0.5
+    """
+    validate_array(data, required_dims=("t",))
+    if data.dims != ("t",):
+        raise ValueError(f"detect_growth input must have dims ('t',), got {data.dims}")
+    if peaks_only:
+        data = envelope(data)
+    time, values = np.asarray(data.t, dtype=float), np.asarray(data, dtype=float)
+    valid = np.isfinite(values) & (values > 0)
+    time, values = time[valid], values[valid]
+    if amplitude_from_quadratic:
+        values = np.sqrt(values)
+    if values.size < 4:
+        return None
+    if noise is None:
+        noise = float(np.median(values[: max(3, values.size // 20)]))
+    elif amplitude_from_quadratic:
+        noise = float(np.sqrt(noise))
+    peak_index = int(np.argmax(values))
+    peak = float(values[peak_index])
+    if stop * peak <= start * noise:
+        return None
+    before = values[: peak_index + 1]
+    quiet = np.flatnonzero(before <= start * noise)
+    first = max(int(quiet[-1]) + 1 if quiet.size else 0, int(np.argmin(before)))
+    last = first + int(np.argmax(values[first:] >= stop * peak))
+    if last - first < 3:
+        return None
+    # random-phase noise adds in power: take it out of the amplitude in quadrature
+    signal = np.sqrt(np.maximum(values[first : last + 1] ** 2 - noise**2, 0.0))
+    if np.any(signal <= 0):
+        return None
+    t, log = time[first : last + 1], np.log(signal)
+    rate, intercept = np.polyfit(t, log, 1)
+    total = float(np.sum((log - log.mean()) ** 2))
+    r2 = (
+        1.0 - float(np.sum((log - (rate * t + intercept)) ** 2)) / total
+        if total > 0
+        else 0.0
+    )
+    efolds = float(rate * (t[-1] - t[0]))
+    if rate <= 0 or efolds < min_efolds or r2 < min_r2:
+        return None
+    scale = 2.0 if amplitude_from_quadratic else 1.0
+    return GrowthPhase(
+        rate=float(rate),
+        intercept=float(intercept),
+        start=float(t[0]),
+        stop=float(t[-1]),
+        efolds=efolds,
+        r2=float(r2),
+        noise=float(noise) ** scale,
+        peak=peak**scale,
+        time=t,
+        fitted=np.exp(scale * (rate * t + intercept)),
+    )
+
+
+@dataclass(frozen=True)
 class OscillationFit:
     """The frequency of an oscillating time series, from :func:`oscillation_frequency`.
 
@@ -581,6 +746,128 @@ def velocity_moments(f: xr.DataArray, *, dims=None) -> xr.Dataset:
     return xr.Dataset(out, attrs=provenance)
 
 
+@dataclass(frozen=True)
+class PenroseResult:
+    """The Penrose criterion of a one-dimensional distribution, from :func:`penrose_criterion`.
+
+    Attributes
+    ----------
+    unstable : bool
+        Whether some minimum of f has a positive Penrose integral: then f is unstable to
+        electrostatic waves of phase velocity near that minimum.
+    velocity : float
+        The minimum with the largest Penrose integral, ``nan`` without a minimum.
+    integral : float
+        The Penrose integral there, ``nan`` without a minimum.
+    minima : numpy.ndarray
+        Every minimum that was tested (deeper than the prominence).
+    integrals : numpy.ndarray
+        The Penrose integral at each of them.
+    """
+
+    unstable: bool
+    velocity: float
+    integral: float
+    minima: np.ndarray
+    integrals: np.ndarray
+
+
+def penrose_criterion(
+    f: xr.DataArray, *, dim: str | None = None, prominence: float = 0.05
+) -> PenroseResult:
+    """Test a sampled one-dimensional velocity distribution for electrostatic instability.
+
+    Penrose's criterion: f(v) is unstable if and only if it has a minimum v₀ with
+
+    P(v₀) = ∫ (f(v) − f(v₀)) / (v − v₀)² dv > 0.
+
+    A single-humped distribution is stable; a beam, a bump on the tail or two streams are
+    unstable once their dip is deep and wide enough. Only minima deeper than ``prominence``
+    times the largest f below the lower of the maxima on either side are tested, so that the
+    noise of a histogram of markers does not count as a dip. The integral uses the trapezoid
+    rule, with ``f''(v₀)/2`` at the minimum and f = 0 beyond the sampled range. For several
+    species, pass Σ_s (q_s²/m_s) f_s, normalized to the electrons.
+
+    Parameters
+    ----------
+    f : xarray.DataArray
+        The distribution (or a histogram of markers), one-dimensional along a velocity
+        coordinate; any normalization.
+    dim : str, optional
+        The velocity dimension. Default: the sole dimension of ``f``.
+    prominence : float, optional
+        The smallest depth of a minimum that is tested, relative to ``max f``. Default: ``0.05``.
+
+    Returns
+    -------
+    PenroseResult
+        Whether f is unstable, and the integral at each tested minimum.
+
+    Raises
+    ------
+    ValueError
+        If ``f`` is not one-dimensional, or ``dim`` is not its dimension.
+
+    References
+    ----------
+    O. Penrose, "Electrostatic instabilities of a uniform non-Maxwellian plasma", Phys. Fluids 3,
+    258 (1960). N. A. Krall and A. W. Trivelpiece, Principles of Plasma Physics (1973), sec. 9.7.
+
+    Examples
+    --------
+    >>> v = np.linspace(-8.0, 8.0, 401)
+    >>> streams = xr.DataArray(
+    ...     np.exp(-((v - 3) ** 2) / 2) + np.exp(-((v + 3) ** 2) / 2),
+    ...     coords={"v": v},
+    ... )
+    >>> penrose_criterion(streams).unstable
+    True
+    """
+    if f.ndim != 1:
+        raise ValueError(f"f must be one-dimensional; got dims {f.dims}")
+    dim = f.dims[0] if dim is None else dim
+    if dim != f.dims[0]:
+        raise ValueError(f"{dim!r} is not the dimension of f; it is {f.dims[0]!r}")
+    v = np.asarray(f[dim], dtype=float)
+    values = np.asarray(f, dtype=float)
+    order = np.argsort(v)
+    v, values = v[order], values[order]
+    top = float(np.max(values)) if values.size else 0.0
+    minima, integrals = [], []
+    for i in range(1, values.size - 1):
+        if not (values[i] < values[i - 1] and values[i] <= values[i + 1]):
+            continue
+        depth = min(values[: i + 1].max(), values[i:].max()) - values[i]
+        if depth < prominence * top:
+            continue
+        v0, f0 = v[i], values[i]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            integrand = (values - f0) / (v - v0) ** 2
+        left, right = v[i] - v[i - 1], v[i + 1] - v[i]
+        curvature = (
+            2.0
+            * ((values[i + 1] - f0) / right - (f0 - values[i - 1]) / left)
+            / (left + right)
+        )
+        integrand[i] = 0.5 * curvature
+        # beyond the sampled range f = 0: the integrand is -f0 / (v - v0)^2
+        tails = -f0 * (1.0 / (v0 - v[0]) + 1.0 / (v[-1] - v0))
+        minima.append(float(v0))
+        trapezoid = np.sum(0.5 * (integrand[1:] + integrand[:-1]) * np.diff(v))
+        integrals.append(float(trapezoid + tails))
+    minima, integrals = np.array(minima), np.array(integrals)
+    if not minima.size:
+        return PenroseResult(False, np.nan, np.nan, minima, integrals)
+    best = int(np.argmax(integrals))
+    return PenroseResult(
+        bool(integrals[best] > 0),
+        float(minima[best]),
+        float(integrals[best]),
+        minima,
+        integrals,
+    )
+
+
 def relative_error(data: xr.DataArray, *, ref=None, skip_first=True) -> xr.DataArray:
     """Absolute relative deviation from an explicit reference or first sample.
 
@@ -897,6 +1184,137 @@ def power_spectrum(
     spectrum.name = "power"
     spectrum.attrs = {"label": f"power spectrum of {_label(data)}".strip(), "units": ""}
     return spectrum
+
+
+@dataclass(frozen=True)
+class ModeFit:
+    """The strongest travelling or standing wave of a ``(t, x)`` signal, from :func:`dominant_mode`.
+
+    Attributes
+    ----------
+    k : float
+        The wavenumber (angular, 2π over the wavelength), positive.
+    omega : float
+        The angular frequency, non-negative.
+    phase_velocity : float
+        ``omega / k`` with the sign of the direction of travel along the spatial coordinate.
+    wavelength : float
+        ``2π / k``.
+    power_fraction : float
+        The share of the wave in the power of the signal: its bin and the two neighbouring
+        frequencies (the main lobe of the Hann window), at ``±(k, ω)``.
+    min_omega : float
+        The lowest frequency that was searched, ``2π min_periods`` over the time span.
+    """
+
+    k: float
+    omega: float
+    phase_velocity: float
+    wavelength: float
+    power_fraction: float
+    min_omega: float
+
+
+def dominant_mode(
+    data: xr.DataArray, *, dim: str | None = None, min_periods: float = 2.0
+) -> ModeFit | None:
+    """Find the strongest wave in a ``(t, dim)`` signal: wavenumber, frequency and phase velocity.
+
+    A space-time FFT (:func:`plasma_plots.spectral.fft`) with the time mean removed and a Hann
+    window in time; the strongest bin with ``k != 0`` among the frequencies of at least
+    ``min_periods`` periods in the time span (slower ones cannot be told from a drift of the
+    mean). The spatial direction is taken as periodic (no window); drop a duplicated periodic
+    endpoint first.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        The signal, with exactly the dimensions ``t`` and ``dim`` on uniform grids.
+    dim : str, optional
+        The spatial dimension. Default: the sole dimension other than ``t``.
+    min_periods : float, optional
+        The fewest periods of a wave in the time span. Default: ``2.0``.
+
+    Returns
+    -------
+    ModeFit or None
+        The wave, or ``None`` when the time span is too short for any frequency of
+        ``min_periods`` periods or the signal is zero.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` does not have exactly the dimensions ``t`` and ``dim``.
+
+    See Also
+    --------
+    power_spectrum : The whole spectrum.
+
+    Examples
+    --------
+    >>> x = np.linspace(0.0, 2 * np.pi, 64, endpoint=False)
+    >>> t = np.linspace(0.0, 20.0, 400)
+    >>> wave = xr.DataArray(
+    ...     np.cos(3 * x[None] - 2.0 * t[:, None]), coords={"t": t, "x": x}
+    ... )
+    >>> mode = dominant_mode(wave)
+    >>> round(mode.k, 3), round(mode.phase_velocity, 1)
+    (3.0, 0.7)
+    """
+    validate_array(data, required_dims=("t",))
+    others = [d for d in data.dims if d != "t"]
+    if dim is None:
+        if len(others) != 1:
+            raise ValueError(
+                f"dim is required unless data has exactly one dimension besides 't'; got {data.dims}"
+            )
+        dim = others[0]
+    if set(data.dims) != {"t", dim}:
+        raise ValueError(
+            f"data must have exactly the dims 't' and {dim!r}; got {data.dims}"
+        )
+    from .spectral import fft
+
+    signal = data.transpose("t", dim).reset_coords(drop=True)
+    time = np.asarray(signal.t, dtype=float)
+    span = float(time[-1] - time[0]) if time.size > 1 else 0.0
+    if span <= 0:
+        return None
+    coefficients = fft(fft(signal, dim="t", detrend=True, window="hann"), dim=dim)
+    power = np.abs(np.asarray(coefficients.transpose("omega", f"k_{dim}"))) ** 2
+    total = float(power.sum())
+    omega = np.asarray(coefficients.omega)
+    k = np.asarray(coefficients[f"k_{dim}"])
+    min_omega = 2.0 * np.pi * min_periods / span
+    keep = (np.abs(omega)[:, None] >= min_omega) & (k[None, :] != 0)
+    if total <= 0 or not keep.any():
+        return None
+    # a real signal repeats every bin at (-k, -omega): look at omega < 0 only, where the
+    # right-moving exp(i(k x - omega t)) sits at (+k, -omega) with numpy's kernel
+    keep &= omega[:, None] < 0
+    i, j = np.unravel_index(np.argmax(np.where(keep, power, -1.0)), power.shape)
+    w, kk = -float(omega[i]), float(k[j])
+    if 0 < i < omega.size - 1 and min(power[i - 1, j], power[i + 1, j]) > 0:
+        # a parabola through the logarithm of the peak and its neighbours: the Hann window's
+        # peak is close to a Gaussian, so this places omega to a fraction of a bin
+        below, centre, above = np.log(power[i - 1 : i + 2, j])
+        curvature = below - 2.0 * centre + above
+        if curvature < 0:
+            shift = 0.5 * (below - above) / curvature
+            w = -float(omega[i] + shift * (omega[1] - omega[0]))
+    lobe = slice(max(i - 1, 0), i + 2)
+    mirror_i = int(np.argmin(np.abs(omega + omega[i])))
+    mirror = power[
+        max(mirror_i - 1, 0) : mirror_i + 2, np.argmin(np.abs(k + k[j]))
+    ].sum()
+    return ModeFit(
+        k=abs(kk),
+        omega=w,
+        phase_velocity=w / kk,
+        wavelength=2.0 * np.pi / abs(kk),
+        power_fraction=float((power[lobe, j].sum() + mirror) / total),
+        min_omega=float(min_omega),
+    )
 
 
 # ---------------------------------------------------------------------------------------------
