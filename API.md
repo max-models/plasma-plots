@@ -27,6 +27,12 @@ at https://max-models.github.io/plasma-plots.
   DESC equilibrium into a Dataset over `rho`, `theta`/`theta_P`, `zeta` with `X`, `Y`, `Z`
   coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
   the Jacobian.
+- **Coils.** `plasma_plots.from_coilset(coilset, n_points=128)` expands a CoilStellaration
+  coilset (dict, JSON, `Coilset`) or a DESC `CoilSet` of `FourierXYZCoil` into every coil, a Dataset
+  over `coil`, `s` with `X`, `Y`, `Z`, `current`, `length`, `curvature`;
+  `plasma_plots.from_boundary(boundary)` evaluates a ConStellaration `SurfaceRZFourier` over
+  `rho=[1]`, `theta`, `zeta` (attrs `minor_radius`, `major_radius`);
+  `coils.plasma.plot.coils_3d(color_by=, surface=)` draws them.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`, `.to_tikz()`); Matplotlib animations a
   `FuncAnimation`;
@@ -365,6 +371,8 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
   - e.g. `orbits.plasma.plot.quantities(markers=4)`
 - `dataset.plasma.plot.orbits_3d(*, color_by='t', max_markers=200, tube_radius=None, cmap=None, domain=None, title=None, plotter=None)`: Draw PyVista 3-D orbit lines, colored by "t", "classification" or any variable.
   - e.g. `orbits.plasma.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0)).show()`
+- `dataset.plasma.plot.coils_3d(*, color_by=None, color='#b87333', tube_radius=None, cmap=None, clim=None, surface=None, surface_opacity=1.0, surface_cmap=None, title=None, plotter=None)`: Draw stellarator coils as PyVista tubes, optionally around the plasma surface.
+  - e.g. `coils.plasma.plot.coils_3d(color_by="curvature", surface=plasma).show()`
 - `dataset.plasma.plot.poincare(*, coords='physical', color_by='line', s=3.0, cmap=None, islands=False, boundary=None, max_lines=None, ax=None, title=None, backend=None, **classification)`: Plot the Poincaré section of these traced field lines.
   - e.g. `lines.plasma.plot.poincare(color_by="iota")`
   - e.g. `lines.plasma.plot.poincare(color_by="classification", islands=True)`
@@ -595,7 +603,8 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.arrays`: `logical_dims`, `periodicity`, `repeat_periodic`, `angle_period`, `validate_array`, `unit_label`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
-- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene_to_plotly`, `scene`
+- `plasma_plots.coils`: `from_coilset`, `from_boundary`, `boundary_from_desc`, `distance_to_surface`, `coil_to_coil_distance`
+- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `coil_polylines`, `pyvista_coils`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene_to_plotly`, `scene`
 
 ## Command line: plasma-plots
 

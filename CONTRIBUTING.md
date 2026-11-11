@@ -58,6 +58,11 @@ stellarators, NCSX, HELIOTRON, ESTELL and the tokamak DSHAPE), so it needs `pip 
 (pure Python, on JAX; the `desc` extra). It takes about two minutes. `tests/test_desc.py` needs it
 too, and is skipped without it.
 
+The [Stellarator coils](https://max-models.github.io/plasma-plots/guides/coils/) guide
+(`scripts/generate_coil_figures.py`) uses DESC too: coils that DESC places around its W7-X example,
+written in the layout of the CoilStellaration dataset, so the build downloads nothing. It takes
+about half a minute.
+
 Figures aren't checked into git, so generate them before building or
 running the site locally:
 
@@ -66,7 +71,7 @@ struphy compile -y   # only needed for generate_real_example_figures.py
 pip install gvec     # only needed for generate_gvec_figures.py
 pip install desc-opt # only needed for generate_desc_figures.py (and tests/test_desc.py)
 pip install -e ".[pyvista,profiling]" plotly   # see below for why these extras
-make figures       # runs the four scripts, renders docs/src/assets/figures/ and docs/public/plotly/
+make figures       # runs the scripts, renders docs/src/assets/figures/ and docs/public/plotly/
 make docs-dev       # figures + npm run dev
 make docs-build     # figures + npm run build
 ```

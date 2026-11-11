@@ -67,7 +67,7 @@ def test_every_matplotlib_plot_method_has_the_backend_option():
             "frames",
         },
         "SliceView": {"save_frames"},
-        "DatasetPlots": {"orbits_3d"},
+        "DatasetPlots": {"orbits_3d", "coils_3d"},
         "OutputPlots": {"equilibrium_3d", "domain_3d", "profile", "__call__"},
     }
     classes = [

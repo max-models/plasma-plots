@@ -1143,6 +1143,194 @@ def pyvista_orbits(
     return _finish(plotter, "Marker orbits" if title is None else title)
 
 
+def coil_polylines(coils: xr.Dataset, *, color_by: str | None = None):
+    """Coils as one closed ``pyvista.PolyData`` line per coil, with point data ``color_by``.
+
+    Parameters
+    ----------
+    coils : xarray.Dataset
+        Coils over ``(coil, s)`` with coordinates ``X``, ``Y``, ``Z``, from
+        :func:`plasma_plots.from_coilset`.
+    color_by : str, optional
+        A variable (or coordinate) over ``coil`` or ``(coil, s)`` to attach as point data, e.g.
+        ``"current"``, ``"curvature"`` or ``"unique_coil"``. Default: none.
+
+    Returns
+    -------
+    pyvista.PolyData
+        The coils, each closed by repeating its first point.
+
+    Raises
+    ------
+    ValueError
+        If ``coils`` isn't over ``(coil, s)``, lacks ``X``, ``Y``, ``Z``, or ``color_by`` isn't
+        a variable over ``coil`` or ``(coil, s)``.
+    """
+    pv = _pv()
+    if not {"coil", "s"} <= set(coils.dims):
+        raise ValueError(f"need coils over (coil, s), got dims {tuple(coils.dims)}")
+    missing = [axis for axis in "XYZ" if axis not in coils.coords]
+    if missing:
+        raise ValueError(f"the coils need the coordinates X, Y, Z; missing {missing}")
+    points = np.stack(
+        [
+            np.asarray(coils.coords[axis].transpose("coil", "s"), dtype=float)
+            for axis in "XYZ"
+        ],
+        axis=-1,
+    )
+    n_coils, n_s = points.shape[:2]
+    closed = np.concatenate([points, points[:, :1]], axis=1)
+    offsets = np.arange(n_coils)[:, None] * (n_s + 1)
+    cells = np.concatenate(
+        [np.full((n_coils, 1), n_s + 1), offsets + np.arange(n_s + 1)[None, :]], axis=1
+    )
+    lines = pv.PolyData(closed.reshape(-1, 3), lines=cells.ravel())
+    if color_by is not None:
+        if color_by not in coils.variables or not set(coils[color_by].dims) <= {
+            "coil",
+            "s",
+        }:
+            names = [
+                name
+                for name in coils.variables
+                if "coil" in coils[name].dims and set(coils[name].dims) <= {"coil", "s"}
+            ]
+            raise ValueError(f"color_by must be one of {names}, got {color_by!r}")
+        values = np.asarray(
+            coils[color_by].broadcast_like(coils.coords["X"]).transpose("coil", "s"),
+            dtype=float,
+        )
+        lines.point_data[color_by] = np.concatenate(
+            [values, values[:, :1]], axis=1
+        ).ravel()
+    return lines
+
+
+@rank_zero
+def pyvista_coils(
+    coils: xr.Dataset,
+    *,
+    color_by: str | None = None,
+    color="#b87333",
+    tube_radius: float | None = None,
+    cmap=None,
+    clim=None,
+    surface=None,
+    surface_opacity: float = 1.0,
+    surface_cmap=None,
+    title: str | None = None,
+    plotter=None,
+):
+    """Stellarator coils as tubes, optionally around the plasma surface.
+
+    Parameters
+    ----------
+    coils : xarray.Dataset
+        Coils over ``(coil, s)`` with coordinates ``X``, ``Y``, ``Z``, from
+        :func:`plasma_plots.from_coilset`.
+    color_by : str, optional
+        Color the coils by a variable over ``coil`` or ``(coil, s)``: ``"current"``,
+        ``"curvature"``, ``"length"``, ``"unique_coil"``, or one added to the Dataset such as
+        the distances of :func:`plasma_plots.coils.distance_to_surface`. Default: one ``color``.
+    color : color, optional
+        The coils' color without ``color_by``; any Matplotlib color. Default: copper.
+    tube_radius : float, optional
+        Radius of the tubes, in m. Default: 0.4 % of the coils' extent; 0 for plain lines.
+    cmap : str or matplotlib colormap, optional
+        The colormap for ``color_by``. Default: ``"viridis"``.
+    clim : (float, float), optional
+        Color limits for ``color_by``. Default: the values' range.
+    surface : xarray.Dataset or xarray.DataArray, optional
+        The plasma: a Dataset (e.g. :func:`plasma_plots.from_boundary`) is drawn in grey, a
+        DataArray (e.g. ``|B|`` on the last surface of :func:`plasma_plots.from_desc` over the
+        whole torus) colored by its values. Its logical dimensions are ``rho``, ``theta``,
+        ``zeta`` with a single ``rho``.
+    surface_opacity : float, optional
+        Opacity of the surface. Default: 1.
+    surface_cmap : str or matplotlib colormap, optional
+        The colormap of a DataArray ``surface``. Default: ``"plasma"``.
+    title : str, optional
+        Text in the scene's corner. Default: ``"Coils"``; ``""`` for none.
+    plotter : pyvista.Plotter, optional
+        Draw into this scene instead of a new one, to combine several views.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The scene, not yet shown: call ``.show()`` or ``.screenshot(path)``.
+
+    Raises
+    ------
+    ValueError
+        If the coils or ``color_by`` are not as described, or ``surface`` lacks ``X``,
+        ``Y``, ``Z``.
+
+    See Also
+    --------
+    coil_polylines : The coils as a ``pyvista.PolyData``, without drawing them.
+
+    Examples
+    --------
+    >>> coils = plasma_plots.from_coilset(coilset)
+    >>> plasma = plasma_plots.from_boundary(boundary)
+    >>> pyvista_coils(coils, color_by="curvature", surface=plasma).show()
+    """
+    lines = coil_polylines(coils, color_by=color_by)
+    if tube_radius is None:
+        extent = np.ptp(np.asarray(lines.points), axis=0)
+        tube_radius = 0.004 * float(np.linalg.norm(extent))
+    plotter = _plotter(plotter)
+    if surface is not None:
+        if isinstance(surface, xr.Dataset):
+            name = next(iter(surface.data_vars), None)
+            if name is None:
+                raise ValueError(
+                    "the surface Dataset has no variable to place its grid on"
+                )
+            grid = structured_grid(surface[name], name="surface")
+            plotter.add_mesh(
+                grid,
+                color="lightgrey",
+                opacity=surface_opacity,
+                smooth_shading=True,
+                show_scalar_bar=False,
+                name="surface",
+            )
+        else:
+            label = _label(surface)
+            grid = structured_grid(surface, name=label)
+            plotter.add_mesh(
+                grid,
+                scalars=label,
+                cmap=surface_cmap or "plasma",
+                opacity=surface_opacity,
+                smooth_shading=True,
+                scalar_bar_args=_bar(label),
+                name="surface",
+            )
+    mesh = lines.tube(radius=tube_radius, n_sides=12) if tube_radius > 0 else lines
+    if color_by is None:
+        plotter.add_mesh(
+            mesh, color=color, line_width=3, smooth_shading=True, name="coils"
+        )
+    else:
+        label = _label(coils[color_by])
+        if label != color_by:
+            mesh.point_data[label] = mesh.point_data[color_by]
+        plotter.add_mesh(
+            mesh,
+            scalars=label,
+            cmap=cmap or "viridis",
+            clim=clim,
+            line_width=3,
+            smooth_shading=True,
+            scalar_bar_args=_bar(label),
+            name="coils",
+        )
+    return _finish(plotter, "Coils" if title is None else title)
+
+
 @rank_zero
 def pyvista_domain(
     domain,

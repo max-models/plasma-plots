@@ -106,6 +106,11 @@ What is where
 * DESC equilibria: ``plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64,
   zeta=40)`` evaluates them into the same flux-coordinate Datasets (``sfl="pest"`` for the PEST
   angle ``theta_P``); DESC's names stay, ``ev["|B|"].plasma.plot...``.
+* Stellarator coils (CoilStellaration, DESC): ``plasma_plots.from_coilset(coilset)`` expands a
+  coilset into every coil over ``(coil, s)`` with ``current``, ``length`` and ``curvature``;
+  ``plasma_plots.from_boundary(boundary)`` evaluates a ConStellaration boundary (with its
+  ``minor_radius``); ``plasma_plots.coils.distance_to_surface`` and ``.coil_to_coil_distance``;
+  ``coils.plasma.plot.coils_3d(color_by="curvature", surface=plasma)``.
 * Charts of any labeled data: ``plot.scan`` (a parameter scan with error bars or a band,
   ``samples=`` averages repeated runs), ``plot.breakdown`` (horizontal bars of parts of a total),
   ``plot.twin`` (two value axes), ``plot.stacked`` (panels over a shared axis),
@@ -187,6 +192,7 @@ Runs as is, on synthetic data:
 from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
 from .arrays import repeat_periodic
+from .coils import from_boundary, from_coilset
 from .desc import from_desc
 from .figures import figure
 from .geometry import plot_domain
@@ -201,6 +207,8 @@ __all__ = [
     "SkippedPlot",
     "PlasmaAccessor",
     "figure",
+    "from_boundary",
+    "from_coilset",
     "from_desc",
     "from_gvec",
     "get_backend",
