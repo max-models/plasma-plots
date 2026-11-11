@@ -3707,6 +3707,110 @@ class ArrayAnalysis(_ArrayAccessor):
             GrowthFit(window=tuple(window), amplitude_from_quadratic=amplitude),
         )
 
+    def growth_phase(
+        self,
+        *,
+        noise: float | None = None,
+        min_efolds: float = 2.0,
+        min_r2: float = 0.95,
+        amplitude: bool = False,
+        peaks_only: bool = False,
+    ):
+        """Find and fit the exponential growth phase of this time series, without a window.
+
+        Parameters
+        ----------
+        noise : float, optional
+            The noise floor, in the units of the series. Default: the initial level.
+        min_efolds : float, optional
+            The shortest growth phase that counts, in e-foldings. Default: ``2.0``.
+        min_r2 : float, optional
+            The smallest coefficient of determination that counts. Default: ``0.95``.
+        amplitude : bool, optional
+            The series is quadratic in an amplitude (e.g. an energy). Default: ``False``.
+        peaks_only : bool, optional
+            Fit the local maxima only, for an oscillating amplitude. Default: ``False``.
+
+        Returns
+        -------
+        GrowthPhase or None
+            ``.rate``, ``.start``, ``.stop``, ``.efolds``, ``.r2``, ``.noise``, ``.peak``; ``None``
+            when nothing grows.
+
+        See Also
+        --------
+        plasma_plots.analysis.detect_growth : The function behind this method.
+        ArrayAnalysis.growth_rate : The fit within a given window.
+
+        Examples
+        --------
+        >>> mode.plasma.analysis.growth_phase().rate
+        """
+        from .analysis import detect_growth
+
+        return detect_growth(
+            self._array,
+            noise=noise,
+            min_efolds=min_efolds,
+            min_r2=min_r2,
+            amplitude_from_quadratic=amplitude,
+            peaks_only=peaks_only,
+        )
+
+    def dominant_mode(self, *, dim: str | None = None, min_periods: float = 2.0):
+        """Find the strongest wave of this ``(t, dim)`` signal: k, omega and phase velocity.
+
+        Parameters
+        ----------
+        dim : str, optional
+            The spatial dimension. Default: the sole dimension other than ``t``.
+        min_periods : float, optional
+            The fewest periods of a wave in the time span. Default: ``2.0``.
+
+        Returns
+        -------
+        ModeFit or None
+            ``.k``, ``.omega``, ``.phase_velocity``, ``.wavelength``, ``.power_fraction``.
+
+        See Also
+        --------
+        plasma_plots.analysis.dominant_mode : The function behind this method.
+
+        Examples
+        --------
+        >>> phi.plasma.analysis.dominant_mode(dim="x").phase_velocity
+        """
+        from .analysis import dominant_mode
+
+        return dominant_mode(self._array, dim=dim, min_periods=min_periods)
+
+    def penrose(self, *, dim: str | None = None, prominence: float = 0.05):
+        """Test this one-dimensional velocity distribution with the Penrose criterion.
+
+        Parameters
+        ----------
+        dim : str, optional
+            The velocity dimension. Default: the sole dimension.
+        prominence : float, optional
+            The smallest depth of a tested minimum, relative to ``max f``. Default: ``0.05``.
+
+        Returns
+        -------
+        PenroseResult
+            ``.unstable``, ``.velocity`` and ``.integral`` at the most unstable minimum.
+
+        See Also
+        --------
+        plasma_plots.analysis.penrose_criterion : The function behind this method.
+
+        Examples
+        --------
+        >>> f.plasma.analysis.penrose().unstable
+        """
+        from .analysis import penrose_criterion
+
+        return penrose_criterion(self._array, dim=dim, prominence=prominence)
+
     def oscillation_frequency(
         self,
         *,

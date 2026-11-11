@@ -50,7 +50,11 @@ What is where
 -------------
 * Time series and rates: ``plot.timeseries(fit=(t0, t1), reference=...)``,
   ``analysis.growth_rate``, ``analysis.damping_rate``, ``analysis.envelope``,
-  ``analysis.oscillation_frequency`` (from zero crossings).
+  ``analysis.oscillation_frequency`` (from zero crossings); ``analysis.growth_phase`` finds the
+  growth phase on its own (is anything growing?).
+* Instabilities: ``analysis.dominant_mode`` (the strongest wave of a ``(t, x)`` signal),
+  ``analysis.penrose`` (is f(v) unstable?), ``theory.kinetic.electrostatic_growth`` (the most
+  unstable root of any set of drifting Maxwellians).
 * Profiles: ``plot.lineout``, ``plot.profiles``, ``plot.line_animation`` (``alongside=`` for
   panels in sync), each with ``reference=`` for exact solutions; ``analysis.map_coordinate`` for
   physical coordinates (``eta1`` → ``r`` in m).
