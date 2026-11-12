@@ -5809,6 +5809,7 @@ class DatasetPlots:
         surface=None,
         surface_opacity: float = 1.0,
         surface_cmap=None,
+        surface_clim=None,
         title: str | None = None,
         plotter=None,
     ):
@@ -5844,6 +5845,7 @@ class DatasetPlots:
             surface=surface,
             surface_opacity=surface_opacity,
             surface_cmap=surface_cmap,
+            surface_clim=surface_clim,
             title=title,
             plotter=plotter,
         )

@@ -1219,6 +1219,7 @@ def pyvista_coils(
     surface=None,
     surface_opacity: float = 1.0,
     surface_cmap=None,
+    surface_clim=None,
     title: str | None = None,
     plotter=None,
 ):
@@ -1250,6 +1251,9 @@ def pyvista_coils(
         Opacity of the surface. Default: 1.
     surface_cmap : str or matplotlib colormap, optional
         The colormap of a DataArray ``surface``. Default: ``"plasma"``.
+    surface_clim : (float, float), optional
+        Color limits of a DataArray ``surface``, e.g. to compare two scenes on one scale.
+        Default: the values' range.
     title : str, optional
         Text in the scene's corner. Default: ``"Coils"``; ``""`` for none.
     plotter : pyvista.Plotter, optional
@@ -1304,6 +1308,7 @@ def pyvista_coils(
                 grid,
                 scalars=label,
                 cmap=surface_cmap or "plasma",
+                clim=surface_clim,
                 opacity=surface_opacity,
                 smooth_shading=True,
                 scalar_bar_args=_bar(label),

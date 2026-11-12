@@ -247,12 +247,16 @@ def test_coil_scene_draws_tubes_and_surface():
         {},
         {"color_by": "current", "surface": plasma, "surface_opacity": 0.5},
         {"color_by": "plasma_distance", "surface": plasma.R, "tube_radius": 0},
+        {"surface": plasma.R, "surface_clim": (0.0, 2.0)},
     ):
         plotter = coils.plasma.plot.coils_3d(**kwargs)
         assert "coils" in plotter.actors
         assert ("surface" in plotter.actors) == ("surface" in kwargs)
         image = plotter.screenshot(return_img=True, window_size=(200, 150))
         assert image.std() > 0
+        if "surface_clim" in kwargs:
+            mapper = plotter.actors["surface"].mapper
+            assert tuple(mapper.scalar_range) == kwargs["surface_clim"]
         plotter.close()
     with pytest.raises(ValueError, match="color_by must be one of"):
         pyvista_coils(coils, color_by="nfp")
