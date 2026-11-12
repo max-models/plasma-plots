@@ -17,6 +17,8 @@ boundaries come from `ConStellaration
   that CoilStellaration normalizes distances and curvatures by;
 * :func:`boundary_from_desc` writes a DESC equilibrium's last surface in ConStellaration's
   layout;
+* :func:`plot_boundary_sections` (``plasma.plasma.plot.boundary_sections()``) draws a
+  boundary's cross-sections at several toroidal angles over half a field period;
 * :func:`distance_to_surface` and :func:`coil_to_coil_distance` give, at every point of every
   coil, the distance to the plasma and to the nearest other coil: the benchmark's distance
   metrics are their minima;
@@ -45,6 +47,8 @@ from collections.abc import Mapping
 
 import numpy as np
 import xarray as xr
+
+from .mpi import rank_zero
 
 #: The keys of a coilset in CoilStellaration's layout.
 COILSET_KEYS = (
@@ -614,3 +618,141 @@ def coil_to_coil_distance(coils: xr.Dataset) -> xr.DataArray:
             "long_name": "distance to the nearest other coil",
         },
     )
+
+
+def _section_planes(surface: xr.Dataset, planes: int | None) -> xr.Dataset:
+    """The surface at ``planes`` toroidal angles over half a field period (nearest grid points)."""
+    if planes is None:
+        return surface
+    if planes < 1:
+        raise ValueError(f"need at least one plane, got {planes}")
+    nfp = int(surface.attrs.get("nfp", surface["R"].attrs.get("nfp", 1)))
+    wanted = np.linspace(0.0, np.pi / nfp, planes)
+    return surface.sel(zeta=wanted, method="nearest")
+
+
+def _plane_label(phi: float, nfp: int) -> str:
+    """``phi`` as a fraction of ``π / nfp``, e.g. ``$\\phi = 1/4\\ \\pi / N_{fp}$``."""
+    from fractions import Fraction
+
+    fraction = phi / (np.pi / nfp)
+    exact = Fraction(fraction).limit_denominator(12)
+    if abs(float(exact) - fraction) > 1e-6:
+        text = f"{fraction:.2f}"
+    elif exact == 0:
+        return r"$\phi = 0$"
+    elif exact == 1:
+        text = ""
+    else:
+        text = f"{exact.numerator}/{exact.denominator}\\ "
+    return rf"$\phi = {text}\pi / N_{{fp}}$"
+
+
+@rank_zero
+def plot_boundary_sections(
+    boundary,
+    *,
+    planes: int | None = 5,
+    theta: int = 128,
+    ax=None,
+    cmap="viridis",
+    title: str | None = None,
+):
+    """Draw a plasma boundary's cross-sections in the ``(R, Z)`` plane at several toroidal angles.
+
+    The view ConStellaration draws of its boundaries: by default five planes from ``phi = 0`` to
+    half a field period, ``phi = π / nfp``, which for a stellarator-symmetric surface show every
+    shape it takes.
+
+    Parameters
+    ----------
+    boundary : dict, str, object or xarray.Dataset
+        A boundary as :func:`from_boundary` takes it (ConStellaration's ``boundary.json``), or a
+        surface Dataset with ``R`` and ``Z`` over ``theta`` and ``zeta`` and a single ``rho``,
+        such as :func:`from_boundary`'s or the last surface of :func:`~plasma_plots.from_desc`.
+    planes : int or None, optional
+        The number of toroidal angles, evenly from 0 to ``π / nfp``; for a Dataset the nearest
+        of its angles. ``None`` draws every angle of a Dataset. Default: 5.
+    theta : int, optional
+        Poloidal points per cross-section of a boundary (not of a Dataset). Default: 128.
+    ax : matplotlib.axes.Axes, optional
+        The axes to draw into. Default: a new figure.
+    cmap : str or matplotlib colormap, optional
+        The colors of the planes, from the first to the last. Default: ``"viridis"``.
+    title : str, optional
+        The axes title. Default: none.
+
+    Returns
+    -------
+    PlotResult
+        The figure, the axes, one closed line per plane, and in ``data["surface"]`` the
+        surface at the drawn angles.
+
+    Raises
+    ------
+    ValueError
+        If ``planes`` is below 1, or the Dataset lacks ``R``, ``Z`` or the ``theta`` and
+        ``zeta`` dimensions.
+
+    Examples
+    --------
+    >>> plot_boundary_sections(json.loads(row["boundary.json"]))
+    >>> plasma_plots.from_boundary(boundary).plasma.plot.boundary_sections(planes=3)
+    """
+    import matplotlib.pyplot as plt
+
+    from .plotting import PlotResult, _finish, _plot_style
+
+    if isinstance(boundary, xr.Dataset):
+        missing = {"R", "Z"} - set(boundary.variables)
+        missing |= {"theta", "zeta"} - set(boundary.dims)
+        if missing:
+            raise ValueError(
+                f"the surface Dataset lacks {sorted(missing)}: it needs R and Z over theta and zeta"
+            )
+        surface = _section_planes(boundary, planes)
+    else:
+        if planes is not None and planes < 1:
+            raise ValueError(f"need at least one plane, got {planes}")
+        if isinstance(boundary, (str, bytes)):
+            boundary = json.loads(boundary)
+        nfp = int(
+            boundary["n_field_periods"]
+            if isinstance(boundary, Mapping)
+            else boundary.n_field_periods
+        )
+        surface = from_boundary(
+            boundary,
+            theta=theta,
+            zeta=np.linspace(0.0, np.pi / nfp, 5 if planes is None else planes),
+        )
+    if "rho" in surface.dims:
+        surface = surface.isel(rho=0, drop=True)
+    R = surface["R"].transpose("theta", "zeta")
+    Z = surface["Z"].transpose("theta", "zeta")
+    nfp = int(surface.attrs.get("nfp", surface["R"].attrs.get("nfp", 1)))
+    zeta = np.atleast_1d(surface["zeta"].values)
+    colors = plt.get_cmap(cmap)(np.linspace(0.0, 1.0, max(len(zeta), 2)))
+    with _plot_style():
+        own = ax is None
+        if own:
+            fig, ax = plt.subplots(figsize=(6.0, 5.0))
+        else:
+            fig = ax.figure
+        lines = []
+        for k, phi in enumerate(zeta):
+            r, z = R.values[:, k], Z.values[:, k]
+            (line,) = ax.plot(
+                np.append(r, r[0]),
+                np.append(z, z[0]),
+                color=colors[k],
+                label=_plane_label(phi, nfp),
+            )
+            lines.append(line)
+        ax.set_aspect("equal", adjustable="datalim")
+        ax.set(xlabel="$R$ (m)", ylabel="$Z$ (m)")
+        if title:
+            ax.set_title(title)
+        ax.legend(fontsize="small", loc="center left", bbox_to_anchor=(1.02, 0.5))
+        _finish(fig, tight=own)
+    return PlotResult(fig, ax, lines, data={"surface": surface})

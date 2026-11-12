@@ -8,6 +8,7 @@ import PyVistaScene from '@max-models/starlight-theme/components/PyVistaScene.as
 import numbers from '../../../assets/coils/numbers.txt?raw';
 import script from '../../../../../scripts/generate_coil_figures.py?raw';
 import fig_field_error from '../../../assets/figures/coils_3d_field_error.png';
+import fig_field_error_optimized from '../../../assets/figures/coils_3d_field_error_optimized.png';
 import fig_distance from '../../../assets/figures/coils_3d_distance.png';
 
 [CoilStellaration](https://huggingface.co/datasets/proxima-fusion/coilstellaration) is a dataset of
@@ -113,6 +114,34 @@ layout of [DESC's Datasets](/plasma-plots/guides/desc/): dims `rho` (the single 
 the **minor radius** `a = sqrt(A / π)` of the mean cross-section area `A`, the length that
 CoilStellaration's `normalized_*` metrics divide by.
 
+`plasma.plasma.plot.boundary_sections()` (or `plasma_plots.coils.plot_boundary_sections`, which
+also takes a `boundary.json` directly) draws the cross-sections in the `(R, Z)` plane at five
+toroidal angles from `phi = 0` to half a field period, `π / N_fp`. This is the view
+ConStellaration uses for its boundaries. For a stellarator-symmetric surface these angles show
+every shape it takes. Here is the example boundary of the ConStellaration benchmark
+(`hugging_face_competition/inputs/boundary.json` in the
+[constellaration repository](https://github.com/proximafusion/constellaration), four field
+periods, kept in `scripts/data`):
+
+```python
+import json
+
+from plasma_plots.coils import plot_boundary_sections
+
+boundary = json.loads(open("constellaration_boundary.json").read())
+plot_boundary_sections(boundary)
+```
+
+![Cross-sections of ConStellaration's example boundary at five toroidal angles over half a field period](../../../assets/figures/coils_boundary_sections.png)
+
+The same for W7-X's last surface, through `from_boundary`, at the Dataset's nearest angles:
+
+```python
+plasma.plasma.plot.boundary_sections(planes=5)
+```
+
+![Cross-sections of W7-X's last flux surface at five toroidal angles over half a field period](../../../assets/figures/coils_w7x_sections.png)
+
 `plasma_plots.coils.boundary_from_desc(eq)` goes the other way: it writes the last surface of any
 stellarator-symmetric DESC equilibrium as a ConStellaration `boundary.json`, exact to round-off.
 The figures below use it on DESC's W7-X example.
@@ -160,10 +189,16 @@ B = xr.DataArray(
 field_error = abs((B * n).sum("component")) / np.sqrt((B**2).sum("component"))
 ```
 
-The figures on this page use coils that DESC places around its W7-X example
-(`desc.coils.initialize_modular_coils`, five per half period): planar coils, the kind of start a
-coil optimization begins from, so their field error is large. CoilStellaration's coilsets are what
-REGCOIL and DESC make of such a start. The numbers, from the script at the end of the page:
+The figures on this page use two coilsets around DESC's W7-X example, five coils per half
+period. These are not W7-X's real coils. The first is a starting set
+(`desc.coils.initialize_modular_coils`): identical **circles** around the magnetic axis, each in
+the plane normal to the axis. A coil optimization begins from coils like these, so their field
+error is large. The second is what a short DESC optimization makes of them: fifteen iterations
+against the field error, with bounds on the curvature (bends no sharper than the minor radius),
+the length and the distances to the plasma and between coils. The coils become non-planar, like
+W7-X's own, and the field error drops by a factor of about fifty. A longer optimization, or
+CoilStellaration's REGCOIL and DESC pipeline, goes further. The numbers, from the script at the end
+of the page:
 
 <Code code={numbers} lang="text" title="docs/src/assets/coils/numbers.txt (written by the script)" />
 
@@ -171,24 +206,50 @@ REGCOIL and DESC make of such a start. The numbers, from the script at the end o
 
 `coils.plasma.plot.coils_3d()` (or `plasma_plots.pyvista_plots.pyvista_coils`) draws the coils as
 tubes. `color_by` takes any variable over `coil` or `(coil, s)`, and `surface` the plasma: a
-Dataset such as `from_boundary`'s is drawn in grey, a DataArray colored by its values. The field
-error of the starting coils on W7-X's last surface:
+Dataset such as `from_boundary`'s is drawn in grey, a DataArray colored by its values
+(`surface_clim` fixes its color limits, to compare scenes).
+
+The first scene shows the **starting coils**, and they are circles on purpose. A coil
+optimization needs a first guess, and the simplest one is a ring of identical planar circles
+around the magnetic axis, each in the plane normal to the axis there. DESC's
+`initialize_modular_coils` makes exactly that, and the optimization below starts from it.
+Circles ignore the plasma's shape, so the field they make is not tangent to W7-X's surface: the
+field error averages 12 % and reaches 35 %. Their field error on W7-X's last surface,
+on a logarithmic scale:
 
 ```python
-coils.plasma.plot.coils_3d(surface=field_error, surface_cmap="magma").show()
+log_error = np.log10(field_error)
+coils.plasma.plot.coils_3d(
+    surface=log_error, surface_cmap="magma", surface_clim=(-4, 0)
+).show()
 ```
 
-<PyVistaScene src="/pyvista/coils_3d_field_error.html" image={fig_field_error} alt="Fifty planar coils around W7-X's last flux surface, colored by the normal field error" />
+<PyVistaScene src="/pyvista/coils_3d_field_error.html" image={fig_field_error} alt="Fifty circular planar coils around W7-X's last flux surface, colored by the normal field error on a logarithmic scale" />
 
-The coils colored by their distance to the plasma, in minor radii:
+The **optimized coils**, on the same scale: after fifteen iterations they bend around the
+plasma, and the field error falls to 0.25 % on average (dark purple):
+
+<PyVistaScene src="/pyvista/coils_3d_field_error_optimized.html" image={fig_field_error_optimized} alt="Fifty optimized non-planar coils around W7-X's last flux surface, whose normal field error is much smaller" />
+
+Two quantities in one scene, each with its own color bar: the optimized coils colored by their
+distance to the plasma in minor radii, and the plasma by the field error. With both `color_by`
+and a DataArray `surface`, the two color bars stand on either side:
 
 ```python
-coils.plasma.plot.coils_3d(color_by="plasma_distance", surface=plasma).show()
+coils.plasma.plot.coils_3d(
+    color_by="plasma_distance",
+    surface=log_error,
+    surface_cmap="magma",
+    surface_clim=(-4, 0),
+).show()
 ```
 
-<PyVistaScene src="/pyvista/coils_3d_distance.html" image={fig_distance} alt="The coils colored by their distance to the plasma, around the grey plasma surface" />
+<PyVistaScene src="/pyvista/coils_3d_distance.html" image={fig_distance} alt="The optimized coils colored by their distance to the plasma, around the plasma colored by the field error, with a color bar for each" />
 
-The same along the five unique coils, as a map over `s`:
+The interactive scenes leave out the color bars (vtk.js would label them 0 to 255); the pictures
+have them.
+
+The same along the five unique optimized coils, as a map over `s`:
 
 ```python
 unique = coils.isel(coil=slice(0, 5))
@@ -199,8 +260,8 @@ unique.plasma_distance.plasma.plot.slice(x="s", y="coil")
 
 ## The script behind this page
 
-It builds the coilset and the boundary, computes the metrics and writes every figure above, in
-about half a minute.
+It builds the coilsets and the boundary, runs the optimization, computes the metrics and writes
+every figure above, in about two minutes.
 
 <details>
 <summary>`scripts/generate_coil_figures.py`, unedited</summary>

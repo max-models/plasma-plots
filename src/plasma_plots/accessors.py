@@ -5798,6 +5798,59 @@ class DatasetPlots:
             plotter=plotter,
         )
 
+    @with_backend
+    def boundary_sections(
+        self,
+        *,
+        planes: int | None = 5,
+        ax=None,
+        cmap="viridis",
+        title: str | None = None,
+        backend: Backend | None = None,
+    ):
+        """Plot this plasma surface's cross-sections in ``(R, Z)`` at several toroidal angles.
+
+        For a surface of :func:`plasma_plots.from_boundary` (or the last surface of
+        :func:`plasma_plots.from_desc`): the planes nearest to ``planes`` angles from 0 to half a
+        field period, as ConStellaration draws its boundaries.
+
+        Parameters
+        ----------
+        planes : int or None, optional
+            The number of toroidal angles from 0 to ``π / nfp``; ``None`` for all of the
+            Dataset's. Default: 5.
+        ax : matplotlib.axes.Axes, optional
+            The axes to draw into. Default: a new figure.
+        cmap : str or matplotlib colormap, optional
+            The colors of the planes. Default: ``"viridis"``.
+        title : str, optional
+            The axes title. Default: none.
+        backend : {"matplotlib", "plotly", "tikz"}, optional
+            Draw with Matplotlib, as an interactive Plotly figure, or as TikZ/pgfplots code for
+            LaTeX (in ``result.fig``; needs plotly or maxplotlib, see
+            :mod:`plasma_plots.plotly_backend` and :mod:`plasma_plots.tikz_backend`). Default:
+            the one set with :func:`plasma_plots.set_backend`, ``"matplotlib"`` unless changed.
+
+        Returns
+        -------
+        PlotResult
+            The figure, the axes, one line per plane and ``data["surface"]``.
+
+        See Also
+        --------
+        plasma_plots.coils.plot_boundary_sections : The function behind this method.
+
+        Examples
+        --------
+        >>> plasma = plasma_plots.from_boundary(boundary)
+        >>> plasma.plasma.plot.boundary_sections(planes=5)
+        """
+        from .coils import plot_boundary_sections
+
+        return plot_boundary_sections(
+            self._dataset, planes=planes, ax=ax, cmap=cmap, title=title
+        )
+
     def coils_3d(
         self,
         *,
@@ -5809,6 +5862,7 @@ class DatasetPlots:
         surface=None,
         surface_opacity: float = 1.0,
         surface_cmap=None,
+        surface_clim=None,
         title: str | None = None,
         plotter=None,
     ):
@@ -5844,6 +5898,7 @@ class DatasetPlots:
             surface=surface,
             surface_opacity=surface_opacity,
             surface_cmap=surface_cmap,
+            surface_clim=surface_clim,
             title=title,
             plotter=plotter,
         )
