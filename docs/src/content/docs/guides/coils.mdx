@@ -55,11 +55,11 @@ coilstellaration = "hf://datasets/proxima-fusion/coilstellaration"
 constellaration = "hf://datasets/proxima-fusion/constellaration"
 
 results = pd.read_parquet(f"{coilstellaration}/results/eval-part-0.parquet")
-sample = results[
-    results["desc_coilset_id"].notna()  # a third of the samples have no DESC coilset
-    & results["benchmark/fixed_shape_track"]
-    & (results["benchmark/stratification"] == "tight")
-].sort_values("constellaration_boundary_id").iloc[0]
+# a third of the samples have no DESC coilset
+has_desc = results["desc_coilset_id"].notna()
+tight = results["benchmark/stratification"] == "tight"
+chosen = results[has_desc & results["benchmark/fixed_shape_track"] & tight]
+sample = chosen.sort_values("constellaration_boundary_id").iloc[0]
 
 where = [("id", "==", sample["desc_coilset_id"])]
 index = pd.read_parquet(
@@ -74,7 +74,9 @@ for part in range(3):
     rows = pd.read_parquet(
         f"{constellaration}/data/train-{part:05d}-of-00003.parquet",
         columns=["plasma_config_id", "boundary.json"],
-        filters=[("plasma_config_id", "==", sample["constellaration_boundary_id"])],
+        filters=[
+            ("plasma_config_id", "==", sample["constellaration_boundary_id"])
+        ],
     )
     if len(rows):
         boundary = json.loads(rows["boundary.json"].iloc[0])
