@@ -114,6 +114,34 @@ layout of [DESC's Datasets](/plasma-plots/guides/desc/): dims `rho` (the single 
 the **minor radius** `a = sqrt(A / π)` of the mean cross-section area `A`, the length that
 CoilStellaration's `normalized_*` metrics divide by.
 
+`plasma.plasma.plot.boundary_sections()` (or `plasma_plots.coils.plot_boundary_sections`, which
+also takes a `boundary.json` directly) draws the cross-sections in the `(R, Z)` plane at five
+toroidal angles from `phi = 0` to half a field period, `π / N_fp`. This is the view
+ConStellaration uses for its boundaries. For a stellarator-symmetric surface these angles show
+every shape it takes. Here is the example boundary of the ConStellaration benchmark
+(`hugging_face_competition/inputs/boundary.json` in the
+[constellaration repository](https://github.com/proximafusion/constellaration), four field
+periods, kept in `scripts/data`):
+
+```python
+import json
+
+from plasma_plots.coils import plot_boundary_sections
+
+boundary = json.loads(open("constellaration_boundary.json").read())
+plot_boundary_sections(boundary)
+```
+
+![Cross-sections of ConStellaration's example boundary at five toroidal angles over half a field period](../../../assets/figures/coils_boundary_sections.png)
+
+The same for W7-X's last surface, through `from_boundary`, at the Dataset's nearest angles:
+
+```python
+plasma.plasma.plot.boundary_sections(planes=5)
+```
+
+![Cross-sections of W7-X's last flux surface at five toroidal angles over half a field period](../../../assets/figures/coils_w7x_sections.png)
+
 `plasma_plots.coils.boundary_from_desc(eq)` goes the other way: it writes the last surface of any
 stellarator-symmetric DESC equilibrium as a ConStellaration `boundary.json`, exact to round-off.
 The figures below use it on DESC's W7-X example.

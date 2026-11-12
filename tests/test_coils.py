@@ -301,3 +301,57 @@ def test_boundary_from_desc_reproduces_the_surface_and_its_minor_radius():
     np.testing.assert_allclose(
         plasma.attrs["minor_radius"], float(values["a"]), rtol=1e-8
     )
+
+
+@pytest.mark.parametrize("planes", [1, 3, 5])
+def test_boundary_sections_draw_closed_planes_over_half_a_field_period(planes):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib import pyplot as plt
+
+    from plasma_plots.coils import plot_boundary_sections
+
+    result = plot_boundary_sections(
+        json.dumps(circular_boundary()), planes=planes, theta=32
+    )
+    assert len(result.artists) == planes
+    zeta = np.atleast_1d(result.data["surface"].zeta.values)
+    np.testing.assert_allclose(zeta, np.linspace(0, np.pi / 2, planes))
+    for line in result.artists:
+        r, z = line.get_data()
+        assert len(r) == 33 and (r[0], z[0]) == (r[-1], z[-1])  # closed
+        # a circle of radius A_PLASMA around R0
+        np.testing.assert_allclose(np.hypot(r - R0, z), A_PLASMA, rtol=1e-12)
+    labels = [line.get_label() for line in result.artists]
+    assert labels[0] == r"$\phi = 0$"
+    if planes > 1:
+        assert labels[-1] == r"$\phi = \pi / N_{fp}$"
+    if planes == 3:
+        assert labels[1] == r"$\phi = 1/2\ \pi / N_{fp}$"
+    plt.close(result.fig)
+
+
+def test_boundary_sections_of_a_surface_dataset_take_its_nearest_angles():
+    from matplotlib import pyplot as plt
+
+    from plasma_plots.coils import _plane_label, plot_boundary_sections
+
+    plasma = plasma_plots.from_boundary(circular_boundary(), theta=16)
+    result = plasma.plasma.plot.boundary_sections(planes=3)
+    np.testing.assert_allclose(result.data["surface"].zeta, [0, np.pi / 4, np.pi / 2])
+    every = plot_boundary_sections(plasma, planes=None)
+    assert len(every.artists) == plasma.sizes["zeta"]
+    fig, ax = plt.subplots()
+    assert plot_boundary_sections(plasma, ax=ax, title="t").ax is ax
+    assert ax.get_title() == "t"
+    assert _plane_label(0.3, 2) == r"$\phi = 0.19\pi / N_{fp}$"
+    for bad in ({"planes": 0}, {}):
+        with pytest.raises(ValueError):
+            if bad:
+                plot_boundary_sections(circular_boundary(), **bad)
+            else:
+                plot_boundary_sections(plasma.drop_vars("R"))
+    with pytest.raises(ValueError, match="at least one plane"):
+        plot_boundary_sections(plasma, planes=0)
+    plt.close("all")

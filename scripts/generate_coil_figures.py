@@ -11,7 +11,8 @@ same functions as a coilset from the dataset: written out in the dataset's layou
 with ``plasma_plots.from_coilset``; the boundary goes through ``boundary_from_desc`` and
 ``plasma_plots.from_boundary``. The field error on the plasma (the benchmark's first metric)
 comes from DESC's Biot-Savart field of the coils. It needs ``pip install desc-opt`` and PyVista
-(see .github/workflows/docs.yml).
+(see .github/workflows/docs.yml). The cross-sections also draw ConStellaration's example
+boundary, kept in scripts/data (see constellaration_boundary.md there).
 
 Run from the repo root: python scripts/generate_coil_figures.py (or: make figures).
 """
@@ -50,6 +51,7 @@ from plasma_plots.coils import (  # noqa: E402
     boundary_from_desc,
     coil_to_coil_distance,
     distance_to_surface,
+    plot_boundary_sections,
 )
 from plasma_plots.plotting import save_figure  # noqa: E402
 
@@ -255,6 +257,19 @@ save(
     unique.plasma_distance.plasma.plot.slice(x="s", y="coil"),
     "coils_plasma_distance_map.png",
 )
+
+# =============================================================================
+# Cross-sections of boundaries (Matplotlib)
+# =============================================================================
+# ConStellaration's example boundary (scripts/data/constellaration_boundary.md), and W7-X's
+constellaration_boundary = json.loads(
+    (ROOT / "scripts" / "data" / "constellaration_boundary.json").read_text()
+)
+save(
+    plot_boundary_sections(constellaration_boundary),
+    "coils_boundary_sections.png",
+)
+save(plasma.plasma.plot.boundary_sections(planes=5), "coils_w7x_sections.png")
 
 # =============================================================================
 # Interactive 3-D: the coils around the plasma
