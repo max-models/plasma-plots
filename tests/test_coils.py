@@ -65,9 +65,50 @@ def test_expansion_counts_and_layout(sym):
     assert coils.attrs["nfp"] == 2 and coils.attrs["fourier_order"] == 2
     assert int(coils.mirrored.sum()) == (6 if sym else 0)
     assert coils.X.attrs["units"] == "m" and coils.curvature.attrs["units"] == "1/m"
-    # every copy carries the current of the coil it copies
-    expected = 1e6 * (coils.unique_coil.values + 1)
+    # every copy carries the current of the coil it copies, reversed on the mirror images
+    expected = 1e6 * (coils.unique_coil.values + 1) * np.where(coils.mirrored, -1, 1)
     np.testing.assert_allclose(coils.current, expected)
+
+
+def _biot_savart(coils, points):
+    """The field of the polylines (exact per straight segment), up to mu0 / 4 pi."""
+    a = np.stack([coils[axis].transpose("coil", "s").values for axis in "XYZ"], -1)
+    b = np.roll(a, -1, axis=1)
+    ra = points[:, None, None] - a[None]
+    rb = points[:, None, None] - b[None]
+    na, nb = np.linalg.norm(ra, axis=-1), np.linalg.norm(rb, axis=-1)
+    factor = (na + nb) / (na * nb * (na * nb + (ra * rb).sum(-1)))
+    factor *= coils.current.values[None, :, None]
+    return (factor[..., None] * np.cross(ra, rb)).sum((1, 2))
+
+
+def test_expanded_field_is_stellarator_symmetric():
+    data = circular_coilset(n_unique=2, nfp=3)
+    rng = np.random.default_rng(1)
+    for key in ("coil_x_n", "coil_y_n", "coil_z_n"):
+        data[key] = (np.asarray(data[key]) + 0.05 * rng.normal(size=(2, 5))).tolist()
+    coils = plasma_plots.from_coilset(data, n_points=64)
+    r, phi, z = 3.0 + 0.3 * rng.random(5), rng.random(5), 0.2 * rng.normal(size=5)
+    points = np.stack([r * np.cos(phi), r * np.sin(phi), z], -1)
+    images = np.stack([r * np.cos(-phi), r * np.sin(-phi), -z], -1)
+
+    def cylindrical(field, angle):
+        cos, sin = np.cos(angle), np.sin(angle)
+        return np.stack(
+            [
+                cos * field[:, 0] + sin * field[:, 1],
+                -sin * field[:, 0] + cos * field[:, 1],
+                field[:, 2],
+            ],
+            -1,
+        )
+
+    b = cylindrical(_biot_savart(coils, points), phi)
+    b_image = cylindrical(_biot_savart(coils, images), -phi)
+    # B_R odd, B_phi and B_Z even under (R, phi, Z) -> (R, -phi, -Z)
+    np.testing.assert_allclose(
+        b_image * [-1, 1, 1], b, rtol=1e-9, atol=1e-9 * np.abs(b).max()
+    )
 
 
 def test_circles_have_exact_curvature_length_and_radius():

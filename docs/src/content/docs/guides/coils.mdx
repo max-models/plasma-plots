@@ -101,7 +101,7 @@ coil `i` of DESC's expanded coilset (checked point by point in the tests).
 | dims `coil`, `s` | every coil of the device; the curve parameter `s` in `[0, 2π)` |
 | coordinates `X`, `Y`, `Z` (m) | the points along each coil |
 | coordinates `unique_coil`, `mirrored`, `field_period` | which stored coil each one copies, and how |
-| `current` (A) | per coil, the current of the coil it copies |
+| `current` (A) | per coil, the current of the coil it copies, reversed on its mirror image |
 | `length` (m) | per coil |
 | `curvature` (1/m) | along each coil, exact from the Fourier series: `|r' × r''| / |r'|³` |
 | attributes `nfp`, `stellarator_symmetric`, `fourier_order` | from the coilset |

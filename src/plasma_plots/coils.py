@@ -124,8 +124,8 @@ def from_coilset(coilset, *, n_points: int = 128) -> xr.Dataset:
 
     The unique coils are expanded as DESC's ``CoilSet`` expands them: for a stellarator-symmetric
     coilset, their mirror images across the plane ``phi = pi / nfp`` (followed by ``z -> -z``) in
-    reverse order, then all of these rotated into every field period. Coil ``i`` of the Dataset is
-    coil ``i`` of DESC's expanded coilset.
+    reverse order and with the opposite current, then all of these rotated into every field
+    period. Coil ``i`` of the Dataset is coil ``i`` of DESC's expanded coilset.
 
     Parameters
     ----------
@@ -144,8 +144,8 @@ def from_coilset(coilset, *, n_points: int = 128) -> xr.Dataset:
     xarray.Dataset
         Over ``coil`` and ``s``: the coordinates ``X``, ``Y``, ``Z`` (m), ``unique_coil`` (the
         stored coil each one copies), ``mirrored`` and ``field_period``; the variables
-        ``current`` (A, per coil), ``length`` (m, per coil) and ``curvature`` (1/m, along each
-        coil); the attributes ``nfp``, ``stellarator_symmetric`` and ``fourier_order``.
+        ``current`` (A, per coil, reversed on the mirrored coils), ``length`` (m, per coil) and
+        ``curvature`` (1/m, along each coil); the attributes ``nfp``, ``stellarator_symmetric`` and ``fourier_order``.
 
     Raises
     ------
@@ -201,7 +201,8 @@ def from_coilset(coilset, *, n_points: int = 128) -> xr.Dataset:
         position = np.concatenate([position, (position @ mirror.T)[::-1]])
         curvature = np.concatenate([curvature, curvature[::-1]])
         length = np.concatenate([length, length[::-1]])
-        currents = np.concatenate([currents, currents[::-1]])
+        # a rotation by pi maps the coil; stellarator symmetry needs the current reversed
+        currents = np.concatenate([currents, -currents[::-1]])
         unique = np.concatenate([unique, unique[::-1]])
         mirrored = np.concatenate([mirrored, ~mirrored])
     per_period = position.shape[0]
