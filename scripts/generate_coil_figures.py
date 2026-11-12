@@ -12,7 +12,9 @@ with ``plasma_plots.from_coilset``; the boundary goes through ``boundary_from_de
 ``plasma_plots.from_boundary``. The field error on the plasma (the benchmark's first metric)
 comes from DESC's Biot-Savart field of the coils. It needs ``pip install desc-opt`` and PyVista
 (see .github/workflows/docs.yml). The cross-sections also draw ConStellaration's example
-boundary, kept in scripts/data (see constellaration_boundary.md there).
+boundary, and the last section a real CoilStellaration coilset with its boundary, all kept in
+scripts/data (see the .md files there; scripts/fetch_coilstellaration_sample.py fetched the
+coilset), so this script downloads nothing.
 
 Run from the repo root: python scripts/generate_coil_figures.py (or: make figures).
 """
@@ -32,7 +34,7 @@ import desc.examples
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from desc.coils import initialize_modular_coils
+from desc.coils import CoilSet, FourierXYZCoil, initialize_modular_coils
 from desc.grid import LinearGrid
 from desc.objectives import (
     CoilCurvature,
@@ -61,6 +63,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 OUT = DOCS / "src" / "assets" / "figures"
 NUMBERS = DOCS / "src" / "assets" / "coils" / "numbers.txt"
+SAMPLE_NUMBERS = NUMBERS.with_name("coilstellaration_numbers.txt")
+DATA = ROOT / "scripts" / "data"
 PYVISTA_OUT = DOCS / "public" / "pyvista"
 for folder in (OUT, NUMBERS.parent, PYVISTA_OUT):
     folder.mkdir(parents=True, exist_ok=True)
@@ -263,13 +267,111 @@ save(
 # =============================================================================
 # ConStellaration's example boundary (scripts/data/constellaration_boundary.md), and W7-X's
 constellaration_boundary = json.loads(
-    (ROOT / "scripts" / "data" / "constellaration_boundary.json").read_text()
+    (DATA / "constellaration_boundary.json").read_text()
 )
 save(
     plot_boundary_sections(constellaration_boundary),
     "coils_boundary_sections.png",
 )
 save(plasma.plasma.plot.boundary_sections(planes=5), "coils_w7x_sections.png")
+
+# =============================================================================
+# A coilset from CoilStellaration
+# =============================================================================
+# a DESC-optimized coilset of the benchmark and its ConStellaration boundary, fetched once by
+# scripts/fetch_coilstellaration_sample.py (see scripts/data/coilstellaration_sample.md)
+sample_meta = json.loads((DATA / "coilstellaration_sample.json").read_text())
+sample_coilset = json.loads(
+    (DATA / "coilstellaration_coilset.json").read_text()
+)
+sample_boundary = json.loads(
+    (DATA / "coilstellaration_boundary.json").read_text()
+)
+sample = plasma_plots.from_coilset(sample_coilset, n_points=128)
+sample_plasma = plasma_plots.from_boundary(sample_boundary, theta=96)
+a_sample = sample_plasma.attrs["minor_radius"]
+sample["plasma_distance"] = (
+    distance_to_surface(sample, sample_plasma) / a_sample
+)
+sample["plasma_distance"].attrs.update(label="$d_p / a$", units="1")
+sample["coil_distance"] = coil_to_coil_distance(sample) / a_sample
+
+# the field error on the boundary; its normal from central differences over the whole torus
+error_grid = plasma_plots.from_boundary(
+    sample_boundary,
+    theta=64,
+    zeta=np.linspace(
+        0, 2 * np.pi, 48 * sample_coilset["n_field_periods"], endpoint=False
+    ),
+)
+xyz = np.stack([error_grid[axis].values[0] for axis in "XYZ"], axis=-1)
+tangents = [np.roll(xyz, -1, axis) - np.roll(xyz, 1, axis) for axis in (0, 1)]
+normal = np.cross(*tangents)
+normal /= np.linalg.norm(normal, axis=-1, keepdims=True)
+sample_desc = CoilSet(
+    [
+        FourierXYZCoil(current=current, X_n=x_n, Y_n=y_n, Z_n=z_n)
+        for x_n, y_n, z_n, current in zip(
+            sample_coilset["coil_x_n"],
+            sample_coilset["coil_y_n"],
+            sample_coilset["coil_z_n"],
+            sample_coilset["currents"],
+        )
+    ],
+    NFP=sample_coilset["n_field_periods"],
+    sym=sample_coilset["is_stellarator_symmetric"],
+)
+B_sample = np.asarray(
+    sample_desc.compute_magnetic_field(
+        xyz.reshape(-1, 3), basis="xyz", source_grid=LinearGrid(N=64)
+    )
+).reshape(xyz.shape)
+sample_error = xr.DataArray(
+    np.abs((B_sample * normal).sum(-1)) / np.linalg.norm(B_sample, axis=-1),
+    dims=("theta", "zeta"),
+    coords={"theta": error_grid.theta, "zeta": error_grid.zeta},
+).expand_dims(rho=error_grid.rho)
+for axis in "XYZ":
+    sample_error.coords[axis] = error_grid[axis]
+
+rows = [
+    ("boundary (ConStellaration)", sample_meta["constellaration_boundary_id"]),
+    ("coilset (CoilStellaration, DESC)", sample_meta["desc_coilset_id"]),
+    (
+        "field periods, coils per half period",
+        f"{sample_meta['n_field_periods']}, {sample_meta['n_coils_per_half_period']}",
+    ),
+    ("minor radius a from from_boundary (m)", f"{a_sample:.6f}"),
+    ("", "dataset    here"),
+]
+for label, key, value in (
+    (
+        "max curvature * a",
+        "desc_metrics/normalized_coil_curvatures/max",
+        float(sample.curvature.max()) * a_sample,
+    ),
+    (
+        "min coil-plasma distance / a",
+        "desc_metrics/normalized_coil_to_plasma_min_distances/min",
+        float(sample.plasma_distance.min()),
+    ),
+    (
+        "min coil-coil distance / a",
+        "desc_metrics/normalized_coil_to_coil_min_distances/min",
+        float(sample.coil_distance.min()),
+    ),
+    (
+        "mean field error |B.n|/|B|",
+        "desc_metrics/normalized_field_error/mean",
+        float(sample_error.mean()),
+    ),
+):
+    rows.append((label, f"{sample_meta[key]:.6f}   {value:.6f}"))
+SAMPLE_NUMBERS.write_text(
+    "".join(f"{label:<40} {value}\n" for label, value in rows)
+)
+print(SAMPLE_NUMBERS.read_text())
+save(plot_boundary_sections(sample_boundary), "coils_sample_sections.png")
 
 # =============================================================================
 # Interactive 3-D: the coils around the plasma
@@ -328,6 +430,18 @@ try:
             surface_clim=clim,
         ),
         "coils_3d_distance.png",
+        zoom=1.3,
+    )
+    shot(
+        sample.plasma.plot.coils_3d(
+            color_by="plasma_distance",
+            surface=np.log10(sample_error).assign_attrs(
+                label=r"$\log_{10} |B \cdot n| / |B|$", units="1"
+            ),
+            surface_cmap="magma",
+            surface_clim=clim,
+        ),
+        "coils_3d_coilstellaration.png",
         zoom=1.3,
     )
 except ImportError as exc:  # pragma: no cover - optional

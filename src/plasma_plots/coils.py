@@ -697,7 +697,9 @@ def plot_boundary_sections(
     Examples
     --------
     >>> plot_boundary_sections(json.loads(row["boundary.json"]))
-    >>> plasma_plots.from_boundary(boundary).plasma.plot.boundary_sections(planes=3)
+    >>> plasma_plots.from_boundary(boundary).plasma.plot.boundary_sections(
+    ...     planes=3
+    ... )
     """
     import matplotlib.pyplot as plt
 
