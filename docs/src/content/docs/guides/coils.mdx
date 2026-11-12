@@ -6,10 +6,12 @@ description: Coilsets from the CoilStellaration dataset and plasma boundaries fr
 import { Code } from 'astro:components';
 import PyVistaScene from '@max-models/starlight-theme/components/PyVistaScene.astro';
 import numbers from '../../../assets/coils/numbers.txt?raw';
+import sample_numbers from '../../../assets/coils/coilstellaration_numbers.txt?raw';
 import script from '../../../../../scripts/generate_coil_figures.py?raw';
 import fig_field_error from '../../../assets/figures/coils_3d_field_error.png';
 import fig_field_error_optimized from '../../../assets/figures/coils_3d_field_error_optimized.png';
 import fig_distance from '../../../assets/figures/coils_3d_distance.png';
+import fig_sample from '../../../assets/figures/coils_3d_coilstellaration.png';
 
 [CoilStellaration](https://huggingface.co/datasets/proxima-fusion/coilstellaration) is a dataset of
 optimized stellarator coilsets for the plasma boundaries of
@@ -36,48 +38,46 @@ coils.plasma.plot.coils_3d(color_by="plasma_distance", surface=plasma).show()
 
 ## From the datasets
 
-The dataset card fetches single objects by ID. The `json` column of a coilset row is what
-`from_coilset` reads, and ConStellaration's `boundary.json` is what `from_boundary` reads (this
-block downloads from Hugging Face, so it is not run when the docs are built):
+The `results` subset of CoilStellaration has one row per sample, with the IDs of its coilsets and
+of its ConStellaration boundary. A coilset is fetched by ID through the subset's
+`id_to_file_map.parquet`; the `json` of its row is what `from_coilset` reads. ConStellaration's
+`boundary.json` is what `from_boundary` reads. This block is what
+`scripts/fetch_coilstellaration_sample.py` runs to get the coilset drawn
+[further down](#a-coilset-from-coilstellaration). It downloads from Hugging Face (about 0.7 GB,
+mostly the boundary column), so it is not run when the docs are built:
 
 ```python
 import json
 
-import datasets
 import pandas as pd
 
-repo = "hf://datasets/proxima-fusion/coilstellaration"
+coilstellaration = "hf://datasets/proxima-fusion/coilstellaration"
+constellaration = "hf://datasets/proxima-fusion/constellaration"
 
+results = pd.read_parquet(f"{coilstellaration}/results/eval-part-0.parquet")
+sample = results[
+    results["desc_coilset_id"].notna()  # a third of the samples have no DESC coilset
+    & results["benchmark/fixed_shape_track"]
+    & (results["benchmark/stratification"] == "tight")
+].sort_values("constellaration_boundary_id").iloc[0]
 
-def load_json_by_id(subset, object_id):
-    id_to_file = pd.read_parquet(
-        f"{repo}/{subset}/id_to_file_map.parquet",
-        filters=[("id", "==", object_id)],
-    )
-    path = id_to_file["path"].iloc[0]
-    row = pd.read_parquet(
-        f"{repo}/{path}", filters=[("id", "==", object_id)]
-    ).iloc[0]
-    return json.loads(row["json"])
-
-
-results = datasets.load_dataset(
-    "proxima-fusion/coilstellaration", split="eval"
+where = [("id", "==", sample["desc_coilset_id"])]
+index = pd.read_parquet(
+    f"{coilstellaration}/coilsets/id_to_file_map.parquet", filters=where
 )
-sample = results[0]
-coilset = load_json_by_id("coilsets", sample["desc_coilset_id"])
-boundaries = (
-    datasets.load_dataset(
-        "proxima-fusion/constellaration",
+row = pd.read_parquet(
+    f"{coilstellaration}/{index['path'].iloc[0]}", filters=where
+)
+coilset = json.loads(row["json"].iloc[0])
+
+for part in range(3):
+    rows = pd.read_parquet(
+        f"{constellaration}/data/train-{part:05d}-of-00003.parquet",
         columns=["plasma_config_id", "boundary.json"],
-        split="train",
+        filters=[("plasma_config_id", "==", sample["constellaration_boundary_id"])],
     )
-    .to_pandas()
-    .set_index("plasma_config_id")
-)
-boundary = boundaries.loc[
-    sample["constellaration_boundary_id"], "boundary.json"
-]
+    if len(rows):
+        boundary = json.loads(rows["boundary.json"].iloc[0])
 
 coils = plasma_plots.from_coilset(coilset)
 plasma = plasma_plots.from_boundary(boundary)
@@ -258,10 +258,36 @@ unique.plasma_distance.plasma.plot.slice(x="s", y="coil")
 
 ![Distance to the plasma along the five unique coils, in minor radii, over the curve parameter s](../../../assets/figures/coils_plasma_distance_map.png)
 
+## A coilset from CoilStellaration
+
+A real coilset of the dataset, fetched as [above](#from-the-datasets) and kept in
+`scripts/data`: the DESC-optimized coilset of one benchmark instance of the `eval` split, in the
+`fixed_shape` track (three field periods, five coils per half period) and the `tight` stratum, the
+third of the instances with the smallest field error. Its plasma is a ConStellaration boundary,
+in five cross-sections over half a field period:
+
+![Cross-sections of the sample's ConStellaration boundary at five toroidal angles over half a field period](../../../assets/figures/coils_sample_sections.png)
+
+The coils colored by their distance to the plasma, the plasma by the field error, on the same
+scale as the W7-X coils above. The field error comes from DESC's Biot-Savart field of the coils
+on `from_boundary`'s surface, with the normal from the surface points. The dataset's coils wind
+far more than the fifteen-iteration W7-X coils above: they are what a full REGCOIL and DESC
+optimization makes to meet tight targets on the field error and the distances.
+
+<PyVistaScene src="/pyvista/coils_3d_coilstellaration.html" image={fig_sample} alt="A CoilStellaration coilset of thirty coils around its ConStellaration plasma with three field periods, the coils colored by their distance to the plasma and the plasma by the field error" />
+
+The dataset's metrics of the coilset next to plasma-plots' own. The geometric ones agree to a few
+percent; they are sampled on different grids, and the dataset measures from DESC's equilibrium of
+the boundary. The mean field error depends on how the surface is sampled: here uniformly in the
+boundary's own angles.
+
+<Code code={sample_numbers} lang="text" title="docs/src/assets/coils/coilstellaration_numbers.txt (written by the script)" />
+
 ## The script behind this page
 
 It builds the coilsets and the boundary, runs the optimization, computes the metrics and writes
-every figure above, in about two minutes.
+every figure above, in about two minutes. The CoilStellaration sample comes from
+`scripts/data`, so the script downloads nothing.
 
 <details>
 <summary>`scripts/generate_coil_figures.py`, unedited</summary>
