@@ -258,6 +258,15 @@ def test_coil_scene_draws_tubes_and_surface():
             mapper = plotter.actors["surface"].mapper
             assert tuple(mapper.scalar_range) == kwargs["surface_clim"]
         plotter.close()
+    # a colored surface and colored coils: two upright color bars on either side
+    plotter = coils.plasma.plot.coils_3d(color_by="current", surface=plasma.R)
+    bars = list(plotter.scalar_bars.values())
+    assert len(bars) == 2 and all(bar.GetOrientation() == 1 for bar in bars)
+    assert sorted(bar.GetPositionCoordinate().GetValue()[0] < 0.5 for bar in bars) == [
+        False,
+        True,
+    ]
+    plotter.close()
     with pytest.raises(ValueError, match="color_by must be one of"):
         pyvista_coils(coils, color_by="nfp")
     with pytest.raises(ValueError, match="coil, s"):

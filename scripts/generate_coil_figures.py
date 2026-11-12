@@ -303,9 +303,14 @@ try:
             filename,
             zoom=1.3,
         )
+    # two color bars: the coils by their distance to the plasma, the plasma by the field error
     shot(
         coils["optimized"].plasma.plot.coils_3d(
-            color_by="plasma_distance", surface=plasma
+            color_by="plasma_distance",
+            cmap="viridis",
+            surface=log_error["optimized"],
+            surface_cmap="magma",
+            surface_clim=clim,
         ),
         "coils_3d_distance.png",
         zoom=1.3,

@@ -277,6 +277,18 @@ def _bar(title):
     return {"title": _vtk_text(title), "fmt": "%.3g"}
 
 
+def _side_bar(title, side):
+    """An upright color bar at the ``"left"`` or ``"right"`` edge of the scene."""
+    return {
+        **_bar(title),
+        "vertical": True,
+        "position_x": 0.03 if side == "left" else 0.87,
+        "position_y": 0.2,
+        "width": 0.08,
+        "height": 0.6,
+    }
+
+
 def _clim(values, clim, *, symmetric=False, robust=False):
     if clim is not None:
         return tuple(clim)
@@ -1285,6 +1297,8 @@ def pyvista_coils(
         extent = np.ptp(np.asarray(lines.points), axis=0)
         tube_radius = 0.004 * float(np.linalg.norm(extent))
     plotter = _plotter(plotter)
+    # two color bars (the surface's and the coils') go upright on either side, not stacked
+    two_bars = color_by is not None and isinstance(surface, xr.DataArray)
     if surface is not None:
         if isinstance(surface, xr.Dataset):
             name = next(iter(surface.data_vars), None)
@@ -1311,7 +1325,7 @@ def pyvista_coils(
                 clim=surface_clim,
                 opacity=surface_opacity,
                 smooth_shading=True,
-                scalar_bar_args=_bar(label),
+                scalar_bar_args=_side_bar(label, "left") if two_bars else _bar(label),
                 name="surface",
             )
     mesh = lines.tube(radius=tube_radius, n_sides=12) if tube_radius > 0 else lines
@@ -1330,7 +1344,7 @@ def pyvista_coils(
             clim=clim,
             line_width=3,
             smooth_shading=True,
-            scalar_bar_args=_bar(label),
+            scalar_bar_args=_side_bar(label, "right") if two_bars else _bar(label),
             name="coils",
         )
     return _finish(plotter, "Coils" if title is None else title)

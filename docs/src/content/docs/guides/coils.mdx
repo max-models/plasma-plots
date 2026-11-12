@@ -179,8 +179,15 @@ of the page:
 `coils.plasma.plot.coils_3d()` (or `plasma_plots.pyvista_plots.pyvista_coils`) draws the coils as
 tubes. `color_by` takes any variable over `coil` or `(coil, s)`, and `surface` the plasma: a
 Dataset such as `from_boundary`'s is drawn in grey, a DataArray colored by its values
-(`surface_clim` fixes its color limits, to compare scenes). The field error of the circular
-starting coils on W7-X's last surface, on a logarithmic scale:
+(`surface_clim` fixes its color limits, to compare scenes).
+
+The first scene shows the **starting coils**, and they are circles on purpose. A coil
+optimization needs a first guess, and the simplest one is a ring of identical planar circles
+around the magnetic axis, each in the plane normal to the axis there. DESC's
+`initialize_modular_coils` makes exactly that, and the optimization below starts from it.
+Circles ignore the plasma's shape, so the field they make is not tangent to W7-X's surface: the
+field error averages 12 % and reaches 35 %. Their field error on W7-X's last surface,
+on a logarithmic scale:
 
 ```python
 log_error = np.log10(field_error)
@@ -191,17 +198,28 @@ coils.plasma.plot.coils_3d(
 
 <PyVistaScene src="/pyvista/coils_3d_field_error.html" image={fig_field_error} alt="Fifty circular planar coils around W7-X's last flux surface, colored by the normal field error on a logarithmic scale" />
 
-The same for the optimized coils, on the same scale:
+The **optimized coils**, on the same scale: after fifteen iterations they bend around the
+plasma, and the field error falls to 0.25 % on average (dark purple):
 
 <PyVistaScene src="/pyvista/coils_3d_field_error_optimized.html" image={fig_field_error_optimized} alt="Fifty optimized non-planar coils around W7-X's last flux surface, whose normal field error is much smaller" />
 
-The optimized coils colored by their distance to the plasma, in minor radii:
+Two quantities in one scene, each with its own color bar: the optimized coils colored by their
+distance to the plasma in minor radii, and the plasma by the field error. With both `color_by`
+and a DataArray `surface`, the two color bars stand on either side:
 
 ```python
-coils.plasma.plot.coils_3d(color_by="plasma_distance", surface=plasma).show()
+coils.plasma.plot.coils_3d(
+    color_by="plasma_distance",
+    surface=log_error,
+    surface_cmap="magma",
+    surface_clim=(-4, 0),
+).show()
 ```
 
-<PyVistaScene src="/pyvista/coils_3d_distance.html" image={fig_distance} alt="The coils colored by their distance to the plasma, around the grey plasma surface" />
+<PyVistaScene src="/pyvista/coils_3d_distance.html" image={fig_distance} alt="The optimized coils colored by their distance to the plasma, around the plasma colored by the field error, with a color bar for each" />
+
+The interactive scenes leave out the color bars (vtk.js would label them 0 to 255); the pictures
+have them.
 
 The same along the five unique optimized coils, as a map over `s`:
 
