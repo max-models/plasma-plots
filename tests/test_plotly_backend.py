@@ -798,3 +798,42 @@ def test_html_of_a_latex_figure_loads_mathjax(tmp_path):
     loads_mathjax = re.compile(r"<script[^>]*src=\"[^\"]*mathjax", re.IGNORECASE)
     assert loads_mathjax.search((tmp_path / "latex.html").read_text())
     assert not loads_mathjax.search((tmp_path / "plain.html").read_text())
+
+
+@pytest.mark.parametrize("origin", ["upper", "lower"])
+def test_an_image_is_a_heatmap_over_its_extent(origin):
+    values = np.arange(12.0).reshape(3, 4)
+    fig, ax = plt.subplots()
+    image = ax.imshow(
+        values, origin=origin, extent=(0, 4, 0, 3), cmap="magma", alpha=0.5
+    )
+    fig.colorbar(image, label="value")
+    converted = to_plotly(fig, strict=True)
+    trace = converted.data[0]
+    assert trace.type == "heatmap"
+    np.testing.assert_allclose(trace.x, [0, 1, 2, 3, 4])
+    np.testing.assert_allclose(trace.y, [0, 1, 2, 3])
+    # the bottom row of the heatmap is the row drawn at the bottom of the extent
+    bottom = values[-1] if origin == "upper" else values[0]
+    np.testing.assert_allclose(np.asarray(trace.z)[0], bottom)
+    assert trace.opacity == 0.5
+    assert converted.layout.coloraxis.colorbar.title.text == "value"
+
+
+def test_an_image_on_an_inverted_axis_and_a_log_scale():
+    from matplotlib.colors import LogNorm
+
+    values = np.array([[1.0, 10.0], [100.0, 1000.0]])
+    fig, ax = plt.subplots()
+    ax.imshow(values, norm=LogNorm())  # the default extent: y points down
+    trace = to_plotly(fig, strict=True).data[0]
+    np.testing.assert_allclose(trace.y, [-0.5, 0.5, 1.5])
+    np.testing.assert_allclose(np.asarray(trace.z), np.log10(values))
+    np.testing.assert_allclose(np.asarray(trace.customdata), values)
+
+
+def test_an_rgb_image_is_reported():
+    fig, ax = plt.subplots()
+    ax.imshow(np.zeros((2, 2, 3)))
+    with pytest.warns(ConversionWarning, match="RGB"):
+        to_plotly(fig)
