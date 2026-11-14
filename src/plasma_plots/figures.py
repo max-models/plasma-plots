@@ -37,6 +37,10 @@ class Figure:
         The size in inches; ``None`` for one from the number of panels.
     title : str or None
         A title above all panels.
+    caption : str or None
+        A caption, for the page that shows the figure: the Matplotlib figure carries it as
+        ``fig.caption``, the Plotly figure as ``layout.meta["caption"]`` (a web figure saved
+        from it as its title).
     **options
         Passed on to ``matplotlib.pyplot.subplots``.
 
@@ -44,13 +48,25 @@ class Figure:
     ----------
     axes : numpy.ndarray of matplotlib.axes.Axes or None
         The panels, ``(nrows, ncols)``; ``None`` on MPI ranks other than 0, where nothing is drawn.
+    caption : str or None
+        The caption of the figure (see :func:`figure`).
     results : list of PlotResult
         What the plot methods drawn into the panels returned, in order (e.g. their
         ``fit_results``).
     """
 
     def __init__(
-        self, nrows, ncols, *, backend, sharex, sharey, figsize, title, **options
+        self,
+        nrows,
+        ncols,
+        *,
+        backend,
+        sharex,
+        sharey,
+        figsize,
+        title,
+        caption=None,
+        **options,
     ):
         from .mpi import is_plotting_rank
 
@@ -60,6 +76,7 @@ class Figure:
         self.results = []
         self._result = None
         self._title = title
+        self.caption = caption
         self.axes = None
         self._token = None
         if not is_plotting_rank():
@@ -100,6 +117,8 @@ class Figure:
         fig = self._fig
         if self._title:
             fig.suptitle(self._title)
+        if self.caption:
+            fig.caption = self.caption
         empty = [
             ax
             for ax in self.axes.ravel()
@@ -246,6 +265,7 @@ def figure(
     sharey: bool | str = False,
     figsize=None,
     title: str | None = None,
+    caption: str | None = None,
     **options,
 ) -> Figure:
     """Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
@@ -274,6 +294,10 @@ def figure(
         The size in inches. Default: from the number of panels.
     title : str, optional
         A title above all panels. Default: none.
+    caption : str, optional
+        A caption for the page that shows the figure (a docs page, a gallery study): the
+        Matplotlib figure carries it as ``fig.caption``, a Plotly figure as
+        ``layout.meta["caption"]``, and a web figure saved from it as its title. Default: none.
     **options
         Passed on to ``matplotlib.pyplot.subplots``, e.g. ``gridspec_kw={"height_ratios": [3, 1]}``.
 
@@ -298,5 +322,6 @@ def figure(
         sharey=sharey,
         figsize=figsize,
         title=title,
+        caption=caption,
         **options,
     )

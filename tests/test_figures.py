@@ -151,3 +151,29 @@ def test_other_mpi_ranks_draw_nothing(monkeypatch, tmp_path):
     assert isinstance(fig.result, SkippedPlot)
     fig.save(tmp_path / "none.png")
     assert not list(tmp_path.iterdir())
+
+
+def test_a_caption_goes_with_the_figure():
+    energy, total = series()
+    with plasma_plots.figure(2, 1, caption="Energies of the run.") as fig:
+        energy.plasma.plot.timeseries(ax=fig[0])
+        total.plasma.plot.timeseries(ax=fig[1])
+    assert fig.caption == "Energies of the run."
+    assert fig.fig.caption == "Energies of the run."
+
+
+def test_a_caption_goes_with_the_plotly_figure():
+    pytest.importorskip("plotly")
+    energy, _ = series()
+    with plasma_plots.figure(caption="Field energy.", backend="plotly") as fig:
+        energy.plasma.plot.timeseries(ax=fig[0])
+    assert fig.fig.layout.meta["caption"] == "Field energy."
+    assert fig.fig.layout.meta["converted_from"] == "matplotlib"
+
+
+def test_no_caption_by_default():
+    energy, _ = series()
+    with plasma_plots.figure() as fig:
+        energy.plasma.plot.timeseries(ax=fig[0])
+    assert fig.caption is None
+    assert getattr(fig.fig, "caption", None) is None
