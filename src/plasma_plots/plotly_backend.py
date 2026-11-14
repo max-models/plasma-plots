@@ -446,7 +446,8 @@ def display_bundle(figure, *, title: str | None = None):
     figure : plotly.graph_objects.Figure
         The figure.
     title : str, optional
-        A caption, in the output's ``"plotly-figure"`` metadata.
+        A caption, in the output's ``"plotly-figure"`` metadata. Default: the figure's caption
+        (``layout.meta["caption"]``), if it has one.
 
     Returns
     -------
@@ -455,6 +456,9 @@ def display_bundle(figure, *, title: str | None = None):
     """
     import plotly.io as pio
 
+    if title is None:
+        meta = figure.layout.meta
+        title = meta.get("caption") if isinstance(meta, dict) else None
     data = {
         PLOTLY_MIME: _notebook_figure(figure, title),
         "text/html": pio.to_html(
@@ -2188,7 +2192,15 @@ class _FigureConverter:
             hovermode="closest",
             showlegend=any(t.get("showlegend") for t in self.data)
             or any(s.get("showlegend") for s in self.shapes),
-            meta={"converted_from": "matplotlib"},
+            meta={
+                "converted_from": "matplotlib",
+                # the caption a figure carries (plasma_plots.figure(caption=...), maxplotlib)
+                **(
+                    {"caption": self.figure.caption}
+                    if getattr(self.figure, "caption", None)
+                    else {}
+                ),
+            },
         )
         if self.shapes:
             layout["shapes"] = self.shapes
