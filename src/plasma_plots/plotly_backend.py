@@ -31,7 +31,7 @@ functions: :func:`to_plotly`, :func:`animation_to_plotly` and
 What converts: lines, markers and scatters (also colored by a value), bars (``ax.bar``,
 ``ax.barh`` and histograms), meshes (heatmaps on
 rectilinear grids; on mapped, curvilinear grids an image of the mesh with the values under the
-cursor), contour lines, quivers, colored line collections, horizontal and vertical lines and
+cursor), images of values (``imshow`` with a colormap, as heatmaps over their extent), contour lines, quivers, colored line collections, horizontal and vertical lines and
 bands, annotations, colorbars, legends, log axes, twin axes, 3-D lines and scatters, shared and
 equal-aspect axes, and titles. Mathtext labels (``$\\omega$``, ``$p_0$``) become Unicode and
 sub/superscripts. Anything else is left out with a :class:`ConversionWarning`.
@@ -1565,6 +1565,54 @@ class _FigureConverter:
             trace["opacity"] = float(alpha)
         self.data.append(trace)
 
+    def _image(self, axes, image):
+        """An image of values (``imshow`` with a colormap) as a heatmap over its extent.
+
+        An RGB(A) image has no color scale to convert and is reported instead.
+        """
+        values = _values(image.get_array())
+        if values.ndim != 2:
+            warnings.warn(
+                "an RGB(A) image is not converted to Plotly",
+                ConversionWarning,
+                stacklevel=4,
+            )
+            return
+        rows, columns = values.shape
+        left, right, bottom, top = (float(v) for v in image.get_extent())
+        # the edges in the order of the array's rows and columns: row 0 is at the top of the
+        # extent for origin="upper", at its bottom for origin="lower"
+        y = (
+            np.linspace(top, bottom, rows + 1)
+            if image.origin == "upper"
+            else np.linspace(bottom, top, rows + 1)
+        )
+        x = np.linspace(left, right, columns + 1)
+        if y[0] > y[-1]:
+            y, values = y[::-1], values[::-1]
+        if x[0] > x[-1]:
+            x, values = x[::-1], values[:, ::-1]
+        coloraxis = self._coloraxis(image)
+        log = self._is_log(image)
+        trace = dict(
+            type="heatmap",
+            x=x,
+            y=y,
+            z=self._color_values(image, values),
+            coloraxis=coloraxis,
+            hovertemplate=self._hover_template(
+                axes, coloraxis, value="%{customdata:.4g}" if log else "%{z:.4g}"
+            ),
+            zsmooth=False,
+            **self._refs(axes),
+        )
+        if log:
+            trace["customdata"] = np.asarray(values, dtype=float)
+        alpha = image.get_alpha()
+        if alpha is not None and alpha < 1:
+            trace["opacity"] = float(alpha)
+        self.data.append(trace)
+
     def _filled_contours(self, axes, contours):
         """Filled contours: one filled polygon trace per band, in the band's color.
 
@@ -2069,6 +2117,7 @@ class _FigureConverter:
     def _artists(self, axes):
         from matplotlib.collections import LineCollection, PathCollection, QuadMesh
         from matplotlib.contour import ContourSet
+        from matplotlib.image import AxesImage
         from matplotlib.legend import Legend
         from matplotlib.lines import Line2D
         from matplotlib.patches import Patch
@@ -2108,6 +2157,8 @@ class _FigureConverter:
                 self._artist_3d(axes, artist)
             elif isinstance(artist, QuadMesh):
                 self._mesh(axes, artist)
+            elif isinstance(artist, AxesImage):
+                self._image(axes, artist)
             elif isinstance(artist, ContourSet):
                 self._contours(axes, artist)
             elif isinstance(artist, Quiver):
