@@ -342,8 +342,8 @@ def plot_quadtree(
         Color the outlines by depth, or the leaves by the particles they hold (needs counts),
         with a color bar; ``None`` draws them in one gray. Default: ``"depth"``.
     point_color : array, optional
-        ``(N,)`` values to color the particles by, e.g. their charge, with a diverging map
-        centred on zero. Default: one color.
+        ``(N,)`` values to color the particles by, e.g. their charge, on a diverging map
+        symmetric about zero. Default: one color.
     leaves_only : bool, optional
         Draw only the leaves, the cells that hold particles. Default: ``False``.
     max_depth : int, optional
@@ -391,7 +391,7 @@ def plot_quadtree(
     """
     import matplotlib.pyplot as plt
     from matplotlib.collections import LineCollection
-    from matplotlib.colors import Normalize, TwoSlopeNorm
+    from matplotlib.colors import Normalize
 
     from .plotting import PlotResult, _finish, _plot_style
 
@@ -453,8 +453,9 @@ def plot_quadtree(
                     xy[:, 1],
                     s=s,
                     c=values,
-                    cmap="RdBu_r",
-                    norm=TwoSlopeNorm(0.0, -spread, spread),
+                    # a symmetric linear scale; coolwarm's ends stay visible on a dark page
+                    cmap="coolwarm",
+                    norm=Normalize(-spread, spread),
                     lw=0,
                     zorder=3,
                 )
