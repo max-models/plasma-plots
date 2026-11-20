@@ -115,6 +115,7 @@ ACCESSORS = [
 TOP_LEVEL = [
     "plasma_plots.figure",
     "plasma_plots.plot_domain",
+    "plasma_plots.plot_quadtree",
     "plasma_plots.set_backend",
     "plasma_plots.get_backend",
     "plasma_plots.set_style",
@@ -160,6 +161,7 @@ MODULES = [
     "charts",
     "phase_space",
     "geometry",
+    "trees",
     "spectral_plots",
     "fieldline_plots",
     "analysis",

@@ -47,6 +47,7 @@ export default defineDocs({
 				{ label: 'Field lines', slug: 'guides/field-lines' },
 				{ label: 'Whole-run plots', slug: 'guides/output-plots' },
 				{ label: 'Charts and styles', slug: 'guides/charts' },
+				{ label: 'Quadtrees', slug: 'guides/trees' },
 				{ label: 'Profiling', slug: 'guides/profiling' },
 				{ label: 'MPI runs', slug: 'guides/mpi' },
 				{ label: 'Gallery helpers', slug: 'guides/gallery-helpers' },
