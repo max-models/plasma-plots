@@ -1768,13 +1768,14 @@ class _FigureConverter:
         if array is None:
             colors = collection.get_colors()
             color = _rgba(colors[0]) if len(colors) else "black"
+            width = float(np.atleast_1d(collection.get_linewidths())[0]) * PX_PER_PT
             self.data.append(
                 dict(
                     type="scatter",
                     mode="lines",
                     x=_nan_joined([s[:, 0] for s in segments]),
                     y=_nan_joined([s[:, 1] for s in segments]),
-                    line={"color": color},
+                    line={"color": color, "width": width},
                     **self._shown(axes, collection.get_label()),
                     **self._refs(axes),
                 )
@@ -1785,6 +1786,9 @@ class _FigureConverter:
         pool = self._bins.setdefault(
             coloraxis,
             {
+                # where the pool's traces go: at its first collection, so that artists drawn
+                # later (a higher zorder) stay on top
+                "at": len(self.data),
                 "cmap": collection.get_cmap(),
                 "width": float(np.atleast_1d(collection.get_linewidths())[0])
                 * PX_PER_PT,
@@ -1797,9 +1801,13 @@ class _FigureConverter:
             pool["segments"][b].append(segments[i])
 
     def _flush_bins(self, axes):
-        for coloraxis, pool in self._bins.items():
+        # the last pool first, so that the earlier positions stay valid
+        for coloraxis, pool in sorted(
+            self._bins.items(), key=lambda item: -item[1]["at"]
+        ):
+            traces = []
             for b, chosen in enumerate(pool["segments"]):
-                self.data.append(
+                traces.append(
                     dict(
                         type="scatter",
                         mode="lines",
@@ -1815,6 +1823,7 @@ class _FigureConverter:
                         **self._refs(axes),
                     )
                 )
+            self.data[pool["at"] : pool["at"]] = traces
             self._colorbar_holder(axes, coloraxis)
         self._bins = {}
 

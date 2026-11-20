@@ -1,0 +1,87 @@
+---
+title: Quadtrees
+description: The cells of a tree code (Barnes-Hut, FMM) colored by depth or occupancy, its particles, and the cells a Barnes-Hut walk takes for one target.
+---
+
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
+
+Tree codes sort particles into nested squares: every cell holding more than a
+few particles splits into four. `plasma_plots.plot_quadtree` draws that
+hierarchy from plain arrays, so it works with any tree code and with none at
+all. The functions are in
+[`plasma_plots.trees`](/plasma-plots/api/plasma_plots/trees/).
+
+## Cells by depth
+
+```python
+from plasma_plots.trees import build_quadtree, plot_quadtree
+
+cells = build_quadtree(points, leaf_capacity=8, bounds=(0.0, 0.0, 1.0))
+plot_quadtree(cells, points=points)
+```
+
+`build_quadtree` splits every cell with more than `leaf_capacity` points;
+`points` is `(2, N)` or `(N, 2)`. Without a tree, `plot_quadtree(points=points)`
+builds one with the defaults. The outlines are colored by depth, with one color
+per level, and the particles are drawn on top.
+
+![Two clusters of points and the cells of their quadtree, colored by depth](../../../assets/figures/trees_depth.png)
+
+## Occupancy of the leaves
+
+```python
+plot_quadtree(cells, color="count")
+```
+
+`color="count"` draws only the leaves, colored by the particles each holds: a
+quick check of `leaf_capacity` and of how evenly the tree splits the
+particles. `leaves_only=True` and `max_depth=` thin out a deep tree with either
+coloring, and `color=None` draws every outline in one gray.
+
+![The leaves of the same tree, colored by the particles they hold](../../../assets/figures/trees_count.png)
+
+## A Barnes-Hut walk
+
+```python
+plot_quadtree(
+    cells, points=points, point_color=charges, target=(0.3, -0.3), theta=0.5
+)
+```
+
+For a `target`, the walk starts at the root. A cell of side $s$ at distance
+$d$ is taken as one multipole when $s/d < \theta$ and it does not hold the
+target; otherwise a leaf is summed particle by particle and any other cell is
+opened. The multipoles and the leaves summed directly are outlined in bold, and
+the title counts them. `point_color=` colors the particles by a value such as
+their charge, on a diverging scale centred on zero.
+`plasma_plots.trees.barnes_hut_walk(cells, target, theta)` returns the same
+classification as masks over the cells.
+
+![The Barnes-Hut walk for one target at θ = 0.5: multipole cells in orange, the leaves summed directly in red](../../../assets/figures/trees_walk.png)
+
+<details>
+<summary>The same plot with Plotly</summary>
+
+```python
+plot_quadtree(cells, points=points, target=(0.3, -0.3), backend="plotly")
+```
+
+<PlotlyFigure src="/plotly/plotly_trees_walk.plotly.json" poster="/plotly/plotly_trees_walk.png" posterDark="/plotly/plotly_trees_walk.dark.png" />
+
+</details>
+
+## Trees from a tree code
+
+`plot_quadtree` also takes a tree object with the attribute names of
+tree-d-3d's `FlatQuadtree`: `node_center`, `node_half`, `node_depth`,
+`node_child` (the first of four consecutive children, or an `(n, 4)` array),
+and `node_start` and `node_end` for the particles of each cell. Empty
+quadrants of a split cell are left out. Arrays from another code go in through
+`quadtree_cells(centers=..., half_widths=..., depths=..., children=..., counts=...)`.
+
+```python
+from tree_d_3d import FlatQuadtree, Quad
+
+tree = FlatQuadtree(points, charges, Quad(0.0, 0.0, 1.0), leaf_capacity=8)
+plot_quadtree(tree, points=points, target=(0.3, -0.3))
+```

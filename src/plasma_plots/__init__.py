@@ -153,7 +153,7 @@ ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchang
 in parallel. Analysis runs on every rank. See :mod:`plasma_plots.mpi`.
 
 The functions behind the accessors, for plain ``xarray.DataArray`` input, are in
-``plasma_plots.plotting``, ``.charts``, ``.phase_space``, ``.geometry``, ``.analysis``,
+``plasma_plots.plotting``, ``.charts``, ``.phase_space``, ``.geometry``, ``.trees``, ``.analysis``,
 ``.spectral``, ``.spectral_plots``, ``.fieldlines``, ``.fieldline_plots``, ``.pyvista_plots`` and
 ``.arrays``.
 
@@ -202,6 +202,7 @@ from .plotly_backend import get_backend, get_math, set_backend, set_math
 from .plotting import save_figure
 from .pyvista_plots import scene, scene_to_plotly
 from .styles import get_style, set_style, style
+from .trees import plot_quadtree
 
 __all__ = [
     "SkippedPlot",
@@ -217,6 +218,7 @@ __all__ = [
     "is_plotting_rank",
     "mpi_rank",
     "plot_domain",
+    "plot_quadtree",
     "save_figure",
     "scene",
     "scene_to_plotly",

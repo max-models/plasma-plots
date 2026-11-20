@@ -3417,6 +3417,45 @@ for name in ("colorblind", "dark", "paper"):
             f"style_{name}.png",
         )
 
+# =============================================================================
+# Quadtrees: two clusters of charges, their tree and a Barnes-Hut walk
+# =============================================================================
+from plasma_plots.trees import build_quadtree, plot_quadtree  # noqa: E402
+
+rng_qt = np.random.default_rng(0)
+points_qt = np.clip(
+    np.concatenate(
+        [
+            rng_qt.normal(-0.4, 0.12, (2, 600)),
+            rng_qt.normal(0.35, 0.2, (2, 600)),
+        ],
+        axis=1,
+    ),
+    -0.99,
+    0.99,
+)
+charges_qt = rng_qt.choice([-1.0, 1.0], points_qt.shape[1])
+cells_qt = build_quadtree(points_qt, leaf_capacity=8, bounds=(0.0, 0.0, 1.0))
+save(plot_quadtree(cells_qt, points=points_qt), "trees_depth.png")
+save(plot_quadtree(cells_qt, color="count"), "trees_count.png")
+save(
+    plot_quadtree(
+        cells_qt, points=points_qt, point_color=charges_qt, target=(0.3, -0.3)
+    ),
+    "trees_walk.png",
+)
+try:
+    import plotly  # noqa: F401
+
+    save_interactive(
+        plot_quadtree(
+            cells_qt, points=points_qt, target=(0.3, -0.3), backend="plotly"
+        ),
+        "plotly_trees_walk",
+    )
+except ImportError:
+    print("skipped plotly_trees_walk.json (plotly unavailable)")
+
 # an animated header picture from a travelling wave
 t_h = np.linspace(0.0, 1.0, 40)
 x_h = np.linspace(0.0, 4.0, 200)
