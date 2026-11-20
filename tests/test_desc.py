@@ -123,9 +123,9 @@ def test_volume_and_surface_average_match_desc(w7x):
         surface_average(surface["|B|"], jacobian=surface["sqrt(g)"]).squeeze()
     )
     grid = LinearGrid(rho=np.array([0.5]), M=16, N=12, NFP=w7x.NFP)
-    assert average == pytest.approx(
-        w7x.compute("<|B|>", grid=grid)["<|B|>"][0], rel=1e-6
-    )
+    # a JAX scalar: pytest.approx would read it as an array (arr.flat, which JAX lacks)
+    expected = float(w7x.compute("<|B|>", grid=grid)["<|B|>"][0])
+    assert average == pytest.approx(expected, rel=1e-6)
     assert (
         surface_average(surface["|B|"], jacobian=surface["sqrt(g)"]).attrs["units"]
         == r"$\mathrm{T}$"
