@@ -84,3 +84,25 @@ def test_pooled_colored_lines_stay_below_later_artists():
     )
     assert pooled and orange[0] > max(pooled)
     plt.close(fig)
+
+
+def test_a_still_frame_replaces_the_shapes_of_the_layout():
+    import plotly.graph_objects as go
+
+    def box(x):
+        return {"type": "rect", "x0": x, "x1": x + 1, "y0": 0, "y1": 1}
+
+    figure = go.Figure(
+        data=[go.Scatter(x=[0], y=[0])],
+        layout={"shapes": [box(0), box(2), box(4)]},
+        frames=[
+            go.Frame(
+                data=[go.Scatter(x=[0], y=[0])],
+                layout={"shapes": [box(0), box(2), box(4)]},
+            ),
+            go.Frame(data=[go.Scatter(x=[1], y=[1])], layout={"shapes": [box(10)]}),
+        ],
+    )
+    still = PlotResult(figure)._still(-1)
+    assert [shape.x0 for shape in still.layout.shapes] == [10]
+    assert list(still.data[0].x) == [1]

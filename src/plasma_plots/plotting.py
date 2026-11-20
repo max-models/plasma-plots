@@ -228,7 +228,13 @@ class PlotResult:
         for target, new in zip(targets, update.data):
             data[target] = {**data[target], **new.to_plotly_json()}
         still = go.Figure(data=data, layout=self.fig.layout)
-        still.update_layout(update.layout)
+        changes = update.layout.to_plotly_json()
+        # lists in a frame (shapes, annotations, images) replace the figure's, as plotly.js
+        # animates them; update_layout would merge them element by element, keeping stale ones
+        for name in ("shapes", "annotations", "images"):
+            if name in changes:
+                still.layout[name] = changes.pop(name)
+        still.update_layout(changes)
         if still.layout.sliders:
             still.layout.sliders[0].active = index
         return still
