@@ -1053,6 +1053,9 @@ class _FigureConverter:
             x["showticklabels"] = False
         if not any(label.get_visible() for label in ax.get_yticklabels()):
             y["showticklabels"] = False
+        if not ax.axison:  # ax.axis("off"), e.g. a drawing with its own dimension lines
+            x["visible"] = y["visible"] = False
+            x["showgrid"] = y["showgrid"] = False
         self.layout[axes.xaxis], self.layout[axes.yaxis] = x, y
 
     def _titles(self, suptitle):
@@ -1940,9 +1943,74 @@ class _FigureConverter:
             self.layout["barmode"] = "overlay"
         return drawn
 
-    def _patch(self, axes, patch):
-        from matplotlib.patches import Polygon, Rectangle
+    def _arrow(self, axes, patch):
+        """A ``FancyArrowPatch`` between two data points (a dimension line, an arrow): an annotation
+        arrow with heads at the ends its style names, or a plain line for ``"-"``."""
+        ends = getattr(patch, "_posA_posB", None)
+        if ends is None or not all(self._branches(axes, patch)):
+            warnings.warn(
+                "an arrow along a path or outside the data coordinates is not converted",
+                ConversionWarning,
+                stacklevel=5,
+            )
+            return
+        (x0, y0), (x1, y1) = ends
+        style = type(
+            patch.get_arrowstyle()
+        ).__name__  # CurveAB, CurveB, CurveA, Curve, ...
+        side = {"CurveAB": "end+start", "CurveB": "end", "CurveA": "start"}.get(style)
+        color = _rgba(patch.get_edgecolor())
+        width = max(patch.get_linewidth() * PX_PER_PT, 0.5)
+        xscale, yscale = axes.ax.get_xscale(), axes.ax.get_yscale()
 
+        def scaled(value, scale):
+            return (
+                float(np.log10(value)) if scale == "log" and value > 0 else float(value)
+            )
+
+        x0, x1 = scaled(x0, xscale), scaled(x1, xscale)
+        y0, y1 = scaled(y0, yscale), scaled(y1, yscale)
+        if side is None:
+            self.shapes.append(
+                dict(
+                    type="line",
+                    xref=axes.xref,
+                    yref=axes.yref,
+                    x0=x0,
+                    y0=y0,
+                    x1=x1,
+                    y1=y1,
+                    line={"color": color, "width": width},
+                )
+            )
+            return
+        self.annotations.append(
+            dict(
+                x=x1,
+                y=y1,
+                ax=x0,
+                ay=y0,
+                xref=axes.xref,
+                yref=axes.yref,
+                axref=axes.xref,
+                ayref=axes.yref,
+                text="",
+                showarrow=True,
+                arrowhead=2,
+                arrowside=side,
+                arrowsize=1,
+                arrowwidth=width,
+                arrowcolor=color,
+                standoff=0,
+                startstandoff=0,
+            )
+        )
+
+    def _patch(self, axes, patch):
+        from matplotlib.patches import FancyArrowPatch, Polygon, Rectangle
+
+        if isinstance(patch, FancyArrowPatch):
+            return self._arrow(axes, patch)
         x_data, y_data = self._branches(axes, patch)
         face = patch.get_facecolor()
         fill = _rgba(face) if patch.get_fill() else "rgba(0, 0, 0, 0)"
@@ -2064,6 +2132,12 @@ class _FigureConverter:
                 xshift=float(offset[0]),
                 yshift=float(offset[1]),
                 showarrow=False,
+                # Matplotlib turns text counterclockwise, Plotly clockwise
+                **(
+                    {"textangle": -float(text.get_rotation())}
+                    if text.get_rotation()
+                    else {}
+                ),
                 font={
                     "size": text.get_fontsize() * PX_PER_PT * 0.95,
                     "color": _rgba(text.get_color()),
