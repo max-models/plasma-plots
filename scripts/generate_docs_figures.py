@@ -3453,6 +3453,30 @@ try:
         ),
         "plotly_trees_walk",
     )
+    # the tree following two clusters that orbit and spread
+    from plasma_plots.trees import animate_quadtree  # noqa: E402
+
+    angle_qt = np.linspace(0.0, 1.5 * np.pi, 30)
+    rotation_qt = [
+        np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+        for a in angle_qt
+    ]
+    history_qt = [
+        np.clip(r @ points_qt * (1.0 + 0.4 * a / angle_qt[-1]), -0.99, 0.99)
+        for r, a in zip(rotation_qt, angle_qt)
+    ]
+    save_interactive(
+        animate_quadtree(
+            points=history_qt,
+            point_color=charges_qt,
+            times=angle_qt,
+            sweep="angle",
+            bounds=(0.0, 0.0, 1.0),
+            leaf_capacity=8,
+            backend="plotly",
+        ),
+        "plotly_trees_movie",
+    )
 except ImportError:
     print("skipped plotly_trees_walk.json (plotly unavailable)")
 

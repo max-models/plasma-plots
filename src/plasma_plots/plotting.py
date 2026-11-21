@@ -4186,6 +4186,7 @@ def animate_markers(
     cmap=None,
     trail: int | None = None,
     paths: bool = False,
+    aspect="equal",
 ):
     """Animate marker positions over time, optionally over a field animated in sync.
 
@@ -4233,6 +4234,10 @@ def animate_markers(
         Draw each marker's last ``trail`` samples as a faint line behind it. Default: none.
     paths : bool, optional
         Draw each marker's whole path, fixed and faint, under the animation. Default: ``False``.
+    aspect : {"equal", "auto"} or float, optional
+        The aspect ratio of the axes, as for :meth:`matplotlib.axes.Axes.set_aspect`: ``"equal"``
+        for positions, ``"auto"`` to fill the axes, e.g. for a phase space ``(x, v_x)``.
+        Default: ``"equal"``.
 
     Returns
     -------
@@ -4352,7 +4357,7 @@ def animate_markers(
             ylim=(lo[1] - pad[1], hi[1] + pad[1]),
             xlabel=x,
             ylabel=y,
-            aspect="equal",
+            aspect=aspect,
         )
         ax.grid(False)
         _finish(fig, run_label=shared_run_label([markers[x]]))

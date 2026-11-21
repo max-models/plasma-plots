@@ -145,3 +145,76 @@ def test_plot_quadtree_with_plotly_keeps_the_walk_on_top(points):
     ]
     assert walk and pooled and min(walk) > max(pooled)
     assert plasma_plots.plot_quadtree is plot_quadtree
+
+
+def _history(points, frames=4):
+    return [points * (1.0 + 0.1 * k) for k in range(frames)]
+
+
+@pytest.mark.filterwarnings("ignore:Animation was deleted")
+def test_animate_quadtree_draws_a_tree_per_frame(points):
+    from matplotlib.animation import FuncAnimation
+
+    from plasma_plots.trees import animate_quadtree
+
+    history = _history(points)
+    animation = animate_quadtree(
+        points=history, times=[0.0, 0.5, 1.0, 1.5], leaf_capacity=6
+    )
+    assert isinstance(animation, FuncAnimation)
+    assert animation._plasma_sweep == ("t", [0.0, 0.5, 1.0, 1.5])
+    ax = animation._fig.axes[0]
+    for frame in (3, 0):
+        animation._func(frame)
+        outlines = ax.collections[0]
+        cells = build_quadtree(history[frame], leaf_capacity=6)
+        assert len(outlines.get_segments()) == int((cells.counts > 0).sum())
+        assert ax.get_title().startswith(f"t = {0.5 * frame:.4g}:")
+    # the trees themselves, one color, leaves only, a fixed extent and thinned frames
+    trees = [build_quadtree(h, leaf_capacity=6, bounds=(0, 0, 2)) for h in history]
+    animation = animate_quadtree(
+        trees,
+        color=None,
+        leaves_only=True,
+        extent=(-2, 2, -2, 2),
+        max_frames=2,
+        title="{cells} cells",
+    )
+    assert list(animation.new_frame_seq()) == [0, 3]
+    ax = animation._fig.axes[0]
+    assert ax.get_xlim() == (-2, 2)
+    assert ax.get_title() == f"{int(trees[0].leaves.sum())} cells"
+
+
+@pytest.mark.filterwarnings("ignore:Animation was deleted")
+def test_animate_quadtree_with_plotly_has_frames(points):
+    pytest.importorskip("plotly")
+    from plasma_plots.trees import animate_quadtree
+
+    history = np.stack(_history(points, 3))  # one array, frames first
+    result = animate_quadtree(
+        points=history,
+        point_color=[np.sign(h[0]) for h in history],
+        backend="plotly",
+    )
+    assert len(result.fig.frames) == 3
+    assert len(result.fig.layout.sliders[0].steps) == 3
+    fixed = animate_quadtree(
+        points=list(history), point_color=np.ones(400), backend="plotly"
+    )
+    assert len(fixed.fig.frames) == 3
+
+
+def test_animate_quadtree_rejects_bad_input(points):
+    from plasma_plots.trees import animate_quadtree
+
+    with pytest.raises(ValueError, match="trees or points"):
+        animate_quadtree()
+    with pytest.raises(ValueError, match="color"):
+        animate_quadtree(points=[points], color="count")
+    with pytest.raises(ValueError, match="frames of points"):
+        animate_quadtree([build_quadtree(points)], points=[points, points])
+    with pytest.raises(ValueError, match="point_color"):
+        animate_quadtree(points=[points], point_color=[np.ones(400)] * 2)
+    with pytest.raises(ValueError, match="times"):
+        animate_quadtree(points=[points], times=[0.0, 1.0])

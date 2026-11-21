@@ -357,7 +357,7 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
 - `dataset.plasma.plot.orbit_classification(*, x='v_par', y=None, v_par='v_par', t=0, ax=None, s=8, backend=None)`: Plot markers in a phase-space plane, colored as passing, trapped or lost.
   - e.g. `orbits.plasma.plot.orbit_classification()`
   - e.g. `orbits.plasma.plot.orbit_classification(x="p_phi")`
-- `dataset.plasma.plot.animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, max_frames=None, interval=100, s=8, cmap=None, trail=None, paths=False, backend=None)`: Animate the markers moving over time, optionally over a field animated in sync.
+- `dataset.plasma.plot.animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, max_frames=None, interval=100, s=8, cmap=None, trail=None, paths=False, aspect='equal', backend=None)`: Animate the markers moving over time, optionally over a field animated in sync.
   - e.g. `markers.plasma.plot.animation(x="x", y="y", color="density", background=n, step=2)`
   - e.g. `orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)`
 - `dataset.plasma.plot.paths(*, x='x', y='y', markers=6, near=None, background=None, background_options=None, t=0, ax=None, backend=None)`: Plot the paths of a few markers in a plane, with start and end markers.
@@ -523,6 +523,9 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 - `plasma_plots.plot_quadtree(tree=None, *, points=None, color='depth', point_color=None, leaves_only=False, max_depth=None, target=None, theta=0.5, ax=None, cmap=None, linewidth=0.8, s=6, title=None, backend=None)`: Plot the cells of a quadtree, its particles and the Barnes-Hut walk for a target.
   - e.g. `plot_quadtree(points=positions)  # builds the tree`
   - e.g. `plot_quadtree(tree, points=tree.pos, target=(0.1, 0.4), theta=0.7)`
+- `plasma_plots.animate_quadtree(trees=None, *, points=None, point_color=None, times=None, sweep='t', color='depth', leaves_only=False, max_depth=None, leaf_capacity=8, bounds=None, extent=None, cmap=None, point_cmap=None, linewidth=0.8, s=6, interval=100, max_frames=None, title=None, backend=None)`: Animate a quadtree that follows moving particles: the cells and particles of every frame.
+  - e.g. `animate_quadtree(points=history, times=t, leaf_capacity=16)  # builds the trees`
+  - e.g. `animate_quadtree(trees, points=[tree.pos for tree in trees], backend="plotly")`
 - `plasma_plots.set_backend(backend)`: Set the backend of every plot that does not pass backend= itself.
   - e.g. `previous = plasma_plots.set_backend("plotly")`
   - e.g. `phi.plasma.plot.slice(t=-1, eta3=0)  # a Plotly figure`
@@ -601,7 +604,7 @@ The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel
 - `plasma_plots.charts`: `prepare_scan`, `plot_scan`, `prepare_breakdown`, `plot_breakdown`, `plot_twin`, `plot_stacked`, `plot_cross_sections`, `matrix_entries`, `plot_matrix`, `plot_child_langmuir`, `plot_variables`
 - `plasma_plots.phase_space`: `phase_space_histogram`, `plot_phase_space`
 - `plasma_plots.geometry`: `shapes`, `draw_geometry`, `dimension_chains`, `dimension_line`, `plot_domain`
-- `plasma_plots.trees`: `quadtree_cells`, `build_quadtree`, `barnes_hut_walk`, `plot_quadtree`
+- `plasma_plots.trees`: `quadtree_cells`, `build_quadtree`, `barnes_hut_walk`, `plot_quadtree`, `animate_quadtree`
 - `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`, `plot_boozer_spectrum`
 - `plasma_plots.fieldline_plots`: `plot_poincare`, `plot_field_lines`, `plot_footprint`, `plot_connection_length`, `plot_along_field_lines`, `plot_surface_map`
 - `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `detect_growth`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `penrose_criterion`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `dominant_mode`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`

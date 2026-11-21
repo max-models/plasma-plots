@@ -116,6 +116,7 @@ TOP_LEVEL = [
     "plasma_plots.figure",
     "plasma_plots.plot_domain",
     "plasma_plots.plot_quadtree",
+    "plasma_plots.animate_quadtree",
     "plasma_plots.set_backend",
     "plasma_plots.get_backend",
     "plasma_plots.set_style",

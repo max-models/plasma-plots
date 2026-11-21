@@ -202,7 +202,7 @@ from .plotly_backend import get_backend, get_math, set_backend, set_math
 from .plotting import save_figure
 from .pyvista_plots import scene, scene_to_plotly
 from .styles import get_style, set_style, style
-from .trees import plot_quadtree
+from .trees import animate_quadtree, plot_quadtree
 
 __all__ = [
     "SkippedPlot",
@@ -218,6 +218,7 @@ __all__ = [
     "is_plotting_rank",
     "mpi_rank",
     "plot_domain",
+    "animate_quadtree",
     "plot_quadtree",
     "save_figure",
     "scene",

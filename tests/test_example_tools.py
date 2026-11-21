@@ -150,6 +150,9 @@ def test_marker_animation_over_a_field_hides_lost_markers():
     assert np.isnan(offsets[0]).all()  # marker 0 has left
     np.testing.assert_allclose(offsets[1], [orbits.x[4, 1], orbits.y[4, 1]])
     assert isinstance(orbits.plasma.plot.animation(x="x", y="y", step=2), FuncAnimation)
+    assert animation._fig.axes[0].get_aspect() == 1.0
+    stretched = orbits.plasma.plot.animation(x="x", y="y", aspect="auto")
+    assert stretched._fig.axes[0].get_aspect() == "auto"  # e.g. a phase space
     with pytest.raises(ValueError, match="background"):
         animate_markers(
             orbits.rename(x="u", y="w"), x="u", y="w", background=field.isel(eta3=0)

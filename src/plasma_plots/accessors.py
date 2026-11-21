@@ -5516,6 +5516,7 @@ class DatasetPlots:
         cmap=None,
         trail: int | None = None,
         paths: bool = False,
+        aspect="equal",
         backend: Backend | None = None,
     ):
         """Animate the markers moving over time, optionally over a field animated in sync.
@@ -5571,6 +5572,7 @@ class DatasetPlots:
             cmap=cmap,
             trail=trail,
             paths=paths,
+            aspect=aspect,
         )
 
     @with_backend
