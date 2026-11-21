@@ -131,7 +131,9 @@ def coulomb_logarithm(density, temperature, kind="ei", charge_number=1):
     temperature = _as_array(temperature)
     if kind == "ee":
         return _out(
-            23.5 - np.log(np.sqrt(n_cm3) * temperature**-1.25) - np.sqrt(1e-5 + (np.log(temperature) - 2.0) ** 2 / 16.0)
+            23.5
+            - np.log(np.sqrt(n_cm3) * temperature**-1.25)
+            - np.sqrt(1e-5 + (np.log(temperature) - 2.0) ** 2 / 16.0)
         )
     if kind != "ei":
         raise ValueError(f"kind must be 'ei' or 'ee', not {kind!r}")
@@ -205,9 +207,18 @@ def collision_frequencies(
     lnl = _lnl(n_e, t_e, z, ln_lambda)
     m_i = _as_array(mass_number) * proton_mass
     common = _e**4 * lnl / (12 * np.pi**1.5 * _eps0**2)
-    nu_e = np.sqrt(2.0) * n_e * common / (np.sqrt(electron_mass) * (t_e * ev_to_joule) ** 1.5)
+    nu_e = (
+        np.sqrt(2.0)
+        * n_e
+        * common
+        / (np.sqrt(electron_mass) * (t_e * ev_to_joule) ** 1.5)
+    )
     nu_i = n_i * z**4 * common / (np.sqrt(m_i) * (t_i * ev_to_joule) ** 1.5)
-    return {"electron": _out(nu_e), "ion": _out(nu_i), "electron_ion": _out(nu_e * z**2 * n_i / n_e)}
+    return {
+        "electron": _out(nu_e),
+        "ion": _out(nu_i),
+        "electron_ion": _out(nu_e * z**2 * n_i / n_e),
+    }
 
 
 def spitzer_resistivity(temperature, z_eff=1.0, ln_lambda=None, density=None):
@@ -258,11 +269,15 @@ def spitzer_resistivity(temperature, z_eff=1.0, ln_lambda=None, density=None):
     z = np.maximum(_as_array(z_eff), 1.0)
     if ln_lambda is None:
         if density is None:
-            raise ValueError("give ln_lambda or the electron density to compute it from")
+            raise ValueError(
+                "give ln_lambda or the electron density to compute it from"
+            )
         ln_lambda = coulomb_logarithm(density, t_e, "ei", z)
     alpha0 = np.interp(1.0 / z, _ALPHA0_INVERSE_Z, _ALPHA0)
     # m_e / (n_e e² τ_e) with τ_e of Braginskii, n_i Z² = n_e Z_eff:
-    prefactor = np.sqrt(2.0) * np.sqrt(electron_mass) * _e**2 / (12 * np.pi**1.5 * _eps0**2)
+    prefactor = (
+        np.sqrt(2.0) * np.sqrt(electron_mass) * _e**2 / (12 * np.pi**1.5 * _eps0**2)
+    )
     eta = alpha0 * z * prefactor * _as_array(ln_lambda) / (t_e * ev_to_joule) ** 1.5
     return _out(eta)
 
@@ -474,19 +489,39 @@ def beam_stopping_fast_ion(
     ... )
     66.0 keV after 20 ms
     """
-    tau_s = _as_array(slowing_down_time(density, temperature, beam_mass_number, beam_charge_number, ln_lambda))
-    e_c = _as_array(critical_energy(temperature, beam_mass_number, ion_mass_number, ion_charge_number, ions))
+    tau_s = _as_array(
+        slowing_down_time(
+            density, temperature, beam_mass_number, beam_charge_number, ln_lambda
+        )
+    )
+    e_c = _as_array(
+        critical_energy(
+            temperature, beam_mass_number, ion_mass_number, ion_charge_number, ions
+        )
+    )
     e0 = _as_array(energy)
     if time is None:
         electrons = 2.0 * e0 / tau_s
         ions_loss = electrons * (e_c / e0) ** 1.5
-        return {"electrons": _out(electrons), "ions": _out(ions_loss), "total": _out(electrons + ions_loss)}
+        return {
+            "electrons": _out(electrons),
+            "ions": _out(ions_loss),
+            "total": _out(electrons + ions_loss),
+        }
     ratio = (e_c / e0) ** 1.5
     cube = (1.0 + ratio) * np.exp(-3.0 * _as_array(time) / tau_s) - ratio
     return _out(e0 * np.maximum(cube, 0.0) ** (2.0 / 3.0))
 
 
-def pitch_scattering_exponent(beam_mass_number=1.0, ion_mass_number=1.0, ion_charge_number=1.0, ions=None):
+def _z_effective(ions, charge_number):
+    if ions is None:
+        return _as_array(charge_number)
+    return sum(f * z**2 for f, z, _ in ions)
+
+
+def pitch_scattering_exponent(
+    beam_mass_number=1.0, ion_mass_number=1.0, ion_charge_number=1.0, ions=None
+):
     """Compute the exponent β = Z_eff/[Z] of the pitch-angle evolution of a slowing-down fast ion.
 
     The pitch scattering rate on the plasma ions is ν_d = Z_eff Γ/v³ and the energy drag on them is
@@ -527,12 +562,6 @@ def pitch_scattering_exponent(beam_mass_number=1.0, ion_mass_number=1.0, ion_cha
     return _out(z_eff / (_as_array(beam_mass_number) * s))
 
 
-def _z_effective(ions, charge_number):
-    if ions is None:
-        return _as_array(charge_number)
-    return sum(f * z**2 for f, z, _ in ions)
-
-
 def _pitch_ratio(energy, initial_energy, critical_energy_ev):
     """R = [v³ (v₀³ + v_c³)] / [v₀³ (v³ + v_c³)] from the energies."""
     e_c = _as_array(critical_energy_ev)
@@ -541,7 +570,9 @@ def _pitch_ratio(energy, initial_energy, critical_energy_ev):
     return u3 * (1.0 + u03) / (u03 * (1.0 + u3))
 
 
-def pitch_angle_moments(energy, initial_energy, critical_energy_ev, exponent=1.0, initial_pitch=1.0):
+def pitch_angle_moments(
+    energy, initial_energy, critical_energy_ev, exponent=1.0, initial_pitch=1.0
+):
     """Compute the pitch ξ = v_∥/v of a fast ion that slows down from E₀ to E: its mean, mean square and width.
 
     Pitch scattering on the ions with the Lorentz operator (ν_d/2) ∂_ξ (1 − ξ²) ∂_ξ gives
@@ -656,9 +687,21 @@ def fast_ion_parallel_path(
     >>> print(f"{fast_ion_parallel_path(80e3, **kw) / 1e3:.1f} km")
     276.7 km
     """
-    tau_s = _as_array(slowing_down_time(density, temperature, beam_mass_number, beam_charge_number, ln_lambda))
-    e_c = _as_array(critical_energy(temperature, beam_mass_number, ion_mass_number, ion_charge_number, ions))
-    beta = _as_array(pitch_scattering_exponent(beam_mass_number, ion_mass_number, ion_charge_number, ions))
+    tau_s = _as_array(
+        slowing_down_time(
+            density, temperature, beam_mass_number, beam_charge_number, ln_lambda
+        )
+    )
+    e_c = _as_array(
+        critical_energy(
+            temperature, beam_mass_number, ion_mass_number, ion_charge_number, ions
+        )
+    )
+    beta = _as_array(
+        pitch_scattering_exponent(
+            beam_mass_number, ion_mass_number, ion_charge_number, ions
+        )
+    )
     v_c = np.sqrt(2.0 * e_c * ev_to_joule / (_as_array(beam_mass_number) * proton_mass))
     x = np.sqrt(_as_array(energy) / e_c)
     xe, be = x[..., None], beta[..., None]
@@ -741,7 +784,9 @@ def electron_shielding_factor(beam_charge_number, z_eff, g=0.0):
     >>> print(f"{electron_shielding_factor(1.0, 1.0, g=0.3):.3f}")
     0.300
     """
-    return _out(1.0 - _as_array(beam_charge_number) / _as_array(z_eff) * (1.0 - _as_array(g)))
+    return _out(
+        1.0 - _as_array(beam_charge_number) / _as_array(z_eff) * (1.0 - _as_array(g))
+    )
 
 
 def beam_driven_current(
@@ -814,6 +859,12 @@ def beam_driven_current(
         initial_pitch,
     )
     z_eff = _z_effective(ions, ion_charge_number)
-    i_f = _as_array(beam_charge_number) * _e * _as_array(birth_rate) * path / (2.0 * np.pi * _as_array(major_radius))
+    i_f = (
+        _as_array(beam_charge_number)
+        * _e
+        * _as_array(birth_rate)
+        * path
+        / (2.0 * np.pi * _as_array(major_radius))
+    )
     shield = _as_array(electron_shielding_factor(beam_charge_number, z_eff, g))
     return {"fast_ion": _out(i_f), "shielding": _out(shield), "net": _out(i_f * shield)}

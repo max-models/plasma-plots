@@ -113,7 +113,11 @@ def parameter_docs(function, owner=None, _seen=None) -> dict[str, list[str]]:
         target = _resolve(first, owner if owner is not None else function)
         target = getattr(target, "__func__", target)
         if callable(target) and id(target) not in _seen:
-            owner_of_target = owner if inspect.getmodule(target) is inspect.getmodule(owner) else target
+            owner_of_target = (
+                owner
+                if inspect.getmodule(target) is inspect.getmodule(owner)
+                else target
+            )
             for name, lines in parameter_docs(target, owner_of_target, _seen).items():
                 params.setdefault(name, lines)
     return params
@@ -126,7 +130,11 @@ def complete_docstring(function, owner) -> None:
     doc = inspect.getdoc(function)
     if not doc:  # e.g. python -OO
         return
-    signature = [p for p in inspect.signature(function).parameters.values() if p.name not in ("self", "cls")]
+    signature = [
+        p
+        for p in inspect.signature(function).parameters.values()
+        if p.name not in ("self", "cls")
+    ]
     documented = parameter_docs(function, owner)
     sections = _sections(doc)
     own = next((body for title, body in sections if title == "Parameters"), [])
@@ -153,7 +161,9 @@ def complete_docstring(function, owner) -> None:
 def complete_class(cls) -> None:
     """Complete every public method of an accessor class (including ``__call__``)."""
     for name, member in vars(cls).items():
-        if (not name.startswith("_") or name == "__call__") and inspect.isfunction(member):
+        if (not name.startswith("_") or name == "__call__") and inspect.isfunction(
+            member
+        ):
             complete_docstring(member, cls)
 
 
@@ -217,24 +227,38 @@ def menu(accessor) -> str:
             continue
         if isinstance(member, property) or inspect.isfunction(member):
             function = member.fget if isinstance(member, property) else member
-            shown = "()" if name == "__call__" else ("" if isinstance(member, property) else name)
+            shown = (
+                "()"
+                if name == "__call__"
+                else ("" if isinstance(member, property) else name)
+            )
             rows.append((shown if name == "__call__" else name, summary(function)))
     width = max((len(n) for n, _ in rows), default=0)
     target = _target(accessor)
     lines = [f"{reached}" + (f" of {target}" if target else "")]
     lines += [f"  {n.ljust(width)}  {s}" for n, s in rows]
-    example = reached.split("(")[0].replace("array", "phi", 1).replace("dataset", "orbits", 1)
+    example = (
+        reached.split("(")[0].replace("array", "phi", 1).replace("dataset", "orbits", 1)
+    )
     data = getattr(accessor, "_array", getattr(accessor, "_dataset", None))
     name = getattr(data, "name", None)
-    if isinstance(name, str) and name.isidentifier() and example.startswith(("phi.", "orbits.")):
-        example = name + example[example.index(".") :]  # the array's own name, e.g. b_field.plasma.plot
+    if (
+        isinstance(name, str)
+        and name.isidentifier()
+        and example.startswith(("phi.", "orbits."))
+    ):
+        example = (
+            name + example[example.index(".") :]
+        )  # the array's own name, e.g. b_field.plasma.plot
     first = next((n for n, _ in rows if n != "()"), None)
     if not page:  # array.plasma / dataset.plasma: the sub-accessors
         lines.append(
             f"{example}.plot, .analysis and .data list their methods; python -m plasma_plots prints an overview."
         )
     elif first:
-        lines.append(f"help({example}.{first}) shows the parameters; reference: {REFERENCE}/{page}/")
+        lines.append(
+            f"help({example}.{first}) shows the parameters; reference: {REFERENCE}/{page}/"
+        )
     return "\n".join(lines)
 
 

@@ -21,12 +21,16 @@ def field():
     eta1 = np.linspace(0.0, 1.0, 9)
     eta2 = np.linspace(0.0, 2.0, 7)
     data = np.outer(eta1, eta2)
-    return xr.DataArray(data, dims=("eta1", "eta2"), coords={"eta1": eta1, "eta2": eta2})
+    return xr.DataArray(
+        data, dims=("eta1", "eta2"), coords={"eta1": eta1, "eta2": eta2}
+    )
 
 
 def test_rank_boundaries_draws_a_dashed_line_per_value():
     plain = plot_slice(field())
-    marked = plot_slice(field(), overlays={"rank_boundaries": {"eta1": [0.25, 0.75], "eta2": [1.0]}})
+    marked = plot_slice(
+        field(), overlays={"rank_boundaries": {"eta1": [0.25, 0.75], "eta2": [1.0]}}
+    )
     assert len(marked.ax.lines) - len(plain.ax.lines) == 3
     new_lines = marked.ax.lines[len(plain.ax.lines) :]
     assert all(line.get_linestyle() == "--" for line in new_lines)
@@ -86,7 +90,9 @@ def test_rank_boundaries_accepts_a_layout_by_dimension_name():
 def test_rank_boundaries_layout_axis_follows_dimension_order_not_drawn_order():
     # eta2 is axis 1 and eta1 is axis 0, regardless of which is drawn as x or y
     layout = FakeLayout({0: [0.3], 1: [1.5]})
-    result = plot_slice(field(), view=View(x="eta2", y="eta1"), overlays={"rank_boundaries": layout})
+    result = plot_slice(
+        field(), view=View(x="eta2", y="eta1"), overlays={"rank_boundaries": layout}
+    )
     assert len(result.ax.lines) == 2
 
 
@@ -94,7 +100,9 @@ def test_rank_boundaries_layout_ignores_the_sweep_dimension():
     t = np.linspace(0.0, 1.0, 3)
     data = field().expand_dims(t=t).assign_coords(t=t)
     layout = FakeLayout({0: [0.25], 1: [1.0]})
-    result = plot_slice(data, view=View(isel={"t": 0}), overlays={"rank_boundaries": layout})
+    result = plot_slice(
+        data, view=View(isel={"t": 0}), overlays={"rank_boundaries": layout}
+    )
     assert len(result.ax.lines) == 2
 
 

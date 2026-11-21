@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "plasma-plots"
-version = "0.2.5"
+version = "0.3.0"
 description = "Plots and diagnostics of labeled xarray output from plasma simulations, such as Struphy"
 readme = "README.md"
 license.text = "MIT"
@@ -38,9 +38,14 @@ optional-dependencies.desc = [
 optional-dependencies.dev = [
   "griffe",
   "h5py",
+  "pre-commit",
   "pytest",
   "ruff",
   "struphy>=3.4.0",
+]
+# plasma_plots.geometry.plot_domain: simgeometry domains as drawings with their measurements
+optional-dependencies.geometry = [
+  "simgeometry[plot]>=0.2.1",
 ]
 optional-dependencies.gallery = [
   "kaleido",
@@ -68,7 +73,12 @@ optional-dependencies.scene = [
   "trame-pyvista",
 ]
 optional-dependencies.tikz = [
-  "maxplotlibx>=0.2",
+  "maxplotlibx>=0.3",
+]
+# web figures (`save("x.plotly.json")`) for the max-models docs sites, written by maxplotlib.web
+optional-dependencies.web = [
+  "maxplotlibx>=0.3",
+  "plotly",
 ]
 urls.Documentation = "https://max-models.github.io/plasma-plots"
 urls.Homepage = "https://github.com/max-models/plasma-plots"
@@ -86,14 +96,17 @@ packages.find.where = [
 [tool.uv.sources]
 maxplotlibx = { git = "https://github.com/max-models/maxplotlib", branch = "devel" }
 scope-profiler = { git = "https://github.com/max-models/scope-profiler", branch = "devel" }
+simgeometry = { git = "https://github.com/max-models/simgeometry", branch = "devel" }
 
 [tool.ruff]
-line-length = 120
+line-length = 88
+# formatting: `ruff format`; import sorting: the isort rules of `ruff check`
 lint.select = [
   "E4",
   "E7",
   "E9",
   "F",
+  "I",
 ]
 lint.ignore = [
   "E265",

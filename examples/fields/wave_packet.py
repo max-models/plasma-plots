@@ -1,6 +1,6 @@
-"""A wave packet on the unit square
+"""Wave packet
 
-A synthetic potential on a 2-D grid, drawn with `array.plasma.plot` the way a simulation's output is.
+A wave packet on the unit square: a synthetic potential on a 2-D grid, drawn with `array.plasma.plot` the way a simulation's output is.
 
 The labeled `xarray.DataArray` carries its coordinates, label and units, so `slice`, `panels` and
 `lineout` need nothing more than the names of the dimensions to draw. Dimensions that a plot does not
@@ -22,7 +22,9 @@ E1, E2 = np.meshgrid(eta1, eta2, indexing="ij")
 values = np.empty((t.size, eta1.size, eta2.size))
 for i, ti in enumerate(t):
     c1, c2 = 0.5 + 0.28 * np.cos(ti), 0.5 + 0.28 * np.sin(ti)
-    values[i] = np.exp(-((E1 - c1) ** 2 + (E2 - c2) ** 2) / (2 * 0.1**2)) * np.cos(10.0 * (E1 - c1))
+    values[i] = np.exp(-((E1 - c1) ** 2 + (E2 - c2) ** 2) / (2 * 0.1**2)) * np.cos(
+        10.0 * (E1 - c1)
+    )
 
 phi = xr.DataArray(
     values,

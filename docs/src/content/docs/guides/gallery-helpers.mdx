@@ -1,0 +1,75 @@
+---
+title: Gallery helpers
+description: The output helpers of the struphy-hub example gallery, plasma_plots.gallery, for figure files, profiling exports and result metadata.
+---
+
+The example scripts of the
+[struphy-hub gallery](https://struphy-hub.github.io/examples/) write their
+results with [`plasma_plots.gallery`](/plasma-plots/api/plasma_plots/gallery/),
+so a copied example runs on its own after `pip install "plasma-plots[gallery]"`.
+Every helper writes to the current directory and names its files after the
+example's stem; the website's build reads exactly these files:
+
+| File | Written by |
+| --- | --- |
+| `<stem>.png`, `<stem>.plotly.json`, `<stem>.html` | `save_figure`, `save_extra_figure` |
+| `<stem>.metadata.json` | `merge_metadata`, `save_extra_figure` |
+| `<stem>-profile.h5` and its plot data | `export_profiling` |
+
+The scripts also run under MPI. The simulation, the post-processing and the
+analysis run on every rank, and only rank 0 writes files, so a script needs no
+rank checks of its own. Importing the module sets Struphy's logging level to
+INFO, which prints one block per time step, as one wants to see in a CI log.
+
+## Figures
+
+```python
+from plasma_plots import gallery
+
+stem = "landau_damping"
+phi = out.evaluate("em_fields/phi")
+gallery.save_figure(
+    gallery.space_time_figure(
+        phi.isel(eta2=0, eta3=0),
+        space="eta1",
+        title="Potential",
+        colorbar_title="φ",
+    ),
+    stem,
+)
+extra = gallery.save_extra_figure(
+    gallery.heatmap_figure(
+        f.isel(t=-1),
+        x="eta1",
+        y="v1",
+        title="Distribution function",
+        xaxis_title="x",
+        yaxis_title="v",
+    ),
+    stem,
+    "distribution",
+    alt="The distribution function in phase space at the last time",
+    caption="Phase-space holes form as the wave damps.",
+)
+```
+
+`save_figure` writes a static PNG, the Plotly JSON and a standalone HTML page.
+`heatmap_figure` draws a 2-D array, `space_time_figure` a space-time map with
+colors symmetric about zero, and `heatmap_movie` a 3-D array as an animated
+heatmap over `sweep`. `save_extra_figure` saves a further figure and returns
+its entry for the page's `figures` list.
+
+## Results and profiling
+
+```python
+rate = energy.plasma.analysis.damping_rate(window=(5.0, 20.0))
+gallery.merge_metadata(stem, damping_rate=float(rate.rate), figures=[extra])
+# a run made with profiling_activated=True
+gallery.export_profiling(sim, stem)
+```
+
+`merge_metadata` adds fields to `<stem>.metadata.json` and keeps the ones
+already there. `export_profiling` writes the raw scope-profiler HDF5 file and
+the plot data the example page draws (see
+[Profiling](/plasma-plots/guides/profiling/)). `is_root()` and `barrier()` are
+the rank checks the helpers use, for code of your own.

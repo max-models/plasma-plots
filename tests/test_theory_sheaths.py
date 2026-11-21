@@ -19,7 +19,9 @@ ME = par.electron_mass
 # ---------------------------------------------------------------------------------------------
 def test_bohm_speed():
     assert sh.bohm_speed(5.0) == pytest.approx(math.sqrt(5.0 * E / MP), rel=1e-12)
-    assert sh.bohm_speed(5.0, mass_number=40) == pytest.approx(sh.bohm_speed(5.0) / math.sqrt(40), rel=1e-12)
+    assert sh.bohm_speed(5.0, mass_number=40) == pytest.approx(
+        sh.bohm_speed(5.0) / math.sqrt(40), rel=1e-12
+    )
     # warm isothermal ions: (T_e + T_i)/m
     assert sh.bohm_speed(4.0, 1.0) == pytest.approx(math.sqrt(5.0 * E / MP), rel=1e-12)
     assert isinstance(sh.bohm_speed(5.0), float)
@@ -27,8 +29,12 @@ def test_bohm_speed():
 
 def test_bohm_current_density():
     n, te = 1e18, 5.0
-    assert sh.bohm_current_density(n, te) == pytest.approx(0.6065 * E * n * sh.bohm_speed(te), rel=1e-3)
-    assert sh.ion_saturation_current(n, te, 1e-6) == pytest.approx(1e-6 * sh.bohm_current_density(n, te), rel=1e-12)
+    assert sh.bohm_current_density(n, te) == pytest.approx(
+        0.6065 * E * n * sh.bohm_speed(te), rel=1e-3
+    )
+    assert sh.ion_saturation_current(n, te, 1e-6) == pytest.approx(
+        1e-6 * sh.bohm_current_density(n, te), rel=1e-12
+    )
     # Z e n √(Z T_e/m): twice the charge and √2 the speed
     assert sh.bohm_current_density(n, te, charge_number=2) == pytest.approx(
         2 * math.sqrt(2) * sh.bohm_current_density(n, te), rel=1e-12
@@ -40,19 +46,25 @@ def test_floating_potential_textbook_values():
     assert sh.floating_potential(1.0) == pytest.approx(-2.84, abs=0.005)
     assert sh.floating_potential(1.0, mass_number=40) == pytest.approx(-4.68, abs=0.005)
     # proportional to T_e
-    assert sh.floating_potential(7.0) == pytest.approx(7 * sh.floating_potential(1.0), rel=1e-12)
+    assert sh.floating_potential(7.0) == pytest.approx(
+        7 * sh.floating_potential(1.0), rel=1e-12
+    )
 
 
 def test_floating_potential_balances_the_currents():
     """Solve ion current = net electron current by bisection instead of using the closed form."""
     te, delta, mass_number = 3.0, 0.6, 4.0
     ion_flux = math.sqrt(te * E / (mass_number * MP))
-    electron_flux = lambda v: (1 - delta) * math.sqrt(te * E / (2 * math.pi * ME)) * math.exp(v / te)  # noqa: E731
+    electron_flux = lambda v: (
+        (1 - delta) * math.sqrt(te * E / (2 * math.pi * ME)) * math.exp(v / te)
+    )  # noqa: E731
     lo, hi = -100.0, 0.0
     for _ in range(200):
         mid = 0.5 * (lo + hi)
         lo, hi = (mid, hi) if electron_flux(mid) < ion_flux else (lo, mid)
-    assert sh.floating_potential(te, mass_number, secondary_emission=delta) == pytest.approx(lo, rel=1e-9)
+    assert sh.floating_potential(
+        te, mass_number, secondary_emission=delta
+    ) == pytest.approx(lo, rel=1e-9)
     # emission makes the wall less negative; electron mass enters through the log
     assert sh.floating_potential(te, secondary_emission=0.9) > sh.floating_potential(te)
     assert sh.floating_potential(1.0, electron_mass=4 * ME) == pytest.approx(
@@ -103,10 +115,18 @@ def test_child_langmuir_matches_the_picnic_value():
 def test_child_langmuir_textbook_and_scaling():
     # electrons: 2.33e-6 A V^-3/2 (Child's constant)
     assert sh.child_langmuir(1.0, 1.0) == pytest.approx(2.334e-6, rel=1e-3)
-    assert sh.child_langmuir(4.0, 1.0) == pytest.approx(8 * sh.child_langmuir(1.0, 1.0), rel=1e-12)
-    assert sh.child_langmuir(1.0, 0.1) == pytest.approx(100 * sh.child_langmuir(1.0, 1.0), rel=1e-12)
-    assert sh.child_langmuir(1.0, 1.0, mass=4 * ME) == pytest.approx(sh.child_langmuir(1.0, 1.0) / 2, rel=1e-12)
-    assert sh.child_langmuir(1.0, 1.0, charge=-4 * E) == pytest.approx(2 * sh.child_langmuir(1.0, 1.0), rel=1e-12)
+    assert sh.child_langmuir(4.0, 1.0) == pytest.approx(
+        8 * sh.child_langmuir(1.0, 1.0), rel=1e-12
+    )
+    assert sh.child_langmuir(1.0, 0.1) == pytest.approx(
+        100 * sh.child_langmuir(1.0, 1.0), rel=1e-12
+    )
+    assert sh.child_langmuir(1.0, 1.0, mass=4 * ME) == pytest.approx(
+        sh.child_langmuir(1.0, 1.0) / 2, rel=1e-12
+    )
+    assert sh.child_langmuir(1.0, 1.0, charge=-4 * E) == pytest.approx(
+        2 * sh.child_langmuir(1.0, 1.0), rel=1e-12
+    )
     v = np.array([1.0, 4.0])
     assert sh.child_langmuir(v, 1.0).shape == (2,)
 
@@ -120,7 +140,9 @@ def test_child_langmuir_injected_beam_satisfies_poisson(w0):
     """
     m, q, v, d = 1.0e-27, 1.6e-19, 50.0, 2e-3
     scale = math.sqrt(2 * q / m)
-    j = sh.child_langmuir(v, d, mass=m, charge=q, initial_velocity=w0 * math.sqrt(v) * scale)
+    j = sh.child_langmuir(
+        v, d, mass=m, charge=q, initial_velocity=w0 * math.sqrt(v) * scale
+    )
     a = j / (EPS0 * scale)
     w0 = w0 * math.sqrt(v)
 
@@ -144,7 +166,9 @@ def test_child_langmuir_injection_limits():
     scale = math.sqrt(2 * q / m)
     # a fast beam makes space charge negligible: J = 2 eps0 v0 V / d²
     v0 = 1e3 * math.sqrt(v) * scale
-    assert sh.child_langmuir(v, d, initial_velocity=v0) == pytest.approx(2 * EPS0 * v0 * v / d**2, rel=2e-3)
+    assert sh.child_langmuir(v, d, initial_velocity=v0) == pytest.approx(
+        2 * EPS0 * v0 * v / d**2, rel=2e-3
+    )
     # injection always increases the current
     assert sh.child_langmuir(v, d, initial_velocity=1e6) > sh.child_langmuir(v, d)
     assert sh.child_langmuir(v, d, initial_velocity=0.0) == sh.child_langmuir(v, d)
@@ -153,7 +177,9 @@ def test_child_langmuir_injection_limits():
 def lb_phi(gamma, geometry):
     """φ(γ) with the Langmuir normalisation C = 1, from the series."""
     if geometry == "cylindrical":
-        return np.exp(2 * gamma / 3) * sh._lb_function(gamma, sh._LB_CYLINDRICAL) ** (4 / 3)
+        return np.exp(2 * gamma / 3) * sh._lb_function(gamma, sh._LB_CYLINDRICAL) ** (
+            4 / 3
+        )
     return sh._lb_function(gamma, sh._LB_SPHERICAL) ** (4 / 3)
 
 
@@ -177,11 +203,15 @@ def test_langmuir_blodgett_tends_to_child_langmuir(geometry):
     v, r_c, eps = 500.0, 0.02, 1e-4
     r_a = r_c * (1 + eps)
     planar = sh.child_langmuir(v, r_a - r_c, mass=MP)
-    assert sh.langmuir_blodgett(v, r_a, r_c, geometry, mass=MP) == pytest.approx(planar, rel=1e-3)
+    assert sh.langmuir_blodgett(v, r_a, r_c, geometry, mass=MP) == pytest.approx(
+        planar, rel=1e-3
+    )
     # emitter outside: converging flow, same limit
     r_a = r_c * (1 - eps)
     planar = sh.child_langmuir(v, r_c - r_a, mass=MP)
-    assert sh.langmuir_blodgett(v, r_a, r_c, geometry, mass=MP) == pytest.approx(planar, rel=1e-3)
+    assert sh.langmuir_blodgett(v, r_a, r_c, geometry, mass=MP) == pytest.approx(
+        planar, rel=1e-3
+    )
 
 
 @pytest.mark.parametrize("geometry", ["cylindrical", "spherical"])
@@ -191,15 +221,23 @@ def test_langmuir_blodgett_total_current_and_scaling(geometry):
     i = sh.langmuir_blodgett(v, r_a, r_c, geometry, total=True)
     area = 2 * math.pi * r_a if geometry == "cylindrical" else 4 * math.pi * r_a**2
     assert i == pytest.approx(j * area, rel=1e-12)
-    assert sh.langmuir_blodgett(4 * v, r_a, r_c, geometry) == pytest.approx(8 * j, rel=1e-12)
+    assert sh.langmuir_blodgett(4 * v, r_a, r_c, geometry) == pytest.approx(
+        8 * j, rel=1e-12
+    )
     # any mass and charge
-    assert sh.langmuir_blodgett(v, r_a, r_c, geometry, mass=4 * ME) == pytest.approx(j / 2, rel=1e-12)
+    assert sh.langmuir_blodgett(v, r_a, r_c, geometry, mass=4 * ME) == pytest.approx(
+        j / 2, rel=1e-12
+    )
 
 
 def test_langmuir_blodgett_series_coefficients():
     # the classic first coefficients
-    assert sh._LB_CYLINDRICAL[:4] == pytest.approx([1.0, -2 / 5, 11 / 120, -47 / 3300], rel=1e-14)
-    assert sh._LB_SPHERICAL[:4] == pytest.approx([1.0, -3 / 10, 3 / 40, -63 / 4400], rel=1e-14)
+    assert sh._LB_CYLINDRICAL[:4] == pytest.approx(
+        [1.0, -2 / 5, 11 / 120, -47 / 3300], rel=1e-14
+    )
+    assert sh._LB_SPHERICAL[:4] == pytest.approx(
+        [1.0, -3 / 10, 3 / 40, -63 / 4400], rel=1e-14
+    )
     # the cylindrical current of an inner emitter is below the planar one for the same gap
     v, r_c, r_a = 500.0, 1e-3, 5e-3
     assert sh.langmuir_blodgett(v, r_a, r_c) < sh.child_langmuir(v, r_a - r_c)
@@ -217,7 +255,9 @@ def test_langmuir_blodgett_errors():
 # ---------------------------------------------------------------------------------------------
 def test_erfcx_matches_math_and_the_asymptote():
     x = np.array([0.0, 0.5, 2.0, 10.0, 24.9])
-    assert sh._erfcx(x) == pytest.approx([math.exp(v * v) * math.erfc(v) for v in x], rel=1e-10)
+    assert sh._erfcx(x) == pytest.approx(
+        [math.exp(v * v) * math.erfc(v) for v in x], rel=1e-10
+    )
     assert sh._erfcx(25.0) == pytest.approx(sh._erfcx(24.999999), rel=1e-5)
     assert np.isfinite(sh._erfcx(1e3))
 
@@ -228,7 +268,9 @@ def test_oml_random_current_and_repelled_branch():
     random = area * n * E * math.sqrt(te * E / (2 * math.pi * ME))
     assert sh.oml_current(n, te, 0.0, r, length) == pytest.approx(random, rel=1e-12)
     # electrons repelled by a probe 3 T_e below the plasma potential
-    assert sh.oml_current(n, te, -3 * te, r, length) == pytest.approx(random * math.exp(-3), rel=1e-12)
+    assert sh.oml_current(n, te, -3 * te, r, length) == pytest.approx(
+        random * math.exp(-3), rel=1e-12
+    )
     # sphere
     assert sh.oml_current(n, te, 0.0, r, geometry="spherical") == pytest.approx(
         random * (4 * math.pi * r**2) / area, rel=1e-12
@@ -240,14 +282,22 @@ def test_oml_attracted_branches():
     random = sh.oml_current(n, te, 0.0, r, length)
     sphere0 = sh.oml_current(n, te, 0.0, r, geometry="spherical")
     # sphere: 1 + χ
-    assert sh.oml_current(n, te, 5 * te, r, geometry="spherical") == pytest.approx(6 * sphere0, rel=1e-12)
+    assert sh.oml_current(n, te, 5 * te, r, geometry="spherical") == pytest.approx(
+        6 * sphere0, rel=1e-12
+    )
     # cylinder: 2√(χ/π) at large χ, 1 + χ at small χ, continuous across χ = 0
-    assert sh.oml_current(n, te, 1e4 * te, r, length) / random == pytest.approx(2 * math.sqrt(1e4 / math.pi), rel=1e-3)
-    assert sh.oml_current(n, te, 1e-3 * te, r, length) / random == pytest.approx(1.001, rel=1e-4)
+    assert sh.oml_current(n, te, 1e4 * te, r, length) / random == pytest.approx(
+        2 * math.sqrt(1e4 / math.pi), rel=1e-3
+    )
+    assert sh.oml_current(n, te, 1e-3 * te, r, length) / random == pytest.approx(
+        1.001, rel=1e-4
+    )
     assert sh.oml_current(n, te, 1e-12, r, length) == pytest.approx(random, rel=1e-9)
     # exact cylinder value at χ = 4: exp(4) erfc(2) + 4/√π
     expected = math.exp(4) * math.erfc(2) + 4 / math.sqrt(math.pi)
-    assert sh.oml_current(n, te, 4 * te, r, length) / random == pytest.approx(expected, rel=1e-10)
+    assert sh.oml_current(n, te, 4 * te, r, length) / random == pytest.approx(
+        expected, rel=1e-10
+    )
 
 
 def test_oml_ions_and_errors():
@@ -269,21 +319,27 @@ def test_oml_ions_and_errors():
 def test_ambipolar_diffusion_limits():
     mu_i, te, ti = 2e-4, 3.0, 0.03
     # D_i (1 + T_e/T_i) with D_i = μ_i T_i
-    assert sh.ambipolar_diffusion(mu_i, te, ti) == pytest.approx(mu_i * ti * (1 + te / ti), rel=1e-12)
-    # general form reduces to it for μ_e >> μ_i and to the electron-limited value for μ_e << μ_i
-    assert sh.ambipolar_diffusion(mu_i, te, ti, electron_mobility=1e12) == pytest.approx(
-        sh.ambipolar_diffusion(mu_i, te, ti), rel=1e-6
+    assert sh.ambipolar_diffusion(mu_i, te, ti) == pytest.approx(
+        mu_i * ti * (1 + te / ti), rel=1e-12
     )
+    # general form reduces to it for μ_e >> μ_i and to the electron-limited value for μ_e << μ_i
+    assert sh.ambipolar_diffusion(
+        mu_i, te, ti, electron_mobility=1e12
+    ) == pytest.approx(sh.ambipolar_diffusion(mu_i, te, ti), rel=1e-6)
     d_e = 1e-2 * te
     mu_e = 1e-2
     expected = (mu_i * d_e + mu_e * mu_i * ti) / (mu_i + mu_e)
-    assert sh.ambipolar_diffusion(mu_i, te, ti, electron_mobility=mu_e) == pytest.approx(expected, rel=1e-12)
+    assert sh.ambipolar_diffusion(
+        mu_i, te, ti, electron_mobility=mu_e
+    ) == pytest.approx(expected, rel=1e-12)
 
 
 def test_bohm_diffusion():
     assert sh.bohm_diffusion(10.0, 0.01) == pytest.approx(62.5)
     assert sh.bohm_diffusion(10.0, -0.01) == pytest.approx(62.5)
-    assert sh.bohm_diffusion(np.array([1.0, 2.0]), 1.0) == pytest.approx([1 / 16, 1 / 8])
+    assert sh.bohm_diffusion(np.array([1.0, 2.0]), 1.0) == pytest.approx(
+        [1 / 16, 1 / 8]
+    )
 
 
 def test_paschen_minimum_and_branches():
@@ -307,7 +363,9 @@ def test_paschen_minimum_and_branches():
     # left of the asymptote there is no breakdown
     assert math.isnan(sh.paschen_breakdown(1.0, 1e-3))
     assert sh.paschen_breakdown(1e5, 1e-3, gas="Ar") > 0
-    assert sh.paschen_breakdown(1e5, 1e-3, constants=(a, b)) == sh.paschen_breakdown(1e5, 1e-3)
+    assert sh.paschen_breakdown(1e5, 1e-3, constants=(a, b)) == sh.paschen_breakdown(
+        1e5, 1e-3
+    )
     with pytest.raises(ValueError):
         sh.paschen_breakdown(1e5, 1e-3, gas="xenon")
 
@@ -345,12 +403,16 @@ def test_paschen_helium_constant():
 def test_mean_free_path():
     assert sh.mean_free_path(1e-19, density=1e20) == pytest.approx(0.1, rel=1e-12)
     n = 1.0 / (par.boltzmann_constant * 300.0)
-    assert sh.mean_free_path(1e-19, pressure=1.0) == pytest.approx(1 / (n * 1e-19), rel=1e-12)
+    assert sh.mean_free_path(1e-19, pressure=1.0) == pytest.approx(
+        1 / (n * 1e-19), rel=1e-12
+    )
     # n ∝ 1/T
     assert sh.mean_free_path(1.0, pressure=1.0, temperature=600.0) == pytest.approx(
         2 * sh.mean_free_path(1.0, pressure=1.0, temperature=300.0), rel=1e-12
     )
-    assert sh.mean_free_path(np.array([1e-19, 2e-19]), density=1e20) == pytest.approx([0.1, 0.05])
+    assert sh.mean_free_path(np.array([1e-19, 2e-19]), density=1e20) == pytest.approx(
+        [0.1, 0.05]
+    )
     with pytest.raises(ValueError):
         sh.mean_free_path(1e-19)
     with pytest.raises(ValueError):

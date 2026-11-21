@@ -13,7 +13,10 @@ import plasma_plots  # noqa: E402
 from plasma_plots import pyvista_plots as p3  # noqa: E402
 
 needs_trame = pytest.mark.skipif(
-    any(importlib.util.find_spec(name) is None for name in ("trame_pyvista", "nest_asyncio2")),
+    any(
+        importlib.util.find_spec(name) is None
+        for name in ("trame_pyvista", "nest_asyncio2")
+    ),
     reason='needs the scene extra: pip install "plasma-plots[scene]"',
 )
 
@@ -21,7 +24,9 @@ needs_trame = pytest.mark.skipif(
 def sphere_plotter():
     sphere = pv.Sphere()
     plotter = pv.Plotter(off_screen=True, window_size=[320, 240])
-    plotter.add_mesh(sphere, scalars=sphere.points[:, 2], scalar_bar_args={"title": "z"})
+    plotter.add_mesh(
+        sphere, scalars=sphere.points[:, 2], scalar_bar_args={"title": "z"}
+    )
     return plotter
 
 
@@ -33,7 +38,9 @@ def test_scene_is_exported_at_the_top_level():
 @needs_trame
 def test_the_mime_bundle_has_the_page_the_screenshot_and_the_metadata():
     plotter = sphere_plotter()
-    data, metadata = plasma_plots.scene(plotter, alt="A sphere", title="Sphere")._repr_mimebundle_()
+    data, metadata = plasma_plots.scene(
+        plotter, alt="A sphere", title="Sphere"
+    )._repr_mimebundle_()
     assert set(data) == {"text/html", "image/png"}
     assert metadata == {"pyvista-scene": {"alt": "A sphere", "title": "Sphere"}}
     # a full standalone document, vtk.js inlined

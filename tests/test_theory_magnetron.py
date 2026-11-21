@@ -19,7 +19,9 @@ def coaxial_reaches_anode(field, ra, rc, voltage, steps=200000):
     scale = voltage / np.log(ra / rc)
     for _ in range(steps):
         r2 = x[0] ** 2 + x[1] ** 2
-        e = -scale * np.array([x[0], x[1], 0.0]) / r2  # E = -grad(phi), phi = V ln(r/rc)/ln(ra/rc)
+        e = (
+            -scale * np.array([x[0], x[1], 0.0]) / r2
+        )  # E = -grad(phi), phi = V ln(r/rc)/ln(ra/rc)
         v_minus = v + q * e * dt / (2 * m)
         v_prime = v_minus + np.cross(v_minus, t_vec)
         v = v_minus + np.cross(v_prime, s_vec) + q * e * dt / (2 * m)
@@ -35,22 +37,28 @@ def test_hull_planar_formula():
     assert magnetron.hull_cutoff(voltage=v, gap=d) == pytest.approx(
         np.sqrt(2 * electron_mass * v / elementary_charge) / d
     )
-    assert magnetron.hull_cutoff(field=magnetron.hull_cutoff(voltage=v, gap=d), gap=d) == pytest.approx(v)
+    assert magnetron.hull_cutoff(
+        field=magnetron.hull_cutoff(voltage=v, gap=d), gap=d
+    ) == pytest.approx(v)
 
 
 def test_hull_cylindrical_reduces_to_planar():
     d = 1e-3
     for ra in (1.0, 0.5):
         rc = ra - d
-        assert magnetron.hull_cutoff(voltage=100.0, anode_radius=ra, cathode_radius=rc) == pytest.approx(
-            magnetron.hull_cutoff(voltage=100.0, gap=d), rel=2 * d / ra
-        )
+        assert magnetron.hull_cutoff(
+            voltage=100.0, anode_radius=ra, cathode_radius=rc
+        ) == pytest.approx(magnetron.hull_cutoff(voltage=100.0, gap=d), rel=2 * d / ra)
 
 
 def test_hull_cylindrical_formula():
     ra, rc, v = 0.06, 0.01, 300.0
-    expected = np.sqrt(8 * electron_mass * v / elementary_charge) / (ra * (1 - (rc / ra) ** 2))
-    assert magnetron.hull_cutoff(voltage=v, anode_radius=ra, cathode_radius=rc) == pytest.approx(expected)
+    expected = np.sqrt(8 * electron_mass * v / elementary_charge) / (
+        ra * (1 - (rc / ra) ** 2)
+    )
+    assert magnetron.hull_cutoff(
+        voltage=v, anode_radius=ra, cathode_radius=rc
+    ) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("ra, rc", [(0.06, 0.01), (0.03, 0.02)])
@@ -84,21 +92,34 @@ def test_brillouin_flow():
     assert parameters.plasma_frequency(flow["density"]) ** 2 == pytest.approx(
         0.5 * parameters.cyclotron_frequency(0.05) ** 2
     )
-    assert flow["angular_frequency"] == pytest.approx(parameters.cyclotron_frequency(0.05) / 2)
+    assert flow["angular_frequency"] == pytest.approx(
+        parameters.cyclotron_frequency(0.05) / 2
+    )
     assert flow["speed"] == pytest.approx(0.02 * flow["angular_frequency"])
 
 
 def test_hall_parameter_and_ionisation_velocity():
-    assert magnetron.hall_parameter(0.05, 1e8) == pytest.approx(parameters.cyclotron_frequency(0.05) / 1e8)
+    assert magnetron.hall_parameter(0.05, 1e8) == pytest.approx(
+        parameters.cyclotron_frequency(0.05) / 1e8
+    )
     assert magnetron.hall_parameter(0.05, 1e8, proton_mass * 40) < 2e-3
-    assert magnetron.critical_ionisation_velocity(100.0, 39.948) == pytest.approx(21.9e3, rel=2e-3)
-    half = 0.5 * 39.948 * proton_mass * magnetron.critical_ionisation_velocity(100.0, 39.948) ** 2
+    assert magnetron.critical_ionisation_velocity(100.0, 39.948) == pytest.approx(
+        21.9e3, rel=2e-3
+    )
+    half = (
+        0.5
+        * 39.948
+        * proton_mass
+        * magnetron.critical_ionisation_velocity(100.0, 39.948) ** 2
+    )
     assert half == pytest.approx(100.0 * elementary_charge)
 
 
 def test_exb_drift_speed():
     assert magnetron.exb_drift_speed(1e4, 0.05) == pytest.approx(2e5)
-    assert magnetron.exb_drift_speed(np.array([1e4, -2e4]), 0.05) == pytest.approx([2e5, 4e5])
+    assert magnetron.exb_drift_speed(np.array([1e4, -2e4]), 0.05) == pytest.approx(
+        [2e5, 4e5]
+    )
 
 
 K, E0, B, LN, A = 2 * np.pi / 0.05, 1e4, 0.05, 0.01, 39.948
@@ -111,7 +132,9 @@ def test_simon_hoh_solves_quadratic_and_phase_velocity():
     assert w**2 == pytest.approx(a * (w - omega_e))
     assert w.imag > 0
     assert w.real / K == pytest.approx(omega_i * LN / 2)
-    assert magnetron.simon_hoh_growth(K, E0, B, LN, A) == pytest.approx(np.sqrt(a * omega_e - a**2 / 4))
+    assert magnetron.simon_hoh_growth(K, E0, B, LN, A) == pytest.approx(
+        np.sqrt(a * omega_e - a**2 / 4)
+    )
     # large-drift limit
     assert w.imag == pytest.approx(K * np.sqrt(omega_i * LN * E0 / B), rel=1e-2)
 
@@ -131,11 +154,19 @@ def test_gradient_drift_cold_limit_matches_simon_hoh():
 
 def test_gradient_drift_finite_rho_and_collisions_perturb_slightly():
     w0 = magnetron.gradient_drift_frequency(K, E0, B, LN, 3.0, A)
-    w1 = magnetron.gradient_drift_frequency(K, E0, B, LN, 3.0, A, collision_frequency=1e7)
-    assert w0.imag == pytest.approx(magnetron.simon_hoh_growth(K, E0, B, LN, A), rel=0.05)
+    w1 = magnetron.gradient_drift_frequency(
+        K, E0, B, LN, 3.0, A, collision_frequency=1e7
+    )
+    assert w0.imag == pytest.approx(
+        magnetron.simon_hoh_growth(K, E0, B, LN, A), rel=0.05
+    )
     assert abs(w1.imag - w0.imag) < 0.05 * w0.imag
-    assert magnetron.gradient_drift_growth(K, E0, B, LN, 3.0, A) == pytest.approx(w0.imag)
-    assert magnetron.gradient_drift_phase_velocity(K, E0, B, LN, 3.0, A) == pytest.approx(w0.real / K)
+    assert magnetron.gradient_drift_growth(K, E0, B, LN, 3.0, A) == pytest.approx(
+        w0.imag
+    )
+    assert magnetron.gradient_drift_phase_velocity(
+        K, E0, B, LN, 3.0, A
+    ) == pytest.approx(w0.real / K)
 
 
 def test_gradient_drift_broadcasts():
@@ -189,7 +220,9 @@ def test_lower_hybrid_drift_galilean_shift_and_mirror():
 
 def test_lower_hybrid_drift_needs_a_drive():
     for ti in (0.5, 10.0):
-        w = magnetron.lower_hybrid_drift(1326.0, 0.02, 1e17, 10.0, ti, 0.0, 3e5, 131.293)
+        w = magnetron.lower_hybrid_drift(
+            1326.0, 0.02, 1e17, 10.0, ti, 0.0, 3e5, 131.293
+        )
         assert w.imag <= 1e-6 * abs(w)
 
 
@@ -211,11 +244,15 @@ def test_lower_hybrid_drift_cold_ions_match_polynomial_roots_and_threshold():
     critical = np.sqrt((wpi2 ** (1 / 3) + c2 ** (1 / 3)) ** 3 / flr) / k  # Eq. (7)
     for fraction in (0.3, 0.8, 0.97):
         expected = modified_two_stream(fraction * critical)
-        got = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, 1e-6, 0.0, fraction * critical, 131.293, kz)
+        got = magnetron.lower_hybrid_drift(
+            k, 0.02, 1e17, 10.0, 1e-6, 0.0, fraction * critical, 131.293, kz
+        )
         assert expected.imag > 0
         assert got == pytest.approx(expected, rel=1e-5)
     for fraction in (1.02, 1.5):
-        got = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, 1e-6, 0.0, fraction * critical, 131.293, kz)
+        got = magnetron.lower_hybrid_drift(
+            k, 0.02, 1e17, 10.0, 1e-6, 0.0, fraction * critical, 131.293, kz
+        )
         assert got.imag <= 1e-6 * abs(got)
 
 
@@ -240,5 +277,7 @@ def test_lower_hybrid_drift_cold_threshold_growth_formula():
         / (np.sqrt(3) * (1 + big_k ** (1 / 3)) ** 2.5 * np.sqrt(wpi2))
         * np.sqrt(f_min - flr)
     )
-    got = magnetron.lower_hybrid_drift(k, 0.02, 1e17, 10.0, 1e-6, 0.0, drift, 131.293, kz)
+    got = magnetron.lower_hybrid_drift(
+        k, 0.02, 1e17, 10.0, 1e-6, 0.0, drift, 131.293, kz
+    )
     assert got.imag == pytest.approx(formula, rel=0.03)

@@ -5,8 +5,8 @@ import pytest
 
 from plasma_plots.theory import beams
 from plasma_plots.theory.parameters import (
-    elementary_charge,
     electron_mass,
+    elementary_charge,
     plasma_frequency,
     proton_mass,
     speed_of_light,
@@ -23,8 +23,12 @@ def test_characteristic_current_and_perveance():
     # the relativistic K carries 1/(beta gamma)^3
     k_rel = beams.perveance(1.0, 1e6, kind="generalized", relativistic=True)
     v, gamma = beams.beam_speed(1e6, relativistic=True)
-    assert k_rel == pytest.approx(2 / (17.045e3 * (v / speed_of_light) ** 3 * gamma**3), rel=2e-3)
-    assert gamma == pytest.approx(1 + 1e6 * elementary_charge / (electron_mass * speed_of_light**2))
+    assert k_rel == pytest.approx(
+        2 / (17.045e3 * (v / speed_of_light) ** 3 * gamma**3), rel=2e-3
+    )
+    assert gamma == pytest.approx(
+        1 + 1e6 * elementary_charge / (electron_mass * speed_of_light**2)
+    )
     assert beams.perveance([1.0, 2.0], 100.0).shape == (2,)
     with pytest.raises(ValueError):
         beams.perveance(1.0, 1.0, kind="x")
@@ -39,10 +43,12 @@ def test_k_from_density_and_plasma_frequency():
     wp = beams.beam_plasma_frequency(n, mass=proton_mass)
     assert wp == pytest.approx(plasma_frequency(n, mass=proton_mass))
     assert k == pytest.approx(wp**2 * a**2 / (2 * v**2), rel=1e-12)
-    assert beams.beam_plasma_frequency(n, gamma=2.0) == pytest.approx(plasma_frequency(n) / 2**1.5)
-    assert beams.beam_plasma_frequency(n, gamma=2.0, direction="transverse") == pytest.approx(
-        plasma_frequency(n) / 2**0.5
+    assert beams.beam_plasma_frequency(n, gamma=2.0) == pytest.approx(
+        plasma_frequency(n) / 2**1.5
     )
+    assert beams.beam_plasma_frequency(
+        n, gamma=2.0, direction="transverse"
+    ) == pytest.approx(plasma_frequency(n) / 2**0.5)
 
 
 def test_child_langmuir():
@@ -50,9 +56,9 @@ def test_child_langmuir():
     j = beams.child_langmuir_aperture(1.0, np.sqrt(1 / np.pi), 1.0)
     assert j == pytest.approx(2.334e-6, rel=1e-3)
     # ions scale as 1/sqrt(mass); current scales as V^1.5 r^2/d^2
-    ratio = beams.child_langmuir_aperture(1.0, 1.0, 1.0, mass=proton_mass) / beams.child_langmuir_aperture(
-        1.0, 1.0, 1.0
-    )
+    ratio = beams.child_langmuir_aperture(
+        1.0, 1.0, 1.0, mass=proton_mass
+    ) / beams.child_langmuir_aperture(1.0, 1.0, 1.0)
     assert ratio == pytest.approx(np.sqrt(electron_mass / proton_mass))
     assert beams.child_langmuir_aperture(4.0, 1.0, 1.0) == pytest.approx(
         8 * beams.child_langmuir_aperture(1.0, 1.0, 1.0)
@@ -64,7 +70,14 @@ def test_child_langmuir():
     )
     # check against Child's law by integrating the 1-D Poisson equation: phi'' = J/(eps0 v)
     voltage, gap = 1e3, 1e-2
-    j = 4 * vacuum_permittivity / 9 * np.sqrt(2 * elementary_charge / electron_mass) * voltage**1.5 / gap**2
+    j = (
+        4
+        * vacuum_permittivity
+        / 9
+        * np.sqrt(2 * elementary_charge / electron_mass)
+        * voltage**1.5
+        / gap**2
+    )
     # phi = V (x/d)^(4/3) has phi'' = (4/9) V d^(-4/3) x^(-2/3) and v = sqrt(2 e phi/m)
     x = np.linspace(0.1, 1.0, 5) * gap
     phi = voltage * (x / gap) ** (4 / 3)
@@ -86,7 +99,9 @@ def test_envelope_drift_closed_form_and_hyperbola():
     assert xpp == pytest.approx(1e-6**2 / xs[1] ** 3, rel=1e-5)
     # zero perveance, zero focusing: the RK4 integrator reproduces it, including a tilted start
     radius, slope = beams.kv_envelope_ode(z, 1e-3, 2e-4, 1e-6)
-    np.testing.assert_allclose(radius, beams.kv_envelope(z, 1e-3, 2e-4, 1e-6), rtol=1e-7)
+    np.testing.assert_allclose(
+        radius, beams.kv_envelope(z, 1e-3, 2e-4, 1e-6), rtol=1e-7
+    )
 
 
 def test_envelope_zero_emittance_space_charge_expansion():
@@ -99,9 +114,13 @@ def test_envelope_zero_emittance_space_charge_expansion():
     # independent quadrature of exp(t^2)
     t = np.linspace(0, 1, 20001)
     integral = np.array([np.trapezoid(np.exp((t * si) ** 2) * si, t) for si in s])
-    np.testing.assert_allclose(x0 * np.sqrt(2 / (k_perv / 4)) * integral, z, rtol=1e-6, atol=1e-12)
+    np.testing.assert_allclose(
+        x0 * np.sqrt(2 / (k_perv / 4)) * integral, z, rtol=1e-6, atol=1e-12
+    )
     # the same through the first integral x'^2 = (K/2) ln(x/x0)
-    np.testing.assert_allclose(slope**2, k_perv / 2 * np.log(radius / x0), rtol=1e-5, atol=1e-14)
+    np.testing.assert_allclose(
+        slope**2, k_perv / 2 * np.log(radius / x0), rtol=1e-5, atol=1e-14
+    )
 
 
 def test_envelope_invariants_and_focusing():
@@ -109,20 +128,28 @@ def test_envelope_invariants_and_focusing():
     k_perv, eps, x0, s0 = 2e-4, 2e-6, 1e-3, -1e-4
     z = np.linspace(0, 10, 11)
     radius, slope = beams.kv_envelope_ode(z, x0, s0, eps, perveance=k_perv)
-    first_integral = s0**2 + eps**2 * (1 / x0**2 - 1 / radius**2) + k_perv / 2 * np.log(radius / x0)
+    first_integral = (
+        s0**2 + eps**2 * (1 / x0**2 - 1 / radius**2) + k_perv / 2 * np.log(radius / x0)
+    )
     np.testing.assert_allclose(slope**2, first_integral, rtol=1e-6, atol=1e-16)
     # matched beam in a constant channel: x'' = 0 when kappa x = eps^2/x^3 + K/(4x)
     x_match = 1e-3
     kappa = eps**2 / x_match**4 + k_perv / (4 * x_match**2)
-    radius, _ = beams.kv_envelope_ode(z, x_match, 0.0, eps, perveance=k_perv, focusing=lambda zz: kappa)
+    radius, _ = beams.kv_envelope_ode(
+        z, x_match, 0.0, eps, perveance=k_perv, focusing=lambda zz: kappa
+    )
     np.testing.assert_allclose(radius, x_match, rtol=1e-9)
     # a weak focusing channel without space charge oscillates with the betatron wavenumber
     # sqrt(kappa) for small amplitude about the matched radius: period 2 pi / (2 sqrt(kappa)) for x
     kappa, eps = 25.0, 1e-6
     x_m = np.sqrt(eps / np.sqrt(kappa))
     zs = np.linspace(0, np.pi / np.sqrt(kappa), 3)
-    radius, _ = beams.kv_envelope_ode(zs, 1.01 * x_m, 0.0, eps, focusing=lambda zz: kappa)
-    assert radius[2] == pytest.approx(radius[0], rel=1e-5)  # envelope period is pi/sqrt(kappa)
+    radius, _ = beams.kv_envelope_ode(
+        zs, 1.01 * x_m, 0.0, eps, focusing=lambda zz: kappa
+    )
+    assert radius[2] == pytest.approx(
+        radius[0], rel=1e-5
+    )  # envelope period is pi/sqrt(kappa)
     assert radius[1] < radius[0]
     with pytest.raises(ValueError):
         beams.kv_envelope_ode([1.0, 0.0], 1e-3, 0.0, 1e-6)
@@ -136,7 +163,9 @@ def test_divergence_and_pierce():
     m, t_ev, e_ev = proton_mass, 5.0, 2e3
     vperp = rng.normal(0, np.sqrt(t_ev * elementary_charge / m), 400_000)
     vz = np.sqrt(2 * e_ev * elementary_charge / m)
-    assert np.std(vperp / vz) == pytest.approx(beams.beam_divergence_gaussian(t_ev, e_ev, "rms"), rel=5e-3)
+    assert np.std(vperp / vz) == pytest.approx(
+        beams.beam_divergence_gaussian(t_ev, e_ev, "rms"), rel=5e-3
+    )
     assert beams.pierce_angle() == 67.5
     assert beams.pierce_angle(degrees=False) == pytest.approx(np.radians(67.5))
     with pytest.raises(ValueError):
@@ -158,7 +187,9 @@ def test_aperture_lens_against_paraxial_ray():
         return (e2 - e1) * 0.5 / w / np.cosh(z / w) ** 2
 
     def f(z, y):
-        return np.array([y[1], -dphi(z) / (2 * phi(z)) * y[1] - d2phi(z) / (4 * phi(z)) * y[0]])
+        return np.array(
+            [y[1], -dphi(z) / (2 * phi(z)) * y[1] - d2phi(z) / (4 * phi(z)) * y[0]]
+        )
 
     z, h, y = -30 * w, w / 20, np.array([1e-3, 0.0])
     while z < 30 * w - 1e-12:
@@ -168,14 +199,24 @@ def test_aperture_lens_against_paraxial_ray():
         k4 = f(z + h, y + h * k3)
         y, z = y + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4), z + h
     focal = -y[0] / y[1]
-    assert focal == pytest.approx(beams.aperture_lens_focal_length(voltage, e1, e2), rel=2e-2)
-    assert beams.aperture_lens_focal_length(voltage, 1.0, 5e5) > 0 > beams.aperture_lens_focal_length(voltage, 5e5, 1.0)
+    assert focal == pytest.approx(
+        beams.aperture_lens_focal_length(voltage, e1, e2), rel=2e-2
+    )
+    assert (
+        beams.aperture_lens_focal_length(voltage, 1.0, 5e5)
+        > 0
+        > beams.aperture_lens_focal_length(voltage, 5e5, 1.0)
+    )
     assert np.isinf(beams.aperture_lens_focal_length(voltage, 1e5, 1e5))
 
 
 def test_attenuation_and_compensation_time():
-    assert beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0) == pytest.approx(np.exp(-0.5))
-    assert beams.stripping_fraction(1e19, 1e-20, length=5.0) == pytest.approx(1 - np.exp(-0.5))
+    assert beams.neutral_beam_attenuation(1e19, 1e-20, length=5.0) == pytest.approx(
+        np.exp(-0.5)
+    )
+    assert beams.stripping_fraction(1e19, 1e-20, length=5.0) == pytest.approx(
+        1 - np.exp(-0.5)
+    )
     # a parabolic density profile: integral of n0 (1 - (l/L)^2) over [0, L] is 2/3 n0 L
     x = np.linspace(0, 2.0, 2001)
     density = 1e19 * (1 - (x / 2.0) ** 2)
@@ -188,13 +229,17 @@ def test_attenuation_and_compensation_time():
     assert out == pytest.approx(np.exp(-np.trapezoid(density * sigma, x)))
     batch = np.stack([density, 2 * density])
     out = beams.neutral_beam_attenuation(batch.T, 1e-20, positions=x, axis=0)
-    np.testing.assert_allclose(out, np.exp(-np.array([1.0, 2.0]) * 1e19 * 1e-20 * 4 / 3), rtol=1e-6)
+    np.testing.assert_allclose(
+        out, np.exp(-np.array([1.0, 2.0]) * 1e19 * 1e-20 * 4 / 3), rtol=1e-6
+    )
     with pytest.raises(ValueError):
         beams.neutral_beam_attenuation(1e19, 1e-20)
     # tau = 1/(n sigma v): the neutralising density grows as n_b n_g sigma v t
     n_g, sigma, v = 1e18, 2e-20, 1e6
     assert beams.space_charge_compensation_time(n_g, sigma, v) == pytest.approx(5e-5)
-    assert beams.space_charge_compensation_time(np.array([n_g, 2 * n_g]), sigma, v).shape == (2,)
+    assert beams.space_charge_compensation_time(
+        np.array([n_g, 2 * n_g]), sigma, v
+    ).shape == (2,)
 
 
 def _field_energy_factor(density, r):
@@ -216,9 +261,13 @@ def _field_energy_factor(density, r):
 def test_emittance_growth_space_charge():
     # a KV beam (u = 0) does not change its emittance, whatever its space charge
     assert beams.emittance_growth_space_charge(0.0, 0.3) == 1.0
-    assert beams.emittance_growth_space_charge(0.15, 1.0) == 1.0  # no space charge: no growth
+    assert (
+        beams.emittance_growth_space_charge(0.15, 1.0) == 1.0
+    )  # no space charge: no growth
     # the closed form, and it is symmetric: u_i = u_f gives 1
-    assert beams.emittance_growth_space_charge(0.1, 0.5) == pytest.approx(np.sqrt(1 + 0.5 * 3 * 0.1))
+    assert beams.emittance_growth_space_charge(0.1, 0.5) == pytest.approx(
+        np.sqrt(1 + 0.5 * 3 * 0.1)
+    )
     assert beams.emittance_growth_space_charge(0.1, 0.5, field_energy_final=0.1) == 1.0
     assert beams.emittance_growth_space_charge(0.0, 0.5, field_energy_final=0.1) < 1.0
     assert beams.emittance_growth_space_charge([0.1, 0.2], 0.5).shape == (2,)
@@ -233,7 +282,9 @@ def test_field_energy_factor_gaussian_and_uniform():
     # int (1 - e^-u)^2 du / u = ln X + gamma - ln 2 in the large pipe limit)
     r = np.linspace(0.0, 400.0, 400001)
     gauss = np.exp(-(r**2) / 2)
-    assert _field_energy_factor(gauss, r) == pytest.approx(2 * np.euler_gamma - 1, abs=2e-3)
+    assert _field_energy_factor(gauss, r) == pytest.approx(
+        2 * np.euler_gamma - 1, abs=2e-3
+    )
     # a uniform (KV) profile has u = 0
     uniform = np.where(r < 2.0, 1.0, 0.0)
     assert _field_energy_factor(uniform, r) == pytest.approx(0.0, abs=2e-3)

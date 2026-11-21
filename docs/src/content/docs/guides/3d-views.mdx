@@ -5,6 +5,8 @@ description: Isosurfaces, cuts, field lines, orbits and domain wireframes with P
 
 import PyVistaScene from '@max-models/starlight-theme/components/PyVistaScene.astro';
 import fig_isosurface from '../../../assets/figures/3d_isosurface.png';
+import fig_periodic_sector from '../../../assets/figures/3d_periodic_sector.png';
+import fig_periodic_full from '../../../assets/figures/3d_periodic_full.png';
 import fig_slices from '../../../assets/figures/3d_slices.png';
 import fig_flux_surface from '../../../assets/figures/3d_flux_surface.png';
 import fig_streamlines from '../../../assets/figures/3d_streamlines.png';
@@ -290,9 +292,27 @@ plasma_plots.scene(plotter, alt="Isosurfaces of a helical mode in a torus")
 ```
 
 `alt` describes the screenshot and `title` names the scene, and `window_size=(w, h)`
-sets the screenshot's size. The color bar is left out of the interactive scene,
-because vtk.js would label it 0 to 255; the screenshot keeps it. Outside a notebook,
-`.save_html("scene.html")` and `.save_png("scene.png")` write the two files.
+sets the screenshot's size. vtk.js would label its own color bar 0 to 255, so the
+interactive scene carries the plotter's color bars as an overlay with the right values
+instead. Most of a small scene's size (about 1 MB) is the inlined vtk.js viewer;
+`decimate=0.5` drops half of every surface's triangles for large meshes.
+
+`backend="plotly"` shows the scene as a Plotly 3-D figure instead: a few hundred kB,
+themed like the page, with the values on hover, and without the screenshot or trame.
+Surfaces become `Mesh3d` traces, lines and points `Scatter3d`, each with its color or
+color scale and opacity. Very large meshes are decimated to `max_faces` (200 000) triangles;
+for those, and for streamlines with many tubes, the vtk.js scene renders better:
+
+```python
+plasma_plots.scene(plotter, backend="plotly", title="|B| on the last surface")
+# or the figure itself
+from plasma_plots import scene_to_plotly
+
+scene_to_plotly(plotter).write_html("scene.html")
+```
+
+Outside a notebook, `.save_html("scene.html")` and `.save_png("scene.png")` write the
+two files of the vtk.js scene.
 
 The export needs trame-pyvista, which comes with the `scene` extra:
 
@@ -323,3 +343,54 @@ series. Any array works, e.g. a filtered mode from
 To share a scene as a standalone web page, like the interactive views on this
 page, write it with `plasma_plots.scene(plotter).save_html("scene.html")` (see
 [Interactive scenes in notebooks](#interactive-scenes-in-notebooks)).
+
+## Expanding a periodic sector
+
+Some Struphy mappings cover only one poloidal or toroidal sector. Copy the
+result to the full torus before plotting it:
+
+```python
+from plasma_plots import repeat_periodic
+
+pol_period, tor_period = 1, 6
+phi = out.evaluate(
+    "em_fields/phi",
+    t=-1,
+    eta1=np.array([1.0]),
+    eta2=np.linspace(0.0, 1.0, 64, endpoint=False),
+    eta3=np.linspace(0.0, 1.0, 64, endpoint=False),
+)
+
+# Simulated sector (1 poloidal, 6 toroidal)
+phi.plasma.plot.slices_3d(
+    cuts={"eta1": 1.0},
+    cmap="RdBu_r",
+    title=f"Simulated sector ({pol_period} poloidal, {tor_period} toroidal)",
+)
+
+# Copy the sector to the full torus, rotating both the values' physical coordinates
+# and the attached X/Y/Z coordinates
+full_phi = repeat_periodic(
+    phi,
+    poloidal_period=pol_period,
+    toroidal_period=tor_period,
+    R0=3.0,  # major radius of the circular poloidal axis
+)
+full_phi.plasma.plot.slices_3d(
+    cuts={"eta1": 1.0},
+    cmap="RdBu_r",
+    title=f"Full torus ({pol_period} poloidal, {tor_period} toroidal)",
+)
+```
+
+The first plot shows the simulated sector; the titled second plot shows the
+expanded full torus. `repeat_periodic` copies the values and rotates the
+attached `X`, `Y`, `Z` coordinates around both toroidal and poloidal axes,
+automatically matching the direction the sector is oriented in. `R0` and `Z0`
+specify the poloidal rotation centre; use the major-axis parameters of the
+mapping. `repeat_periodic` works with both 2-D surfaces drawn with `slices_3d`
+and full 3-D volumes drawn with `isosurface`.
+
+<PyVistaScene src="/pyvista/3d_periodic_sector.html" image={fig_periodic_sector} alt="A simulated poloidal and toroidal sector of a torus" />
+
+<PyVistaScene src="/pyvista/3d_periodic_full.html" image={fig_periodic_full} alt="The sector copied to a full torus" />

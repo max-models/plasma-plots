@@ -7,6 +7,7 @@ operate on labeled xarray data from any producer.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping, Sequence
 
 import numpy as np
@@ -84,6 +85,193 @@ def logical_dims(data: xr.DataArray | xr.Dataset) -> tuple[str, str, str]:
     )
 
 
+def periodicity(points: np.ndarray, axis: int) -> str | None:
+    """How a direction of a ``(..., 3)`` array of physical points wraps around, if it does.
+
+    The direction is ``"closed"`` when its last slice coincides with its first (to 1e-9 of the
+    median step), and ``"open"`` when the seam between them is at most 1.5 times the last grid
+    step everywhere.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Physical points, with the Cartesian coordinates ``(X, Y, Z)`` along the last axis.
+    axis : int
+        The axis of ``points`` to examine; it needs at least three points to be periodic.
+
+    Returns
+    -------
+    {"closed", "open", None}
+        ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of
+        the seam, as on Struphy's cell centers), or ``None`` (not periodic, e.g. a radius or the
+        ends of a torus sector).
+    """
+    n = points.shape[axis]
+    if n < 3:
+        return None
+    take = lambda i: np.take(points, i, axis=axis)  # noqa: E731
+    seam = np.linalg.norm(take(-1) - take(0), axis=-1)
+    step = np.linalg.norm(take(-1) - take(-2), axis=-1)
+    scale = np.median(step)
+    if scale <= 0:
+        return None
+    if np.all(seam < 1e-9 * scale):
+        return "closed"
+    if np.all(seam <= 1.5 * np.maximum(step, 1e-12 * scale)):
+        return "open"
+    return None
+
+
+def repeat_periodic(
+    data: xr.DataArray | xr.Dataset,
+    *,
+    poloidal_period: int = 1,
+    toroidal_period: int = 1,
+    R0: float = 0.0,
+    Z0: float = 0.0,
+    dims: tuple[str, str] | None = None,
+) -> xr.DataArray | xr.Dataset:
+    """Copy a poloidal/toroidal sector to the full periodic domain.
+
+    The copies retain the values of ``data`` and extend its logical coordinates by one
+    sector per copy.  Attached ``X``, ``Y`` and ``Z`` coordinates are rotated around
+    the toroidal axis and around the circular poloidal axis, respectively.  This is
+    useful for plotting a Struphy run whose mapping covers only one of several identical
+    sectors.
+
+    Parameters
+    ----------
+    data : xarray.DataArray or xarray.Dataset
+        The field or collection of fields.  Physical coordinates are transformed when
+        all of ``X``, ``Y`` and ``Z`` are present; without them only the data and logical
+        coordinates are repeated.
+    poloidal_period, toroidal_period : int, optional
+        Number of copies represented by the input in the poloidal and toroidal
+        directions.  A value of one leaves that direction unchanged. Default: one.
+    R0, Z0 : float, optional
+        Centre of the circular poloidal rotation in the ``(R, Z)`` plane. ``R0`` is
+        normally the major radius of a Struphy torus. Default: zero.
+    dims : tuple of str, optional
+        Names of the poloidal and toroidal dimensions. Default: the second and third
+        logical dimensions, e.g. ``("eta2", "eta3")``.
+
+    Returns
+    -------
+    xarray.DataArray or xarray.Dataset
+        ``data`` copied over the requested full periodic domain.
+
+    Raises
+    ------
+    ValueError
+        If a period is not a positive integer or a requested dimension is absent.
+
+    Examples
+    --------
+    >>> full = repeat_periodic(phi, poloidal_period=2, toroidal_period=6, R0=3.0)
+    >>> full.sizes["eta3"] == 6 * phi.sizes["eta3"]
+    True
+    """
+    periods = (poloidal_period, toroidal_period)
+    if any(
+        not isinstance(period, (int, np.integer)) or period < 1 for period in periods
+    ):
+        raise ValueError(
+            "poloidal_period and toroidal_period must be positive integers"
+        )
+    logical = logical_dims(data)
+    poloidal, toroidal = logical[1:] if dims is None else dims
+    missing = [dim for dim in (poloidal, toroidal) if dim not in data.dims]
+    if missing:
+        raise ValueError(f"periodic dimensions {missing} are missing from {data.dims}")
+    has_physical = all(name in data.coords for name in ("X", "Y", "Z"))
+    sign_p, sign_t = 1.0, 1.0
+    if has_physical:
+        points = []
+        for name in ("X", "Y", "Z"):
+            coordinate = data.coords[name]
+            for dim in (poloidal, toroidal):
+                if dim not in coordinate.dims:
+                    coordinate = coordinate.expand_dims({dim: data.sizes[dim]})
+            remaining = tuple(
+                dim for dim in coordinate.dims if dim not in (poloidal, toroidal)
+            )
+            points.append(
+                np.asarray(
+                    coordinate.transpose(poloidal, toroidal, *remaining), dtype=float
+                )
+            )
+        points = np.stack(points, axis=-1)
+        if points.shape[0] >= 2:
+            radial = np.hypot(points[..., 0], points[..., 1]) - R0
+            z_coord = points[..., 2] - Z0
+            theta = np.arctan2(z_coord, radial)
+            dtheta = np.unwrap(theta, axis=0)
+            delta_p = np.take(dtheta, -1, axis=0) - np.take(dtheta, 0, axis=0)
+            if float(np.nanmedian(delta_p)) < 0.0:
+                sign_p = -1.0
+        if points.shape[1] >= 2:
+            phi = np.arctan2(points[..., 1], points[..., 0])
+            dphi = np.unwrap(phi, axis=1)
+            delta_t = np.take(dphi, -1, axis=1) - np.take(dphi, 0, axis=1)
+            if float(np.nanmedian(delta_t)) < 0.0:
+                sign_t = -1.0
+        for axis, dim in enumerate((poloidal, toroidal)):
+            if data.sizes[dim] >= 3 and periodicity(points, axis) == "closed":
+                data = data.isel({dim: slice(None, -1)})
+        if any(data.sizes[dim] < 1 for dim in (poloidal, toroidal)):
+            raise ValueError("periodic dimensions must contain at least one point")
+
+    def transformed(part, poloidal_copy, toroidal_copy):
+        coords = {}
+        if has_physical:
+            angle_p = sign_p * 2.0 * np.pi * poloidal_copy / poloidal_period
+            angle_t = sign_t * 2.0 * np.pi * toroidal_copy / toroidal_period
+            cos_p, sin_p = np.cos(angle_p), np.sin(angle_p)
+            cos_t, sin_t = np.cos(angle_t), np.sin(angle_t)
+            X, Y, Z = (
+                np.asarray(part.coords[name], dtype=float) for name in ("X", "Y", "Z")
+            )
+            R = np.hypot(X, Y)
+            radial = R - R0
+            poloidal_r = R0 + radial * cos_p - (Z - Z0) * sin_p
+            poloidal_z = Z0 + radial * sin_p + (Z - Z0) * cos_p
+            safe_R = np.where(R > 0.0, R, 1.0)
+            cos_phi, sin_phi = X / safe_R, Y / safe_R
+            coords["X"] = (
+                part.coords["X"].dims,
+                poloidal_r * (cos_phi * cos_t - sin_phi * sin_t),
+            )
+            coords["Y"] = (
+                part.coords["Y"].dims,
+                poloidal_r * (sin_phi * cos_t + cos_phi * sin_t),
+            )
+            coords["Z"] = (part.coords["Z"].dims, poloidal_z)
+        for dim, copy in ((poloidal, poloidal_copy), (toroidal, toroidal_copy)):
+            if dim in part.coords:
+                coords[dim] = np.asarray(part[dim]) + copy
+        return part.assign_coords(coords)
+
+    result = data
+    for dim, period, index in (
+        (poloidal, poloidal_period, 0),
+        (toroidal, toroidal_period, 1),
+    ):
+        if period == 1:
+            continue
+        parts = [
+            transformed(
+                result.isel({dim: slice(None)}),
+                p if index == 0 else 0,
+                p if index == 1 else 0,
+            )
+            for p in range(period)
+        ]
+        result = xr.concat(
+            parts, dim=dim, coords="minimal", compat="override", join="override"
+        )
+    return result
+
+
 def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
     """The period of an angle coordinate, from its ``period`` attribute.
 
@@ -107,7 +295,9 @@ def angle_period(data: xr.DataArray | xr.Dataset, dim: str) -> float | None:
     return None if period is None else float(period)
 
 
-def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> xr.DataArray:
+def validate_array(
+    data: xr.DataArray, *, required_dims: Sequence[str] = ()
+) -> xr.DataArray:
     """Check that ``data`` is an xarray.DataArray with the required dimensions.
 
     Parameters
@@ -133,8 +323,42 @@ def validate_array(data: xr.DataArray, *, required_dims: Sequence[str] = ()) -> 
         raise TypeError(f"expected xarray.DataArray, got {type(data).__name__}")
     missing = tuple(dim for dim in required_dims if dim not in data.dims)
     if missing:
-        raise ValueError(f"missing dimensions {missing}; available dimensions are {data.dims}")
+        raise ValueError(
+            f"missing dimensions {missing}; available dimensions are {data.dims}"
+        )
     return data
+
+
+_UNIT_POWER = re.compile(r"\^\s*(\{[^{}]*\}|\([-+]?\d+(?:\.\d+)?\)|[-+]?\d+(?:\.\d+)?)")
+
+
+def unit_label(units: str) -> str:
+    """Units for a label: their exponents as superscripts, in mathtext.
+
+    ``units`` stay a plain string that unit libraries read (``"W/m^3"``, ``"m^-3"``); a label shows
+    ``W/m³``: Matplotlib, and Plotly through :func:`plasma_plots.plotly_backend.plotly_text`, draw
+    the mathtext. Units that already have mathtext (a ``$``) are kept as they are.
+
+    Parameters
+    ----------
+    units : str
+        The units, e.g. ``"1/(m^3 s)"``.
+
+    Returns
+    -------
+    str
+        The label of the units, e.g. ``"1/(m$^{3}$ s)"``.
+
+    Examples
+    --------
+    >>> unit_label("W/m^3")
+    'W/m$^{3}$'
+    >>> unit_label("m^-3")
+    'm$^{-3}$'
+    """
+    if not units or "$" in units:
+        return units
+    return _UNIT_POWER.sub(lambda m: "$^{" + m.group(1).strip("{}()") + "}$", units)
 
 
 def axis_label(data: xr.DataArray, dim: str) -> str:
@@ -166,7 +390,7 @@ def axis_label(data: xr.DataArray, dim: str) -> str:
     coord = data.coords.get(dim)
     attrs = {} if coord is None else coord.attrs
     label = attrs.get("label") or attrs.get("long_name") or DIM_LABELS.get(dim, dim)
-    unit = "" if coord is None else coord.attrs.get("units", "")
+    unit = "" if coord is None else unit_label(coord.attrs.get("units", ""))
     return f"{label} [{unit}]" if unit else label
 
 
@@ -223,7 +447,9 @@ def map_coordinate(
     if dim not in data.dims:
         raise KeyError(f"dimension {dim!r} not found in {data.dims}")
     values = np.asarray(data[dim], dtype=float)
-    mapped = np.asarray(mapping(values) if callable(mapping) else mapping * values, dtype=float)
+    mapped = np.asarray(
+        mapping(values) if callable(mapping) else mapping * values, dtype=float
+    )
     attrs = {"long_name": label if label is not None else (name or dim)}
     if units:
         attrs["units"] = units
@@ -255,11 +481,13 @@ def value_label(data: xr.DataArray) -> str:
     label = data.attrs.get("label") or data.attrs.get("long_name") or data.name or ""
     if data.attrs.get("units") in DIMENSIONLESS and label:
         return label  # a ratio or a fraction: no unit to show
-    unit = data.attrs.get("units", "") or "a.u."
+    unit = unit_label(data.attrs.get("units", "")) or "a.u."
     return f"{label} [{unit}]" if label else f"[{unit}]"
 
 
-def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE) -> list[str]:
+def scalar_names(
+    scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_EXCLUDE
+) -> list[str]:
     """The names of the scalar time series to use from a collection.
 
     Parameters
@@ -282,7 +510,9 @@ def scalar_names(scalars: xr.Dataset | Mapping, *, names=None, exclude=SCALARS_E
     KeyError
         If one of ``names`` is not in ``scalars``.
     """
-    available = tuple(scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys())
+    available = tuple(
+        scalars.data_vars if isinstance(scalars, xr.Dataset) else scalars.keys()
+    )
     if names is not None:
         missing = [name for name in names if name not in available]
         if missing:
@@ -343,7 +573,9 @@ def save_scalars(
     for array in arrays:
         validate_array(array, required_dims=("t",))
         if array.dims != ("t",):
-            raise ValueError(f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}")
+            raise ValueError(
+                f"scalar {array.name!r} must have only the 't' dimension, got {array.dims}"
+            )
     if arrays:
         arrays = xr.align(*arrays, join="exact")
         time = np.asarray(arrays[0].coords["t"])
@@ -352,7 +584,9 @@ def save_scalars(
         time, values = np.zeros(0), np.zeros((0, 0))
     fmt = (fmt or os.path.splitext(path)[1].lstrip(".") or "csv").lower()
     if fmt == "npz":
-        np.savez(path, t=time, **{name: values[:, i] for i, name in enumerate(selected)})
+        np.savez(
+            path, t=time, **{name: values[:, i] for i, name in enumerate(selected)}
+        )
     elif fmt == "csv":
         np.savetxt(
             path,
@@ -364,43 +598,6 @@ def save_scalars(
     else:
         raise ValueError(f"unknown format {fmt!r}, expected 'csv' or 'npz'")
     return path
-
-
-def periodicity(points: np.ndarray, axis: int) -> str | None:
-    """How a direction of a ``(..., 3)`` array of physical points wraps around, if it does.
-
-    The direction is ``"closed"`` when its last slice coincides with its first (to 1e-9 of the
-    median step), and ``"open"`` when the seam between them is at most 1.5 times the last grid
-    step everywhere.
-
-    Parameters
-    ----------
-    points : numpy.ndarray
-        Physical points, with the Cartesian coordinates ``(X, Y, Z)`` along the last axis.
-    axis : int
-        The axis of ``points`` to examine; it needs at least three points to be periodic.
-
-    Returns
-    -------
-    {"closed", "open", None}
-        ``"closed"`` (the last slice repeats the first), ``"open"`` (it stops one step short of
-        the seam, as on Struphy's cell centers), or ``None`` (not periodic, e.g. a radius or the
-        ends of a torus sector).
-    """
-    n = points.shape[axis]
-    if n < 3:
-        return None
-    take = lambda i: np.take(points, i, axis=axis)  # noqa: E731
-    seam = np.linalg.norm(take(-1) - take(0), axis=-1)
-    step = np.linalg.norm(take(-1) - take(-2), axis=-1)
-    scale = np.median(step)
-    if scale <= 0:
-        return None
-    if np.all(seam < 1e-9 * scale):
-        return "closed"
-    if np.all(seam <= 1.5 * np.maximum(step, 1e-12 * scale)):
-        return "open"
-    return None
 
 
 def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
@@ -445,7 +642,11 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
         if periodicity(current, axis) == "open":
             first = data.isel({dim: [0]})
             step = float(data[dim][1] - data[dim][0]) if dim in data.coords else 1.0
-            end = float(data[dim][-1]) + step if dim in data.coords else float(data.sizes[dim])
+            end = (
+                float(data[dim][-1]) + step
+                if dim in data.coords
+                else float(data.sizes[dim])
+            )
             data = xr.concat(
                 [data, first.assign_coords({dim: [end]})],
                 dim=dim,
@@ -456,7 +657,9 @@ def close_periodic(data: xr.DataArray, dims=None) -> xr.DataArray:
     return data
 
 
-def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None) -> np.ndarray:
+def logical_derivative(
+    values: np.ndarray, coordinate: np.ndarray, axis: int, kind: str | None
+) -> np.ndarray:
     """The derivative ``∂ values / ∂ coordinate`` along ``axis``.
 
     Around a periodic direction on a uniform grid (``kind`` ``"open"`` or ``"closed"``, see
@@ -485,17 +688,27 @@ def logical_derivative(values: np.ndarray, coordinate: np.ndarray, axis: int, ki
     spacing = np.diff(coordinate)
     uniform = len(spacing) > 0 and np.allclose(spacing, spacing[0])
     if kind is None or not uniform:
-        return np.gradient(values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1)
-    unique = np.take(values, range(values.shape[axis] - 1), axis=axis) if kind == "closed" else values
+        return np.gradient(
+            values, coordinate, axis=axis, edge_order=2 if len(coordinate) > 2 else 1
+        )
+    unique = (
+        np.take(values, range(values.shape[axis] - 1), axis=axis)
+        if kind == "closed"
+        else values
+    )
     n = unique.shape[axis]
     wavenumbers = 2 * np.pi * np.fft.fftfreq(n, d=spacing[0])
     if n % 2 == 0:
         wavenumbers[n // 2] = 0.0  # the Nyquist mode has no well-defined derivative
     shape = [1] * unique.ndim
     shape[axis] = n
-    derivative = np.fft.ifft(1j * wavenumbers.reshape(shape) * np.fft.fft(unique, axis=axis), axis=axis).real
+    derivative = np.fft.ifft(
+        1j * wavenumbers.reshape(shape) * np.fft.fft(unique, axis=axis), axis=axis
+    ).real
     if kind == "closed":
-        derivative = np.concatenate([derivative, np.take(derivative, [0], axis=axis)], axis=axis)
+        derivative = np.concatenate(
+            [derivative, np.take(derivative, [0], axis=axis)], axis=axis
+        )
     return derivative
 
 
@@ -532,7 +745,15 @@ def mapping_jacobian(data: xr.DataArray) -> np.ndarray:
             f"a numerical Jacobian needs at least two points along each of {spatial}; "
             f"{missing + short} have fewer (pass a struphy domain instead)"
         )
-    points = [np.asarray(data.coords[name].transpose(*spatial), dtype=float) for name in ("X", "Y", "Z")]
+    points = [
+        np.asarray(data.coords[name].transpose(*spatial), dtype=float)
+        for name in ("X", "Y", "Z")
+    ]
     axes = [np.asarray(data[d], dtype=float) for d in spatial]
     kinds = [periodicity(np.stack(points, axis=-1), axis) for axis in range(3)]
-    return np.array([[logical_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)] for a in range(3)])
+    return np.array(
+        [
+            [logical_derivative(points[a], axes[i], i, kinds[i]) for i in range(3)]
+            for a in range(3)
+        ]
+    )

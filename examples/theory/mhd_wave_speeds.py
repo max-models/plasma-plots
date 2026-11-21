@@ -24,7 +24,12 @@ ax.legend(frameon=False)
 
 polar = fig.add_subplot(1, 2, 2, projection="polar")
 for name, omega in branches.items():
-    polar.plot(np.r_[theta, -theta[::-1]], np.r_[omega.real, omega.real[::-1]], lw=2, label=name)
+    polar.plot(
+        np.r_[theta, -theta[::-1]],
+        np.r_[omega.real, omega.real[::-1]],
+        lw=2,
+        label=name,
+    )
 polar.set_thetamin(-90)
 polar.set_thetamax(90)
 polar.set_title("Friedrichs diagram")

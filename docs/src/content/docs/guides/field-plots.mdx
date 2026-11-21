@@ -3,7 +3,7 @@ title: Field plots
 description: Slices, panels, animations, vector fields, and 3-D volumes.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -26,6 +26,19 @@ Selects every dimension except `x` (via keyword selection) and plots the
 remaining 1-D profile.
 
 ![Lineout of a scalar field along one axis](../../../assets/figures/lineout.png)
+
+A lineout draws into an existing axes with `ax=`. Give each one a `label=`, and
+the axes get a legend of every labeled line, so several runs or species are told
+apart without touching Matplotlib:
+
+```python
+with plasma_plots.figure() as fig:
+    n_e.plasma.plot.lineout(t=-1, label="electrons", ax=fig[0])
+    n_i.plasma.plot.lineout(t=-1, label="ions", ax=fig[0], color="k")
+```
+
+`step="mid"` (or `"pre"`, `"post"`) draws a binned profile or a histogram as
+steps, and `logx=True`, `logy=True` switch the axes to a logarithmic scale.
 
 Several profiles in one axes, e.g. at a few times, against the minor radius:
 
@@ -129,7 +142,7 @@ T.plasma.plot.line_animation(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_line_animation_companions.json" height="620px" />
+<PlotlyFigure src="/plotly/plotly_line_animation_companions.plotly.json" poster="/plotly/plotly_line_animation_companions.png" posterDark="/plotly/plotly_line_animation_companions.dark.png" />
 
 </details>
 
@@ -170,7 +183,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 view.slice(t=-1, backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_view_slice.json" />
+<PlotlyFigure src="/plotly/plotly_view_slice.plotly.json" poster="/plotly/plotly_view_slice.png" posterDark="/plotly/plotly_view_slice.dark.png" />
 
 </details>
 
@@ -290,6 +303,141 @@ phi.plasma.plot.slice(
 
 ![A wave packet on a space-time map with its group-velocity line](../../../assets/figures/overlay_spacetime.png)
 
+### Electrodes, walls and contour labels
+
+`overlays={"geometry": ...}` draws shapes on top of the field: electrodes,
+walls, apertures. A shape is an outline (a `(2, N)` or `(N, 2)` array, or an
+`(x, y)` pair), an object with an `outlines()` method or a shapely `exterior`, a
+dict such as `{"rectangle": (x0, y0, width, height)}` or
+`{"circle": (x, y, radius)}`, or a Matplotlib patch.
+`"contour_labels": True` writes the values on the contour lines of `levels=`
+and of `"contours_of"`. The field may have any two dimensions, here plain `x`
+and `y` in mm:
+
+```python
+electrodes = [
+    {"rectangle": (2.5, 1.5, 1.0, 2.5)},
+    {"rectangle": (2.5, -4.0, 1.0, 2.5)},
+    {"rectangle": (6.5, 1.0, 1.0, 3.0)},
+    {"rectangle": (6.5, -4.0, 1.0, 3.0)},
+]
+phi.plasma.plot.slice(
+    x="x",
+    y="y",
+    levels=8,
+    symmetric=True,
+    cmap="RdBu_r",
+    overlays={"geometry": electrodes, "contour_labels": True},
+)
+```
+
+![A potential with four electrodes drawn on top and labeled contour lines](../../../assets/figures/slice_geometry.png)
+
+The shapes do not widen the axes. `"geometry_color"` sets their fill. To draw the
+same shapes into an axes of your own, use
+[`draw_geometry`](/plasma-plots/api/plasma_plots/geometry/), which also scales
+them, e.g. `scale=1e3` for shapes in m over a plot in mm.
+
+### Domains with their dimensions
+
+A whole simulation domain of [simgeometry](https://github.com/max-models/simgeometry), with its
+objects, is drawn by `plasma_plots.plot_domain` as a technical drawing: the objects filled and
+named (with their voltage when they are conductors), the boundary, and every distance as a
+dimension line with arrows, read off the geometry: the extent of the domain, and along each axis
+a chain of the objects' sizes and the gaps between them and to the boundary. A 3-D domain is
+sliced at `x=`, `y=` or `z=`; a 2-D one is drawn as it is.
+
+```python
+from simgeometry.collection import GeometryCollection
+from simgeometry.objects import Circle, Rectangle
+
+electrodes = GeometryCollection(
+    {
+        "anode": Rectangle((5.0, 0.0), (1.0, 6.0)),
+        "cathode": Circle((1.5, 0.0), 0.8),
+    },
+    bounds=((0.0, -4.0), (8.0, 4.0)),
+    voltages={"anode": 1e3, "cathode": 0.0},
+)
+result = plasma_plots.plot_domain(electrodes, unit="mm")
+result.data["objects"]["cathode"]["x"]  # (0.7, 2.3)
+```
+
+![A 2-D domain with two electrodes and the dimension lines of their sizes and distances](../../../assets/figures/domain_dimensions.png)
+
+The shapes of the overlay above draw the same way without simgeometry:
+`plasma_plots.plot_domain(electrodes, unit="mm")` with the list of dicts, named by a `"label"`
+key. A circle or a sphere is measured by its diameter, marked `⌀` (`$\varnothing$` in TikZ).
+`scale=1e3, unit="mm"` labels a domain built in metres in mm, `dimensions="extents"` keeps only
+the extent of the domain, `grid=True` adds the grid lines, `ax=` draws over a field drawn with
+`plot.slice` (its limits are widened for the measurements), and `backend="tikz"` makes it TikZ
+code for a paper (see [LaTeX figures](/plasma-plots/guides/latex/#domains-with-their-dimensions)).
+The measurements are in `result.data`, and `dimension_chains` computes them without drawing. One
+measurement of your own is `dimension_line(ax, start, end, offset=-0.5, label="2 mm")`: a
+double-headed arrow displaced from the measured points, with extension lines and its label.
+
+The drawing states more than the geometry when you ask it to:
+
+```python
+electrodes = [
+    {
+        "polygon": [[4.5, 5.5, 6.1, 4.9], [-3.0, -3.0, 3.0, 3.0]],
+        "label": "anode",
+    },
+    {"circle": (1.5, 0.0, 0.8), "label": "cathode"},
+]
+plasma_plots.plot_domain(
+    electrodes,
+    bounds=((0.0, -4.0), (8.0, 4.0)),  # the domain around the shapes
+    unit="mm",
+    boundaries={
+        "xmin": "cathode, 0 V",
+        "xmax": "anode, 1 kV",
+        "ymin": "periodic",
+        "ymax": "periodic",
+    },
+    circles="radius",  # the centre in the chains, the radius drawn
+    angles=True,  # the angle of every inclined edge
+    hatch=True,  # section faces, as in a technical drawing
+    extra_dimensions=[((1.5, 0.0), (4.5, -3.0))],  # a distance of your own
+)
+```
+
+![A domain with its boundary conditions on the sides, a radius, an angle, hatched objects and an extra distance](../../../assets/figures/domain_features.png)
+
+- `boundaries=True` writes the boundary conditions of a simgeometry `SimulationDomain` on its
+  sides, as picnic sets them (`φ = 5 kV, particles: kill`, `periodic`); a dict such as
+  `{"xmin": "cathode"}` adds or replaces labels, `None` removes one.
+- `cells=True` (on with `grid=True`) measures the first cell along each axis beyond the top and
+  the right side, with the number of cells: the resolution next to the geometry.
+- `dimensions="baseline"` measures every edge from the lower boundary, one row per edge, instead
+  of chains; `measure=["anode"]` measures only the named objects.
+- `circles="radius"` measures a circle's or a sphere's centre and draws its radius, `R 0.8 mm`;
+  by default the chains give its diameter, `⌀ 1.6 mm`.
+- `angles=True` marks the angle of every straight edge inclined to the axes, against the nearest
+  axis: a cone, a slanted tube, a polygon's side.
+- `hatch=True` (or any Matplotlib hatch, e.g. `"xx"`) hatches the objects; in TikZ the hatch is a
+  pattern (a `.tikz` file needs `\usetikzlibrary{patterns}` in the paper).
+- `extra_dimensions` adds measurements of your own, `(start, end)`, `(start, end, label)` or a
+  dict with an `offset`, in the domain's coordinates.
+
+A 3-D domain can be drawn in several views side by side, at one scale and with their lower sides
+aligned, such as a front and a side view; `result.data["views"]` has the measurements of each:
+
+```python
+plasma_plots.plot_domain(
+    domain,
+    views=["y=0", "x=0.03"],
+    scale=1e3,
+    unit="mm",
+    boundaries=True,
+    cells=True,
+)
+```
+
+A new figure is as wide as `figsize` (or Matplotlib's default, wider when the views need it) and
+as high as its content, so the text has the size of the document around it.
+
 ### Several fields side by side
 
 `animation(alongside=[...])` animates further fields next to the first one,
@@ -332,7 +480,7 @@ b_field.plasma.plot.vector(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_vector.json" />
+<PlotlyFigure src="/plotly/plotly_vector.plotly.json" poster="/plotly/plotly_vector.png" posterDark="/plotly/plotly_vector.dark.png" />
 
 </details>
 
@@ -358,7 +506,7 @@ labels (see [Interactive plots with Plotly](/plasma-plots/guides/plotly/)).
 density.plasma.plot.volume_slices(backend="plotly")
 ```
 
-<PlotlyChart src="/plotly/plotly_volume_slices.json" height="340px" />
+<PlotlyFigure src="/plotly/plotly_volume_slices.plotly.json" poster="/plotly/plotly_volume_slices.png" posterDark="/plotly/plotly_volume_slices.dark.png" />
 
 </details>
 

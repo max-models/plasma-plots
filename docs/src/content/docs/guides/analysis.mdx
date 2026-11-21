@@ -3,7 +3,7 @@ title: Diagnostics
 description: Growth/damping rates, envelopes, norms, drift, and error.
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 :::note[Where the accessors come from]
 The examples on this page use output of a Struphy `Output`, which loads
@@ -30,6 +30,27 @@ is what you want for an oscillating-and-decaying signal such as the field
 energy in Landau damping — fitting the raw oscillation would give nonsense.
 
 ![Damping rate fitted to the envelope of an oscillating, decaying signal](../../../assets/figures/damping.png)
+
+## Is anything growing?
+
+```python
+phase = mode.plasma.analysis.growth_phase()  # None when nothing grows
+phase.rate, phase.efolds, phase.start, phase.stop
+wave = phi.plasma.analysis.dominant_mode(dim="x")  # k, omega, phase_velocity
+f.plasma.analysis.penrose().unstable  # f(v) unstable to electrostatic waves?
+```
+
+`growth_phase` finds the growth window on its own: from where the amplitude
+rises out of the noise floor (taken out in quadrature) to a tenth of its peak,
+before saturation. It returns `None` unless the growth lasts at least two
+e-foldings (`min_efolds=`) and is exponential (`min_r2=`), so it can be run
+over every Fourier mode of a field to tell which ones are unstable.
+`dominant_mode` is the strongest bin of a windowed space-time FFT, and
+`penrose` tests a measured velocity distribution with the Penrose criterion,
+ignoring dips shallower than `prominence=`. The dispersion relation of drifting
+Maxwellians fitted to the same run gives the growth to compare with:
+`theory.kinetic.electrostatic_growth(k, species)` (see the
+[theory guide](/plasma-plots/guides/theory/)).
 
 ## Oscillation frequency
 
@@ -351,7 +372,7 @@ field.plasma.plot.dispersion(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_dispersion.json" />
+<PlotlyFigure src="/plotly/plotly_dispersion.plotly.json" poster="/plotly/plotly_dispersion.png" posterDark="/plotly/plotly_dispersion.dark.png" />
 
 </details>
 
@@ -425,6 +446,6 @@ spectrum.plasma.plot.dispersion(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_dispersion_fits.json" />
+<PlotlyFigure src="/plotly/plotly_dispersion_fits.plotly.json" poster="/plotly/plotly_dispersion_fits.png" posterDark="/plotly/plotly_dispersion_fits.dark.png" />
 
 </details>

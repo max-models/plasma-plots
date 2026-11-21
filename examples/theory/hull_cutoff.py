@@ -1,6 +1,6 @@
-"""Hull cutoff and Brillouin flow in a magnetron
+"""Hull cutoff
 
-Critical magnetic field of a planar and a coaxial magnetron against anode voltage, and the Brillouin density limit of the electron cloud.
+The Hull cutoff and Brillouin flow in a magnetron: critical magnetic field of a planar and a coaxial magnetron against anode voltage, and the Brillouin density limit of the electron cloud.
 
 Electrons leaving the cathode just graze the anode when $B = B_c(V) = \\sqrt{2 m V/e}/G$, with $G = d$
 for a plane and $G = (r_a^2 - r_c^2)/2r_a$ for coaxial cylinders. Above the cutoff the
@@ -32,8 +32,16 @@ ax_h.set(
 ax_h.legend(frameon=False, loc="lower right")
 
 ax_b.loglog(field * 1e3, flow["density"], lw=2, color="C2")
-ax_b.set(xlabel="magnetic field (mT)", ylabel=r"Brillouin density (m$^{-3}$)", title="Brillouin flow limit")
+ax_b.set(
+    xlabel="magnetic field (mT)",
+    ylabel=r"Brillouin density (m$^{-3}$)",
+    title="Brillouin flow limit",
+)
 
-print(f"Brillouin flow at 50 mT: n = {magnetron.brillouin_flow(0.05)['density']:.3e} m^-3")
-print(f"300 V, 5 cm gap: B_c = {magnetron.hull_cutoff(voltage=300.0, gap=0.05) * 1e3:.3f} mT")
+print(
+    f"Brillouin flow at 50 mT: n = {magnetron.brillouin_flow(0.05)['density']:.3e} m^-3"
+)
+print(
+    f"300 V, 5 cm gap: B_c = {magnetron.hull_cutoff(voltage=300.0, gap=0.05) * 1e3:.3f} mT"
+)
 plt.show()

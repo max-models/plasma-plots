@@ -19,13 +19,19 @@ Plots return a :class:`~plasma_plots.plotting.PlotResult` with either backend (`
 and ``data`` included); animations and viewers return one too, whose figure has a slider. Plotly
 is optional: ``pip install "plasma-plots[plotly]"``.
 
+For a web page, ``result.save("phi.plotly.json")`` writes a web figure (:func:`web_figure`):
+Plotly JSON without plotly.js and without a look of its own, which the ``PlotlyFigure``
+component of the max-models docs theme embeds in the site's colours, animations included
+(``pip install "plasma-plots[web]"``).
+
 The conversion itself is also available for any Matplotlib figure drawn with the plotting
 functions: :func:`to_plotly`, :func:`animation_to_plotly` and
 :meth:`~plasma_plots.plotting.PlotResult.to_plotly`.
 
-What converts: lines, markers and scatters (also colored by a value), meshes (heatmaps on
+What converts: lines, markers and scatters (also colored by a value), bars (``ax.bar``,
+``ax.barh`` and histograms), meshes (heatmaps on
 rectilinear grids; on mapped, curvilinear grids an image of the mesh with the values under the
-cursor), contour lines, quivers, colored line collections, horizontal and vertical lines and
+cursor), images of values (``imshow`` with a colormap, as heatmaps over their extent), contour lines, quivers, colored line collections, horizontal and vertical lines and
 bands, annotations, colorbars, legends, log axes, twin axes, 3-D lines and scatters, shared and
 equal-aspect axes, and titles. Mathtext labels (``$\\omega$``, ``$p_0$``) become Unicode and
 sub/superscripts. Anything else is left out with a :class:`ConversionWarning`.
@@ -52,6 +58,9 @@ PX_PER_PT = PX_PER_INCH / 72.0
 IMAGE_PIXELS = 1200
 
 _default = "matplotlib"
+MATH_MODES = ("unicode", "latex")
+# how formulas in labels reach Plotly: as Unicode text, or as LaTeX for MathJax (see set_math)
+_math_mode = "unicode"
 # inside a plot method: nested accessor calls draw with Matplotlib (the outermost call converts)
 _drawing = contextvars.ContextVar("plasma_plots_drawing", default=False)
 # how many plot methods are running, one inside the other
@@ -62,6 +71,12 @@ _collecting: list[list] = []
 
 class ConversionWarning(UserWarning):
     """A part of a Matplotlib figure that has no Plotly counterpart here and is left out."""
+
+
+def _check(backend):
+    if backend not in BACKENDS:
+        raise ValueError(f"unknown backend {backend!r}; expected one of {BACKENDS}")
+    return backend
 
 
 # ---------------------------------------------------------------------------------------------
@@ -100,6 +115,65 @@ def set_backend(backend: str) -> str:
     return previous
 
 
+def set_math(mode: str) -> str:
+    """Set how the formulas of labels (Matplotlib's ``$...$`` mathtext) reach Plotly figures.
+
+    With ``"unicode"`` (the default) a formula becomes Unicode text with sub- and superscripts,
+    which every Plotly front end shows. With ``"latex"`` a label with a formula is kept as LaTeX,
+    one ``$...$`` formula per label (the text around it in ``\\text{...}``), which plotly.js
+    typesets with MathJax: on the max-models docs sites (the theme's ``PlotlyFigure`` loads
+    MathJax for such figures), in the pictures kaleido draws, and in the HTML pages
+    :meth:`~plasma_plots.plotting.PlotResult.save` writes (which load MathJax from a CDN). Hover
+    labels, which plotly.js does not typeset, keep the Unicode form. JupyterLab may show the LaTeX
+    as written. The mode applies when a figure is converted, so set it before plotting.
+
+    Parameters
+    ----------
+    mode : {"unicode", "latex"}
+        The new mode.
+
+    Returns
+    -------
+    str
+        The previous mode, e.g. to restore it afterwards.
+
+    Raises
+    ------
+    ValueError
+        If ``mode`` is not ``"unicode"`` or ``"latex"``.
+
+    See Also
+    --------
+    get_math : The current mode.
+    plotly_text : The conversion of one label.
+
+    Examples
+    --------
+    >>> plasma_plots.set_backend("plotly")
+    >>> plasma_plots.set_math("latex")  # e.g. in the first cell of a docs notebook
+    """
+    global _math_mode
+    if mode not in MATH_MODES:
+        raise ValueError(f"unknown math mode {mode!r}; expected one of {MATH_MODES}")
+    previous, _math_mode = _math_mode, mode
+    return previous
+
+
+def get_math() -> str:
+    """Return how the formulas of labels reach Plotly figures.
+
+    Returns
+    -------
+    str
+        ``"unicode"`` (the default) or ``"latex"``.
+
+    See Also
+    --------
+    set_math : Changes it.
+    """
+    return _math_mode
+
+
 def get_backend() -> str:
     """Return the backend of plots that do not pass ``backend=`` themselves.
 
@@ -113,12 +187,6 @@ def get_backend() -> str:
     set_backend : Changes it.
     """
     return _default
-
-
-def _check(backend):
-    if backend not in BACKENDS:
-        raise ValueError(f"unknown backend {backend!r}; expected one of {BACKENDS}")
-    return backend
 
 
 def resolve_backend(backend: str | None) -> str:
@@ -152,57 +220,6 @@ def _plotly():
     return go
 
 
-def with_backend(method):
-    """Give an accessor plot method the ``backend`` option.
-
-    The decorated method declares ``backend=None`` in its signature (so that its docs and
-    ``help()`` show it) and draws with Matplotlib as before; with ``backend="plotly"`` or
-    ``backend="tikz"`` (or that default, see :func:`set_backend`) the decorator draws off screen
-    and returns the converted result instead (see :mod:`plasma_plots.tikz_backend`). An ``ax``
-    given with either raises ``TypeError``, since such a figure cannot be drawn into a
-    Matplotlib axes.
-
-    Parameters
-    ----------
-    method : callable
-        A method returning a ``PlotResult``, a ``FuncAnimation`` or an
-        ``InteractiveSliceViewer``.
-
-    Returns
-    -------
-    callable
-        The method with the ``backend`` option.
-    """
-    signature = inspect.signature(method)
-    if "backend" not in signature.parameters:
-        raise TypeError(f"{method.__qualname__} must declare a backend parameter")
-
-    @functools.wraps(method)
-    def wrapper(*args, **kwargs):
-        arguments = signature.bind(*args, **kwargs).arguments
-        backend = resolve_backend(arguments.get("backend"))
-        token, depth = _drawing.set(True), _depth.set(_depth.get() + 1)
-        try:
-            if backend == "matplotlib":
-                result = method(*args, **kwargs)
-                if _collecting and _depth.get() == 1:  # a panel of plasma_plots.figure
-                    _collecting[-1].append(result)
-                return result
-            ax = arguments.get("ax", (arguments.get("options") or {}).get("ax"))
-            if ax is not None:
-                raise TypeError(f"ax= draws into a Matplotlib axes; it cannot be combined with backend={backend!r}")
-            if backend == "tikz":
-                from .tikz_backend import _drawn_as_tikz
-
-                return _drawn_as_tikz(lambda: method(*args, **kwargs))
-            return _drawn_as_plotly(lambda: method(*args, **kwargs))
-        finally:
-            _drawing.reset(token)
-            _depth.reset(depth)
-
-    return wrapper
-
-
 @contextlib.contextmanager
 def _offscreen():
     """Draw without showing anything, and close every figure created meanwhile."""
@@ -217,32 +234,244 @@ def _offscreen():
             plt.close(number)
 
 
-def _drawn_as_plotly(draw):
-    """Run ``draw`` off screen and convert what it returns."""
-    from .mpi import SkippedPlot
-    from .plotting import InteractiveSliceViewer, PlotResult
-
-    _plotly()  # fail before drawing if plotly is missing
-    with _offscreen():
-        result = draw()
-        if isinstance(result, SkippedPlot) or result is None:
-            return result
-        if isinstance(result, PlotResult):
-            if _is_plotly(result.fig):
-                return result
-            return _plotly_result(to_plotly(result.fig), result)
-        if isinstance(result, InteractiveSliceViewer):
-            return viewer_to_plotly(result)
-        if _is_animation(result):
-            figure = animation_to_plotly(result)
-            return PlotResult(figure, None, list(figure.data))
-    raise TypeError(f"cannot convert a {type(result).__name__} to Plotly")
-
-
 def _plotly_result(figure, result):
     from .plotting import PlotResult
 
-    return PlotResult(figure, None, list(figure.data), list(result.fit_results), dict(result.data))
+    return PlotResult(
+        figure, None, list(figure.data), list(result.fit_results), dict(result.data)
+    )
+
+
+PLOTLY_MIME = "application/vnd.plotly.v1+json"
+
+
+#: The width, in pixels, at which a docs page shows a figure, roughly. A figure laid out wider
+#: than this (e.g. a row of three Matplotlib panels, 13 inches at 100 px per inch) is shrunk to
+#: the page, so :func:`web_figure` shrinks its text with it, as an image of the figure would be.
+PAGE_PIXELS = 800
+
+
+def _scale_fonts(node, factor: float) -> None:
+    """Scale every explicit font size (``font``, ``tickfont``, ...) in a layout, in place."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key.endswith("font") and isinstance(value, dict) and "size" in value:
+                value["size"] = round(value["size"] * factor, 1)
+            else:
+                _scale_fonts(value, factor)
+    elif isinstance(node, list):
+        for item in node:
+            _scale_fonts(item, factor)
+
+
+def _page_font(figure) -> dict:
+    """The figure as a dict, its text scaled down when it is laid out wider than a page.
+
+    The theme draws every figure at the page's width with its own font size (12 px at most), so
+    a wide multi-panel figure, whose panels were laid out for its own width, has its axis titles
+    and tick labels run into the neighbouring panels. Its font is scaled by the ratio of the page
+    to the figure, not below 9 px, unless the figure sets a font size itself.
+    """
+    import copy
+    import json
+
+    import plotly.io as pio
+
+    spec = (
+        copy.deepcopy(figure)
+        if isinstance(figure, dict)
+        else json.loads(pio.to_json(figure, validate=False))
+    )
+    layout = spec.setdefault("layout", {})
+    width = layout.get("width")
+    font = layout.get("font") or {}
+    if width and width > PAGE_PIXELS and "size" not in font:
+        size = max(9.0, round(12 * PAGE_PIXELS / width, 1))
+        _scale_fonts(
+            layout, size / 12
+        )  # the panel titles and other text with a size of its own
+        layout["font"] = {**font, "size": size}
+    return spec
+
+
+def web_figure(figure, **hints) -> dict:
+    """A Plotly figure as a web figure, the format of ``maxplotlib.web``.
+
+    Plotly JSON for a page of a max-models docs site: no template, no fixed size, transparent
+    backgrounds, the palette position of each trace in a default colour
+    (``trace.meta["color_slot"]``) and hints for the page in ``layout.meta["web"]``. The theme's
+    ``PlotlyFigure`` component gives it the site's colours in light and dark mode.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure or dict
+        The figure.
+    **hints
+        ``title``, ``alt`` (a text alternative), ``aspect`` (width over height) and
+        ``white_plot`` (keep a white plot area and the figure's own colours in dark mode), as
+        for ``maxplotlib.web.web_figure``. ``white_plot`` is off by default, also for a figure
+        converted from Matplotlib: the theme draws its black and white in the page's colours.
+
+    Returns
+    -------
+    dict
+        ``data``, ``layout`` and, for an animation, ``frames``.
+
+    Raises
+    ------
+    ImportError
+        If maxplotlib (with ``maxplotlib.web``) is not installed.
+
+    Examples
+    --------
+    >>> web = web_figure(result.fig, alt="Field energy over time")
+    """
+    try:
+        from maxplotlib.web import web_figure as convert
+    except ImportError as error:
+        raise ImportError(
+            "web figures need maxplotlib (with maxplotlib.web): "
+            'pip install "plasma-plots[web]"'
+        ) from error
+    hints.setdefault("white_plot", False)
+    return convert(_page_font(figure), **hints)
+
+
+def save_posters(figure, stem, *, width: int = 800) -> list[str]:
+    """Write pictures of a Plotly figure for a docs page, for light and dark mode.
+
+    A page shows them until plotly.js has drawn the figure, and in its place without JavaScript
+    (the ``poster`` and ``posterDark`` of the docs theme's ``PlotlyFigure``). Both have a
+    transparent background and the theme's text colours; an animation shows its first frame. Written by
+    ``maxplotlib.web.write_posters``; needs kaleido.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure.
+    stem : str or pathlib.Path
+        The files' path without the extension: ``<stem>.png`` and ``<stem>.dark.png``.
+    width : int, optional
+        Width in pixels; the height follows the figure's aspect ratio. Default: 800.
+
+    Returns
+    -------
+    list of str
+        The paths written.
+
+    Raises
+    ------
+    ImportError
+        If maxplotlib (with ``maxplotlib.web.write_posters``) is not installed.
+
+    Examples
+    --------
+    >>> save_posters(result.fig, "docs/public/plotly/energy")
+    """
+    try:
+        from maxplotlib.web import write_posters
+    except ImportError as error:
+        raise ImportError(
+            "posters need maxplotlib (with maxplotlib.web.write_posters): "
+            'pip install "plasma-plots[web]"'
+        ) from error
+    # like the web figure: the theme draws a converted figure's black and white in its colours,
+    # and a figure wider than a page gets the smaller text
+    return write_posters(_page_font(figure), stem, width=width, white_plot=False)
+
+
+def _notebook_figure(figure, title):
+    """The figure's JSON for a notebook, with the palette slots and hints of a web figure.
+
+    It keeps its own look (template, backgrounds) for Jupyter, but not a fixed size: the figure
+    fills the notebook cell, and the docs page built from the notebook, which draws it in the
+    site's colours, sizes it by the ``aspect`` hint (a fixed width would overflow the page).
+    Without maxplotlib it is the plain JSON.
+    """
+    import json
+
+    import plotly.io as pio
+
+    plain = json.loads(pio.to_json(figure, validate=False))
+    try:
+        web = web_figure(plain, title=title)
+    except ImportError:
+        return plain
+    layout = web["layout"]
+    for key in ("template", "paper_bgcolor", "plot_bgcolor"):
+        if key in plain.get("layout", {}):
+            layout[key] = plain["layout"][key]
+        else:
+            layout.pop(key, None)
+    for key, axis in layout.items():  # automargin only where the figure set it
+        own = plain.get("layout", {}).get(key)
+        if re.fullmatch(r"[xy]axis\d*", key) and isinstance(axis, dict):
+            if not (isinstance(own, dict) and "automargin" in own):
+                axis.pop("automargin", None)
+    return web
+
+
+def mathjax_source(figure) -> str | bool:
+    """``"cdn"`` for a figure with a LaTeX label (see :func:`set_math`), else ``False``.
+
+    The ``include_mathjax`` of Plotly's HTML export: a page of the figure loads MathJax from a CDN
+    only when the figure has a formula to typeset.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure.
+
+    Returns
+    -------
+    str or bool
+        ``"cdn"`` or ``False``.
+    """
+    import plotly.io as pio
+
+    return "cdn" if '"$' in pio.to_json(figure, validate=False) else False
+
+
+def display_bundle(figure, *, title: str | None = None):
+    """The notebook output of a Plotly figure: its JSON, an HTML copy and a text line.
+
+    ``application/vnd.plotly.v1+json`` is what JupyterLab renders and what docs sites built from
+    the notebook embed as an interactive chart (the output's metadata has the key
+    ``"plotly-figure"``); ``text/html`` loads plotly.js from its CDN for other front ends. With
+    maxplotlib installed the JSON also carries the palette slots and hints of a web figure
+    (:func:`web_figure`), so the docs site recolours it as it does a saved ``.plotly.json``.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure.
+    title : str, optional
+        A caption, in the output's ``"plotly-figure"`` metadata. Default: the figure's caption
+        (``layout.meta["caption"]``), if it has one.
+
+    Returns
+    -------
+    tuple of dict
+        The MIME bundle and its metadata, as for ``IPython.display.display(..., raw=True)``.
+    """
+    import plotly.io as pio
+
+    if title is None:
+        meta = figure.layout.meta
+        title = meta.get("caption") if isinstance(meta, dict) else None
+    data = {
+        PLOTLY_MIME: _notebook_figure(figure, title),
+        "text/html": pio.to_html(
+            figure,
+            full_html=False,
+            include_plotlyjs="cdn",
+            include_mathjax=mathjax_source(figure),
+            config={"responsive": True},
+        ),
+        "text/plain": f"<Plotly figure: {len(figure.data)} traces>",
+    }
+    info = {} if title is None else {"title": title}
+    return data, {"plotly-figure": info}
 
 
 def _is_plotly(figure) -> bool:
@@ -408,16 +637,71 @@ def _math(math: str) -> str:
     return "".join(out)
 
 
-def plotly_text(text) -> str:
+# Characters of plain text that cannot go in \\text{...}, as math: braces, dollars and TeX's
+# special characters, and < and > (which plotly.js would turn into \\lt and \\gt inside the text)
+_LATEX_SPECIAL = {
+    "{": r"\{",
+    "}": r"\}",
+    "$": r"\$",
+    "%": r"\%",
+    "#": r"\#",
+    "&": r"\&",
+    "<": r"\lt ",
+    ">": r"\gt ",
+    "\\": r"\backslash ",
+}
+
+
+def _latex_plain(text: str) -> str:
+    """Plain text as LaTeX math: runs in \\text{...}, the special characters as math symbols."""
+    out, run = [], []
+    for char in text:
+        if char in _LATEX_SPECIAL:
+            if run:
+                out.append(r"\text{" + "".join(run) + "}")
+                run = []
+            out.append(_LATEX_SPECIAL[char])
+        else:
+            run.append(char)
+    if run:
+        out.append(r"\text{" + "".join(run) + "}")
+    return "".join(out)
+
+
+def _latex_label(text: str) -> str | None:
+    """A label with mathtext as one LaTeX formula, ``$...$``; None for a label without a formula."""
+    if "\n" in text:
+        return None  # a formula is one line; such a label stays Unicode
+    parts = re.split(r"(?<!\\)\$", text)
+    if len(parts) % 2 == 0 or len(parts) < 3:
+        return None
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2:
+            # Matplotlib's own font commands: the regular font, as in LaTeX
+            part = part.replace(r"\mathdefault{", "{").replace(
+                r"\mathregular{", r"\mathrm{"
+            )
+            out.append(part)
+        elif part:
+            out.append(_latex_plain(part.replace(r"\$", "$")))
+    return "$" + "".join(out) + "$"
+
+
+def plotly_text(text, *, math: str | None = None) -> str:
     """Turn a Matplotlib label into Plotly text.
 
     Mathtext (``$\\omega$``, ``$p_0$``) becomes Unicode and <sub>/<sup>; other ``<``, ``>`` and
-    ``&`` are escaped, newlines become <br>.
+    ``&`` are escaped, newlines become <br>. In the ``"latex"`` mode of :func:`set_math` a label
+    with a formula becomes one LaTeX formula instead, the text around it in ``\\text{...}``, for
+    plotly.js to typeset with MathJax.
 
     Parameters
     ----------
     text : str or None
         The label.
+    math : {"unicode", "latex"}, optional
+        How formulas are written. Default: the mode of :func:`set_math`.
 
     Returns
     -------
@@ -430,19 +714,30 @@ def plotly_text(text) -> str:
     'fit: γ = 0.1'
     >>> plotly_text("$p_0$")
     'p<sub>0</sub>'
+    >>> plotly_text(r"$\\sigma_s$ [m$^2$]", math="latex")
+    '$\\\\sigma_s\\\\text{ [m}^2\\\\text{]}$'
     """
     if not text:
         return ""
+    if (math or _math_mode) == "latex":
+        latex = _latex_label(str(text))
+        if latex is not None:
+            return latex
     parts = re.split(r"(?<!\\)\$", str(text))
     if len(parts) % 2 == 0:  # an unmatched $: not mathtext
         parts = [str(text)]
-    out = [_math(part) if i % 2 else _escape(part.replace(r"\$", "$")) for i, part in enumerate(parts)]
+    out = [
+        _math(part) if i % 2 else _escape(part.replace(r"\$", "$"))
+        for i, part in enumerate(parts)
+    ]
     return "".join(out).replace("\n", "<br>")
 
 
 def _hover_label(text) -> str:
     """A label for hover templates: without tags, and without braces a template would read."""
-    return re.sub(r"<[^>]+>", "", plotly_text(text)).replace("%{", "% {")
+    return re.sub(r"<[^>]+>", "", plotly_text(text, math="unicode")).replace(
+        "%{", "% {"
+    )
 
 
 def _rgba(color, alpha=None) -> str:
@@ -549,7 +844,9 @@ def _collection_marker(collection):
         return "o"
     vertices = paths[0].vertices
     for name, candidate, _ in _marker_paths():
-        if candidate.shape == vertices.shape and np.allclose(candidate, vertices, atol=1e-6):
+        if candidate.shape == vertices.shape and np.allclose(
+            candidate, vertices, atol=1e-6
+        ):
             return name
     return "o"
 
@@ -568,50 +865,6 @@ def _nan_joined(pieces):
     for piece in pieces:
         out += [piece, [np.nan]]
     return np.concatenate(out[:-1])
-
-
-# ---------------------------------------------------------------------------------------------
-# Converting one figure
-# ---------------------------------------------------------------------------------------------
-def to_plotly(figure, *, strict: bool = False):
-    """Convert a drawn Matplotlib figure into an interactive Plotly figure.
-
-    Parameters
-    ----------
-    figure : matplotlib.figure.Figure
-        A figure drawn by one of the plotting functions (or any figure with the artists they
-        use, see :mod:`plasma_plots.plotly_backend`).
-    strict : bool, optional
-        Raise instead of warning when a part of the figure cannot be converted. Default:
-        ``False``.
-
-    Returns
-    -------
-    plotly.graph_objects.Figure
-        The same content: traces for the data, shapes for lines and bands spanning an axes,
-        annotations for text, a colorbar per Matplotlib colorbar.
-
-    Raises
-    ------
-    ImportError
-        If plotly is not installed.
-
-    See Also
-    --------
-    animation_to_plotly : The same for an animation.
-    plasma_plots.plotting.PlotResult.to_plotly : The same for a plot result.
-
-    Examples
-    --------
-    >>> result = plot_slice(phi.isel(t=-1, eta3=0))
-    >>> to_plotly(result.fig).write_html("phi.html")
-    """
-    go = _plotly()
-    with warnings.catch_warnings():
-        if strict:
-            warnings.simplefilter("error", ConversionWarning)
-        converted = _FigureConverter(figure).convert()
-    return go.Figure(data=converted["data"], layout=converted["layout"])
 
 
 class _Axes:
@@ -635,7 +888,22 @@ class _Axes:
         return self.yaxis.replace("axis", "")
 
 
+def _grid(axis) -> bool:
+    return any(line.get_visible() for line in axis.get_gridlines())
+
+
+def _clip(interval):
+    lo, hi = (float(min(max(v, 0.0), 1.0)) for v in interval)
+    return [lo, max(hi, lo + 1e-3)]
+
+
+def _float(value):
+    return None if value is None else float(value)
+
+
 class _FigureConverter:
+    _BINS = 32
+
     def __init__(self, figure):
         self.figure = figure
         figure.draw_without_rendering()  # runs the layout engine; quivers autoscale here too
@@ -644,6 +912,7 @@ class _FigureConverter:
         self.data, self.shapes, self.annotations, self.images = [], [], [], []
         self.layout = {}
         self.coloraxes = []  # (key, mappable, colorbar or None)
+        self._plain_names = {}  # LaTeX legend name -> its Unicode form, for the hover labels
 
     # --- the layout ---------------------------------------------------------------------------
     def _classify(self):
@@ -662,7 +931,9 @@ class _FigureConverter:
                     if c.kind == "2d"
                     and c.parent is None
                     and c.ax.get_shared_x_axes().joined(c.ax, ax)
-                    and np.allclose(c.ax.get_position().bounds, ax.get_position().bounds)
+                    and np.allclose(
+                        c.ax.get_position().bounds, ax.get_position().bounds
+                    )
                 ),
                 None,
             )
@@ -681,44 +952,42 @@ class _FigureConverter:
         top = ((y0 + h) * self.height - m["b"]) / (self.height - m["t"] - m["b"])
         return [left, right], [bottom, top]
 
-    def convert(self):
-        self.axes, colorbars = self._classify()
-        self.native = (
-            sum(1 for a in self.axes if a.parent is None) == 1 and self.axes[0].kind == "2d" if self.axes else True
-        )
-        self.margin = {"l": 70, "r": 30, "t": 60, "b": 55} if self.native else {"l": 8, "r": 8, "t": 8, "b": 8}
-        # left to right, as Matplotlib placed them (Plotly stacks a lone axes' colorbars in this order)
-        for colorbar in sorted(colorbars, key=lambda c: c.ax.get_position().x0):
-            self._coloraxis(colorbar.mappable, colorbar)
-        suptitle = self.figure.get_suptitle() if hasattr(self.figure, "get_suptitle") else ""
-        for axes in self.axes:
-            self._axes_layout(axes)
-            self._artists(axes)
-        self._coloraxis_layout()
-        self._titles(suptitle)
-        layout = self.layout
-        layout.update(
-            width=round(self.width),
-            height=round(self.height),
-            margin=self.margin,
-            template="plotly_white",
-            plot_bgcolor="white",
-            hovermode="closest",
-            showlegend=any(t.get("showlegend") for t in self.data) or any(s.get("showlegend") for s in self.shapes),
-            meta={"converted_from": "matplotlib"},
-        )
-        if self.shapes:
-            layout["shapes"] = self.shapes
-        if self.annotations:
-            layout["annotations"] = self.annotations
-        if self.images:
-            layout["images"] = self.images
-        return {"data": self.data, "layout": layout}
+    @staticmethod
+    def _scale(ax, which):
+        from matplotlib.ticker import FixedLocator
+
+        scale = ax.get_xscale() if which == "x" else ax.get_yscale()
+        lo, hi = ax.get_xlim() if which == "x" else ax.get_ylim()
+        out = {"exponentformat": "power"}  # 10⁻⁶, not Plotly's SI prefixes (1µ)
+        if scale == "log":
+            out["type"] = "log"
+            if lo > 0 and hi > 0:
+                out["range"] = [float(np.log10(lo)), float(np.log10(hi))]
+                if (
+                    abs(out["range"][1] - out["range"][0]) >= 1
+                ):  # label the decades only, as Matplotlib
+                    out["dtick"] = 1
+        else:
+            if scale != "linear":
+                warnings.warn(
+                    f"a {scale!r} axis scale is drawn linear in Plotly",
+                    ConversionWarning,
+                    stacklevel=4,
+                )
+            out["range"] = [float(lo), float(hi)]
+        axis = ax.xaxis if which == "x" else ax.yaxis
+        if isinstance(axis.get_major_locator(), FixedLocator):
+            out["tickvals"] = [float(v) for v in axis.get_major_locator().locs]
+        return out
 
     def _axes_layout(self, axes):
         ax = axes.ax
         if axes.kind == "3d":
-            domain_x, domain_y = self._paper(ax.get_position().bounds) if not self.native else ([0, 1], [0, 1])
+            domain_x, domain_y = (
+                self._paper(ax.get_position().bounds)
+                if not self.native
+                else ([0, 1], [0, 1])
+            )
             self.layout[axes.scene] = {
                 "domain": {"x": _clip(domain_x), "y": _clip(domain_y)},
                 "xaxis": {"title": {"text": plotly_text(ax.get_xlabel())}},
@@ -735,9 +1004,13 @@ class _FigureConverter:
             ticks="outside",
             zeroline=False,
         )
-        y = dict(common, title={"text": plotly_text(ax.get_ylabel())}, **self._scale(ax, "y"))
+        y = dict(
+            common, title={"text": plotly_text(ax.get_ylabel())}, **self._scale(ax, "y")
+        )
         y["showgrid"] = _grid(ax.yaxis)
-        if axes.parent is not None:  # a twin: its own y axis on the right, over the parent's
+        if (
+            axes.parent is not None
+        ):  # a twin: its own y axis on the right, over the parent's
             y.update(
                 overlaying=axes.parent.yref,
                 side="right",
@@ -748,7 +1021,9 @@ class _FigureConverter:
             )  # its own ticks, not synced to the parent's grid
             self.layout[axes.yaxis] = y
             return
-        x = dict(common, title={"text": plotly_text(ax.get_xlabel())}, **self._scale(ax, "x"))
+        x = dict(
+            common, title={"text": plotly_text(ax.get_xlabel())}, **self._scale(ax, "x")
+        )
         x["showgrid"] = _grid(ax.xaxis)
         twin = any(a.parent is axes for a in self.axes)
         if twin:
@@ -763,7 +1038,11 @@ class _FigureConverter:
             x["constrain"] = y["constrain"] = "domain"
         # sharex/sharey: zooming one panel zooms the others
         for other in self.axes:
-            if other.index >= axes.index or other.parent is not None or other.kind != "2d":
+            if (
+                other.index >= axes.index
+                or other.parent is not None
+                or other.kind != "2d"
+            ):
                 continue
             if "matches" not in x and ax.get_shared_x_axes().joined(ax, other.ax):
                 x["matches"] = other.xref
@@ -774,33 +1053,10 @@ class _FigureConverter:
             x["showticklabels"] = False
         if not any(label.get_visible() for label in ax.get_yticklabels()):
             y["showticklabels"] = False
+        if not ax.axison:  # ax.axis("off"), e.g. a drawing with its own dimension lines
+            x["visible"] = y["visible"] = False
+            x["showgrid"] = y["showgrid"] = False
         self.layout[axes.xaxis], self.layout[axes.yaxis] = x, y
-
-    @staticmethod
-    def _scale(ax, which):
-        from matplotlib.ticker import FixedLocator
-
-        scale = ax.get_xscale() if which == "x" else ax.get_yscale()
-        lo, hi = ax.get_xlim() if which == "x" else ax.get_ylim()
-        out = {"exponentformat": "power"}  # 10⁻⁶, not Plotly's SI prefixes (1µ)
-        if scale == "log":
-            out["type"] = "log"
-            if lo > 0 and hi > 0:
-                out["range"] = [float(np.log10(lo)), float(np.log10(hi))]
-                if abs(out["range"][1] - out["range"][0]) >= 1:  # label the decades only, as Matplotlib
-                    out["dtick"] = 1
-        else:
-            if scale != "linear":
-                warnings.warn(
-                    f"a {scale!r} axis scale is drawn linear in Plotly",
-                    ConversionWarning,
-                    stacklevel=4,
-                )
-            out["range"] = [float(lo), float(hi)]
-        axis = ax.xaxis if which == "x" else ax.yaxis
-        if isinstance(axis.get_major_locator(), FixedLocator):
-            out["tickvals"] = [float(v) for v in axis.get_major_locator().locs]
-        return out
 
     def _titles(self, suptitle):
         title = ""
@@ -874,16 +1130,33 @@ class _FigureConverter:
         for name, _, other_colorbar, other_key in self.coloraxes:
             if colorbar is None and other_key == key and other_colorbar is not None:
                 return name
-        name = "coloraxis" if not self.coloraxes else f"coloraxis{len(self.coloraxes) + 1}"
+        name = (
+            "coloraxis" if not self.coloraxes else f"coloraxis{len(self.coloraxes) + 1}"
+        )
         self.coloraxes.append((name, mappable, colorbar, key))
         return name
+
+    @staticmethod
+    def _is_log(mappable) -> bool:
+        from matplotlib.colors import LogNorm
+
+        return isinstance(getattr(mappable, "norm", None), LogNorm)
+
+    def _color_values(self, mappable, values):
+        """The values on the color scale: their logarithm for a ``LogNorm``, which Plotly lacks."""
+        values = np.asarray(values, dtype=float)
+        if not self._is_log(mappable):
+            return values
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(values > 0, np.log10(values), np.nan)
 
     def _coloraxis_layout(self):
         from matplotlib.colors import Normalize
 
         for position, (name, mappable, colorbar, _) in enumerate(self.coloraxes):
             norm = mappable.norm
-            if type(norm) is not Normalize:
+            log = self._is_log(mappable)
+            if type(norm) is not Normalize and not log:
                 warnings.warn(
                     f"a {type(norm).__name__} color scale is drawn linear",
                     ConversionWarning,
@@ -893,18 +1166,43 @@ class _FigureConverter:
                 "colorscale": _colorscale(mappable.get_cmap()),
                 "showscale": colorbar is not None,
             }
-            if norm.vmin is not None and np.isfinite(norm.vmin):
-                axis["cmin"] = float(norm.vmin)
-            if norm.vmax is not None and np.isfinite(norm.vmax):
-                axis["cmax"] = float(norm.vmax)
+            scale = np.log10 if log else float
+            if (
+                norm.vmin is not None
+                and np.isfinite(norm.vmin)
+                and norm.vmin > (0 if log else -np.inf)
+            ):
+                axis["cmin"] = float(scale(norm.vmin))
+            if (
+                norm.vmax is not None
+                and np.isfinite(norm.vmax)
+                and norm.vmax > (0 if log else -np.inf)
+            ):
+                axis["cmax"] = float(scale(norm.vmax))
             if colorbar is not None:
                 horizontal = colorbar.orientation == "horizontal"
-                label = colorbar.ax.get_xlabel() if horizontal else colorbar.ax.get_ylabel()
+                label = (
+                    colorbar.ax.get_xlabel() if horizontal else colorbar.ax.get_ylabel()
+                )
                 bar = {
                     "title": {"text": plotly_text(label), "side": "right"},
                     "thickness": 14,
                     "exponentformat": "power",
                 }
+                if log and "cmin" in axis and "cmax" in axis:
+                    # a log scale: the colors are drawn in log10, the ticks name the decades
+                    decades = np.arange(
+                        np.ceil(axis["cmin"] - 1e-9), np.floor(axis["cmax"] + 1e-9) + 1
+                    )
+                    if len(decades) < 2:
+                        decades = np.linspace(axis["cmin"], axis["cmax"], 3)
+                    bar["tickvals"] = [float(d) for d in decades]
+                    bar["ticktext"] = [
+                        plotly_text(f"$10^{{{int(d)}}}$")
+                        if float(d).is_integer()
+                        else f"{10**d:.3g}"
+                        for d in decades
+                    ]
                 if not self.native:
                     xs, ys = self._paper(colorbar.ax.get_position().bounds)
                     bar.update(
@@ -918,71 +1216,13 @@ class _FigureConverter:
                         yref="paper",
                     )
                 else:
-                    bar.update(x=1.02 + 0.14 * sum(1 for c in self.coloraxes[:position] if c[2] is not None))
+                    bar.update(
+                        x=1.02
+                        + 0.14
+                        * sum(1 for c in self.coloraxes[:position] if c[2] is not None)
+                    )
                 axis["colorbar"] = bar
             self.layout[name] = axis
-
-    # --- artists ------------------------------------------------------------------------------
-    def _artists(self, axes):
-        from matplotlib.collections import LineCollection, PathCollection, QuadMesh
-        from matplotlib.contour import ContourSet
-        from matplotlib.legend import Legend
-        from matplotlib.lines import Line2D
-        from matplotlib.patches import Patch
-        from matplotlib.quiver import Quiver
-        from matplotlib.text import Annotation, Text
-
-        ax = axes.ax
-        legend = ax.get_legend()
-        self._legend_labels = {t.get_text() for t in legend.get_texts()} if legend is not None else set()
-        if legend is not None and self._legend_labels:
-            self._legend(axes)
-        skip = {
-            ax.patch,
-            ax.title,
-            ax._left_title,
-            ax._right_title,
-            legend,
-            *ax.spines.values(),
-            ax.xaxis,
-            ax.yaxis,
-        }
-        if axes.kind == "3d":
-            skip |= {ax.zaxis}
-        children = [c for c in ax.get_children() if c not in skip and c.get_visible()]
-        children.sort(key=lambda c: c.get_zorder())  # stable: equal zorders keep their order
-        self._bins = {}  # colored line collections of this axes, pooled per coloraxis
-        for artist in children:
-            if axes.kind == "3d":
-                self._artist_3d(axes, artist)
-            elif isinstance(artist, QuadMesh):
-                self._mesh(axes, artist)
-            elif isinstance(artist, ContourSet):
-                self._contours(axes, artist)
-            elif isinstance(artist, Quiver):
-                self._quiver(axes, artist)
-            elif isinstance(artist, Line2D):
-                self._line(axes, artist)
-            elif isinstance(artist, PathCollection):
-                self._scatter(axes, artist)
-            elif isinstance(artist, LineCollection):
-                self._line_collection(axes, artist)
-            elif isinstance(artist, Patch):
-                self._patch(axes, artist)
-            elif isinstance(artist, Annotation):
-                self._text(axes, artist)
-            elif isinstance(artist, Text):
-                if artist.get_text():
-                    self._text(axes, artist)
-            elif isinstance(artist, Legend):
-                continue
-            else:
-                warnings.warn(
-                    f"a {type(artist).__name__} is not converted to Plotly",
-                    ConversionWarning,
-                    stacklevel=3,
-                )
-        self._flush_bins(axes)
 
     def _legend(self, axes):
         """One Plotly legend per Matplotlib legend: beside a lone axes, else inside its axes."""
@@ -996,7 +1236,9 @@ class _FigureConverter:
         colorbars = any(colorbar is not None for _, _, colorbar, _ in self.coloraxes)
         twins = any(a.parent is owner for a in self.axes)
         if self.native and not colorbars and not twins:
-            self.layout[name] = {"bgcolor": "rgba(255, 255, 255, 0.8)"}  # Plotly's place, right of the axes
+            self.layout[name] = {
+                "bgcolor": "rgba(255, 255, 255, 0.8)"
+            }  # Plotly's place, right of the axes
             return
         if self.native:
             x, y = 0.99, 0.99
@@ -1022,11 +1264,15 @@ class _FigureConverter:
     def _shown(self, axes, label) -> dict:
         """The legend options of a trace with this Matplotlib label."""
         label = label or ""
-        visible = bool(label) and not label.startswith("_") and label in self._legend_labels
-        out = {
-            "name": plotly_text(label) if label and not label.startswith("_") else "",
-            "showlegend": visible,
-        }
+        visible = (
+            bool(label) and not label.startswith("_") and label in self._legend_labels
+        )
+        name = plotly_text(label) if label and not label.startswith("_") else ""
+        if name.startswith(
+            "$"
+        ):  # LaTeX (set_math("latex")): hover labels are not typeset
+            self._plain_names[name] = plotly_text(label, math="unicode")
+        out = {"name": name, "showlegend": visible}
         if visible and axes.legend not in (None, "legend"):
             out["legend"] = axes.legend
         return out
@@ -1038,6 +1284,63 @@ class _FigureConverter:
         """Whether x and y of an artist are in data coordinates (else in axes fractions)."""
         return artist.get_transform().contains_branch_seperately(axes.ax.transData)
 
+    @staticmethod
+    def _line_style(line, color, width, dash):
+        linestyle = line.get_linestyle()
+        has_line = (
+            linestyle not in ("None", "", " ", "none") and line.get_linewidth() > 0
+        )
+        marker = line.get_marker()
+        has_marker = marker not in (None, "None", "", " ", "none")
+        mode = (
+            "+".join(
+                m for m, on in (("lines", has_line), ("markers", has_marker)) if on
+            )
+            or "lines"
+        )
+        trace = {"mode": mode}
+        if has_line:
+            trace["line"] = {"color": color, "width": width, "dash": dash}
+        if has_marker:
+            symbol = (
+                _MARKERS.get(marker, "circle") if isinstance(marker, str) else "circle"
+            )
+            size = line.get_markersize() * PX_PER_PT * (0.5 if marker == "." else 1.0)
+            face = line.get_markerfacecolor()
+            edge = _rgba(line.get_markeredgecolor(), line.get_alpha())
+            open_face = isinstance(face, str) and face.lower() == "none"
+            if symbol in _LINE_MARKERS:
+                trace["marker"] = {
+                    "symbol": symbol,
+                    "size": size,
+                    "color": edge,
+                    "line": {
+                        "color": edge,
+                        "width": max(line.get_markeredgewidth() * PX_PER_PT, 1),
+                    },
+                }
+            elif open_face:
+                trace["marker"] = {
+                    "symbol": f"{symbol}-open",
+                    "size": size,
+                    "color": edge,
+                    "line": {
+                        "color": edge,
+                        "width": max(line.get_markeredgewidth() * PX_PER_PT, 1),
+                    },
+                }
+            else:
+                trace["marker"] = {
+                    "symbol": symbol,
+                    "size": size,
+                    "color": _rgba(face, line.get_alpha()),
+                    "line": {
+                        "color": edge,
+                        "width": line.get_markeredgewidth() * PX_PER_PT * 0.5,
+                    },
+                }
+        return trace
+
     def _line(self, axes, line):
         x_data, y_data = self._branches(axes, line)
         color = _rgba(line.get_color(), line.get_alpha())
@@ -1046,14 +1349,35 @@ class _FigureConverter:
         shown = self._shown(axes, line.get_label())
         if not (x_data and y_data):
             if not (x_data or y_data):
-                warnings.warn(
-                    "a line in axes coordinates is not converted",
-                    ConversionWarning,
-                    stacklevel=4,
+                # wholly in axes coordinates (transform=ax.transAxes): a path in the axes' domain
+                points = line.get_transform().transform(
+                    np.column_stack([line.get_xdata(), line.get_ydata()]).astype(float)
+                )
+                inside = axes.ax.transAxes.inverted().transform(points)
+                if len(inside) < 2 or not np.all(np.isfinite(inside)):
+                    warnings.warn(
+                        "a line in axes coordinates is not converted",
+                        ConversionWarning,
+                        stacklevel=4,
+                    )
+                    return
+                path = "M " + " L ".join(f"{x:.5g},{y:.5g}" for x, y in inside)
+                self.shapes.append(
+                    dict(
+                        type="path",
+                        path=path,
+                        xref=f"{axes.xref} domain",
+                        yref=f"{axes.yref} domain",
+                        line={"color": color, "width": width, "dash": dash},
+                        layer="above",
+                    )
                 )
                 return
             # axhline / axvline: a shape spanning the axes, whatever the zoom
-            xs, ys = np.asarray(line.get_xdata(), float), np.asarray(line.get_ydata(), float)
+            xs, ys = (
+                np.asarray(line.get_xdata(), float),
+                np.asarray(line.get_ydata(), float),
+            )
             if y_data:  # horizontal
                 shape = dict(
                     type="line",
@@ -1094,93 +1418,18 @@ class _FigureConverter:
         )
         self.data.append(trace)
 
-    @staticmethod
-    def _line_style(line, color, width, dash):
-        linestyle = line.get_linestyle()
-        has_line = linestyle not in ("None", "", " ", "none") and line.get_linewidth() > 0
-        marker = line.get_marker()
-        has_marker = marker not in (None, "None", "", " ", "none")
-        mode = "+".join(m for m, on in (("lines", has_line), ("markers", has_marker)) if on) or "lines"
-        trace = {"mode": mode}
-        if has_line:
-            trace["line"] = {"color": color, "width": width, "dash": dash}
-        if has_marker:
-            symbol = _MARKERS.get(marker, "circle") if isinstance(marker, str) else "circle"
-            size = line.get_markersize() * PX_PER_PT * (0.5 if marker == "." else 1.0)
-            face = line.get_markerfacecolor()
-            edge = _rgba(line.get_markeredgecolor(), line.get_alpha())
-            open_face = isinstance(face, str) and face.lower() == "none"
-            if symbol in _LINE_MARKERS:
-                trace["marker"] = {
-                    "symbol": symbol,
-                    "size": size,
-                    "color": edge,
-                    "line": {
-                        "color": edge,
-                        "width": max(line.get_markeredgewidth() * PX_PER_PT, 1),
-                    },
-                }
-            elif open_face:
-                trace["marker"] = {
-                    "symbol": f"{symbol}-open",
-                    "size": size,
-                    "color": edge,
-                    "line": {
-                        "color": edge,
-                        "width": max(line.get_markeredgewidth() * PX_PER_PT, 1),
-                    },
-                }
-            else:
-                trace["marker"] = {
-                    "symbol": symbol,
-                    "size": size,
-                    "color": _rgba(face, line.get_alpha()),
-                    "line": {
-                        "color": edge,
-                        "width": line.get_markeredgewidth() * PX_PER_PT * 0.5,
-                    },
-                }
-        return trace
-
-    def _mesh(self, axes, mesh):
-        coordinates = np.asarray(mesh.get_coordinates(), dtype=float)  # (M + 1, N + 1, 2) corners
-        values = _values(mesh.get_array())
-        if values.ndim == 1:
-            values = values.reshape(coordinates.shape[0] - 1, coordinates.shape[1] - 1)
-        alpha = mesh.get_alpha()
-        coloraxis = self._coloraxis(mesh)
-        if alpha is not None and alpha == 0:  # fill=False: only its colorbar (and contour lines) show
-            self._colorbar_holder(axes, coloraxis)
-            return
-        X, Y = coordinates[..., 0], coordinates[..., 1]
-        hover = self._hover_template(axes, coloraxis, value="%{z:.4g}")
-        if np.allclose(X, X[:, :1]) and np.allclose(Y, Y[:1, :]):  # x along rows: the "ij" grids of plot_slice
-            x_edges, y_edges, z = X[:, 0], Y[0, :], values.T
-        elif np.allclose(X, X[:1, :]) and np.allclose(Y, Y[:, :1]):
-            x_edges, y_edges, z = X[0, :], Y[:, 0], values
-        else:
-            self._curvilinear_mesh(axes, mesh, X, Y, values, coloraxis)
-            return
-        trace = dict(
-            type="heatmap",
-            x=x_edges,
-            y=y_edges,
-            z=z,
-            coloraxis=coloraxis,
-            hovertemplate=hover,
-            zsmooth=False,
-            **self._refs(axes),
-        )
-        if alpha is not None and alpha < 1:
-            trace["opacity"] = float(alpha)
-        self.data.append(trace)
-
     def _hover_template(self, axes, coloraxis, value):
         ax = axes.ax
-        colorbar = next((c for name, _, c, _ in self.coloraxes if name == coloraxis), None)
+        colorbar = next(
+            (c for name, _, c, _ in self.coloraxes if name == coloraxis), None
+        )
         label = ""
         if colorbar is not None:
-            label = colorbar.ax.get_xlabel() if colorbar.orientation == "horizontal" else colorbar.ax.get_ylabel()
+            label = (
+                colorbar.ax.get_xlabel()
+                if colorbar.orientation == "horizontal"
+                else colorbar.ax.get_ylabel()
+            )
         xlabel, ylabel = (
             _hover_label(ax.get_xlabel()) or "x",
             _hover_label(ax.get_ylabel()) or "y",
@@ -1216,7 +1465,9 @@ class _FigureConverter:
         target.set_ylim(y0, y1)
         buffer = io.BytesIO()
         raster.savefig(buffer, format="png", transparent=True, dpi=100)
-        source = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+        source = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode(
+            "ascii"
+        )
         self.images.append(
             dict(
                 source=source,
@@ -1242,12 +1493,15 @@ class _FigureConverter:
                 x=cx[keep],
                 y=cy[keep],
                 marker={
-                    "color": values[keep].astype(np.float32),
+                    "color": self._color_values(mesh, values[keep]).astype(np.float32),
                     "coloraxis": coloraxis,
                     "opacity": 0,
                     "size": 6,
                 },
-                hovertemplate=self._hover_template(axes, coloraxis, value="%{marker.color:.4g}"),
+                customdata=values[keep].astype(np.float32),
+                hovertemplate=self._hover_template(
+                    axes, coloraxis, value="%{customdata:.4g}"
+                ),
                 showlegend=False,
                 name="",
                 **self._refs(axes),
@@ -1270,9 +1524,137 @@ class _FigureConverter:
             )
         )
 
+    def _mesh(self, axes, mesh):
+        coordinates = np.asarray(
+            mesh.get_coordinates(), dtype=float
+        )  # (M + 1, N + 1, 2) corners
+        values = _values(mesh.get_array())
+        if values.ndim == 1:
+            values = values.reshape(coordinates.shape[0] - 1, coordinates.shape[1] - 1)
+        alpha = mesh.get_alpha()
+        coloraxis = self._coloraxis(mesh)
+        if (
+            alpha is not None and alpha == 0
+        ):  # fill=False: only its colorbar (and contour lines) show
+            self._colorbar_holder(axes, coloraxis)
+            return
+        X, Y = coordinates[..., 0], coordinates[..., 1]
+        log = self._is_log(mesh)
+        hover = self._hover_template(
+            axes, coloraxis, value="%{customdata:.4g}" if log else "%{z:.4g}"
+        )
+        if np.allclose(X, X[:, :1]) and np.allclose(
+            Y, Y[:1, :]
+        ):  # x along rows: the "ij" grids of plot_slice
+            x_edges, y_edges, z = X[:, 0], Y[0, :], values.T
+        elif np.allclose(X, X[:1, :]) and np.allclose(Y, Y[:, :1]):
+            x_edges, y_edges, z = X[0, :], Y[:, 0], values
+        else:
+            self._curvilinear_mesh(axes, mesh, X, Y, values, coloraxis)
+            return
+        trace = dict(
+            type="heatmap",
+            x=x_edges,
+            y=y_edges,
+            z=self._color_values(mesh, z),
+            coloraxis=coloraxis,
+            hovertemplate=hover,
+            zsmooth=False,
+            **self._refs(axes),
+        )
+        if log:
+            trace["customdata"] = np.asarray(z, dtype=float)
+        if alpha is not None and alpha < 1:
+            trace["opacity"] = float(alpha)
+        self.data.append(trace)
+
+    def _image(self, axes, image):
+        """An image of values (``imshow`` with a colormap) as a heatmap over its extent.
+
+        An RGB(A) image has no color scale to convert and is reported instead.
+        """
+        values = _values(image.get_array())
+        if values.ndim != 2:
+            warnings.warn(
+                "an RGB(A) image is not converted to Plotly",
+                ConversionWarning,
+                stacklevel=4,
+            )
+            return
+        rows, columns = values.shape
+        left, right, bottom, top = (float(v) for v in image.get_extent())
+        # the edges in the order of the array's rows and columns: row 0 is at the top of the
+        # extent for origin="upper", at its bottom for origin="lower"
+        y = (
+            np.linspace(top, bottom, rows + 1)
+            if image.origin == "upper"
+            else np.linspace(bottom, top, rows + 1)
+        )
+        x = np.linspace(left, right, columns + 1)
+        if y[0] > y[-1]:
+            y, values = y[::-1], values[::-1]
+        if x[0] > x[-1]:
+            x, values = x[::-1], values[:, ::-1]
+        coloraxis = self._coloraxis(image)
+        log = self._is_log(image)
+        trace = dict(
+            type="heatmap",
+            x=x,
+            y=y,
+            z=self._color_values(image, values),
+            coloraxis=coloraxis,
+            hovertemplate=self._hover_template(
+                axes, coloraxis, value="%{customdata:.4g}" if log else "%{z:.4g}"
+            ),
+            zsmooth=False,
+            **self._refs(axes),
+        )
+        if log:
+            trace["customdata"] = np.asarray(values, dtype=float)
+        alpha = image.get_alpha()
+        if alpha is not None and alpha < 1:
+            trace["opacity"] = float(alpha)
+        self.data.append(trace)
+
+    def _filled_contours(self, axes, contours):
+        """Filled contours: one filled polygon trace per band, in the band's color.
+
+        Each band's path is split into its rings; Plotly fills every ring of a trace on its own
+        (``fill="toself"``), so a hole is drawn over by the band inside it, which comes later.
+        """
+        colors = contours.get_facecolor()
+        coloraxis = self._coloraxis(contours)
+        levels = np.asarray(contours.levels, dtype=float)
+        for i, path in enumerate(contours.get_paths()):
+            if not len(path.vertices):
+                continue
+            rings = path.to_polygons(closed_only=True)
+            if not rings:
+                continue
+            low, high = levels[i], levels[min(i + 1, len(levels) - 1)]
+            self.data.append(
+                dict(
+                    type="scatter",
+                    mode="lines",
+                    x=_nan_joined([r[:, 0] for r in rings]).astype(np.float32),
+                    y=_nan_joined([r[:, 1] for r in rings]).astype(np.float32),
+                    fill="toself",
+                    fillcolor=_rgba(colors[i % len(colors)], contours.get_alpha())
+                    if len(colors)
+                    else None,
+                    line={"width": 0},
+                    hoveron="fills",
+                    showlegend=False,
+                    name=f"{low:.4g} to {high:.4g}",
+                    hovertemplate=f"{low:.4g} to {high:.4g}<extra></extra>",
+                    **self._refs(axes),
+                )
+            )
+        self._colorbar_holder(axes, coloraxis)
+
     def _contours(self, axes, contours):
         if contours.filled:
-            warnings.warn("filled contours are not converted", ConversionWarning, stacklevel=4)
+            self._filled_contours(axes, contours)
             return
         colors = contours.get_edgecolor()
         widths = np.atleast_1d(contours.get_linewidth())
@@ -1286,7 +1668,11 @@ class _FigureConverter:
                     ys.append(segment[:, 1])
             color = _rgba(colors[i % len(colors)]) if len(colors) else "black"
             style = styles[i % len(styles)] if len(styles) else None
-            dash = _dash_pattern(style) if isinstance(style, tuple) else _DASHES.get(style, "solid")
+            dash = (
+                _dash_pattern(style)
+                if isinstance(style, tuple)
+                else _DASHES.get(style, "solid")
+            )
             self.data.append(
                 dict(
                     type="scatter",
@@ -1305,27 +1691,6 @@ class _FigureConverter:
                 )
             )
 
-    def _scatter(self, axes, collection):
-        if not all(collection.get_offset_transform().contains_branch_seperately(axes.ax.transData)):
-            warnings.warn(
-                "a scatter outside data coordinates is not converted",
-                ConversionWarning,
-                stacklevel=4,
-            )
-            return
-        offsets = np.asarray(collection.get_offsets(), dtype=float)
-        marker = self._scatter_marker(axes, collection)
-        trace = dict(
-            type="scattergl" if len(offsets) > 20000 else "scatter",
-            mode="markers",
-            x=offsets[:, 0] if len(offsets) else [None],
-            y=(offsets[:, 1] if len(offsets) else [None]),  # a legend-only entry needs a point
-            marker=marker,
-            **self._shown(axes, collection.get_label()),
-            **self._refs(axes),
-        )
-        self.data.append(trace)
-
     def _scatter_marker(self, axes, collection):
         symbol_name = _collection_marker(collection)
         symbol = _MARKERS[symbol_name]
@@ -1338,16 +1703,25 @@ class _FigureConverter:
         faces = collection.get_facecolors()
         edges = collection.get_edgecolors()
         if array is not None:
-            marker.update(color=_values(array).ravel(), coloraxis=self._coloraxis(collection))
+            marker.update(
+                color=self._color_values(collection, _values(array).ravel()),
+                coloraxis=self._coloraxis(collection),
+            )
             if alpha is not None:
                 marker["opacity"] = float(alpha)
         else:
             colors = faces if len(faces) else edges
-            marker["color"] = _rgba(colors[0]) if len(colors) == 1 else [_rgba(c) for c in colors]
+            marker["color"] = (
+                _rgba(colors[0]) if len(colors) == 1 else [_rgba(c) for c in colors]
+            )
         if symbol in _LINE_MARKERS:
             line_colors = edges if len(edges) else faces
             marker["line"] = {
-                "color": (_rgba(line_colors[0]) if len(line_colors) else marker.get("color", "black")),
+                "color": (
+                    _rgba(line_colors[0])
+                    if len(line_colors)
+                    else marker.get("color", "black")
+                ),
                 "width": max(float(widths[0]) * PX_PER_PT, 1.0),
             }
             if array is not None:
@@ -1361,7 +1735,32 @@ class _FigureConverter:
             marker["line"] = {"width": 0}
         return marker
 
-    _BINS = 32
+    def _scatter(self, axes, collection):
+        if not all(
+            collection.get_offset_transform().contains_branch_seperately(
+                axes.ax.transData
+            )
+        ):
+            warnings.warn(
+                "a scatter outside data coordinates is not converted",
+                ConversionWarning,
+                stacklevel=4,
+            )
+            return
+        offsets = np.asarray(collection.get_offsets(), dtype=float)
+        marker = self._scatter_marker(axes, collection)
+        trace = dict(
+            type="scattergl" if len(offsets) > 20000 else "scatter",
+            mode="markers",
+            x=offsets[:, 0] if len(offsets) else [None],
+            y=(
+                offsets[:, 1] if len(offsets) else [None]
+            ),  # a legend-only entry needs a point
+            marker=marker,
+            **self._shown(axes, collection.get_label()),
+            **self._refs(axes),
+        )
+        self.data.append(trace)
 
     def _line_collection(self, axes, collection):
         """Segments, colored by a value (e.g. orbits colored by time). A Plotly line has one color,
@@ -1372,13 +1771,14 @@ class _FigureConverter:
         if array is None:
             colors = collection.get_colors()
             color = _rgba(colors[0]) if len(colors) else "black"
+            width = float(np.atleast_1d(collection.get_linewidths())[0]) * PX_PER_PT
             self.data.append(
                 dict(
                     type="scatter",
                     mode="lines",
                     x=_nan_joined([s[:, 0] for s in segments]),
                     y=_nan_joined([s[:, 1] for s in segments]),
-                    line={"color": color},
+                    line={"color": color, "width": width},
                     **self._shown(axes, collection.get_label()),
                     **self._refs(axes),
                 )
@@ -1389,8 +1789,12 @@ class _FigureConverter:
         pool = self._bins.setdefault(
             coloraxis,
             {
+                # where the pool's traces go: at its first collection, so that artists drawn
+                # later (a higher zorder) stay on top
+                "at": len(self.data),
                 "cmap": collection.get_cmap(),
-                "width": float(np.atleast_1d(collection.get_linewidths())[0]) * PX_PER_PT,
+                "width": float(np.atleast_1d(collection.get_linewidths())[0])
+                * PX_PER_PT,
                 "segments": [[] for _ in range(self._BINS)],
             },
         )
@@ -1400,9 +1804,13 @@ class _FigureConverter:
             pool["segments"][b].append(segments[i])
 
     def _flush_bins(self, axes):
-        for coloraxis, pool in self._bins.items():
+        # the last pool first, so that the earlier positions stay valid
+        for coloraxis, pool in sorted(
+            self._bins.items(), key=lambda item: -item[1]["at"]
+        ):
+            traces = []
             for b, chosen in enumerate(pool["segments"]):
-                self.data.append(
+                traces.append(
                     dict(
                         type="scatter",
                         mode="lines",
@@ -1418,6 +1826,7 @@ class _FigureConverter:
                         **self._refs(axes),
                     )
                 )
+            self.data[pool["at"] : pool["at"]] = traces
             self._colorbar_holder(axes, coloraxis)
         self._bins = {}
 
@@ -1475,9 +1884,133 @@ class _FigureConverter:
             )
         )
 
-    def _patch(self, axes, patch):
-        from matplotlib.patches import Polygon, Rectangle
+    def _bars(self, axes) -> set:
+        """Bar traces for the bar containers of the axes (``ax.bar``, ``ax.barh``, histograms).
 
+        Returns the rectangles drawn this way, so that they are not converted as patches too.
+        """
+        from matplotlib.container import BarContainer
+
+        drawn = set()
+        for container in axes.ax.containers:
+            if not isinstance(container, BarContainer) or not len(container):
+                continue
+            rectangles = [patch for patch in container if patch.get_visible()]
+            if not rectangles:
+                continue
+            vertical = getattr(container, "orientation", "vertical") != "horizontal"
+            first = rectangles[0]
+            if vertical:  # position along x, length along y
+                positions = [r.get_x() + 0.5 * r.get_width() for r in rectangles]
+                lengths = [r.get_height() for r in rectangles]
+                thickness = [r.get_width() for r in rectangles]
+                bases = [r.get_y() for r in rectangles]
+            else:
+                positions = [r.get_y() + 0.5 * r.get_height() for r in rectangles]
+                lengths = [r.get_width() for r in rectangles]
+                thickness = [r.get_height() for r in rectangles]
+                bases = [r.get_x() for r in rectangles]
+            colors = {tuple(np.round(r.get_facecolor(), 3)) for r in rectangles}
+            marker = {
+                "color": (
+                    _rgba(first.get_facecolor(), first.get_alpha())
+                    if len(colors) == 1
+                    else [_rgba(r.get_facecolor(), r.get_alpha()) for r in rectangles]
+                )
+            }
+            if first.get_linewidth() > 0 and first.get_edgecolor()[3] > 0:
+                marker["line"] = {
+                    "color": _rgba(first.get_edgecolor()),
+                    "width": first.get_linewidth() * PX_PER_PT,
+                }
+            trace = dict(
+                type="bar",
+                orientation="v" if vertical else "h",
+                x=_values(positions) if vertical else _values(lengths),
+                y=_values(lengths) if vertical else _values(positions),
+                width=_values(thickness),
+                marker=marker,
+                **self._shown(axes, container.get_label()),
+                **self._refs(axes),
+            )
+            if any(base != 0 for base in bases):
+                trace["base"] = _values(bases)
+            self.data.append(trace)
+            drawn |= set(container)
+        if drawn:
+            # Matplotlib draws bars edge to edge, with no gap, in overlapping groups
+            self.layout["bargap"] = 0
+            self.layout["barmode"] = "overlay"
+        return drawn
+
+    def _arrow(self, axes, patch):
+        """A ``FancyArrowPatch`` between two data points (a dimension line, an arrow): an annotation
+        arrow with heads at the ends its style names, or a plain line for ``"-"``."""
+        ends = getattr(patch, "_posA_posB", None)
+        if ends is None or not all(self._branches(axes, patch)):
+            warnings.warn(
+                "an arrow along a path or outside the data coordinates is not converted",
+                ConversionWarning,
+                stacklevel=5,
+            )
+            return
+        (x0, y0), (x1, y1) = ends
+        style = type(
+            patch.get_arrowstyle()
+        ).__name__  # CurveAB, CurveB, CurveA, Curve, ...
+        side = {"CurveAB": "end+start", "CurveB": "end", "CurveA": "start"}.get(style)
+        color = _rgba(patch.get_edgecolor())
+        width = max(patch.get_linewidth() * PX_PER_PT, 0.5)
+        xscale, yscale = axes.ax.get_xscale(), axes.ax.get_yscale()
+
+        def scaled(value, scale):
+            return (
+                float(np.log10(value)) if scale == "log" and value > 0 else float(value)
+            )
+
+        x0, x1 = scaled(x0, xscale), scaled(x1, xscale)
+        y0, y1 = scaled(y0, yscale), scaled(y1, yscale)
+        if side is None:
+            self.shapes.append(
+                dict(
+                    type="line",
+                    xref=axes.xref,
+                    yref=axes.yref,
+                    x0=x0,
+                    y0=y0,
+                    x1=x1,
+                    y1=y1,
+                    line={"color": color, "width": width},
+                )
+            )
+            return
+        self.annotations.append(
+            dict(
+                x=x1,
+                y=y1,
+                ax=x0,
+                ay=y0,
+                xref=axes.xref,
+                yref=axes.yref,
+                axref=axes.xref,
+                ayref=axes.yref,
+                text="",
+                showarrow=True,
+                arrowhead=2,
+                arrowside=side,
+                arrowsize=1,
+                arrowwidth=width,
+                arrowcolor=color,
+                standoff=0,
+                startstandoff=0,
+            )
+        )
+
+    def _patch(self, axes, patch):
+        from matplotlib.patches import FancyArrowPatch, Polygon, Rectangle
+
+        if isinstance(patch, FancyArrowPatch):
+            return self._arrow(axes, patch)
         x_data, y_data = self._branches(axes, patch)
         face = patch.get_facecolor()
         fill = _rgba(face) if patch.get_fill() else "rgba(0, 0, 0, 0)"
@@ -1506,15 +2039,33 @@ class _FigureConverter:
             return
         if isinstance(patch, Polygon) and x_data and y_data:
             xy = np.asarray(patch.get_xy(), dtype=float)
+            edge = patch.get_edgecolor()
+            filled = patch.get_fill() and face[3] > 0
+            # an outline where it shows: a step histogram (not filled), or an edge in another
+            # colour than the face (a filled polygon's default edge is its own colour)
+            outlined = (
+                patch.get_linewidth() > 0
+                and edge[3] > 0
+                and (not filled or tuple(edge) != tuple(face))
+            )
+            line = (
+                {
+                    "color": _rgba(edge, patch.get_alpha()),
+                    "width": patch.get_linewidth() * PX_PER_PT,
+                    "dash": _line_dash(patch),
+                }
+                if outlined
+                else {"width": 0}
+            )
             self.data.append(
                 dict(
                     type="scatter",
                     mode="lines",
                     x=xy[:, 0],
                     y=xy[:, 1],
-                    fill="toself",
+                    fill="toself" if filled else "none",
                     fillcolor=fill,
-                    line={"width": 0},
+                    line=line,
                     **shown,
                     **self._refs(axes),
                 )
@@ -1552,9 +2103,13 @@ class _FigureConverter:
                 )
         else:
             x, y = text.get_position()
-            x_data, y_data = text.get_transform().contains_branch_seperately(ax.transData)
+            x_data, y_data = text.get_transform().contains_branch_seperately(
+                ax.transData
+            )
         yref = axes.yref
-        ha = {"left": "left", "center": "center", "right": "right"}.get(text.get_horizontalalignment(), "left")
+        ha = {"left": "left", "center": "center", "right": "right"}.get(
+            text.get_horizontalalignment(), "left"
+        )
         va = {
             "top": "top",
             "center": "middle",
@@ -1577,6 +2132,12 @@ class _FigureConverter:
                 xshift=float(offset[0]),
                 yshift=float(offset[1]),
                 showarrow=False,
+                # Matplotlib turns text counterclockwise, Plotly clockwise
+                **(
+                    {"textangle": -float(text.get_rotation())}
+                    if text.get_rotation()
+                    else {}
+                ),
                 font={
                     "size": text.get_fontsize() * PX_PER_PT * 0.95,
                     "color": _rgba(text.get_color()),
@@ -1609,7 +2170,11 @@ class _FigureConverter:
             xs, ys, zs = (np.asarray(v, dtype=float) for v in artist._offsets3d)
             marker = self._scatter_marker(axes, artist)
             marker.pop("line", None)
-            marker["size"] = marker["size"] * 0.6 if np.isscalar(marker["size"]) else marker["size"] * 0.6
+            marker["size"] = (
+                marker["size"] * 0.6
+                if np.isscalar(marker["size"])
+                else marker["size"] * 0.6
+            )
             self.data.append(
                 dict(
                     type="scatter3d",
@@ -1631,24 +2196,345 @@ class _FigureConverter:
                 stacklevel=4,
             )
 
+    # --- artists ------------------------------------------------------------------------------
+    def _artists(self, axes):
+        from matplotlib.collections import LineCollection, PathCollection, QuadMesh
+        from matplotlib.contour import ContourSet
+        from matplotlib.image import AxesImage
+        from matplotlib.legend import Legend
+        from matplotlib.lines import Line2D
+        from matplotlib.patches import Patch
+        from matplotlib.quiver import Quiver
+        from matplotlib.text import Annotation, Text
 
-def _grid(axis) -> bool:
-    return any(line.get_visible() for line in axis.get_gridlines())
+        ax = axes.ax
+        legend = ax.get_legend()
+        self._legend_labels = (
+            {t.get_text() for t in legend.get_texts()} if legend is not None else set()
+        )
+        if legend is not None and self._legend_labels:
+            self._legend(axes)
+        skip = {
+            ax.patch,
+            ax.title,
+            ax._left_title,
+            ax._right_title,
+            legend,
+            *ax.spines.values(),
+            ax.xaxis,
+            ax.yaxis,
+        }
+        if axes.kind == "3d":
+            skip |= {ax.zaxis}
+        if axes.kind != "3d":
+            skip |= self._bars(
+                axes
+            )  # the rectangles of ax.bar/barh, drawn as bar traces
+        children = [c for c in ax.get_children() if c not in skip and c.get_visible()]
+        children.sort(
+            key=lambda c: c.get_zorder()
+        )  # stable: equal zorders keep their order
+        self._bins = {}  # colored line collections of this axes, pooled per coloraxis
+        for artist in children:
+            if axes.kind == "3d":
+                self._artist_3d(axes, artist)
+            elif isinstance(artist, QuadMesh):
+                self._mesh(axes, artist)
+            elif isinstance(artist, AxesImage):
+                self._image(axes, artist)
+            elif isinstance(artist, ContourSet):
+                self._contours(axes, artist)
+            elif isinstance(artist, Quiver):
+                self._quiver(axes, artist)
+            elif isinstance(artist, Line2D):
+                self._line(axes, artist)
+            elif isinstance(artist, PathCollection):
+                self._scatter(axes, artist)
+            elif isinstance(artist, LineCollection):
+                self._line_collection(axes, artist)
+            elif isinstance(artist, Patch):
+                self._patch(axes, artist)
+            elif isinstance(artist, Annotation):
+                self._text(axes, artist)
+            elif isinstance(artist, Text):
+                if artist.get_text():
+                    self._text(axes, artist)
+            elif isinstance(artist, Legend):
+                continue
+            else:
+                warnings.warn(
+                    f"a {type(artist).__name__} is not converted to Plotly",
+                    ConversionWarning,
+                    stacklevel=3,
+                )
+        self._flush_bins(axes)
+
+    def _plain_hover_names(self):
+        """Hover labels with the Unicode form of a LaTeX legend name, which plotly.js shows as written."""
+        for trace in self.data:
+            plain = self._plain_names.get(trace.get("name"))
+            if plain is None or trace.get("hovertemplate") is not None:
+                continue
+            if trace.get("hoverinfo") in ("skip", "none"):
+                continue
+            if trace.get("type") in ("scatter", "bar"):
+                trace["hovertemplate"] = f"(%{{x}}, %{{y}})<extra>{plain}</extra>"
+            else:
+                trace["hoverlabel"] = {**trace.get("hoverlabel", {}), "namelength": 0}
+
+    def convert(self):
+        self.axes, colorbars = self._classify()
+        self.native = (
+            sum(1 for a in self.axes if a.parent is None) == 1
+            and self.axes[0].kind == "2d"
+            if self.axes
+            else True
+        )
+        self.margin = (
+            {"l": 70, "r": 30, "t": 60, "b": 55}
+            if self.native
+            else {"l": 8, "r": 8, "t": 8, "b": 8}
+        )
+        if not self.native and any(
+            a.parent is None
+            and (a.ax.get_title() or a.ax.get_title("left"))
+            and a.ax.get_position().y1 > 0.8
+            for a in self.axes
+        ):
+            # room for the titles of the top row of panels, whatever the figure's height on the
+            # page (Matplotlib's room above them is a fraction of the height, Plotly's margin is
+            # in pixels)
+            self.margin["t"] = 30
+        # left to right, as Matplotlib placed them (Plotly stacks a lone axes' colorbars in this order)
+        for colorbar in sorted(colorbars, key=lambda c: c.ax.get_position().x0):
+            self._coloraxis(colorbar.mappable, colorbar)
+        suptitle = (
+            self.figure.get_suptitle() if hasattr(self.figure, "get_suptitle") else ""
+        )
+        for axes in self.axes:
+            self._axes_layout(axes)
+            self._artists(axes)
+        self._coloraxis_layout()
+        self._titles(suptitle)
+        layout = self.layout
+        layout.update(
+            width=round(self.width),
+            height=round(self.height),
+            margin=self.margin,
+            template="plotly_white",
+            plot_bgcolor="white",
+            hovermode="closest",
+            showlegend=any(t.get("showlegend") for t in self.data)
+            or any(s.get("showlegend") for s in self.shapes),
+            meta={
+                "converted_from": "matplotlib",
+                # the caption a figure carries (plasma_plots.figure(caption=...), maxplotlib)
+                **(
+                    {"caption": self.figure.caption}
+                    if getattr(self.figure, "caption", None)
+                    else {}
+                ),
+            },
+        )
+        if self.shapes:
+            layout["shapes"] = self.shapes
+        if self.annotations:
+            layout["annotations"] = self.annotations
+        if self.images:
+            layout["images"] = self.images
+        self._plain_hover_names()
+        return {"data": self.data, "layout": layout}
 
 
-def _clip(interval):
-    lo, hi = (float(min(max(v, 0.0), 1.0)) for v in interval)
-    return [lo, max(hi, lo + 1e-3)]
+# ---------------------------------------------------------------------------------------------
+# Converting one figure
+# ---------------------------------------------------------------------------------------------
+def bare(figure):
+    """Strip a Plotly figure to its data, for a header picture or a front page.
+
+    The axes, ticks, grid, titles, legend, color bars, sliders and buttons go, the background
+    becomes transparent and the margins zero: the counterpart of the ``"bare"`` Matplotlib style
+    (see :mod:`plasma_plots.styles`). An animation keeps its frames.
+
+    Parameters
+    ----------
+    figure : plotly.graph_objects.Figure
+        The figure; changed in place.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The same figure.
+
+    Examples
+    --------
+    >>> result = phi.plasma.plot.animation(x="x", y="y", backend="plotly")
+    >>> bare(result.fig).write_json("docs/public/plotly/hero.json")
+    """
+    hidden = dict(visible=False, showgrid=False, zeroline=False)
+    figure.update_layout(
+        title=None,
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, t=0, b=0),
+        sliders=[],
+        updatemenus=[],
+        annotations=[],
+    )
+    figure.update_xaxes(**hidden)
+    figure.update_yaxes(**hidden)
+    for trace in figure.data:
+        if "showscale" in trace:
+            trace.showscale = False
+    figure.update_coloraxes(showscale=False)
+    figure.update_scenes(xaxis_visible=False, yaxis_visible=False, zaxis_visible=False)
+    return figure
 
 
-def _float(value):
-    return None if value is None else float(value)
+def to_plotly(figure, *, strict: bool = False):
+    """Convert a drawn Matplotlib figure into an interactive Plotly figure.
+
+    Parameters
+    ----------
+    figure : matplotlib.figure.Figure
+        A figure drawn by one of the plotting functions (or any figure with the artists they
+        use, see :mod:`plasma_plots.plotly_backend`).
+    strict : bool, optional
+        Raise instead of warning when a part of the figure cannot be converted. Default:
+        ``False``.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The same content: traces for the data, shapes for lines and bands spanning an axes,
+        annotations for text, a colorbar per Matplotlib colorbar.
+
+    Raises
+    ------
+    ImportError
+        If plotly is not installed.
+
+    See Also
+    --------
+    animation_to_plotly : The same for an animation.
+    plasma_plots.plotting.PlotResult.to_plotly : The same for a plot result.
+
+    Examples
+    --------
+    >>> result = plot_slice(phi.isel(t=-1, eta3=0))
+    >>> to_plotly(result.fig).write_html("phi.html")
+    """
+    go = _plotly()
+    with warnings.catch_warnings():
+        if strict:
+            warnings.simplefilter("error", ConversionWarning)
+        converted = _FigureConverter(figure).convert()
+    return go.Figure(data=converted["data"], layout=converted["layout"])
 
 
 # ---------------------------------------------------------------------------------------------
 # Animations and viewers
 # ---------------------------------------------------------------------------------------------
 _FRAME_LAYOUT = ("title", "annotations", "images", "shapes")
+
+
+def _signature(trace):
+    return (
+        trace.get("type"),
+        trace.get("name", ""),
+        trace.get("mode", ""),
+        trace.get("xaxis"),
+        trace.get("yaxis"),
+    )
+
+
+def _aligned(snapshots):
+    """The traces of every frame, aligned: a trace missing from some frames (e.g. a contour level the
+    field reaches only later) is kept in every frame, hidden where it is missing."""
+    import difflib
+
+    union = [_signature(t) for t in snapshots[0]["data"]]
+    for snapshot in snapshots[1:]:
+        signatures = [_signature(t) for t in snapshot["data"]]
+        merged = []
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
+            None, union, signatures, autojunk=False
+        ).get_opcodes():
+            if tag == "equal":
+                merged += union[i1:i2]
+            else:  # keep both sides, in order: the union only grows
+                merged += union[i1:i2] + signatures[j1:j2]
+        union = merged
+    frames, example = [], {}
+    for snapshot in snapshots:
+        signatures = [_signature(t) for t in snapshot["data"]]
+        row, position = [None] * len(union), 0
+        for trace, signature in zip(snapshot["data"], signatures):
+            while union[position] != signature:
+                position += 1
+            row[position] = trace
+            example.setdefault(position, trace)
+            position += 1
+        frames.append(row)
+    sometimes = {j for row in frames for j, trace in enumerate(row) if trace is None}
+    for row in frames:
+        for j in sometimes:
+            if row[j] is None:  # the same kind of trace, hidden, with nothing to show
+                hidden = {
+                    k: v
+                    for k, v in example[j].items()
+                    if k
+                    in (
+                        "type",
+                        "name",
+                        "mode",
+                        "xaxis",
+                        "yaxis",
+                        "showlegend",
+                        "legend",
+                        "line",
+                        "marker",
+                    )
+                }
+                row[j] = {**hidden, "x": [], "y": [], "visible": False}
+            else:
+                row[j] = {**row[j], "visible": True}
+    return frames
+
+
+def _same(a, b) -> bool:
+    """Whether two converted traces (nested dicts, lists and arrays) are equal."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
+    if isinstance(a, (np.ndarray, list, tuple)) or isinstance(
+        b, (np.ndarray, list, tuple)
+    ):
+        try:
+            x, y = np.asarray(a), np.asarray(b)
+        except ValueError:
+            return False
+        if x.shape != y.shape:
+            return False
+        if x.dtype.kind in "fc" or y.dtype.kind in "fc":
+            return bool(
+                np.array_equal(x.astype(float), y.astype(float), equal_nan=True)
+            )
+        return bool(np.array_equal(x, y))
+    return a == b
+
+
+def _constant_keys(frames):
+    """``(trace index, key)`` of the coordinates that are the same in every frame."""
+    constant = set()
+    for i, trace in enumerate(frames[0]):
+        for key in ("x", "y", "z"):
+            if key in trace and all(
+                key in frame[i] and _same(frame[i][key], trace[key])
+                for frame in frames[1:]
+            ):
+                constant.add((i, key))
+    return constant
 
 
 def animation_to_plotly(
@@ -1720,24 +2606,34 @@ def animation_to_plotly(
         for frame in frames:
             animation._func(frame, *animation._args)
             snapshots.append(_FigureConverter(animation._fig).convert())
-    animation._draw_was_started = True  # it was drawn, frame by frame: no "deleted without rendering" warning
+    animation._draw_was_started = (
+        True  # it was drawn, frame by frame: no "deleted without rendering" warning
+    )
     traces = _aligned(snapshots)  # one list per frame, the same traces in every one
     first = snapshots[0]
     figure = go.Figure(data=traces[0], layout=first["layout"])
     # a frame names only what changes: traces that are the same in every frame (a static contour,
     # the domain's boundary, a fixed background) and the coordinates every frame shares (a mesh's
     # grid) are stored once, in the figure itself
-    static = [j for j in range(len(traces[0])) if all(_same(frame[j], traces[0][j]) for frame in traces[1:])]
+    static = [
+        j
+        for j in range(len(traces[0]))
+        if all(_same(frame[j], traces[0][j]) for frame in traces[1:])
+    ]
     changing = [j for j in range(len(traces[0])) if j not in static]
     constant = _constant_keys(traces)
     figure.frames = [
         go.Frame(
-            data=[{k: v for k, v in frame[j].items() if (j, k) not in constant} for j in changing],
+            data=[
+                {k: v for k, v in frame[j].items() if (j, k) not in constant}
+                for j in changing
+            ],
             traces=changing,
             name=str(i),
             layout={
                 key: snapshot["layout"].get(key, [] if key != "title" else {"text": ""})
-                for key in _FRAME_LAYOUT + tuple(k for k in snapshot["layout"] if k.startswith("coloraxis"))
+                for key in _FRAME_LAYOUT
+                + tuple(k for k in snapshot["layout"] if k.startswith("coloraxis"))
             },
         )
         for i, (frame, snapshot) in enumerate(zip(traces, snapshots))
@@ -1822,95 +2718,6 @@ def animation_to_plotly(
     return figure
 
 
-def _signature(trace):
-    return (
-        trace.get("type"),
-        trace.get("name", ""),
-        trace.get("mode", ""),
-        trace.get("xaxis"),
-        trace.get("yaxis"),
-    )
-
-
-def _aligned(snapshots):
-    """The traces of every frame, aligned: a trace missing from some frames (e.g. a contour level the
-    field reaches only later) is kept in every frame, hidden where it is missing."""
-    import difflib
-
-    union = [_signature(t) for t in snapshots[0]["data"]]
-    for snapshot in snapshots[1:]:
-        signatures = [_signature(t) for t in snapshot["data"]]
-        merged = []
-        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, union, signatures, autojunk=False).get_opcodes():
-            if tag == "equal":
-                merged += union[i1:i2]
-            else:  # keep both sides, in order: the union only grows
-                merged += union[i1:i2] + signatures[j1:j2]
-        union = merged
-    frames, example = [], {}
-    for snapshot in snapshots:
-        signatures = [_signature(t) for t in snapshot["data"]]
-        row, position = [None] * len(union), 0
-        for trace, signature in zip(snapshot["data"], signatures):
-            while union[position] != signature:
-                position += 1
-            row[position] = trace
-            example.setdefault(position, trace)
-            position += 1
-        frames.append(row)
-    sometimes = {j for row in frames for j, trace in enumerate(row) if trace is None}
-    for row in frames:
-        for j in sometimes:
-            if row[j] is None:  # the same kind of trace, hidden, with nothing to show
-                hidden = {
-                    k: v
-                    for k, v in example[j].items()
-                    if k
-                    in (
-                        "type",
-                        "name",
-                        "mode",
-                        "xaxis",
-                        "yaxis",
-                        "showlegend",
-                        "legend",
-                        "line",
-                        "marker",
-                    )
-                }
-                row[j] = {**hidden, "x": [], "y": [], "visible": False}
-            else:
-                row[j] = {**row[j], "visible": True}
-    return frames
-
-
-def _same(a, b) -> bool:
-    """Whether two converted traces (nested dicts, lists and arrays) are equal."""
-    if isinstance(a, dict) and isinstance(b, dict):
-        return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
-    if isinstance(a, (np.ndarray, list, tuple)) or isinstance(b, (np.ndarray, list, tuple)):
-        try:
-            x, y = np.asarray(a), np.asarray(b)
-        except ValueError:
-            return False
-        if x.shape != y.shape:
-            return False
-        if x.dtype.kind in "fc" or y.dtype.kind in "fc":
-            return bool(np.array_equal(x.astype(float), y.astype(float), equal_nan=True))
-        return bool(np.array_equal(x, y))
-    return a == b
-
-
-def _constant_keys(frames):
-    """``(trace index, key)`` of the coordinates that are the same in every frame."""
-    constant = set()
-    for i, trace in enumerate(frames[0]):
-        for key in ("x", "y", "z"):
-            if key in trace and all(key in frame[i] and _same(frame[i][key], trace[key]) for frame in frames[1:]):
-                constant.add((i, key))
-    return constant
-
-
 def viewer_to_plotly(viewer):
     """Convert a slider viewer into a Plotly figure with one slider.
 
@@ -1970,3 +2777,78 @@ def viewer_to_plotly(viewer):
     animation = animate_slices(data, view=view, **options)
     figure = animation_to_plotly(animation, play=False)
     return PlotResult(figure, None, list(figure.data))
+
+
+def _drawn_as_plotly(draw):
+    """Run ``draw`` off screen and convert what it returns."""
+    from .mpi import SkippedPlot
+    from .plotting import InteractiveSliceViewer, PlotResult
+
+    _plotly()  # fail before drawing if plotly is missing
+    with _offscreen():
+        result = draw()
+        if isinstance(result, SkippedPlot) or result is None:
+            return result
+        if isinstance(result, PlotResult):
+            if _is_plotly(result.fig):
+                return result
+            return _plotly_result(to_plotly(result.fig), result)
+        if isinstance(result, InteractiveSliceViewer):
+            return viewer_to_plotly(result)
+        if _is_animation(result):
+            figure = animation_to_plotly(result)
+            return PlotResult(figure, None, list(figure.data))
+    raise TypeError(f"cannot convert a {type(result).__name__} to Plotly")
+
+
+def with_backend(method):
+    """Give an accessor plot method the ``backend`` option.
+
+    The decorated method declares ``backend=None`` in its signature (so that its docs and
+    ``help()`` show it) and draws with Matplotlib as before; with ``backend="plotly"`` or
+    ``backend="tikz"`` (or that default, see :func:`set_backend`) the decorator draws off screen
+    and returns the converted result instead (see :mod:`plasma_plots.tikz_backend`). An ``ax``
+    given with either raises ``TypeError``, since such a figure cannot be drawn into a
+    Matplotlib axes.
+
+    Parameters
+    ----------
+    method : callable
+        A method returning a ``PlotResult``, a ``FuncAnimation`` or an
+        ``InteractiveSliceViewer``.
+
+    Returns
+    -------
+    callable
+        The method with the ``backend`` option.
+    """
+    signature = inspect.signature(method)
+    if "backend" not in signature.parameters:
+        raise TypeError(f"{method.__qualname__} must declare a backend parameter")
+
+    @functools.wraps(method)
+    def wrapper(*args, **kwargs):
+        arguments = signature.bind(*args, **kwargs).arguments
+        backend = resolve_backend(arguments.get("backend"))
+        token, depth = _drawing.set(True), _depth.set(_depth.get() + 1)
+        try:
+            if backend == "matplotlib":
+                result = method(*args, **kwargs)
+                if _collecting and _depth.get() == 1:  # a panel of plasma_plots.figure
+                    _collecting[-1].append(result)
+                return result
+            ax = arguments.get("ax", (arguments.get("options") or {}).get("ax"))
+            if ax is not None:
+                raise TypeError(
+                    f"ax= draws into a Matplotlib axes; it cannot be combined with backend={backend!r}"
+                )
+            if backend == "tikz":
+                from .tikz_backend import _drawn_as_tikz
+
+                return _drawn_as_tikz(lambda: method(*args, **kwargs))
+            return _drawn_as_plotly(lambda: method(*args, **kwargs))
+        finally:
+            _drawing.reset(token)
+            _depth.reset(depth)
+
+    return wrapper
