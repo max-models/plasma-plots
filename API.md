@@ -357,7 +357,7 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
 - `dataset.plasma.plot.orbit_classification(*, x='v_par', y=None, v_par='v_par', t=0, ax=None, s=8, backend=None)`: Plot markers in a phase-space plane, colored as passing, trapped or lost.
   - e.g. `orbits.plasma.plot.orbit_classification()`
   - e.g. `orbits.plasma.plot.orbit_classification(x="p_phi")`
-- `dataset.plasma.plot.animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, max_frames=None, interval=100, s=8, cmap=None, trail=None, paths=False, backend=None)`: Animate the markers moving over time, optionally over a field animated in sync.
+- `dataset.plasma.plot.animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, max_frames=None, interval=100, s=8, cmap=None, trail=None, paths=False, aspect='equal', backend=None)`: Animate the markers moving over time, optionally over a field animated in sync.
   - e.g. `markers.plasma.plot.animation(x="x", y="y", color="density", background=n, step=2)`
   - e.g. `orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)`
 - `dataset.plasma.plot.paths(*, x='x', y='y', markers=6, near=None, background=None, background_options=None, t=0, ax=None, backend=None)`: Plot the paths of a few markers in a plane, with start and end markers.
