@@ -70,6 +70,30 @@ plot_quadtree(cells, points=points, target=(0.3, -0.3), backend="plotly")
 
 </details>
 
+## A tree that follows the particles
+
+```python
+from plasma_plots import animate_quadtree
+
+animate_quadtree(
+    points=history, times=t, point_color=charges, backend="plotly"
+)
+```
+
+`animate_quadtree` draws one tree per frame: give it the trees of a simulation
+(one per saved step) or only the positions, `history`, a list of `(2, N)`
+arrays (or one array with a leading frame axis), and it builds a tree for each
+with `leaf_capacity` and `bounds`. The depths share one color scale over the
+whole animation and the axes stay fixed (`extent=` sets them). With Matplotlib
+it returns a `FuncAnimation`; with Plotly a figure with a slider and Play and
+Pause buttons. `leaves_only=True` keeps a large tree light, and
+`max_frames=` thins out a long history. The tree-d-3d examples
+[diocotron instability](/tree-d-3d/example-scripts/diocotron-instability/) and
+[Coulomb explosion](/tree-d-3d/example-scripts/coulomb-explosion/) use it on
+real simulations.
+
+<PlotlyFigure src="/plotly/plotly_trees_movie.plotly.json" poster="/plotly/plotly_trees_movie.png" posterDark="/plotly/plotly_trees_movie.dark.png" />
+
 ## Trees from a tree code
 
 `plot_quadtree` also takes a tree object with the attribute names of
