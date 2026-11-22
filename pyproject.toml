@@ -38,6 +38,8 @@ optional-dependencies.desc = [
 optional-dependencies.dev = [
   "griffe",
   "h5py",
+  # tests of plasma_plots.openpmd: files written by the reference implementation
+  "openpmd-api",
   "pre-commit",
   "pytest",
   "ruff",
@@ -54,6 +56,10 @@ optional-dependencies.gallery = [
 ]
 optional-dependencies.netcdf = [
   "netcdf4",
+]
+# plasma_plots.from_openpmd and openpmd_meshes: openPMD files in HDF5
+optional-dependencies.openpmd = [
+  "h5py",
 ]
 optional-dependencies.plotly = [
   "kaleido",
