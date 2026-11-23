@@ -60,7 +60,12 @@ def _items(body):
     for line in body:
         if line and not line.startswith(" "):
             head = line.split(" : ", 1)[0]
-            items.append(([name.strip().lstrip("*") for name in head.split(",")], [line]))
+            items.append(
+                (
+                    [name.strip().lstrip("*") for name in head.split(",")],
+                    [line],
+                )
+            )
         elif items:
             items[-1][1].append(line)
     for _, lines in items:
@@ -76,7 +81,9 @@ def _first_see_also(sections):
                 if line.strip() and not line.startswith(" "):
                     head = line.split(" : ", 1)[0].split(",")[0].strip()
                     role = _ROLE.search(head)
-                    return (role.group(1) if role else head.strip("`")).lstrip("~")
+                    return (role.group(1) if role else head.strip("`")).lstrip(
+                        "~"
+                    )
     return None
 
 
@@ -88,7 +95,11 @@ def _resolve(pkg, name: str, context):
         try:
             obj = pkg[candidate]
             return obj.final_target if obj.is_alias else obj
-        except (KeyError, griffe.AliasResolutionError, griffe.CyclicAliasError):
+        except (
+            KeyError,
+            griffe.AliasResolutionError,
+            griffe.CyclicAliasError,
+        ):
             pass
     scope = context.parent
     while scope is not None:
@@ -121,12 +132,16 @@ def _documented(pkg, obj, seen):
     if first:
         target = _resolve(pkg, first, obj)
         if target is not None and target.is_function:
-            for name, lines in _documented(pkg, target, seen | {obj.path}).items():
+            for name, lines in _documented(
+                pkg, target, seen | {obj.path}
+            ).items():
                 params.setdefault(name, lines)
     return params
 
 
-_ANY_ROLE = re.compile(r":(?:py:)?(func|meth|class|attr|mod|obj|data|exc):`(~?)([^`<]+?)(?: <([^`>]+)>)?`")
+_ANY_ROLE = re.compile(
+    r":(?:py:)?(func|meth|class|attr|mod|obj|data|exc):`(~?)([^`<]+?)(?: <([^`>]+)>)?`"
+)
 
 
 def _link(pkg, context, name, short=False, label=None, role="obj"):
@@ -136,7 +151,9 @@ def _link(pkg, context, name, short=False, label=None, role="obj"):
     path = target.path if target is not None else name
     if label is None:
         label = name.rsplit(".", 1)[-1] if short else name
-        if (target is not None and target.is_function) or (target is None and role in ("func", "meth")):
+        if (target is not None and target.is_function) or (
+            target is None and role in ("func", "meth")
+        ):
             label += "()"
     return f"[`{label}`][{path}]"
 
@@ -152,13 +169,24 @@ def _rewrite(pkg, obj, text: str) -> str:
         if in_code or stripped.startswith(">>>") or stripped.startswith("..."):
             out.append(line)
             continue
-        if i + 1 < len(lines) and _UNDERLINE.match(lines[i + 1].strip() or "x") and not line.startswith(" "):
+        if (
+            i + 1 < len(lines)
+            and _UNDERLINE.match(lines[i + 1].strip() or "x")
+            and not line.startswith(" ")
+        ):
             in_see_also = stripped.lower() == "see also"
-        elif in_see_also and line and not line.startswith(" ") and not _UNDERLINE.match(stripped):
+        elif (
+            in_see_also
+            and line
+            and not line.startswith(" ")
+            and not _UNDERLINE.match(stripped)
+        ):
             head, sep, rest = line.partition(" : ")
             names = [n.strip() for n in head.split(",")]
             if all(n and not n.startswith(("[", ":")) for n in names):
-                line = ", ".join(_link(pkg, obj, n.strip("`")) for n in names) + (sep + rest if sep else "")
+                line = ", ".join(
+                    _link(pkg, obj, n.strip("`")) for n in names
+                ) + (sep + rest if sep else "")
         line = _ANY_ROLE.sub(
             lambda m: _link(
                 pkg,
@@ -197,35 +225,23 @@ def _functions(obj):
 class InheritParameters(griffe.Extension):
     """Complete the Parameters section of every function that inherits parameter docs."""
 
-    def on_package(self, *, pkg, loader, **kwargs):  # noqa: ARG002  (griffe's signature)
-        completed = {}
-        for function in _functions(pkg):
-            new = self._completed(pkg, function)
-            if new is not None:
-                completed[function] = new
-        # replace the docstrings only now, so every lookup above read the originals
-        texts = {}
-        for obj in [pkg, *_documented_objects(pkg)]:
-            if obj.docstring is not None:
-                texts[obj] = _rewrite(pkg, obj, completed.get(obj, obj.docstring.value))
-        for obj, text in texts.items():
-            old = obj.docstring
-            obj.docstring = griffe.Docstring(
-                text,
-                lineno=old.lineno,
-                endlineno=old.endlineno,
-                parent=obj,
-                parser=old.parser,
-                parser_options=old.parser_options,
-            )
-
     @staticmethod
     def _completed(pkg, function):
         if function.docstring is None:
             return None
-        signature = [p.name for p in function.parameters if p.name not in ("self", "cls")]
+        signature = [
+            p.name
+            for p in function.parameters
+            if p.name not in ("self", "cls")
+        ]
         sections = _sections(function.docstring.value)
-        own = {n for title, body in sections if title == "Parameters" for names, _ in _items(body) for n in names}
+        own = {
+            n
+            for title, body in sections
+            if title == "Parameters"
+            for names, _ in _items(body)
+            for n in names
+        }
         documented = _documented(pkg, function, set())
         if all(name in own or name not in documented for name in signature):
             return None
@@ -236,9 +252,35 @@ class InheritParameters(griffe.Extension):
                 written.add(id(item))
                 lines += item
         lines.append("")
-        rest = [(title, body) for title, body in sections if title != "Parameters"]
+        rest = [
+            (title, body) for title, body in sections if title != "Parameters"
+        ]
         position = 1 if rest and rest[0][0] is None else 0
         if position and rest[0][1] and rest[0][1][-1].strip():
             rest[0] = (None, rest[0][1] + [""])
         rest.insert(position, ("Parameters", lines))
         return _join(rest)
+
+    def on_package(self, *, pkg, loader, **kwargs):  # noqa: ARG002  (griffe's signature)
+        completed = {}
+        for function in _functions(pkg):
+            new = self._completed(pkg, function)
+            if new is not None:
+                completed[function] = new
+        # replace the docstrings only now, so every lookup above read the originals
+        texts = {}
+        for obj in [pkg, *_documented_objects(pkg)]:
+            if obj.docstring is not None:
+                texts[obj] = _rewrite(
+                    pkg, obj, completed.get(obj, obj.docstring.value)
+                )
+        for obj, text in texts.items():
+            old = obj.docstring
+            obj.docstring = griffe.Docstring(
+                text,
+                lineno=old.lineno,
+                endlineno=old.endlineno,
+                parent=obj,
+                parser=old.parser,
+                parser_options=old.parser_options,
+            )

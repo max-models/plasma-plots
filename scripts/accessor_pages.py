@@ -92,7 +92,9 @@ def methods(cls):
     members = [
         m
         for name, m in cls.members.items()
-        if not name.startswith("_") and not m.is_alias and (m.is_function or "property" in m.labels)
+        if not name.startswith("_")
+        and not m.is_alias
+        and (m.is_function or "property" in m.labels)
     ]
     return sorted(members, key=lambda m: m.lineno or 0)
 
@@ -120,7 +122,11 @@ def render(package, slug) -> str:
     for path, heading in classes:
         cls = package[path]
         lines += [f"## {heading}", ""]
-        summary = cls.docstring.value.strip().splitlines()[0] if cls.docstring else ""
+        summary = (
+            cls.docstring.value.strip().splitlines()[0]
+            if cls.docstring
+            else ""
+        )
         if summary:
             lines += [_mdx_text(summary), ""]
         for method in methods(cls):
@@ -134,7 +140,11 @@ def render(package, slug) -> str:
 
 
 def main():
-    package = griffe.load("plasma_plots", search_paths=[str(ROOT / "src")], docstring_parser="numpy")
+    package = griffe.load(
+        "plasma_plots",
+        search_paths=[str(ROOT / "src")],
+        docstring_parser="numpy",
+    )
     stale = []
     for slug in PAGES:
         path = OUT / f"{slug}.mdx"
@@ -146,7 +156,10 @@ def main():
             path.write_text(text)
             print(f"wrote {path.relative_to(ROOT)}")
     if stale:
-        print("out of date (run python scripts/accessor_pages.py):\n" + "\n".join(stale))
+        print(
+            "out of date (run python scripts/accessor_pages.py):\n"
+            + "\n".join(stale)
+        )
         sys.exit(1)
 
 

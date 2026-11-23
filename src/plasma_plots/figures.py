@@ -37,6 +37,10 @@ class Figure:
         The size in inches; ``None`` for one from the number of panels.
     title : str or None
         A title above all panels.
+    caption : str or None
+        A caption, for the page that shows the figure: the Matplotlib figure carries it as
+        ``fig.caption``, the Plotly figure as ``layout.meta["caption"]`` (a web figure saved
+        from it as its title).
     **options
         Passed on to ``matplotlib.pyplot.subplots``.
 
@@ -44,12 +48,26 @@ class Figure:
     ----------
     axes : numpy.ndarray of matplotlib.axes.Axes or None
         The panels, ``(nrows, ncols)``; ``None`` on MPI ranks other than 0, where nothing is drawn.
+    caption : str or None
+        The caption of the figure (see :func:`figure`).
     results : list of PlotResult
         What the plot methods drawn into the panels returned, in order (e.g. their
         ``fit_results``).
     """
 
-    def __init__(self, nrows, ncols, *, backend, sharex, sharey, figsize, title, **options):
+    def __init__(
+        self,
+        nrows,
+        ncols,
+        *,
+        backend,
+        sharex,
+        sharey,
+        figsize,
+        title,
+        caption=None,
+        **options,
+    ):
         from .mpi import is_plotting_rank
 
         self.backend = backend
@@ -58,6 +76,7 @@ class Figure:
         self.results = []
         self._result = None
         self._title = title
+        self.caption = caption
         self.axes = None
         self._token = None
         if not is_plotting_rank():
@@ -68,7 +87,8 @@ class Figure:
 
         if figsize is None:
             figsize = (
-                PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75 + 2.0 * (ncols > 2) * (ncols - 2),
+                PLOT_STYLE["figure.figsize"][0] * min(ncols, 2) * 0.75
+                + 2.0 * (ncols > 2) * (ncols - 2),
                 3.2 * nrows + 0.8,
             )
         with _plot_style():
@@ -82,34 +102,10 @@ class Figure:
                 layout="constrained",
                 **options,
             )
-        self._fig._plasma_composed = True  # the plots in it leave the title and layout to the figure
+        self._fig._plasma_composed = (
+            True  # the plots in it leave the title and layout to the figure
+        )
         self.axes = axes
-
-    def __getitem__(self, index):
-        if self.axes is None:  # another MPI rank: the plots are skipped
-            return None
-        if isinstance(index, (int, np.integer)):
-            return self.axes.ravel()[index]
-        return self.axes[index]
-
-    def __len__(self):
-        return 0 if self.axes is None else self.axes.size
-
-    def __enter__(self):
-        # inside the block every plot draws with Matplotlib into its panel; the block converts once
-        self._token = _drawing.set(True)
-        _collecting.append(self.results)
-        return self
-
-    def __exit__(self, *exc):
-        _collecting.remove(self.results)
-        _drawing.reset(self._token)
-        if exc[0] is None:
-            self._finish()
-        return False
-
-    def _finish(self):
-        self._result = self._drawn(final=True)
 
     def _drawn(self, *, final):
         """The figure as drawn so far; ``final`` hides empty panels and releases a converted figure."""
@@ -121,10 +117,18 @@ class Figure:
         fig = self._fig
         if self._title:
             fig.suptitle(self._title)
-        empty = [ax for ax in self.axes.ravel() if not ax.has_data() and not ax.get_legend() and ax.get_visible()]
+        if self.caption:
+            fig.caption = self.caption
+        empty = [
+            ax
+            for ax in self.axes.ravel()
+            if not ax.has_data() and not ax.get_legend() and ax.get_visible()
+        ]
         for ax in empty:  # panels left empty are not drawn
             ax.set_visible(False)
-        fits = [fit for result in self.results for fit in getattr(result, "fit_results", [])]
+        fits = [
+            fit for result in self.results for fit in getattr(result, "fit_results", [])
+        ]
         try:
             if self._finish_as == "matplotlib":
                 return PlotResult(fig, self.axes, [], fits)
@@ -149,9 +153,14 @@ class Figure:
                 plt.close(fig)
             return PlotResult(converted, None, list(converted.data), fits)
         finally:
-            if not final:  # a snapshot inside the block: later plots may still fill these panels
+            if (
+                not final
+            ):  # a snapshot inside the block: later plots may still fill these panels
                 for ax in empty:
                     ax.set_visible(True)
+
+    def _finish(self):
+        self._result = self._drawn(final=True)
 
     @property
     def result(self):
@@ -207,6 +216,41 @@ class Figure:
     def _ipython_display_(self):
         self.result._ipython_display_()
 
+    def __getitem__(self, index):
+        if self.axes is None:  # another MPI rank: the plots are skipped
+            return None
+        if isinstance(index, (int, np.integer)):
+            return self.axes.ravel()[index]
+        return self.axes[index]
+
+    def __len__(self):
+        return 0 if self.axes is None else self.axes.size
+
+    def __enter__(self):
+        # inside the block every plot draws with Matplotlib into its panel; the block converts once
+        self._token = _drawing.set(True)
+        _collecting.append(self.results)
+        return self
+
+    def __exit__(self, *exc):
+        from .plotting import _in_notebook
+
+        _collecting.remove(self.results)
+        _drawing.reset(self._token)
+        if exc[0] is None:
+            self._finish()
+            # In a notebook the inline backend shows a Matplotlib figure at the end of the cell;
+            # a Plotly figure is shown here, at the end of the block, so a notebook reads the
+            # same with either backend (and not again as the cell result).
+            if (
+                self._finish_as == "plotly"
+                and self.axes is not None
+                and any(ax.has_data() for ax in self.axes.ravel())
+                and _in_notebook()
+            ):
+                self._result.show()
+        return False
+
     def __repr__(self):
         shape = None if self.axes is None else self.axes.shape
         return f"{type(self).__name__}(panels={shape}, backend={self.backend!r})"
@@ -221,13 +265,15 @@ def figure(
     sharey: bool | str = False,
     figsize=None,
     title: str | None = None,
+    caption: str | None = None,
     **options,
 ) -> Figure:
     """Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
 
     Use it as a ``with`` block: every plot method given ``ax=fig[i]`` draws into panel ``i``;
     at the end of the block the figure is finished, and with ``backend="plotly"`` or
-    ``backend="tikz"`` converted once.
+    ``backend="tikz"`` converted once. In a notebook a Plotly figure is shown at the end of the
+    block, as the inline backend shows a Matplotlib figure at the end of the cell.
 
     Parameters
     ----------
@@ -248,6 +294,10 @@ def figure(
         The size in inches. Default: from the number of panels.
     title : str, optional
         A title above all panels. Default: none.
+    caption : str, optional
+        A caption for the page that shows the figure (a docs page, a gallery study): the
+        Matplotlib figure carries it as ``fig.caption``, a Plotly figure as
+        ``layout.meta["caption"]``, and a web figure saved from it as its title. Default: none.
     **options
         Passed on to ``matplotlib.pyplot.subplots``, e.g. ``gridspec_kw={"height_ratios": [3, 1]}``.
 
@@ -272,5 +322,6 @@ def figure(
         sharey=sharey,
         figsize=figsize,
         title=title,
+        caption=caption,
         **options,
     )

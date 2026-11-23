@@ -44,6 +44,12 @@ at https://max-models.github.io/plasma-plots.
   DESC equilibrium into a Dataset over `rho`, `theta`/`theta_P`, `zeta` with `X`, `Y`, `Z`
   coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
   the Jacobian.
+- **Coils.** `plasma_plots.from_coilset(coilset, n_points=128)` expands a CoilStellaration
+  coilset (dict, JSON, `Coilset`) or a DESC `CoilSet` of `FourierXYZCoil` into every coil, a Dataset
+  over `coil`, `s` with `X`, `Y`, `Z`, `current`, `length`, `curvature`;
+  `plasma_plots.from_boundary(boundary)` evaluates a ConStellaration `SurfaceRZFourier` over
+  `rho=[1]`, `theta`, `zeta` (attrs `minor_radius`, `major_radius`);
+  `coils.plasma.plot.coils_3d(color_by=, surface=)` draws them.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`, `.to_tikz()`); Matplotlib animations a
   `FuncAnimation`;
@@ -108,8 +114,14 @@ ACCESSORS = [
 ]
 TOP_LEVEL = [
     "plasma_plots.figure",
+    "plasma_plots.plot_domain",
+    "plasma_plots.plot_quadtree",
+    "plasma_plots.animate_quadtree",
     "plasma_plots.set_backend",
     "plasma_plots.get_backend",
+    "plasma_plots.set_style",
+    "plasma_plots.style",
+    "plasma_plots.get_style",
     "plasma_plots.mpi_rank",
     "plasma_plots.is_plotting_rank",
     "plasma_plots.scene",
@@ -118,6 +130,14 @@ TOP_LEVEL = [
     "plasma_plots.plotting.PlotResult.save",
     "plasma_plots.plotting.PlotResult.show",
     "plasma_plots.plotting.PlotResult.to_plotly",
+    "plasma_plots.plotting.PlotResult.to_json",
+    "plasma_plots.plotting.PlotResult.to_html",
+    "plasma_plots.plotly_backend.bare",
+    "plasma_plots.plotly_backend.web_figure",
+    "plasma_plots.labels.format_number",
+    "plasma_plots.plotly_backend.save_posters",
+    "plasma_plots.styles.to_dark",
+    "plasma_plots.hero.from_array",
     "plasma_plots.plotly_backend.to_plotly",
     "plasma_plots.plotly_backend.animation_to_plotly",
     "plasma_plots.plotting.PlotResult.to_tikz",
@@ -129,6 +149,9 @@ RESULTS = [
     "plasma_plots.analysis.OscillationFit",
     "plasma_plots.analysis.ConvergenceFit",
     "plasma_plots.analysis.BranchFit",
+    "plasma_plots.analysis.GrowthPhase",
+    "plasma_plots.analysis.ModeFit",
+    "plasma_plots.analysis.PenroseResult",
     "plasma_plots.spectral.TimeFilterResult",
     "plasma_plots.analysis.GrowthFit",
     "plasma_plots.plotting.View",
@@ -136,6 +159,10 @@ RESULTS = [
 # the modules of plain functions behind the accessors, for arrays from anywhere
 MODULES = [
     "plotting",
+    "charts",
+    "phase_space",
+    "geometry",
+    "trees",
     "spectral_plots",
     "fieldline_plots",
     "analysis",
@@ -144,6 +171,7 @@ MODULES = [
     "arrays",
     "gvec",
     "desc",
+    "coils",
     "pyvista_plots",
 ]
 THEORY = ["kinetic", "waves", "parameters", "orbits", "exact", "numerics", "special"]
@@ -186,6 +214,17 @@ def _line(name, function) -> str:
     return f"- `{name}{signature(function)}`: {summary(function)}"
 
 
+def _one_line(lines: list[str]) -> str:
+    """A statement formatted over several lines, on one: ``f(\\n    x=1,\\n)`` as ``f(x=1)``."""
+    code = lines[0]
+    for line in lines[1:]:
+        if line.startswith((")", "]", "}")):
+            code = code.removesuffix(",") + line  # the formatter's trailing comma
+        else:
+            code += ("" if code.endswith(("(", "[", "{")) else " ") + line
+    return code
+
+
 def examples(function, limit=2) -> list[str]:
     """The first ``limit`` statements of the Examples section of a docstring."""
     doc = inspect.getdoc(function) or ""
@@ -201,7 +240,9 @@ def examples(function, limit=2) -> list[str]:
             statements[-1].append(stripped[4:].strip())
     found, comment = [], None
     for lines in statements:
-        if lines[0].startswith("#"):  # a comment of its own line belongs to the next statement
+        if lines[0].startswith(
+            "#"
+        ):  # a comment of its own line belongs to the next statement
             comment = lines[0]
             continue
         if not lines[0].startswith(("import ", "from ")):
@@ -210,24 +251,19 @@ def examples(function, limit=2) -> list[str]:
     return found[:limit]
 
 
-def _one_line(lines: list[str]) -> str:
-    """A statement formatted over several lines, on one: ``f(\\n    x=1,\\n)`` as ``f(x=1)``."""
-    code = lines[0]
-    for line in lines[1:]:
-        if line.startswith((")", "]", "}")):
-            code = code.removesuffix(",") + line  # the formatter's trailing comma
-        else:
-            code += ("" if code.endswith(("(", "[", "{")) else " ") + line
-    return code
-
-
 def _with_examples(name, function) -> list[str]:
-    return [_line(name, function)] + [f"  - e.g. `{code}`" for code in examples(function)]
+    return [_line(name, function)] + [
+        f"  - e.g. `{code}`" for code in examples(function)
+    ]
 
 
 def _resolve(path):
     module, _, rest = path.partition(".")
-    obj = importlib.import_module(f"plasma_plots.{module}") if module != "plasma_plots" else None
+    obj = (
+        importlib.import_module(f"plasma_plots.{module}")
+        if module != "plasma_plots"
+        else None
+    )
     if obj is None:
         import plasma_plots as obj
     for part in rest.split("."):
@@ -242,7 +278,9 @@ def _public_functions(module):
     return [
         (name, obj)
         for name, obj in vars(module).items()
-        if not name.startswith("_") and inspect.isfunction(obj) and obj.__module__ == module.__name__
+        if not name.startswith("_")
+        and inspect.isfunction(obj)
+        and obj.__module__ == module.__name__
     ]
 
 
@@ -276,7 +314,9 @@ def api_index() -> str:
         out += _with_examples(path, _resolve(path))
     out.append("")
     out.append("## Result types\n")
-    out.append("What the methods return, with their fields (`help()` on the class explains each).\n")
+    out.append(
+        "What the methods return, with their fields (`help()` on the class explains each).\n"
+    )
     for path in RESULTS:
         cls = _resolve(path)
         fields = [f.name for f in dataclasses.fields(cls) if not f.name.startswith("_")]
@@ -291,7 +331,9 @@ def api_index() -> str:
         module = importlib.import_module(f"plasma_plots.{name}")
         names = [fname for fname, _ in _public_functions(module)]
         if names:
-            out.append(f"- `plasma_plots.{name}`: " + ", ".join(f"`{n}`" for n in names))
+            out.append(
+                f"- `plasma_plots.{name}`: " + ", ".join(f"`{n}`" for n in names)
+            )
     out.append("")
     out.append("## Command line: plasma-plots\n")
     out.append(
@@ -305,7 +347,9 @@ def api_index() -> str:
     out += [_line(fname, function) for fname, function in _public_functions(cli)]
     out.append("")
     out.append("## Theory: plasma_plots.theory\n")
-    out.append("Analytic results to compare with, plain numpy; complex ω for dispersion relations.\n")
+    out.append(
+        "Analytic results to compare with, plain numpy; complex ω for dispersion relations.\n"
+    )
     for name in THEORY:
         module = importlib.import_module(f"plasma_plots.theory.{name}")
         out.append(f"### plasma_plots.theory.{name}\n")

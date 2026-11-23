@@ -1,6 +1,6 @@
-"""Dispersion relation from a time series
+"""Dispersion spectrum
 
-The $\\omega$–$k$ spectrum of a synthetic Langmuir wave field, with the theory curve drawn on it.
+The dispersion relation from a time series: the $\\omega$–$k$ spectrum of a synthetic Langmuir wave field, with the theory curve drawn on it.
 
 Four standing waves obeying $\\omega^2 = 1 + 3k^2$ plus noise are Fourier transformed in space and time;
 the spectrum has power only along the Bohm–Gross branch. The same call works on the output of a
@@ -24,6 +24,14 @@ for k in (2.0, 3.0, 4.0, 5.0):
     omega = kinetic.bohm_gross(k).real
     wave += np.cos(k * X - omega * T) + np.cos(k * X + omega * T)
 
-phi = xr.DataArray(wave, dims=("t", "eta1"), coords={"t": t, "eta1": x}, name="phi", attrs={"label": r"$\phi$"})
-phi.plasma.plot.dispersion(branches={"Bohm–Gross": kinetic.bohm_gross}, kmax=7, omega_max=12)
+phi = xr.DataArray(
+    wave,
+    dims=("t", "eta1"),
+    coords={"t": t, "eta1": x},
+    name="phi",
+    attrs={"label": r"$\phi$"},
+)
+phi.plasma.plot.dispersion(
+    branches={"Bohm–Gross": kinetic.bohm_gross}, kmax=7, omega_max=12
+)
 plt.show()

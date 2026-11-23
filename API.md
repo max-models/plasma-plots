@@ -27,6 +27,12 @@ at https://max-models.github.io/plasma-plots.
   DESC equilibrium into a Dataset over `rho`, `theta`/`theta_P`, `zeta` with `X`, `Y`, `Z`
   coordinates and Cartesian vectors; variables keep DESC's names (`ev["|B|"]`), `"sqrt(g)"` is
   the Jacobian.
+- **Coils.** `plasma_plots.from_coilset(coilset, n_points=128)` expands a CoilStellaration
+  coilset (dict, JSON, `Coilset`) or a DESC `CoilSet` of `FourierXYZCoil` into every coil, a Dataset
+  over `coil`, `s` with `X`, `Y`, `Z`, `current`, `length`, `curvature`;
+  `plasma_plots.from_boundary(boundary)` evaluates a ConStellaration `SurfaceRZFourier` over
+  `rho=[1]`, `theta`, `zeta` (attrs `minor_radius`, `major_radius`);
+  `coils.plasma.plot.coils_3d(color_by=, surface=)` draws them.
 - **Return values.** Plots return a `PlotResult` (`.fig`, `.ax`, `.artists`, `.fit_results`,
   `.data`, `.save(path)`, `.show()`, `.to_plotly()`, `.to_tikz()`); Matplotlib animations a
   `FuncAnimation`;
@@ -77,10 +83,10 @@ at https://max-models.github.io/plasma-plots.
 
 Plots of one array, as array.plasma.plot.<kind>(...).
 
-- `array.plasma.plot.timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None, reference=None, backend=None)`: Plot this time series, and any others given, in one axes.
+- `array.plasma.plot.timeseries(*others, logy=True, fit=None, fit_amplitude=False, title=None, ax=None, reference=None, label=None, backend=None)`: Plot this time series, and any others given, in one axes.
   - e.g. `energy.plasma.plot.timeseries(logy=True, fit=(0.0, 2.0), fit_amplitude=True)`
   - e.g. `energy.plasma.plot.timeseries(other_run_energy)`
-- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, rank_boundaries=None, rank_boundary_color='red', backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
+- `array.plasma.plot.lineout(*, x=None, ax=None, title=None, reference=None, x_of=None, xlabel=None, rationals=None, nfp=None, rank_boundaries=None, rank_boundary_color='red', label=None, color=None, step=None, logx=False, logy=False, backend=None, **selection)`: Plot a one-dimensional profile after selecting every other dimension.
   - e.g. `phi.plasma.plot.lineout(x="eta1", t=-1, eta2=0.5, eta3=0)`
   - e.g. `T.plasma.plot.lineout(x="eta1", t=-1, reference=exact, x_of=lambda eta1: L * eta1)`
 - `array.plasma.plot.line_animation(*, x=None, sweep='t', reference=None, x_of=None, xlabel=None, ylim=None, step=1, max_frames=None, interval=100, title=None, alongside=None, alongside_logy=False, backend=None, **selection)`: Animate a one-dimensional profile over sweep.
@@ -101,7 +107,7 @@ Plots of one array, as array.plasma.plot.<kind>(...).
 - `array.plasma.plot.isosurface(*, values=5, cmap='viridis', opacity=1.0, colors=None, labels=None, clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista contour surfaces of this scalar field in physical space.
   - e.g. `phi.plasma.plot.isosurface(values=[-0.5, 0.5], cmap="RdBu_r", t=0).show()`
   - e.g. `phi.plasma.plot.isosurface(values=[0, 0.2], colors=["tab:blue", "lightgrey"], opacity=[1, 0.3], t=0).show()`
-- `array.plasma.plot.slices_3d(*, cuts=None, cmap='viridis', clim=None, show_domain=True, title=None, symmetric=False, robust=False, plotter=None, **selection)`: Draw PyVista surfaces of constant logical coordinate in physical space.
+- `array.plasma.plot.slices_3d(*, cuts=None, cmap='viridis', clim=None, show_domain=True, title=None, symmetric=False, robust=False, opacity=1.0, plotter=None, **selection)`: Draw PyVista surfaces of constant logical coordinate in physical space.
   - e.g. `phi.plasma.plot.slices_3d(cuts={"eta3": [0, 0.25, 0.5, 0.75]}, cmap="RdBu_r", t=0).show()`
 - `array.plasma.plot.glyphs(*, components='cartesian', stride=2, scale=None, cmap='viridis', show_domain=True, title=None, plotter=None, **selection)`: Draw PyVista arrows of this (component, eta1, eta2, eta3) vector field.
   - e.g. `B.plasma.plot.glyphs(stride=3, t=-1).show()`
@@ -169,6 +175,21 @@ Plots of one array, as array.plasma.plot.<kind>(...).
   - e.g. `A.plasma.plot.critical_points(t=-1, eta3=0)`
 - `array.plasma.plot.boozer_spectrum(*, top=8, helicity=None, log=True, angles='boozer', x_of=None, xlabel=None, title=None, backend=None, **selection)`: Plot the strongest Boozer harmonics of this |B| over the radius, and the quasi-symmetry error.
   - e.g. `boozer.mod_B.plasma.plot.boozer_spectrum(top=8, helicity="QA")`
+- `array.plasma.plot.scan(*, x=None, error=None, samples=None, band=False, ax=None, label=None, color=None, reference=None, logx=False, logy=False, title=None, xlabel=None, ylabel=None, backend=None, **selection)`: Plot this quantity over a scanned parameter, with error bars or a shaded band.
+  - e.g. `divergence.plasma.plot.scan(samples="seed", band=True)`
+  - e.g. `rate.plasma.plot.scan(error=rate_error, reference=theory, logx=True)`
+- `array.plasma.plot.breakdown(*, dim=None, ax=None, sort=False, total=False, annotate=True, scale=1.0, color=None, title=None, xlabel=None, backend=None, **selection)`: Draw this array's values over a category dimension as horizontal bars.
+  - e.g. `power.plasma.plot.breakdown(sort=True, total=True, scale=1e-6, xlabel="P (MW)")`
+- `array.plasma.plot.twin(right, *, ax=None, step=None, logy=(False, False), colors=('C0', 'C3'), title=None, xlabel=None, backend=None, **selection)`: Plot this profile and another over the same coordinate, with a value axis each.
+  - e.g. `n.plasma.plot.twin(T, t=-1)`
+- `array.plasma.plot.stacked(*others, sharex=True, height_ratios=None, step=None, logy=False, title=None, figsize=None, backend=None, **selection)`: Plot this profile and others in panels stacked over a shared horizontal axis.
+  - e.g. `n.plasma.plot.stacked({"T_e": Te, "T_i": Ti}, phi, t=-1)`
+- `array.plasma.plot.cross_sections(*, ax=None, reference=None, markers=True, logx=True, logy=True, title=None, xlabel=None, ylabel=None, backend=None, **selection)`: Plot these cross sections (or rate coefficients) over energy on log-log axes.
+  - e.g. `sigma.plasma.plot.cross_sections(reference={"fit": fit})`
+- `array.plasma.plot.matrix(*, kind='pattern', ax=None, markersize=None, cmap=None, rank_boundaries=None, title=None, backend=None, **selection)`: Plot this two-dimensional array as a matrix: its non-zero pattern or its values.
+  - e.g. `jacobian.plasma.plot.matrix(kind="values")`
+- `array.plasma.plot.child_langmuir(*others, gap=None, voltage=None, mass=None, charge=None, initial_velocity=0.0, show_error=True, logx=False, logy=False, title=None, backend=None, **selection)`: Plot this current density against the Child–Langmuir law of a planar diode.
+  - e.g. `J.plasma.plot.child_langmuir(J_other_code, gap=0.01, mass=1.67e-27)`
 
 ### array.plasma.plot.view(...)
 
@@ -192,6 +213,12 @@ Quantitative diagnostics of one array, as array.plasma.analysis.<quantity>(...).
   - e.g. `energy.plasma.analysis.growth_rate(window=(0.0, 5.0), amplitude=True).rate`
 - `array.plasma.analysis.damping_rate(*, window=(None, None), amplitude=False)`: Fit exponential decay to the envelope of this oscillating time series.
   - e.g. `energy.plasma.analysis.damping_rate(amplitude=True).rate`
+- `array.plasma.analysis.growth_phase(*, noise=None, min_efolds=2.0, min_r2=0.95, amplitude=False, peaks_only=False)`: Find and fit the exponential growth phase of this time series, without a window.
+  - e.g. `mode.plasma.analysis.growth_phase().rate`
+- `array.plasma.analysis.dominant_mode(*, dim=None, min_periods=2.0)`: Find the strongest wave of this (t, dim) signal: k, omega and phase velocity.
+  - e.g. `phi.plasma.analysis.dominant_mode(dim="x").phase_velocity`
+- `array.plasma.analysis.penrose(*, dim=None, prominence=0.05)`: Test this one-dimensional velocity distribution with the Penrose criterion.
+  - e.g. `f.plasma.analysis.penrose().unstable`
 - `array.plasma.analysis.oscillation_frequency(*, window=(None, None), method='zero_crossings', detrend=True)`: Measure the frequency of this oscillating time series from its zero crossings or peaks.
   - e.g. `probe.plasma.analysis.oscillation_frequency(window=(5.0, 40.0)).omega`
 - `array.plasma.analysis.map_coordinate(dim, mapping, *, name=None, units=None, label=None)`: Replace a coordinate by a function of it, e.g. eta1 by the minor radius in meters.
@@ -309,6 +336,10 @@ The data behind each plot in ArrayPlots, without rendering it.
   - e.g. `B.plasma.data.poincare(seeds=12, turns=100, t=-1)`
 - `array.plasma.data.critical_points(*, refine=True, **selection)`: Return the O- and X-points ArrayPlots.critical_points would mark.
   - e.g. `A.plasma.data.critical_points(t=-1)`
+- `array.plasma.data.scan(*, x=None, error=None, samples=None, **selection)`: Return the values and errors ArrayPlots.scan would draw.
+  - e.g. `divergence.plasma.data.scan(samples="seed").value`
+- `array.plasma.data.breakdown(*, dim=None, **selection)`: Return the parts ArrayPlots.breakdown would draw.
+  - e.g. `power.plasma.data.breakdown(t=-1)`
 
 ### dataset.plasma.plot
 
@@ -326,7 +357,7 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
 - `dataset.plasma.plot.orbit_classification(*, x='v_par', y=None, v_par='v_par', t=0, ax=None, s=8, backend=None)`: Plot markers in a phase-space plane, colored as passing, trapped or lost.
   - e.g. `orbits.plasma.plot.orbit_classification()`
   - e.g. `orbits.plasma.plot.orbit_classification(x="p_phi")`
-- `dataset.plasma.plot.animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, max_frames=None, interval=100, s=8, cmap=None, trail=None, paths=False, backend=None)`: Animate the markers moving over time, optionally over a field animated in sync.
+- `dataset.plasma.plot.animation(*, x, y, color=None, color_at=None, background=None, background_options=None, step=1, max_frames=None, interval=100, s=8, cmap=None, trail=None, paths=False, aspect='equal', backend=None)`: Animate the markers moving over time, optionally over a field animated in sync.
   - e.g. `markers.plasma.plot.animation(x="x", y="y", color="density", background=n, step=2)`
   - e.g. `orbits.plasma.plot.animation(x="R", y="z", color="classification", trail=300, paths=True, background=psi)`
 - `dataset.plasma.plot.paths(*, x='x', y='y', markers=6, near=None, background=None, background_options=None, t=0, ax=None, backend=None)`: Plot the paths of a few markers in a plane, with start and end markers.
@@ -340,6 +371,11 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
   - e.g. `orbits.plasma.plot.quantities(markers=4)`
 - `dataset.plasma.plot.orbits_3d(*, color_by='t', max_markers=200, tube_radius=None, cmap=None, domain=None, title=None, plotter=None)`: Draw PyVista 3-D orbit lines, colored by "t", "classification" or any variable.
   - e.g. `orbits.plasma.plot.orbits_3d(color_by="classification", domain=phi.isel(t=0)).show()`
+- `dataset.plasma.plot.boundary_sections(*, planes=5, ax=None, cmap='viridis', title=None, backend=None)`: Plot this plasma surface's cross-sections in (R, Z) at several toroidal angles.
+  - e.g. `plasma = plasma_plots.from_boundary(boundary)`
+  - e.g. `plasma.plasma.plot.boundary_sections(planes=5)`
+- `dataset.plasma.plot.coils_3d(*, color_by=None, color='#b87333', tube_radius=None, cmap=None, clim=None, surface=None, surface_opacity=1.0, surface_cmap=None, surface_clim=None, title=None, plotter=None)`: Draw stellarator coils as PyVista tubes, optionally around the plasma surface.
+  - e.g. `coils.plasma.plot.coils_3d(color_by="curvature", surface=plasma).show()`
 - `dataset.plasma.plot.poincare(*, coords='physical', color_by='line', s=3.0, cmap=None, islands=False, boundary=None, max_lines=None, ax=None, title=None, backend=None, **classification)`: Plot the Poincaré section of these traced field lines.
   - e.g. `lines.plasma.plot.poincare(color_by="iota")`
   - e.g. `lines.plasma.plot.poincare(color_by="classification", islands=True)`
@@ -358,6 +394,16 @@ Plots of one dataset, as dataset.plasma.plot.<kind>(...).
   - e.g. `orbits.plasma.plot.lost_fraction(weight="weight")`
 - `dataset.plasma.plot.loss_map(*, x='v_par', y=None, t=0, absB=None, ax=None, s=10, cmap=None, title=None, backend=None)`: Plot which markers are lost, over their initial phase-space position, colored by when.
   - e.g. `orbits.plasma.plot.loss_map(x="energy", y="pitch", absB=absB)`
+- `dataset.plasma.plot.phase_space(*, x, v, kind='scatter', species=None, color=None, weight=None, bins=64, log=False, ax=None, s=4, alpha=0.6, max_markers=20000, cmap=None, title=None, backend=None, **selection)`: Plot the markers in phase space, a position against a velocity.
+  - e.g. `markers.plasma.plot.phase_space(x="x", v="vx", species="species", t=-1)`
+  - e.g. `markers.plasma.plot.phase_space(x="x", v="vx", kind="histogram", log=True, t=0)`
+- `dataset.plasma.plot.variables(names=None, *, cols=None, x=None, y=None, logy=False, title=None, backend=None, **selection)`: Plot every variable of this Dataset in a grid of panels, as a profile or a slice each.
+  - e.g. `state.plasma.plot.variables(t=-1)`
+  - e.g. `state.plasma.plot.variables(["n", "T"], cols=1, t=0.5)`
+- `dataset.plasma.plot.breakdown(*, ax=None, sort=False, total=False, annotate=True, scale=1.0, color=None, title=None, xlabel=None, backend=None)`: Draw this Dataset's scalar variables as horizontal bars, e.g. the power per component.
+  - e.g. `deposited.plasma.plot.breakdown(sort=True, total=True)`
+- `dataset.plasma.plot.cross_sections(*, ax=None, reference=None, markers=True, logx=True, logy=True, title=None, xlabel=None, ylabel=None, backend=None)`: Plot this Dataset's cross sections over energy, one line per variable.
+  - e.g. `catalogue.plasma.plot.cross_sections()`
 
 ### dataset.plasma.analysis
 
@@ -409,6 +455,8 @@ The data behind each plot in DatasetPlots, without rendering it.
   - e.g. `edge.plasma.data.footprint()`
 - `dataset.plasma.data.loss_map(*, x='v_par', y=None, t=0, absB=None)`: Return the per-marker values DatasetPlots.loss_map would plot.
   - e.g. `orbits.plasma.data.loss_map(x="energy", y="pitch", absB=absB)`
+- `dataset.plasma.data.phase_space(*, x, v, weight=None, bins=64, limits=None, density=False, **selection)`: Return the 2-D histogram DatasetPlots.phase_space draws with kind="histogram".
+  - e.g. `f = markers.plasma.data.phase_space(x="x", v="vx", bins=(128, 64), t=-1)`
 
 ### out.plot (a Struphy Output)
 
@@ -466,25 +514,60 @@ Spectral diagnostics of a run's products, as out.analysis.<kind>(product, ...).
 
 ## Top level
 
-- `plasma_plots.figure(nrows=1, ncols=1, *, backend=None, sharex=False, sharey=False, figsize=None, title=None, **options)`: Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
+- `plasma_plots.figure(nrows=1, ncols=1, *, backend=None, sharex=False, sharey=False, figsize=None, title=None, caption=None, **options)`: Compose several plots into one figure, drawn with Matplotlib, or as one Plotly or TikZ figure.
   - e.g. `with plasma_plots.figure(2, 1, sharex=True, backend="plotly") as fig: energy.plasma.plot.timeseries(fit=(0.0, 5.0), ax=fig[0]) drift.plasma.plot.timeseries(logy=True, ax=fig[1])`
   - e.g. `fig.save("energies.html")`
+- `plasma_plots.plot_domain(domain, *, x=None, y=None, z=None, views=None, bounds=None, dimensions=True, measure=None, extra_dimensions=None, circles='diameter', angles=False, boundaries=False, scale=1.0, unit=None, fmt='{:.4g}', grid=False, cells=None, names=True, axes=None, colors=None, opacity=0.7, hatch=None, resolution=256, ax=None, figsize=None, title=None, backend=None)`: Draw a simulation domain with its objects and their measurements, as a technical drawing.
+  - e.g. `result = plot_domain(domain, z=0.0, scale=1e3, unit="mm")`
+  - e.g. `result.data["objects"]["plasma grid"]["x"]`
+- `plasma_plots.plot_quadtree(tree=None, *, points=None, color='depth', point_color=None, leaves_only=False, max_depth=None, target=None, theta=0.5, ax=None, cmap=None, linewidth=0.8, s=6, title=None, backend=None)`: Plot the cells of a quadtree, its particles and the Barnes-Hut walk for a target.
+  - e.g. `plot_quadtree(points=positions)  # builds the tree`
+  - e.g. `plot_quadtree(tree, points=tree.pos, target=(0.1, 0.4), theta=0.7)`
+- `plasma_plots.animate_quadtree(trees=None, *, points=None, point_color=None, times=None, sweep='t', color='depth', leaves_only=False, max_depth=None, leaf_capacity=8, bounds=None, extent=None, cmap=None, point_cmap=None, linewidth=0.8, s=6, interval=100, max_frames=None, title=None, backend=None)`: Animate a quadtree that follows moving particles: the cells and particles of every frame.
+  - e.g. `animate_quadtree(points=history, times=t, leaf_capacity=16)  # builds the trees`
+  - e.g. `animate_quadtree(trees, points=[tree.pos for tree in trees], backend="plotly")`
 - `plasma_plots.set_backend(backend)`: Set the backend of every plot that does not pass backend= itself.
   - e.g. `previous = plasma_plots.set_backend("plotly")`
   - e.g. `phi.plasma.plot.slice(t=-1, eta3=0)  # a Plotly figure`
 - `plasma_plots.get_backend()`: Return the backend of plots that do not pass backend= themselves.
+- `plasma_plots.set_style(name='default', **overrides)`: Set the style of every later plot.
+  - e.g. `plasma_plots.set_style("colorblind")`
+  - e.g. `plasma_plots.set_style("paper", figure_figsize=(3.4, 3.0))`
+- `plasma_plots.style(name, **overrides)`: Draw with a style inside a with block.
+  - e.g. `with plasma_plots.style("dark"): energy.plasma.plot.timeseries().save("energy_dark.png")`
+- `plasma_plots.get_style()`: Return the name of the current style.
 - `plasma_plots.mpi_rank()`: Return this process' rank in MPI_COMM_WORLD, without initializing MPI.
   - e.g. `mpi_rank()  # in a serial run`
 - `plasma_plots.is_plotting_rank()`: Tell whether this process draws plots and writes their files.
-- `plasma_plots.scene(plotter, *, alt=None, title=None, window_size=None)`: Show a pyvista.Plotter as an interactive 3-D scene in a notebook.
+- `plasma_plots.scene(plotter, *, alt=None, title=None, window_size=None, backend='vtkjs', decimate=None)`: Show a pyvista.Plotter as an interactive 3-D scene in a notebook.
   - e.g. `plotter = phi.plasma.plot.isosurface(values=[-0.5, 0.5], t=-1)`
   - e.g. `plasma_plots.scene(plotter, alt="Two isosurfaces of phi")`
 - `plasma_plots.pyvista_plots.Scene.save_html(path)`: Write the scene to a standalone HTML file.
 - `plasma_plots.pyvista_plots.Scene.save_png(path)`: Write the screenshot to a PNG file.
 - `plasma_plots.plotting.PlotResult.save(path, *, close=False, frame=None, **kwargs)`: Save the figure to a file, as drawn.
 - `plasma_plots.plotting.PlotResult.show()`: Show the figure with matplotlib.pyplot.show, or a Plotly or TikZ figure with its show.
-- `plasma_plots.plotting.PlotResult.to_plotly(*, close=False)`: The same result with the figure converted to an interactive Plotly figure.
+- `plasma_plots.plotting.PlotResult.to_plotly(*, close=False, bare=False)`: The same result with the figure converted to an interactive Plotly figure.
   - e.g. `plot_timeseries(energy, fit=GrowthFit(window=(5.0, 20.0))).to_plotly().save("energy.html")`
+- `plasma_plots.plotting.PlotResult.to_json(*, bare=False, web=False, **hints)`: Return the figure as Plotly figure JSON, e.g. for a docs page.
+  - e.g. `Path("energy.json").write_text(energy.plasma.plot.timeseries().to_json())`
+  - e.g. `text = result.to_json(web=True, alt="Field energy over time")`
+- `plasma_plots.plotting.PlotResult.to_html(*, full_html=False, bare=False)`: Return the figure as interactive HTML, loading Plotly's JavaScript from its CDN.
+  - e.g. `html = phi.plasma.plot.slice(t=-1, eta3=0).to_html()`
+- `plasma_plots.plotly_backend.bare(figure)`: Strip a Plotly figure to its data, for a header picture or a front page.
+  - e.g. `result = phi.plasma.plot.animation(x="x", y="y", backend="plotly")`
+  - e.g. `bare(result.fig).write_json("docs/public/plotly/hero.json")`
+- `plasma_plots.plotly_backend.web_figure(figure, **hints)`: A Plotly figure as a web figure, the format of maxplotlib.web.
+  - e.g. `web = web_figure(result.fig, alt="Field energy over time")`
+- `plasma_plots.labels.format_number(value, digits=3, *, mathtext=False)`: Write a number for a label: plain between 0.001 and 10000, else as a power of ten.
+  - e.g. `format_number(5.7825e-01)`
+  - e.g. `format_number(2.0e6)`
+- `plasma_plots.plotly_backend.save_posters(figure, stem, *, width=800)`: Write pictures of a Plotly figure for a docs page, for light and dark mode.
+  - e.g. `save_posters(result.fig, "docs/public/plotly/energy")`
+- `plasma_plots.styles.to_dark(fig, *, text='#e6e6e6', axes='#8a8d96', background='#17181c')`: Recolour a drawn Matplotlib figure for a dark page, in place.
+  - e.g. `result = energy.plasma.plot.timeseries()`
+  - e.g. `result.fig.savefig("energy.png")`
+- `plasma_plots.hero.from_array(data, *, sweep='t', duration=8.0, max_frames=24, tone='accent', width=2.0, opacity=0.9, pad=0.08, tracer=False, picture=(1600, 600))`: Turn a profile that changes over a sweep (usually time) into an animated header picture.
+  - e.g. `from_array(phi.isel(y=0)).save("docs/src/assets/hero.svg")`
 - `plasma_plots.plotly_backend.to_plotly(figure, *, strict=False)`: Convert a drawn Matplotlib figure into an interactive Plotly figure.
   - e.g. `result = plot_slice(phi.isel(t=-1, eta3=0))`
   - e.g. `to_plotly(result.fig).write_html("phi.html")`
@@ -506,6 +589,9 @@ What the methods return, with their fields (`help()` on the class explains each)
 - `OscillationFit(omega, period, times, method)`: The frequency of an oscillating time series, from oscillation_frequency.
 - `ConvergenceFit(order, constant, sizes, fitted)`: A power law error = constant * size**order, from convergence_order.
 - `BranchFit(velocity, k, omega)`: A dispersion branch fitted as omega = velocity * k, from fit_dispersion_branches.
+- `GrowthPhase(rate, intercept, start, stop, efolds, r2, noise, peak, time, fitted)`: The exponential growth phase of a time series, from detect_growth.
+- `ModeFit(k, omega, phase_velocity, wavelength, power_fraction, min_omega)`: The strongest travelling or standing wave of a (t, x) signal, from dominant_mode.
+- `PenroseResult(unstable, velocity, integral, minima, integrals)`: The Penrose criterion of a one-dimensional distribution, from penrose_criterion.
 - `TimeFilterResult(filtered, spectrum)`: The result of filter_time: filtered field and reduced spectrum with the band.
 - `GrowthFit(window, amplitude_from_quadratic)`: Configuration for an exponential growth-rate fit.
 - `View(x, y, sweep, select, isel, coordinates, plane)`: A reusable selection and rendering recipe for an N-dimensional product.
@@ -515,15 +601,20 @@ What the methods return, with their fields (`help()` on the class explains each)
 The same plots and diagnostics as functions of arrays, e.g. `plot_slice(phi.isel(t=-1))`; each accessor method names its function first under See Also, and `help()` shows the parameters.
 
 - `plasma_plots.plotting`: `save_figure`, `shared_run_label`, `logical_grids`, `physical_grids`, `prepare_view`, `plot_timeseries`, `prepare_lineout`, `plot_lineout`, `prepare_vector`, `plot_vector`, `prepare_volume_slices`, `plot_volume_slices`, `prepare_compare`, `plot_compare`, `pyvista_volume`, `show_equilibrium`, `color_limits`, `plot_slice`, `plot_panels`, `animate_slices`, `animate_fields`, `save_frames`, `plot_scalars`, `plot_convergence`, `plot_dispersion`, `save_all_scalars`, `prepare_orbits`, `plot_marker_trajectories`, `resolve_marker_selection`, `prepare_marker_scatter`, `plot_marker_scatter`, `animate_markers`, `plot_marker_paths`, `plot_field_with_orbits`, `prepare_orbit_classification`, `plot_orbit_classification`, `prepare_continuous_spectrum`, `plot_continuous_spectrum`, `plot_equilibrium_profile`, `energy_names`, `plot_energy_budget`, `plot_profiles`, `plot_orbit_poloidal`, `plot_orbit_quantities`, `animate_lines`, `plot_measured_vs_theory`, `plot_orbit_grid`, `plot_critical_points`, `plot_weight_histogram`, `plot_marker_density`, `plot_lost_fraction`, `plot_loss_map`
+- `plasma_plots.charts`: `prepare_scan`, `plot_scan`, `prepare_breakdown`, `plot_breakdown`, `plot_twin`, `plot_stacked`, `plot_cross_sections`, `matrix_entries`, `plot_matrix`, `plot_child_langmuir`, `plot_variables`
+- `plasma_plots.phase_space`: `phase_space_histogram`, `plot_phase_space`
+- `plasma_plots.geometry`: `shapes`, `draw_geometry`, `dimension_chains`, `dimension_line`, `plot_domain`
+- `plasma_plots.trees`: `quadtree_cells`, `build_quadtree`, `barnes_hut_walk`, `plot_quadtree`, `animate_quadtree`
 - `plasma_plots.spectral_plots`: `plot_power_spectrum`, `plot_filtered`, `plot_spectrogram`, `plot_mode_amplitudes`, `plot_mode_map`, `plot_radial_power`, `plot_mode_profiles`, `plot_cross_spectrum`, `plot_pencil_fit`, `plot_boozer_spectrum`
 - `plasma_plots.fieldline_plots`: `plot_poincare`, `plot_field_lines`, `plot_footprint`, `plot_connection_length`, `plot_along_field_lines`, `plot_surface_map`
-- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
+- `plasma_plots.analysis`: `convergence_order`, `growth_rate`, `envelope`, `damping_rate`, `detect_growth`, `oscillation_frequency`, `norm`, `drift`, `spatial_average`, `velocity_moments`, `penrose_criterion`, `relative_error`, `classify_orbits`, `fit_dispersion_branches`, `power_spectrum`, `dominant_mode`, `quadrature_weights`, `volume_integral`, `surface_average`, `rational_surfaces`, `field_energy`, `gradient`, `evaluate_on`, `error`, `project_mode`, `divergence`, `curl`, `flux_function`, `cylindrical_components`, `toroidal_components`, `polar_coordinates`, `orbit_invariants`, `bounce_period`, `boozer_spectrum`, `quasisymmetry_error`, `critical_points`, `reconnected_flux`, `weight_statistics`, `marker_density`, `lost_fraction`, `loss_map`
 - `plasma_plots.spectral`: `hann`, `fft`, `time_fft`, `inverse_time_fft`, `fwhm_window`, `filter_time`, `drop_periodic_endpoint`, `band_filter`, `spectral_peaks`, `spectrogram`, `mode_spectrum`, `mode_amplitudes`, `mode_structure`, `cross_spectrum`, `matrix_pencil`, `pencil_reconstruction`, `trace_branch`
 - `plasma_plots.fieldlines`: `trace_field_lines`, `poincare_section`, `rotational_transform`, `classify_field_lines`, `islands`, `footprint`, `seed_grid`, `sample_along`, `parallel_wavenumber`
-- `plasma_plots.arrays`: `logical_dims`, `angle_period`, `validate_array`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `periodicity`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
+- `plasma_plots.arrays`: `logical_dims`, `periodicity`, `repeat_periodic`, `angle_period`, `validate_array`, `unit_label`, `axis_label`, `map_coordinate`, `value_label`, `scalar_names`, `save_scalars`, `close_periodic`, `logical_derivative`, `mapping_jacobian`
 - `plasma_plots.gvec`: `is_gvec`, `from_gvec`
 - `plasma_plots.desc`: `from_desc`
-- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene`
+- `plasma_plots.coils`: `from_coilset`, `from_boundary`, `boundary_from_desc`, `distance_to_surface`, `coil_to_coil_distance`, `plot_boundary_sections`
+- `plasma_plots.pyvista_plots`: `is_flat`, `structured_grid`, `push_forward`, `boundary_keys`, `boundary_faces`, `pyvista_isosurface`, `prepare_slices_3d`, `pyvista_slices`, `pyvista_glyphs`, `pyvista_streamlines`, `orbit_polylines`, `pyvista_orbits`, `coil_polylines`, `pyvista_coils`, `pyvista_domain`, `pyvista_surfaces`, `pyvista_points`, `save_vtk`, `save_movie`, `scene_to_plotly`, `scene`
 
 ## Command line: plasma-plots
 
@@ -555,6 +646,7 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `two_stream(k, beam_speed, thermal_speed, beam_density=0.5)`: Compute the kinetic purely growing root of two warm counter-streaming electron beams.
 - `bump_on_tail(k, beam_density=0.1, beam_speed=4.5, beam_thermal_speed=0.5, bulk_density=None)`: Compute the most unstable kinetic root of a bump-on-tail distribution.
 - `maximum_growth(function, k_range, samples=64, tol=1e-08)`: Find the wavenumber of maximum growth rate of a dispersion relation.
+- `electrostatic_growth(k, species, guesses=None)`: Compute the most unstable electrostatic root of any set of drifting Maxwellians.
 - `weibel(k, anisotropy, parallel_thermal_speed)`: Compute the purely growing (or damped) root of the electron Weibel instability.
 - `electron_cyclotron_drift(k, drift_speed, cyclotron_frequency, temperature_ratio=50.0, mass_ratio=241073.992952645, harmonics=None, bernstein=2)`: Compute the electron cyclotron drift instability (ECDI) of magnetized electrons, unmagnetized ions.
 
@@ -598,7 +690,7 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `lower_hybrid_frequency(density, field, mass_number=1, charge_number=1)`: Compute the lower hybrid frequency, 1/ω_LH² = 1/(Ω_i² + ω_pi²) + 1/(|Ω_e| Ω_i).
 - `upper_hybrid_frequency(density, field)`: Compute the upper hybrid frequency ω_UH = √(ω_pe² + Ω_e²).
 - `struphy_units(x=1.0, B=1.0, n=1.0, kBT=None, velocity_scale='light', mass_number=None, charge_number=None)`: Compute the units of Struphy's normalization from its base units.
-- `struphy_equation_parameters(units, charge_number=1, mass_number=1)`: Compute the equation parameters α, ε and κ of one Struphy species.
+- `struphy_equation_parameters(units, charge_number=1, mass_number=1)`: Compute the equation parameters α, ε, λ and κ of one Struphy species.
 
 ### plasma_plots.theory.orbits
 
@@ -643,3 +735,4 @@ Analytic results to compare with, plain numpy; complex ω for dispersion relatio
 - `plasma_dispersion(zeta, derivative=0)`: Compute the plasma dispersion function Z(ζ) of Fried and Conte, or its first derivative.
 - `elliptic_k(m)`: Compute the complete elliptic integral of the first kind K(m), with parameter m = k².
 - `elliptic_e(m)`: Compute the complete elliptic integral of the second kind E(m), with parameter m = k².
+- `bessel_j(order, x)`: Compute the Bessel function of the first kind J_n(x) of integer order n.

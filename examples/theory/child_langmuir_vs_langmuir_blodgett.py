@@ -1,6 +1,6 @@
-"""Child–Langmuir and Langmuir–Blodgett space-charge-limited flow
+"""Space-charge-limited flow
 
-How curvature changes the space-charge-limited current of a diode, against the planar Child–Langmuir law.
+Child–Langmuir and Langmuir–Blodgett space-charge-limited flow: how curvature changes the space-charge-limited current of a diode, against the planar Child–Langmuir law.
 
 The planar law $J = \\frac{4}{9}\\epsilon_0\\sqrt{2e/m}\\,V^{3/2}/d^2$ is exact for parallel plates.
 For coaxial cylinders and concentric spheres the Langmuir–Blodgett series gives the current density at the
@@ -44,6 +44,8 @@ ax_i.set(
 )
 ax_i.legend(frameon=False)
 
-j_ratio = sheaths.langmuir_blodgett(voltage, 5e-3, r_c) / sheaths.child_langmuir(voltage, 4e-3)
+j_ratio = sheaths.langmuir_blodgett(voltage, 5e-3, r_c) / sheaths.child_langmuir(
+    voltage, 4e-3
+)
 print(f"r_a/r_c = 5, cylinders: J_LB/J_CL = {j_ratio:.4f}")
 plt.show()

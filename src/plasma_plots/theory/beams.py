@@ -41,8 +41,8 @@ from __future__ import annotations
 import numpy as np
 
 from plasma_plots.theory.parameters import (
-    elementary_charge,
     electron_mass,
+    elementary_charge,
     plasma_frequency,
     proton_mass,  # noqa: F401  (used in the doctests)
     speed_of_light,
@@ -56,7 +56,9 @@ def _out(value):
     return np.asarray(value, dtype=float)[()]
 
 
-def beam_speed(voltage, mass=electron_mass, charge=elementary_charge, relativistic=False):
+def beam_speed(
+    voltage, mass=electron_mass, charge=elementary_charge, relativistic=False
+):
     """Compute the speed v and the Lorentz factor γ of a particle accelerated through a voltage.
 
     Parameters
@@ -82,7 +84,9 @@ def beam_speed(voltage, mass=electron_mass, charge=elementary_charge, relativist
     >>> print(f"{v / speed_of_light:.4f} {gamma:.4f}")
     0.8660 2.0000
     """
-    voltage, mass, charge = (np.asarray(x, dtype=float) for x in (voltage, mass, charge))
+    voltage, mass, charge = (
+        np.asarray(x, dtype=float) for x in (voltage, mass, charge)
+    )
     if relativistic:
         gamma = 1.0 + charge * voltage / (mass * speed_of_light**2)
         speed = speed_of_light * np.sqrt(1.0 - 1.0 / gamma**2)
@@ -92,7 +96,14 @@ def beam_speed(voltage, mass=electron_mass, charge=elementary_charge, relativist
     return _out(speed), _out(gamma)
 
 
-def perveance(current, voltage, mass=electron_mass, charge=elementary_charge, kind="A/V^1.5", relativistic=False):
+def perveance(
+    current,
+    voltage,
+    mass=electron_mass,
+    charge=elementary_charge,
+    kind="A/V^1.5",
+    relativistic=False,
+):
     """Compute the perveance of a beam.
 
     ``kind="A/V^1.5"`` gives P = I / V^(3/2). ``kind="generalized"`` gives the dimensionless
@@ -131,14 +142,23 @@ def perveance(current, voltage, mass=electron_mass, charge=elementary_charge, ki
     """
     if kind not in _PERVEANCE_KINDS:
         raise ValueError(f"kind must be one of {_PERVEANCE_KINDS}, got {kind!r}")
-    current, voltage = np.asarray(current, dtype=float), np.asarray(voltage, dtype=float)
+    current, voltage = (
+        np.asarray(current, dtype=float),
+        np.asarray(voltage, dtype=float),
+    )
     if kind == "A/V^1.5":
         return _out(current / voltage**1.5)
     speed, gamma = beam_speed(voltage, mass, charge, relativistic)
-    return _out(charge * current / (2 * np.pi * vacuum_permittivity * mass * gamma**3 * speed**3))
+    return _out(
+        charge
+        * current
+        / (2 * np.pi * vacuum_permittivity * mass * gamma**3 * speed**3)
+    )
 
 
-def child_langmuir_aperture(voltage, radius, gap, mass=electron_mass, charge=elementary_charge):
+def child_langmuir_aperture(
+    voltage, radius, gap, mass=electron_mass, charge=elementary_charge
+):
     """Compute the space-charge-limited current through a circular aperture, I = π r² J_CL.
 
     J_CL = (4 ε₀ / 9) √(2 q / m) V^(3/2) / d² is the planar Child–Langmuir current density across the
@@ -174,7 +194,9 @@ def child_langmuir_aperture(voltage, radius, gap, mass=electron_mass, charge=ele
     1.389 A
     """
     voltage, radius, gap = (np.asarray(x, dtype=float) for x in (voltage, radius, gap))
-    j_cl = 4 * vacuum_permittivity / 9 * np.sqrt(2 * charge / mass) * voltage**1.5 / gap**2
+    j_cl = (
+        4 * vacuum_permittivity / 9 * np.sqrt(2 * charge / mass) * voltage**1.5 / gap**2
+    )
     return _out(np.pi * radius**2 * j_cl)
 
 
@@ -217,7 +239,14 @@ def optimal_perveance(aspect_ratio, mass=electron_mass, charge=elementary_charge
     7.332e-06 1.711e-07
     """
     aspect_ratio = np.asarray(aspect_ratio, dtype=float)
-    return _out(4 * np.pi * vacuum_permittivity / 9 * np.sqrt(2 * charge / mass) * aspect_ratio**2)
+    return _out(
+        4
+        * np.pi
+        * vacuum_permittivity
+        / 9
+        * np.sqrt(2 * charge / mass)
+        * aspect_ratio**2
+    )
 
 
 def kv_envelope(z, radius0, slope0, emittance):
@@ -256,11 +285,15 @@ def kv_envelope(z, radius0, slope0, emittance):
     >>> print(f"{kv_envelope(10.0, 1e-3, 0.0, 1e-6) * 1e3:.4g} mm")
     10.05 mm
     """
-    z, x0, s0, eps = (np.asarray(v, dtype=float) for v in (z, radius0, slope0, emittance))
+    z, x0, s0, eps = (
+        np.asarray(v, dtype=float) for v in (z, radius0, slope0, emittance)
+    )
     return _out(np.sqrt(x0**2 + 2 * x0 * s0 * z + (s0**2 + eps**2 / x0**2) * z**2))
 
 
-def kv_envelope_ode(z, radius0, slope0, emittance, perveance=0.0, focusing=None, steps_per_interval=50):
+def kv_envelope_ode(
+    z, radius0, slope0, emittance, perveance=0.0, focusing=None, steps_per_interval=50
+):
     """Integrate the KV rms envelope equation with space charge and focusing, using RK4.
 
     Solves x'' + κ(z) x = ε²/x³ + K/(4 x) for a round beam with the generalized perveance K
@@ -365,7 +398,9 @@ def beam_divergence_gaussian(ion_temperature, beam_energy, definition="1/e"):
     """
     if definition not in ("1/e", "rms"):
         raise ValueError(f"definition must be '1/e' or 'rms', got {definition!r}")
-    ratio = np.asarray(ion_temperature, dtype=float) / np.asarray(beam_energy, dtype=float)
+    ratio = np.asarray(ion_temperature, dtype=float) / np.asarray(
+        beam_energy, dtype=float
+    )
     return _out(np.sqrt(ratio if definition == "1/e" else ratio / 2))
 
 
@@ -431,12 +466,20 @@ def aperture_lens_focal_length(voltage, field_before, field_after):
     >>> print(f"{aperture_lens_focal_length(30e3, 0.0, 1e6):.4g} m")
     0.12 m
     """
-    voltage, e1, e2 = (np.asarray(x, dtype=float) for x in (voltage, field_before, field_after))
+    voltage, e1, e2 = (
+        np.asarray(x, dtype=float) for x in (voltage, field_before, field_after)
+    )
     with np.errstate(divide="ignore"):
         return _out(4 * voltage / (e2 - e1))
 
 
-def beam_plasma_frequency(density, mass=electron_mass, charge=elementary_charge, gamma=1.0, direction="longitudinal"):
+def beam_plasma_frequency(
+    density,
+    mass=electron_mass,
+    charge=elementary_charge,
+    gamma=1.0,
+    direction="longitudinal",
+):
     """Compute the beam plasma frequency of a beam of density n in its rest frame, seen from the lab.
 
     ω_pb = √(n q² / (ε₀ γ³ m)) for longitudinal oscillations and √(n q² / (ε₀ γ m)) for transverse
@@ -474,10 +517,21 @@ def beam_plasma_frequency(density, mass=electron_mass, charge=elementary_charge,
     if direction not in powers:
         raise ValueError(f"direction must be one of {tuple(powers)}, got {direction!r}")
     gamma = np.asarray(gamma, dtype=float)
-    return _out(plasma_frequency(density, mass, charge) / gamma ** (powers[direction] / 2))
+    return _out(
+        plasma_frequency(density, mass, charge) / gamma ** (powers[direction] / 2)
+    )
 
 
-def neutral_beam_attenuation(density, cross_section, length=None, positions=None, axis=-1):
+def _along(positions, ndim, axis):
+    """The shape of ``positions`` placed on ``axis`` of an ``ndim``-dimensional array."""
+    shape = [1] * max(ndim, 1)
+    shape[axis] = positions.size
+    return tuple(shape)
+
+
+def neutral_beam_attenuation(
+    density, cross_section, length=None, positions=None, axis=-1
+):
     """Compute the surviving fraction of a beam, exp(−∫ n σ dl).
 
     Use either a path ``length`` for a constant n σ, or ``positions`` (sample points along the
@@ -522,17 +576,14 @@ def neutral_beam_attenuation(density, cross_section, length=None, positions=None
     if length is not None:
         return _out(np.exp(-rate * np.asarray(length, dtype=float)))
     positions = np.asarray(positions, dtype=float)
-    rate = np.broadcast_to(rate, np.broadcast_shapes(rate.shape, _along(positions, rate.ndim, axis)))
+    rate = np.broadcast_to(
+        rate, np.broadcast_shapes(rate.shape, _along(positions, rate.ndim, axis))
+    )
     rate = np.moveaxis(rate, axis, -1)
-    optical_depth = np.sum(0.5 * (rate[..., 1:] + rate[..., :-1]) * np.diff(positions), axis=-1)
+    optical_depth = np.sum(
+        0.5 * (rate[..., 1:] + rate[..., :-1]) * np.diff(positions), axis=-1
+    )
     return _out(np.exp(-optical_depth))
-
-
-def _along(positions, ndim, axis):
-    """The shape of ``positions`` placed on ``axis`` of an ``ndim``-dimensional array."""
-    shape = [1] * max(ndim, 1)
-    shape[axis] = positions.size
-    return tuple(shape)
 
 
 def stripping_fraction(density, cross_section, length=None, positions=None, axis=-1):
@@ -559,7 +610,9 @@ def stripping_fraction(density, cross_section, length=None, positions=None, axis
     >>> print(f"{stripping_fraction(1e19, 1e-20, length=5.0):.4f}")
     0.3935
     """
-    return _out(1.0 - neutral_beam_attenuation(density, cross_section, length, positions, axis))
+    return _out(
+        1.0 - neutral_beam_attenuation(density, cross_section, length, positions, axis)
+    )
 
 
 def space_charge_compensation_time(gas_density, cross_section, beam_speed):
@@ -609,7 +662,9 @@ def space_charge_compensation_time(gas_density, cross_section, beam_speed):
     )
 
 
-def emittance_growth_space_charge(field_energy_initial, tune_depression, field_energy_final=0.0):
+def emittance_growth_space_charge(
+    field_energy_initial, tune_depression, field_energy_final=0.0
+):
     """Compute the rms emittance growth ε_f/ε_i of a non-uniform beam from its field energy.
 
     For a round, axisymmetric beam in continuous focusing, the nonlinear space-charge force changes
@@ -662,10 +717,15 @@ def emittance_growth_space_charge(field_energy_initial, tune_depression, field_e
     >>> print(f"{emittance_growth_space_charge(2 * np.euler_gamma - 1, 0.2):.4f}")
     1.6891
     """
-    u_i, mu, u_f = (np.asarray(x, dtype=float) for x in (field_energy_initial, tune_depression, field_energy_final))
+    u_i, mu, u_f = (
+        np.asarray(x, dtype=float)
+        for x in (field_energy_initial, tune_depression, field_energy_final)
+    )
     if np.any(mu <= 0) or np.any(mu > 1):
         raise ValueError("tune_depression must be in (0, 1]")
     ratio_sq = 1.0 + 0.5 * (1.0 / mu**2 - 1.0) * (u_i - u_f)
     if np.any(ratio_sq < 0):
-        raise ValueError("the field-energy change gives a negative emittance; the constant-radius assumption fails")
+        raise ValueError(
+            "the field-energy change gives a negative emittance; the constant-radius assumption fails"
+        )
     return _out(np.sqrt(ratio_sq))

@@ -3,7 +3,7 @@ title: Interactive plots with Plotly
 description: Every Matplotlib plot as an interactive Plotly figure, with backend="plotly".
 ---
 
-import PlotlyChart from '../../../components/PlotlyChart.astro';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
 
 Every plot that plasma-plots draws with Matplotlib can also be an interactive
 [Plotly](https://plotly.com/python/) figure: pass `backend="plotly"`. You get hover values,
@@ -23,7 +23,7 @@ n.plasma.plot.slice(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_ring_slice.json" height="480px" />
+<PlotlyFigure src="/plotly/plotly_ring_slice.plotly.json" poster="/plotly/plotly_ring_slice.png" posterDark="/plotly/plotly_ring_slice.dark.png" />
 
 The Plotly version is the Matplotlib plot converted, not a second implementation. The plot is
 drawn with Matplotlib as usual, off screen, and the finished figure is translated into Plotly:
@@ -42,8 +42,32 @@ result.fig  # a plotly.graph_objects.Figure
 result.fig.update_layout(height=600)
 result.save("energy.html")  # a standalone page
 result.save("energy.png")  # through kaleido; also .svg, .pdf
-result.save("energy.json")  # the figure JSON, e.g. for a website
+result.save("energy.json")  # the figure JSON as it is
+# a web figure for a page of a max-models docs site (needs plasma-plots[web])
+result.save("energy.plotly.json", alt="Field energy over time")
 ```
+
+A `.plotly.json` is a web figure: Plotly JSON without plotly.js and without a look of its own
+(no template, no fixed size, transparent backgrounds), with hints for the page such as a text
+alternative. The `PlotlyFigure` component of the max-models docs theme embeds it in the site's
+light or dark colours, its default-coloured traces in the site's data palette, and loads
+plotly.js only when the figure scrolls into view. A Matplotlib result is converted first;
+`result.to_json(web=True)` returns the same text.
+
+To embed one, put it under `docs/public/` and use the component in an MDX page; the path is
+relative to the site root, and the component adds the base path. The interactive figures of
+these guides are embedded this way:
+
+```mdx
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
+
+<PlotlyFigure src="/figures/energy.plotly.json" />
+```
+
+A figure converted from Matplotlib follows the site's theme too: its black lines and labels
+take the text colour and its white ones the background, and its default colours take the
+site's palette. To keep the white plot area and the figure's own colours instead, e.g. for
+colours chosen for a white background, pass `white_plot=True` to `save`.
 
 Under MPI, other ranks than 0 get a `SkippedPlot`, whose `save` writes nothing, so a script
 that saves its figures runs unchanged on several ranks. A figure you built yourself with `plotly.graph_objects`
@@ -67,7 +91,7 @@ A space-time map of a `(t, z)` field is
 a slice with time as one of its axes:
 `e_x.plasma.plot.slice(x="z", y="t", symmetric=True, cmap="RdBu_r", backend="plotly")`.
 
-<PlotlyChart src="/plotly/plotly_timeseries.json" />
+<PlotlyFigure src="/plotly/plotly_timeseries.plotly.json" poster="/plotly/plotly_timeseries.png" posterDark="/plotly/plotly_timeseries.dark.png" />
 
 ## For every plot at once
 
@@ -80,6 +104,33 @@ phi.plasma.plot.dispersion(dim="eta1")
 out.plot.energies()
 phi.plasma.plot.slice(t=-1, eta3=0, backend="matplotlib")  # one exception
 ```
+
+In a notebook, a Plotly result displays as Plotly's own output (`application/vnd.plotly.v1+json`,
+with an HTML copy that loads plotly.js from its CDN). Docs sites built with the max-models
+starlight theme turn that output into an interactive chart in the site's light/dark theme, so
+`set_backend("plotly")` in the first cell of a docs notebook makes all its figures interactive.
+`plasma_plots.plotly_backend.display_bundle(fig, title=...)` returns the same output for any
+Plotly figure, with a caption. With maxplotlib installed the output carries the palette
+positions and hints of a web figure, so the site draws it as it draws a saved `.plotly.json`.
+
+### Formulas as LaTeX
+
+Labels with Matplotlib's mathtext (`$\sigma_s$ [m$^2$]`) become Unicode text in Plotly by
+default (σ<sub>s</sub> [m<sup>2</sup>]), which every front end shows. For a docs site, keep them
+as LaTeX:
+
+```python
+plasma_plots.set_backend("plotly")
+plasma_plots.set_math("latex")  # e.g. in the first cell of a docs notebook
+```
+
+Each label with a formula then becomes one LaTeX formula, the text around it in `\text{...}`
+(`$\sigma_s\text{ [m}^2\text{]}$`), which plotly.js typesets with MathJax: titles, axis
+titles, legends, annotations and colour bars. The max-models docs theme loads MathJax for the
+figures that have a formula, with the site's KaTeX macros, so the figures and the text of a page
+match. The pictures kaleido draws (`.png`, posters) and the pages `save("x.html")` writes typeset
+them too; hover labels, which plotly.js does not typeset, keep the Unicode form. JupyterLab may
+show the LaTeX as written, which is why it is not the default.
 
 ## Animations and viewers
 
@@ -100,7 +151,7 @@ n.plasma.plot.animation(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_ring_animation.json" height="560px" />
+<PlotlyFigure src="/plotly/plotly_ring_animation.plotly.json" poster="/plotly/plotly_ring_animation.png" posterDark="/plotly/plotly_ring_animation.dark.png" />
 
 Every frame stores only what changes: parts that are the same in every frame (static contour
 lines, the domain's boundary, a fixed background, a mesh's grid) are stored once. A contour level
@@ -141,7 +192,7 @@ phi.plasma.plot.power_spectrum(
 )
 ```
 
-<PlotlyChart src="/plotly/plotly_spectral_power.json" />
+<PlotlyFigure src="/plotly/plotly_spectral_power.plotly.json" poster="/plotly/plotly_spectral_power.png" posterDark="/plotly/plotly_spectral_power.dark.png" />
 
 The guides show many of the plots with Plotly, folded under each Matplotlib figure.
 
@@ -149,6 +200,8 @@ The guides show many of the plots with Plotly, folded under each Matplotlib figu
 
 - The PyVista 3-D views (`isosurface`, `slices_3d`, `glyphs`, `streamlines`, `volume`,
   `movie`, `orbits_3d`) are already interactive; see [3-D views](/plasma-plots/guides/3d-views/).
+  `plasma_plots.scene(plotter, backend="plotly")` shows one of them as a Plotly 3-D figure
+  instead (surfaces, lines and points, with their colors, opacity and color bar).
 - `frames` and `save_frames` write PNG files for a movie.
 - `ax=`, which draws into a Matplotlib axes you made, cannot be combined with
   `backend="plotly"` (that raises `TypeError`). To compose several plots into one Plotly
@@ -167,5 +220,8 @@ plot_slice(phi.isel(t=-1, eta3=0)).to_plotly().save("phi.html")
 ```
 
 `plasma_plots.plotly_backend.to_plotly(fig)` and `animation_to_plotly(animation)` convert any
-figure or animation of these functions. If you draw something they don't know (e.g. a
-histogram you added to a plot's axes), it is left out with a `ConversionWarning`.
+figure or animation of these functions, including log color scales (drawn in decades, the
+hover showing the value itself), filled contours (`contourf`, one filled band per level) and
+lines in axes coordinates (`transform=ax.transAxes`). If you draw something they don't know
+(e.g. a histogram you added to a plot's axes, or a `symlog` axis), it is left out or drawn
+linearly, with a `ConversionWarning`.

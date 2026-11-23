@@ -50,7 +50,11 @@ What is where
 -------------
 * Time series and rates: ``plot.timeseries(fit=(t0, t1), reference=...)``,
   ``analysis.growth_rate``, ``analysis.damping_rate``, ``analysis.envelope``,
-  ``analysis.oscillation_frequency`` (from zero crossings).
+  ``analysis.oscillation_frequency`` (from zero crossings); ``analysis.growth_phase`` finds the
+  growth phase on its own (is anything growing?).
+* Instabilities: ``analysis.dominant_mode`` (the strongest wave of a ``(t, x)`` signal),
+  ``analysis.penrose`` (is f(v) unstable?), ``theory.kinetic.electrostatic_growth`` (the most
+  unstable root of any set of drifting Maxwellians).
 * Profiles: ``plot.lineout``, ``plot.profiles``, ``plot.line_animation`` (``alongside=`` for
   panels in sync), each with ``reference=`` for exact solutions; ``analysis.map_coordinate`` for
   physical coordinates (``eta1`` → ``r`` in m).
@@ -102,6 +106,31 @@ What is where
 * DESC equilibria: ``plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64,
   zeta=40)`` evaluates them into the same flux-coordinate Datasets (``sfl="pest"`` for the PEST
   angle ``theta_P``); DESC's names stay, ``ev["|B|"].plasma.plot...``.
+* openPMD files (WarpX, ImpactX, PIConGPU, ...): ``plasma_plots.from_openpmd("diags/data_%T.h5")``
+  reads the particles as a marker Dataset (``x``, ``px``, ``vx``, ``weighting``, ``species``,
+  in SI units, over ``marker`` and ``t``) for ``phase_space`` and ``scatter``;
+  ``plasma_plots.openpmd_meshes(path, iteration=-1)`` the mesh records on their grids.
+* Stellarator coils (CoilStellaration, DESC): ``plasma_plots.from_coilset(coilset)`` expands a
+  coilset into every coil over ``(coil, s)`` with ``current``, ``length`` and ``curvature``;
+  ``plasma_plots.from_boundary(boundary)`` evaluates a ConStellaration boundary (with its
+  ``minor_radius``); ``plasma_plots.coils.distance_to_surface`` and ``.coil_to_coil_distance``;
+  ``coils.plasma.plot.coils_3d(color_by="curvature", surface=plasma)``.
+* Charts of any labeled data: ``plot.scan`` (a parameter scan with error bars or a band,
+  ``samples=`` averages repeated runs), ``plot.breakdown`` (horizontal bars of parts of a total),
+  ``plot.twin`` (two value axes), ``plot.stacked`` (panels over a shared axis),
+  ``plot.cross_sections`` (log-log over energy), ``plot.matrix`` (a non-zero pattern) and
+  ``plot.child_langmuir`` (a current density against the space-charge limit);
+  ``dataset.plasma.plot.variables`` (every variable in a grid),
+  ``dataset.plasma.plot.phase_space`` (markers, position against velocity, by species or as a
+  weighted histogram), ``dataset.plasma.plot.breakdown`` and
+  ``dataset.plasma.plot.cross_sections``.
+  Profiles take ``label=``, ``step=``, ``logx=``, ``logy=``; slices take
+  ``overlays={"geometry": electrodes, "contour_labels": True}`` (see
+  :mod:`plasma_plots.geometry`).
+* Styles: ``plasma_plots.set_style("colorblind")`` (or ``"paper"``, ``"dark"``, ``"bare"``),
+  ``with plasma_plots.style("dark"):`` for one block; ``result.to_plotly(bare=True)``,
+  ``result.to_json()``, ``result.to_html()`` and ``plasma_plots.hero.from_array`` for front
+  pages.
 * Analytic theory to compare with (plain functions, not accessors): ``plasma_plots.theory.kinetic``
   (Landau damping, beam instabilities, Weibel), ``.waves`` (MHD, Hall-MHD and cold-plasma waves,
   drift waves, continua), ``.parameters`` (plasma parameters, Struphy's units), ``.orbits``,
@@ -128,8 +157,9 @@ ranks get a ``SkippedPlot`` whose methods do nothing, so one script runs unchang
 in parallel. Analysis runs on every rank. See :mod:`plasma_plots.mpi`.
 
 The functions behind the accessors, for plain ``xarray.DataArray`` input, are in
-``plasma_plots.plotting``, ``.analysis``, ``.spectral``, ``.spectral_plots``, ``.fieldlines``,
-``.fieldline_plots``, ``.pyvista_plots`` and ``.arrays``.
+``plasma_plots.plotting``, ``.charts``, ``.phase_space``, ``.geometry``, ``.trees``, ``.analysis``,
+``.spectral``, ``.spectral_plots``, ``.fieldlines``, ``.fieldline_plots``, ``.pyvista_plots`` and
+``.arrays``.
 
 Guides and the full reference: https://max-models.github.io/plasma-plots (for language models:
 https://max-models.github.io/plasma-plots/llms.txt).
@@ -165,24 +195,44 @@ Runs as is, on synthetic data:
 
 from . import output_accessors  # noqa: F401  (registers Output.plot, if struphy is installed)
 from .accessors import PlasmaAccessor
+from .arrays import repeat_periodic
+from .coils import from_boundary, from_coilset
 from .desc import from_desc
 from .figures import figure
+from .geometry import plot_domain
 from .gvec import from_gvec
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
-from .plotly_backend import get_backend, set_backend
+from .openpmd import from_openpmd, openpmd_meshes
+from .plotly_backend import get_backend, get_math, set_backend, set_math
 from .plotting import save_figure
-from .pyvista_plots import scene
+from .pyvista_plots import scene, scene_to_plotly
+from .styles import get_style, set_style, style
+from .trees import animate_quadtree, plot_quadtree
 
 __all__ = [
     "SkippedPlot",
     "PlasmaAccessor",
     "figure",
+    "from_boundary",
+    "from_coilset",
     "from_desc",
     "from_gvec",
+    "from_openpmd",
     "get_backend",
+    "get_math",
+    "get_style",
     "is_plotting_rank",
     "mpi_rank",
+    "openpmd_meshes",
+    "plot_domain",
+    "animate_quadtree",
+    "plot_quadtree",
     "save_figure",
     "scene",
+    "scene_to_plotly",
+    "repeat_periodic",
     "set_backend",
+    "set_math",
+    "set_style",
+    "style",
 ]

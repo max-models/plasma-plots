@@ -13,9 +13,13 @@ def pytest_addoption(parser):
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption("--run-simulations") or "simulation" in (config.getoption("-m") or ""):
+    if config.getoption("--run-simulations") or "simulation" in (
+        config.getoption("-m") or ""
+    ):
         return
-    skip = pytest.mark.skip(reason="real struphy simulation; run with --run-simulations")
+    skip = pytest.mark.skip(
+        reason="real struphy simulation; run with --run-simulations"
+    )
     for item in items:
         if "simulation" in item.keywords:
             item.add_marker(skip)

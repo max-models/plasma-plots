@@ -51,7 +51,9 @@ def test_panels_draw_into_one_matplotlib_figure_and_keep_their_results():
         total.plasma.plot.timeseries(logy=False, ax=fig[1])
     assert isinstance(fig.result, PlotResult) and fig.fig is fig[0].figure
     assert fig[0].get_shared_x_axes().joined(fig[0], fig[1])
-    assert len(fig.results) == 2 and fig.results[0].fit_results[0].rate == pytest.approx(0.4)
+    assert len(fig.results) == 2 and fig.results[0].fit_results[
+        0
+    ].rate == pytest.approx(0.4)
     assert fig.result.fit_results[0].rate == pytest.approx(0.4)
     assert fig.fig.get_suptitle() == "energies"
 
@@ -85,7 +87,9 @@ def test_panels_leave_title_and_layout_to_the_figure_and_keep_their_colorbars():
         "coloraxis",
         "coloraxis2",
     ]
-    with plasma_plots.figure(1, 2) as mixed:  # lineout calls tight_layout: not on a composed figure
+    with plasma_plots.figure(
+        1, 2
+    ) as mixed:  # lineout calls tight_layout: not on a composed figure
         u.plasma.plot.slice(x="eta1", y="t", ax=mixed[0])
         u.plasma.plot.lineout(x="eta1", t=-1, ax=mixed[1])
     assert mixed.fig.get_suptitle() == ""  # no panel's run label as the figure's title
@@ -98,7 +102,9 @@ def test_inside_a_figure_every_plot_draws_with_matplotlib_whatever_the_default()
     try:
         with plasma_plots.figure(1, 1, backend="matplotlib") as fig:
             result = energy.plasma.plot.timeseries(ax=fig[0])
-        assert isinstance(result.fig, matplotlib.figure.Figure) and isinstance(fig.fig, matplotlib.figure.Figure)
+        assert isinstance(result.fig, matplotlib.figure.Figure) and isinstance(
+            fig.fig, matplotlib.figure.Figure
+        )
         with plasma_plots.figure() as default:  # the default backend finishes it
             energy.plasma.plot.timeseries(ax=default[0])
         assert not isinstance(default.fig, matplotlib.figure.Figure)
@@ -125,7 +131,9 @@ def test_saving_inside_the_block_saves_what_is_drawn_so_far(backend, tmp_path):
         total.plasma.plot.timeseries(logy=False, ax=fig[1])
         fig.save(tmp_path / f"inside.{suffix}")
     assert fig[1].get_visible()  # a snapshot left the empty panel for the later plot
-    assert (tmp_path / f"half.{suffix}").stat().st_size and (tmp_path / f"inside.{suffix}").stat().st_size
+    assert (tmp_path / f"half.{suffix}").stat().st_size and (
+        tmp_path / f"inside.{suffix}"
+    ).stat().st_size
     if backend == "plotly":
         assert len(fig.fig.data) == 2
 
@@ -143,3 +151,29 @@ def test_other_mpi_ranks_draw_nothing(monkeypatch, tmp_path):
     assert isinstance(fig.result, SkippedPlot)
     fig.save(tmp_path / "none.png")
     assert not list(tmp_path.iterdir())
+
+
+def test_a_caption_goes_with_the_figure():
+    energy, total = series()
+    with plasma_plots.figure(2, 1, caption="Energies of the run.") as fig:
+        energy.plasma.plot.timeseries(ax=fig[0])
+        total.plasma.plot.timeseries(ax=fig[1])
+    assert fig.caption == "Energies of the run."
+    assert fig.fig.caption == "Energies of the run."
+
+
+def test_a_caption_goes_with_the_plotly_figure():
+    pytest.importorskip("plotly")
+    energy, _ = series()
+    with plasma_plots.figure(caption="Field energy.", backend="plotly") as fig:
+        energy.plasma.plot.timeseries(ax=fig[0])
+    assert fig.fig.layout.meta["caption"] == "Field energy."
+    assert fig.fig.layout.meta["converted_from"] == "matplotlib"
+
+
+def test_no_caption_by_default():
+    energy, _ = series()
+    with plasma_plots.figure() as fig:
+        energy.plasma.plot.timeseries(ax=fig[0])
+    assert fig.caption is None
+    assert getattr(fig.fig, "caption", None) is None

@@ -8,6 +8,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Lint
+        run: uvx ruff check .
+
+      - name: Check formatting
+        run: uvx ruff format --check .
+
+      - name: Check statement order
+        run: uvx ssort --check --diff .
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -38,6 +56,9 @@ jobs:
       # Editable, with its `plasma-plots` console script on the PATH (tests/test_cli.py runs it).
       # plotly for backend="plotly" and the command's .html output; without it those tests skip.
       - name: Install plasma-plots with dev dependencies
+        # Not the geometry extra: simgeometry 0.2 needs cunumpy 0.7.2 or newer, struphy (dev)
+        # allows at most 0.7.0; the domain tests draw stand-ins for simgeometry's shapes and
+        # skip the ones that need it.
         run: pip install -e ".[dev,profiling,pyvista,desc,plotly,netcdf]"
 
       # Runs that do not target main replace the max-models dependencies with their devel
@@ -62,9 +83,6 @@ jobs:
 
       - name: Run tests
         run: xvfb-run -a pytest -v
-
-      - name: Lint
-        run: ruff check src tests scripts
 
   # PyPI rejects direct references (`name @ git+...`): the wheel's metadata must have none.
   no-direct-references:
