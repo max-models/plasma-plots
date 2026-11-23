@@ -106,6 +106,10 @@ What is where
 * DESC equilibria: ``plasma_plots.from_desc(eq, ["|B|", "iota", "sqrt(g)"], rho=11, theta=64,
   zeta=40)`` evaluates them into the same flux-coordinate Datasets (``sfl="pest"`` for the PEST
   angle ``theta_P``); DESC's names stay, ``ev["|B|"].plasma.plot...``.
+* openPMD files (WarpX, ImpactX, PIConGPU, ...): ``plasma_plots.from_openpmd("diags/data_%T.h5")``
+  reads the particles as a marker Dataset (``x``, ``px``, ``vx``, ``weighting``, ``species``,
+  in SI units, over ``marker`` and ``t``) for ``phase_space`` and ``scatter``;
+  ``plasma_plots.openpmd_meshes(path, iteration=-1)`` the mesh records on their grids.
 * Stellarator coils (CoilStellaration, DESC): ``plasma_plots.from_coilset(coilset)`` expands a
   coilset into every coil over ``(coil, s)`` with ``current``, ``length`` and ``curvature``;
   ``plasma_plots.from_boundary(boundary)`` evaluates a ConStellaration boundary (with its
@@ -198,6 +202,7 @@ from .figures import figure
 from .geometry import plot_domain
 from .gvec import from_gvec
 from .mpi import SkippedPlot, is_plotting_rank, mpi_rank
+from .openpmd import from_openpmd, openpmd_meshes
 from .plotly_backend import get_backend, get_math, set_backend, set_math
 from .plotting import save_figure
 from .pyvista_plots import scene, scene_to_plotly
@@ -212,11 +217,13 @@ __all__ = [
     "from_coilset",
     "from_desc",
     "from_gvec",
+    "from_openpmd",
     "get_backend",
     "get_math",
     "get_style",
     "is_plotting_rank",
     "mpi_rank",
+    "openpmd_meshes",
     "plot_domain",
     "animate_quadtree",
     "plot_quadtree",

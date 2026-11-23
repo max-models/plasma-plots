@@ -126,12 +126,15 @@ def phase_space_histogram(
             else np.ones(xs[-1].size)
         )
     first = _selected(next(iter(groups.values())), (x, v), selection)
+    xs, vs, ws = np.concatenate(xs), np.concatenate(vs), np.concatenate(ws)
+    # markers missing at this time (NaN, e.g. lost ones) are left out
+    finite = np.isfinite(xs) & np.isfinite(vs) & np.isfinite(ws)
     counts, x_edges, v_edges = np.histogram2d(
-        np.concatenate(xs),
-        np.concatenate(vs),
+        xs[finite],
+        vs[finite],
         bins=bins,
         range=limits,
-        weights=np.concatenate(ws),
+        weights=ws[finite],
         density=False,
     )
     if density:

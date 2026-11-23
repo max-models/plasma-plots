@@ -1,0 +1,103 @@
+---
+title: openPMD files
+description: Particles and meshes from WarpX, ImpactX, PIConGPU or any openPMD writer, read into marker Datasets and plotted in phase space.
+---
+
+import { Code } from 'astro:components';
+import PlotlyFigure from '@max-models/starlight-theme/components/PlotlyFigure.astro';
+import script from '../../../../../scripts/generate_openpmd_figures.py?raw';
+
+[openPMD](https://www.openpmd.org) is the file standard of WarpX, ImpactX, PIConGPU and other
+particle-in-cell and beam-tracking codes. Its files hold particle species and meshes per
+iteration, and every record carries its conversion to SI units (`unitSI`) and its dimension
+(`unitDimension`). `plasma_plots.from_openpmd` reads the particles into a marker Dataset, the layout
+that `phase_space` and `scatter` take, and `plasma_plots.openpmd_meshes` reads the meshes onto their
+grids:
+
+```python
+import plasma_plots
+
+markers = plasma_plots.from_openpmd("diags/openPMD/simData_%T.h5")
+markers.plasma.plot.phase_space(x="x", v="px", species="species", t=-1)
+
+fields = plasma_plots.openpmd_meshes(
+    "diags/openPMD/simData_%T.h5", iteration=-1
+)
+fields.rho.plasma.plot.slice(x="z")
+```
+
+The reader needs only h5py (`pip install "plasma-plots[openpmd]"`), not the code that wrote the
+file nor openPMD-api. It reads the HDF5 form; convert an ADIOS2 series (`.bp`) first with
+openPMD-api's `openpmd-pipe --infile run.bp --outfile run_%T.h5`.
+
+## Particles
+
+The path is one HDF5 file, the folder holding the series, or a file pattern with `%T` for the
+iteration. A file of a file-based series finds the other files through the series'
+`iterationFormat`. What `from_openpmd` makes of the records:
+
+| openPMD | plasma-plots |
+|---|---|
+| iterations, their `time` × `timeUnitSI` | the dimension `t` [s], with `iteration` beside it; a single `iteration=` drops it |
+| `position` + `positionOffset`, times `unitSI` | `x`, `y`, `z` [m] (or the record's own component names, such as ImpactX's `t`) |
+| `momentum` | `px`, `py`, `pz` [kg m/s] |
+| `momentum` and `mass` | the velocity `vx`, `vy`, `vz` [m/s], relativistic: `v = p / (m √(1 + (p/mc)²))` |
+| `weighting`, `charge`, `mass`, `id`, any other record | their openPMD names; a vector record `r` as `r_x`, ...; constant records filled in |
+| `macroWeighted` records | divided by `weighting^weightingPower`: every value per real particle |
+| `unitDimension` | the `units` attribute (`"kg m/s"`, `"V/m"`, `"C/m^3"`, ...), with a `label` and `long_name` |
+| several species | their markers one after the other, told apart by the variable `species` |
+
+Markers with an `id` are matched by it from one iteration to the next; markers without one keep
+their place among their species' markers. A marker absent from an iteration, lost on a wall or
+dumped, is NaN there, and the phase-space plots leave it out.
+
+The figures below come from a small series that the script at the end of this page writes: an
+H⁻ beamlet at 45 keV with its co-extracted electrons, three iterations of a drift, and the H⁻
+charge density on a mesh. The electrons are dumped after 5 cm, so the last iteration has only
+the beam:
+
+```python
+markers = plasma_plots.from_openpmd(path)
+markers.plasma.plot.phase_space(x="x", v="px", species="species", t=-1)
+```
+
+<PlotlyFigure src="/plotly/plotly_openpmd_phase_space.plotly.json" poster="/plotly/plotly_openpmd_phase_space.png" posterDark="/plotly/plotly_openpmd_phase_space.dark.png" />
+
+The same beam as a phase-space density, the H⁻ markers binned by their weights:
+
+```python
+h_minus = markers.sel(marker=markers.species == "H-")
+h_minus.plasma.plot.phase_space(
+    x="x", v="vx", kind="histogram", weight="weighting", bins=48, t=-1
+)
+```
+
+<PlotlyFigure src="/plotly/plotly_openpmd_histogram.plotly.json" poster="/plotly/plotly_openpmd_histogram.png" posterDark="/plotly/plotly_openpmd_histogram.dark.png" />
+
+## Meshes
+
+`openpmd_meshes` reads the mesh records of one iteration (the last by default). The axes become
+dimensions named by `axisLabels`, with coordinates in metres from `gridGlobalOffset` and
+`gridSpacing`; `dataOrder="F"` files are read with their labels reversed. A vector record whose
+components share their staggering is one variable along `component`; on a staggered (Yee) grid
+its components are separate variables (`E_x`, `E_z`), each on coordinates shifted by its
+`position` (`x_0.5` for half a cell). In `thetaMode` geometry the first dimension is `mode`, the
+azimuthal modes as openPMD stores them.
+
+```python
+fields = plasma_plots.openpmd_meshes(path, iteration=0)
+fields.rho.plasma.plot.slice(x="z")
+```
+
+<PlotlyFigure src="/plotly/plotly_openpmd_rho.plotly.json" poster="/plotly/plotly_openpmd_rho.png" posterDark="/plotly/plotly_openpmd_rho.dark.png" />
+
+## The script behind this page
+
+It writes the series with h5py, as a code would, reads it back and saves the figures above.
+
+<details>
+<summary>`scripts/generate_openpmd_figures.py`, unedited</summary>
+
+<Code code={script} lang="python" title="scripts/generate_openpmd_figures.py" />
+
+</details>

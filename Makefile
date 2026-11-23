@@ -25,6 +25,7 @@ figures:
 	python3 scripts/generate_gvec_figures.py
 	python3 scripts/generate_desc_figures.py
 	python3 scripts/generate_coil_figures.py
+	python3 scripts/generate_openpmd_figures.py
 
 # Runs the scripts in examples/ that changed (FORCE=1 reruns all) for the Gallery pages;
 # `starlight-gallery convert`, which writes the pages, runs as part of the docs build.
